@@ -7,6 +7,8 @@ import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX 
 import { ErrorHandler } from './error-handler';
 import { MESSAGES } from '../messages';
 import { PERFORMANCE_PRESETS, PerformanceOptimizer } from '../performance';
+import { RetryService, RetryService as Retry } from './retry-service';
+import { logger } from './logger';
 
 export class AIService implements IAIService {
     private providers: AIProvider[] = [];
@@ -26,7 +28,7 @@ export class AIService implements IAIService {
      */
     private applyPerformanceSettings(): void {
         const preset = PERFORMANCE_PRESETS[this.settings.performanceMode] || PERFORMANCE_PRESETS.balanced;
-        const timeouts = this.settings.customTimeouts || preset.timeouts;
+        const timeouts = this.settings.customTimeouts || preset!.timeouts;
 
         this.providers.forEach(provider => {
             if (provider.name === 'Google Gemini' && provider.setTimeout) {
@@ -83,16 +85,58 @@ export class AIService implements IAIService {
         }
 
         try {
-            const resp = await fetch(url, { method: 'GET' });
-            if (!resp.ok) {
+            logger.debug(`Fetching latest models for ${providerName}`, 'AIService', { url });
+
+            const result = await RetryService.executeWithRetry(
+                async () => {
+                    const resp = await RetryService.createRetryableFetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (compatible; YT-Clipper/1.3.5)'
+                        }
+                    }, {
+                        maxAttempts: 2,
+                        baseDelayMs: 1000
+                    });
+
+                    if (!resp.ok) {
+                        const error = new Error(`HTTP ${resp.status}: ${resp.statusText}`) as any;
+                        error.status = resp.status;
+                        throw error;
+                    }
+
+                    return resp;
+                },
+                `fetch-models-${providerName}`,
+                {
+                    maxAttempts: 2,
+                    baseDelayMs: 1000,
+                    retryableStatusCodes: [429, 500, 502, 503, 504]
+                }
+            );
+
+            if (!result.success) {
+                logger.warn(`Failed to fetch models for ${providerName}, using fallback`, 'AIService', {
+                    error: result.error?.message
+                });
                 return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
             }
-            const text = await resp.text();
+
+            const text = await result.result!.text();
             const matches = text.match(regex) || [];
             // Normalize and dedupe
             const normalized = Array.from(new Set(matches.map(m => m.toLowerCase())));
+
+            logger.debug(`Found ${normalized.length} models for ${providerName}`, 'AIService', {
+                models: normalized.slice(0, 5) // Log first 5 for debugging
+            });
+
             return normalized;
         } catch (error) {
+            logger.error(`Error fetching models for ${providerName}`, 'AIService', {
+                error: error instanceof Error ? error.message : String(error),
+                providerName
+            });
             // On any error, return static fallback
             return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
         }
@@ -123,10 +167,23 @@ export class AIService implements IAIService {
         // Try each provider in order
         for (const provider of this.providers) {
             try {
-                console.log(`Attempting to process with ${provider.name}...`);
-                const content = await provider.process(prompt);
+                logger.info(`Attempting to process with ${provider.name}`, 'AIService', {
+                    model: provider.model
+                });
+
+                const content = await RetryService.withRetry(
+                    () => provider.process(prompt),
+                    `${provider.name}-process`,
+                    2, // 2 attempts per provider
+                    2000 // 2 second base delay
+                );
 
                 if (content && content.trim().length > 0) {
+                    logger.info(`Successfully processed with ${provider.name}`, 'AIService', {
+                        model: provider.model,
+                        contentLength: content.length
+                    });
+
                     return {
                         content,
                         provider: provider.name,
@@ -137,7 +194,10 @@ export class AIService implements IAIService {
                 }
             } catch (error) {
                 lastError = error as Error;
-                console.warn(`${provider.name} failed:`, error);
+                logger.warn(`${provider.name} failed`, 'AIService', {
+                    error: error instanceof Error ? error.message : String(error),
+                    model: provider.model
+                });
 
                 // Continue to next provider unless this is the last one
                 if (provider === this.providers[this.providers.length - 1]) {

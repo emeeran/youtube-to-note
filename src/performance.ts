@@ -183,7 +183,7 @@ export class PerformanceOptimizer {
         availableModels: string[] = []
     ): string {
         const preset = PERFORMANCE_PRESETS[performanceMode] || PERFORMANCE_PRESETS.balanced;
-        const strategy = preset.modelStrategy;
+        const strategy = preset!.modelStrategy;
 
         // Select model based on format
         let selectedModel = strategy.fallbackModel;
@@ -222,9 +222,10 @@ export class PerformanceOptimizer {
 
             if (alternatives.length > 0) {
                 // Return fastest alternative
-                return alternatives.sort((a, b) =>
-                    MODEL_CHARACTERISTICS[a].estimatedLatency - MODEL_CHARACTERISTICS[b].estimatedLatency
-                )[0];
+                const sorted = alternatives.sort((a, b) =>
+                    MODEL_CHARACTERISTICS[a]!.estimatedLatency - MODEL_CHARACTERISTICS[b]!.estimatedLatency
+                );
+                return sorted[0]!;
             }
         }
 
@@ -256,7 +257,7 @@ export class PerformanceOptimizer {
             'custom': 1.0
         };
 
-        const adjustedTime = baseTime * (formatMultipliers[format] || 1.0);
+        const adjustedTime = baseTime * (formatMultipliers[format as keyof typeof formatMultipliers] || 1.0);
 
         // Add buffer for network latency
         const min = Math.round(adjustedTime * 0.8);

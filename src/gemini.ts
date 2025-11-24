@@ -38,11 +38,24 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (response.status === 403) {
-                throw new Error('Gemini API access forbidden. Check API key permissions and billing.');
+                throw new Error('Gemini API quota exceeded or billing required. Please check your plan and billing details.');
             }
 
             if (response.status === 429) {
-                throw new Error('Gemini API rate limit exceeded. Please wait and try again.');
+                try {
+                    const errorData = await response.json();
+                    const errorMessage = errorData.error?.message || errorData.message || '';
+
+                    if (errorMessage.toLowerCase().includes('quota')) {
+                        throw new Error(`Gemini API quota exceeded: ${errorMessage}. Please check your plan and billing details.`);
+                    } else if (errorMessage.toLowerCase().includes('rate')) {
+                        throw new Error(`Gemini API rate limit exceeded: ${errorMessage}. Please wait a moment and try again.`);
+                    } else {
+                        throw new Error(`Gemini API rate limit exceeded. Please wait and try again.`);
+                    }
+                } catch {
+                    throw new Error('Gemini API rate limit exceeded. Please wait and try again.');
+                }
             }
 
             if (!response.ok) {
@@ -92,8 +105,8 @@ export class GeminiProvider extends BaseAIProvider {
                 parts: [{ text: prompt }]
             }],
             generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 4000, // Increased for detailed guides
+                temperature: this._temperature,
+                maxOutputTokens: this._maxTokens,
                 candidateCount: 1
             },
             // safetySettings: [

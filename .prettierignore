@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+*.js
+!*.config.js
+*.json
+!package.json
+!.prettierrc
+!.eslintrc.js
+!.tsconfig.json
+jest.config.js

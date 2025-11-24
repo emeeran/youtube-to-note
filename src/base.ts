@@ -10,6 +10,8 @@ export abstract class BaseAIProvider implements AIProvider {
     abstract readonly name: string;
     protected _model: string;
     protected _timeout: number = 30000; // Default 30s timeout
+    protected _maxTokens: number = 2048; // Default max tokens
+    protected _temperature: number = 0.7; // Default temperature
 
     get model(): string {
         return this._model;
@@ -19,12 +21,28 @@ export abstract class BaseAIProvider implements AIProvider {
         return this._timeout;
     }
 
+    get maxTokens(): number {
+        return this._maxTokens;
+    }
+
+    get temperature(): number {
+        return this._temperature;
+    }
+
     setModel(model: string): void {
         this._model = model;
     }
 
     setTimeout(timeout: number): void {
         this._timeout = timeout;
+    }
+
+    setMaxTokens(maxTokens: number): void {
+        this._maxTokens = maxTokens;
+    }
+
+    setTemperature(temperature: number): void {
+        this._temperature = temperature;
     }
 
     protected constructor(protected apiKey: string, initialModel?: string, timeout?: number) {

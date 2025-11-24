@@ -74,6 +74,10 @@ export interface AIProvider {
     process(prompt: string): Promise<string>;
     setModel?(model: string): void;
     setTimeout?(timeout: number): void;
+    setMaxTokens?(maxTokens: number): void;
+    setTemperature?(temperature: number): void;
+    maxTokens?: number;
+    temperature?: number;
 }
 
 export interface VideoDataService {

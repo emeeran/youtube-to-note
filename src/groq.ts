@@ -21,8 +21,33 @@ export class GroqProvider extends BaseAIProvider {
         });
 
         // Handle specific Groq errors
+        if (response.status === 401) {
+            throw new Error('Groq API key is invalid or missing. Please check your key.');
+        }
+
+        if (response.status === 402) {
+            throw new Error('Groq API requires a paid plan. Please check your billing settings.');
+        }
+
         if (response.status === 404) {
             throw new Error(MESSAGES.ERRORS.GROQ_MODEL_NOT_FOUND);
+        }
+
+        if (response.status === 429) {
+            try {
+                const errorData = await response.json();
+                const errorMessage = errorData.error?.message || errorData.message || '';
+
+                if (errorMessage.toLowerCase().includes('quota')) {
+                    throw new Error(`Groq API quota exceeded: ${errorMessage}. Please check your plan and billing details.`);
+                } else if (errorMessage.toLowerCase().includes('rate')) {
+                    throw new Error(`Groq API rate limit exceeded: ${errorMessage}. Please wait a moment and try again.`);
+                } else {
+                    throw new Error('Groq API rate limit exceeded. Please wait and try again.');
+                }
+            } catch {
+                throw new Error('Groq API rate limit exceeded. Please wait and try again.');
+            }
         }
 
         if (!response.ok) {
@@ -58,8 +83,8 @@ export class GroqProvider extends BaseAIProvider {
                     content: prompt
                 }
             ],
-            max_tokens: API_LIMITS.MAX_TOKENS,
-            temperature: API_LIMITS.TEMPERATURE
+            max_tokens: this._maxTokens,
+            temperature: this._temperature
         };
     }
 

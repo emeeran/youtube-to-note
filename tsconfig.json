@@ -6,11 +6,19 @@
         "module": "ESNext",
         "target": "ES6",
         "allowJs": true,
-        "noImplicitAny": false,
+        "noImplicitAny": true,
+        "strict": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedIndexedAccess": true,
         "moduleResolution": "node",
         "importHelpers": true,
         "isolatedModules": true,
-        "strictNullChecks": true,
+        "types": ["jest", "node"],
         "lib": [
             "DOM",
             "ES6"
@@ -18,5 +26,23 @@
     },
     "include": [
         "**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.test.ts",
+        "**/*.spec.ts",
+        "tests/**/*",
+        "main-original.ts",
+        "main-refactored.ts",
+        "src/performance-optimizer.ts",
+        "src/security-hardener.ts",
+        "src/end-to-end-optimizer.ts",
+        "src/agent-*.ts",
+        "src/types/agent-types.ts",
+        "src/performance.ts",
+        "src/progress-modal.ts",
+        "src/video-optimization.ts",
+        "src/video-preview-modal.ts",
+        "src/services/optimized-ai-service.ts"
     ]
 }

@@ -11,13 +11,15 @@ import { ErrorHandler } from './services/error-handler';
 import { OutputFormat, PerformanceMode } from './types/types';
 
 export interface YouTubeUrlModalOptions {
-    onProcess: (url: string, format: OutputFormat, provider?: string, model?: string, customPrompt?: string, performanceMode?: PerformanceMode, enableParallel?: boolean, preferMultimodal?: boolean) => Promise<string>; // Return file path
+    onProcess: (url: string, format: OutputFormat, provider?: string, model?: string, customPrompt?: string, performanceMode?: PerformanceMode, enableParallel?: boolean, preferMultimodal?: boolean, maxTokens?: number, temperature?: number) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
     initialUrl?: string;
     providers?: string[]; // available provider names
     modelOptions?: Record<string, string[]>; // mapping providerName -> models
     defaultProvider?: string;
     defaultModel?: string;
+    defaultMaxTokens?: number;
+    defaultTemperature?: number;
     fetchModels?: () => Promise<Record<string, string[]>>;
     // Performance settings from plugin settings
     performanceMode?: PerformanceMode;
@@ -64,6 +66,14 @@ export class YouTubeUrlModal extends BaseModal {
     private parallelToggle?: HTMLInputElement;
     private multimodalToggle?: HTMLInputElement;
 
+    // Model parameters
+    private maxTokens: number = 2048;
+    private temperature: number = 0.7;
+    private maxTokensSlider?: HTMLInputElement;
+    private maxTokensValue?: HTMLSpanElement;
+    private temperatureSlider?: HTMLInputElement;
+    private temperatureValue?: HTMLSpanElement;
+
     // Performance optimization: debounced validation
     private validationTimer?: number;
     private lastValidUrl?: string;
@@ -81,6 +91,10 @@ export class YouTubeUrlModal extends BaseModal {
         this.performanceMode = options.performanceMode || 'balanced';
         this.enableParallelProcessing = options.enableParallelProcessing || false;
         this.preferMultimodal = options.preferMultimodal || false;
+
+        // Initialize model parameters from options
+        this.maxTokens = options.defaultMaxTokens || 2048;
+        this.temperature = options.defaultTemperature || 0.7;
     }
 
     onOpen(): void {
@@ -114,6 +128,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.createPerformanceSection();
         this.createFormatSelectionSection();
         this.createProviderSelectionSection();
+        this.createModelParametersSection();
         this.createProgressSection();
         this.createActionButtons();
     }
@@ -894,6 +909,372 @@ export class YouTubeUrlModal extends BaseModal {
     
     
     /**
+     * Create model parameters section with sliders for max tokens and temperature
+     */
+    private createModelParametersSection(): void {
+        const container = this.contentEl.createDiv();
+        container.className = 'ytc-model-params-section';
+        container.style.marginTop = '16px';
+        container.style.padding = '16px';
+        container.style.backgroundColor = 'var(--background-secondary)';
+        container.style.borderRadius = '8px';
+        container.style.border = '1px solid var(--background-modifier-border-hover)';
+        container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+
+        // Header
+        const headerContainer = container.createDiv();
+        headerContainer.className = 'ytc-model-params-header';
+        headerContainer.style.display = 'flex';
+        headerContainer.style.alignItems = 'center';
+        headerContainer.style.justifyContent = 'space-between';
+        headerContainer.style.marginBottom = '16px';
+
+        const sectionHeader = headerContainer.createEl('h3');
+        sectionHeader.textContent = '⚙️ Model Parameters';
+        sectionHeader.style.margin = '0';
+        sectionHeader.style.fontSize = '1rem';
+        sectionHeader.style.fontWeight = '600';
+        sectionHeader.style.color = 'var(--text-normal)';
+        sectionHeader.style.display = 'flex';
+        sectionHeader.style.alignItems = 'center';
+        sectionHeader.style.gap = '8px';
+
+        const description = headerContainer.createDiv();
+        description.className = 'ytc-model-params-description';
+        description.textContent = 'Fine-tune AI model behavior for optimal results';
+        description.style.fontSize = '0.75rem';
+        description.style.color = 'var(--text-muted)';
+        description.style.fontWeight = '400';
+
+        // Max Tokens Slider
+        const maxTokensContainer = container.createDiv();
+        maxTokensContainer.className = 'ytc-slider-container';
+        maxTokensContainer.style.marginBottom = '20px';
+
+        const maxTokensHeader = maxTokensContainer.createDiv();
+        maxTokensHeader.className = 'ytc-slider-header';
+        maxTokensHeader.style.display = 'flex';
+        maxTokensHeader.style.alignItems = 'center';
+        maxTokensHeader.style.justifyContent = 'space-between';
+        maxTokensHeader.style.marginBottom = '8px';
+
+        const maxTokensLabel = maxTokensHeader.createEl('label');
+        maxTokensLabel.textContent = 'Max Tokens';
+        maxTokensLabel.className = 'ytc-slider-label';
+        maxTokensLabel.style.fontSize = '0.9rem';
+        maxTokensLabel.style.fontWeight = '600';
+        maxTokensLabel.style.color = 'var(--text-normal)';
+        maxTokensLabel.style.margin = '0';
+        maxTokensLabel.style.display = 'flex';
+        maxTokensLabel.style.alignItems = 'center';
+        maxTokensLabel.style.gap = '6px';
+
+        const maxTokensInfo = maxTokensHeader.createSpan();
+        maxTokensInfo.className = 'ytc-slider-info';
+        maxTokensInfo.textContent = 'Controls response length';
+        maxTokensInfo.style.fontSize = '0.75rem';
+        maxTokensInfo.style.color = 'var(--text-muted)';
+        maxTokensInfo.style.fontWeight = '400';
+
+        const maxTokensRow = maxTokensContainer.createDiv();
+        maxTokensRow.className = 'ytc-slider-row';
+        maxTokensRow.style.display = 'flex';
+        maxTokensRow.style.alignItems = 'center';
+        maxTokensRow.style.gap = '12px';
+        maxTokensRow.style.padding = '12px';
+        maxTokensRow.style.backgroundColor = 'var(--background-primary)';
+        maxTokensRow.style.borderRadius = '6px';
+        maxTokensRow.style.border = '1px solid var(--background-modifier-border)';
+
+        // Create slider container for better control
+        const sliderContainer = maxTokensRow.createDiv();
+        sliderContainer.style.position = 'relative';
+        sliderContainer.style.flex = '1';
+        sliderContainer.style.height = '32px';
+        sliderContainer.style.display = 'flex';
+        sliderContainer.style.alignItems = 'center';
+
+        this.maxTokensSlider = sliderContainer.createEl('input') as HTMLInputElement;
+        this.maxTokensSlider.type = 'range';
+        this.maxTokensSlider.min = '256';
+        this.maxTokensSlider.max = '8192';
+        this.maxTokensSlider.step = '256';
+        this.maxTokensSlider.value = this.maxTokens.toString();
+        this.maxTokensSlider.className = 'ytc-model-slider';
+        this.maxTokensSlider.style.flex = '1';
+        this.maxTokensSlider.style.margin = '0 8px';
+
+        this.maxTokensValue = maxTokensRow.createDiv();
+        this.maxTokensValue.className = 'ytc-slider-value';
+        this.maxTokensValue.textContent = this.maxTokens.toString();
+        this.maxTokensValue.style.fontSize = '0.9rem';
+        this.maxTokensValue.style.fontWeight = '700';
+        this.maxTokensValue.style.color = 'var(--text-accent)';
+        this.maxTokensValue.style.minWidth = '70px';
+        this.maxTokensValue.style.textAlign = 'center';
+        this.maxTokensValue.style.padding = '6px 12px';
+        this.maxTokensValue.style.backgroundColor = 'var(--background-secondary)';
+        this.maxTokensValue.style.borderRadius = '4px';
+        this.maxTokensValue.style.border = '1px solid var(--background-modifier-border)';
+
+        // Temperature Slider
+        const temperatureContainer = container.createDiv();
+        temperatureContainer.className = 'ytc-slider-container';
+        temperatureContainer.style.marginBottom = '8px';
+
+        const temperatureHeader = temperatureContainer.createDiv();
+        temperatureHeader.className = 'ytc-slider-header';
+        temperatureHeader.style.display = 'flex';
+        temperatureHeader.style.alignItems = 'center';
+        temperatureHeader.style.justifyContent = 'space-between';
+        temperatureHeader.style.marginBottom = '8px';
+
+        const temperatureLabel = temperatureHeader.createEl('label');
+        temperatureLabel.textContent = 'Temperature';
+        temperatureLabel.className = 'ytc-slider-label';
+        temperatureLabel.style.fontSize = '0.9rem';
+        temperatureLabel.style.fontWeight = '600';
+        temperatureLabel.style.color = 'var(--text-normal)';
+        temperatureLabel.style.margin = '0';
+        temperatureLabel.style.display = 'flex';
+        temperatureLabel.style.alignItems = 'center';
+        temperatureLabel.style.gap = '6px';
+
+        const temperatureInfo = temperatureHeader.createSpan();
+        temperatureInfo.className = 'ytc-slider-info';
+        temperatureInfo.textContent = 'Controls creativity level';
+        temperatureInfo.style.fontSize = '0.75rem';
+        temperatureInfo.style.color = 'var(--text-muted)';
+        temperatureInfo.style.fontWeight = '400';
+
+        const temperatureRow = temperatureContainer.createDiv();
+        temperatureRow.className = 'ytc-slider-row';
+        temperatureRow.style.display = 'flex';
+        temperatureRow.style.alignItems = 'center';
+        temperatureRow.style.gap = '12px';
+        temperatureRow.style.padding = '12px';
+        temperatureRow.style.backgroundColor = 'var(--background-primary)';
+        temperatureRow.style.borderRadius = '6px';
+        temperatureRow.style.border = '1px solid var(--background-modifier-border)';
+
+        const tempSliderContainer = temperatureRow.createDiv();
+        tempSliderContainer.style.position = 'relative';
+        tempSliderContainer.style.flex = '1';
+        tempSliderContainer.style.height = '32px';
+        tempSliderContainer.style.display = 'flex';
+        tempSliderContainer.style.alignItems = 'center';
+
+        this.temperatureSlider = tempSliderContainer.createEl('input') as HTMLInputElement;
+        this.temperatureSlider.type = 'range';
+        this.temperatureSlider.min = '0';
+        this.temperatureSlider.max = '2';
+        this.temperatureSlider.step = '0.1';
+        this.temperatureSlider.value = this.temperature.toString();
+        this.temperatureSlider.className = 'ytc-model-slider';
+        this.temperatureSlider.style.flex = '1';
+        this.temperatureSlider.style.margin = '0 8px';
+
+        this.temperatureValue = temperatureRow.createDiv();
+        this.temperatureValue.className = 'ytc-slider-value';
+        this.temperatureValue.textContent = this.temperature.toFixed(1);
+        this.temperatureValue.style.fontSize = '0.9rem';
+        this.temperatureValue.style.fontWeight = '700';
+        this.temperatureValue.style.color = 'var(--text-accent)';
+        this.temperatureValue.style.minWidth = '60px';
+        this.temperatureValue.style.textAlign = 'center';
+        this.temperatureValue.style.padding = '6px 12px';
+        this.temperatureValue.style.backgroundColor = 'var(--background-secondary)';
+        this.temperatureValue.style.borderRadius = '4px';
+        this.temperatureValue.style.border = '1px solid var(--background-modifier-border)';
+
+        // Temperature scale labels
+        const tempScale = temperatureRow.createDiv();
+        tempScale.className = 'ytc-temp-scale';
+        tempScale.style.fontSize = '0.75rem';
+        tempScale.style.color = 'var(--text-muted)';
+        tempScale.style.fontWeight = '500';
+        tempScale.style.display = 'flex';
+        tempScale.style.justifyContent = 'space-between';
+        tempScale.style.padding = '0 12px';
+        tempScale.style.width = '100%';
+        tempScale.style.marginTop = '8px';
+        tempScale.innerHTML = '<span style="text-align: left;">0.0</span><span style="text-align: center;">Precise</span><span style="text-align: center;">Balanced</span><span style="text-align: center;">Creative</span><span style="text-align: right;">2.0</span>';
+
+        // Add comprehensive CSS styling
+        this.addSliderStyling();
+
+        // Add event listeners
+        this.maxTokensSlider.addEventListener('input', (e) => {
+            this.maxTokens = parseInt((e.target as HTMLInputElement).value);
+            this.maxTokensValue!.textContent = this.maxTokens.toString();
+        });
+
+        this.temperatureSlider.addEventListener('input', (e) => {
+            this.temperature = parseFloat((e.target as HTMLInputElement).value);
+            this.temperatureValue!.textContent = this.temperature.toFixed(1);
+        });
+    }
+
+    /**
+     * Add comprehensive CSS styling for sliders
+     */
+    private addSliderStyling(): void {
+        const style = document.createElement('style');
+        style.textContent = `
+            .ytc-model-slider {
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                cursor: pointer;
+                width: 100%;
+                height: 4px;
+                outline: none;
+                position: relative;
+                z-index: 1;
+            }
+
+            .ytc-model-slider::-webkit-slider-track {
+                background: var(--interactive-normal);
+                height: 4px;
+                border-radius: 2px;
+            }
+
+            .ytc-model-slider::-moz-range-track {
+                background: var(--interactive-normal);
+                height: 4px;
+                border-radius: 2px;
+                border: none;
+            }
+
+            .ytc-model-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: var(--interactive-accent);
+                cursor: pointer;
+                border: 3px solid var(--background-primary);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                margin-top: -7px;
+                position: relative;
+                z-index: 2;
+                transition: all 0.2s ease;
+            }
+
+            .ytc-model-slider::-moz-range-thumb {
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: var(--interactive-accent);
+                cursor: pointer;
+                border: 3px solid var(--background-primary);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                position: relative;
+                z-index: 2;
+                transition: all 0.2s ease;
+            }
+
+            .ytc-model-slider:hover::-webkit-slider-thumb {
+                background: var(--interactive-accent-hover);
+                transform: scale(1.1);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+
+            .ytc-model-slider:hover::-moz-range-thumb {
+                background: var(--interactive-accent-hover);
+                transform: scale(1.1);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+
+            .ytc-model-slider:focus {
+                outline: none;
+            }
+
+            .ytc-model-slider:focus::-webkit-slider-thumb {
+                border-color: var(--interactive-accent);
+                box-shadow: 0 0 0 3px var(--interactive-accent), 0 2px 8px rgba(0,0,0,0.3);
+            }
+
+            .ytc-model-slider:focus::-moz-range-thumb {
+                border-color: var(--interactive-accent);
+                box-shadow: 0 0 0 3px var(--interactive-accent), 0 2px 8px rgba(0,0,0,0.3);
+            }
+
+            .ytc-slider-row {
+                transition: all 0.2s ease;
+            }
+
+            .ytc-slider-row:hover {
+                border-color: var(--interactive-accent);
+                box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            }
+
+            .ytc-slider-value {
+                transition: all 0.2s ease;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .ytc-model-params-section:hover {
+                border-color: var(--interactive-accent);
+                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            }
+
+            .ytc-temp-scale span {
+                flex: 1;
+                text-align: center;
+                position: relative;
+            }
+
+            .ytc-temp-scale span::before {
+                content: '';
+                position: absolute;
+                bottom: -4px;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: var(--background-modifier-border);
+            }
+
+            .ytc-temp-scale span:first-child::before {
+                left: 50%;
+            }
+
+            .ytc-temp-scale span:last-child::before {
+                right: 50%;
+            }
+
+            /* Dark theme adjustments */
+            body.theme-dark .ytc-slider-row {
+                background: var(--background-primary-alt);
+            }
+
+            body.theme-dark .ytc-slider-value {
+                background: var(--background-primary-alt);
+            }
+
+            /* High contrast theme adjustments */
+            body.theme-high-contrast .ytc-model-slider {
+                background: var(--text-normal);
+            }
+
+            body.theme-high-contrast .ytc-model-slider::-webkit-slider-track {
+                background: var(--text-muted);
+            }
+
+            body.theme-high-contrast .ytc-model-slider::-webkit-slider-thumb {
+                background: var(--text-accent);
+                border-color: var(--background-primary);
+            }
+        `;
+
+        if (!document.querySelector('style[data-ytc-model-params]')) {
+            style.setAttribute('data-ytc-model-params', 'true');
+            document.head.appendChild(style);
+        }
+    }
+
+    /**
      * Create progress section
      */
     private createProgressSection(): void {
@@ -1007,6 +1388,9 @@ export class YouTubeUrlModal extends BaseModal {
             () => this.handleProcess(),
             () => this.close()
         );
+
+        // Set up retry handler for quota errors
+        window.addEventListener('yt-clipper-retry-processing', this.handleRetry);
     }
 
     /**
@@ -1183,7 +1567,9 @@ export class YouTubeUrlModal extends BaseModal {
                 customPrompt,
                 this.performanceMode,
                 this.enableParallelProcessing,
-                this.preferMultimodal
+                this.preferMultimodal,
+                this.maxTokens,
+                this.temperature
             );
             this.setStepState(2, 'complete');
             this.setStepState(3, 'active');
@@ -1368,9 +1754,18 @@ export class YouTubeUrlModal extends BaseModal {
         }
         this.progressSteps = [];
 
+        // Clean up retry event listener
+        window.removeEventListener('yt-clipper-retry-processing', this.handleRetry);
+
         // Call parent cleanup
         super.onClose();
     }
+
+    private handleRetry = (): void => {
+        if (this.processButton && !this.processButton.disabled) {
+            this.handleProcess();
+        }
+    };
 
     /**
      * Get current URL value

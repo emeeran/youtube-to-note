@@ -88,8 +88,8 @@ MULTIMODAL ANALYSIS INSTRUCTIONS:
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
         
         return customPrompt
-            .replace(/__VIDEO_TITLE__/g, videoData.title)
-            .replace(/__VIDEO_DESCRIPTION__/g, videoData.description)
+            .replace(/__VIDEO_TITLE__/g, videoData.title || 'Unknown Video')
+            .replace(/__VIDEO_DESCRIPTION__/g, videoData.description || 'No description available')
             .replace(/__VIDEO_URL__/g, videoUrl)
             .replace(/__VIDEO_ID__/g, videoId || 'unknown')
             .replace(/__EMBED_URL__/g, embedUrl)

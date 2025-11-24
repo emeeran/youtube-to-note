@@ -19,7 +19,12 @@ export const MESSAGES = {
         COULD_NOT_OPEN: (message: string) => `Could not open file: ${message}`,
         ENTER_URL: 'Please enter a YouTube URL',
         VIDEO_ID_EXTRACTION: 'Could not extract video ID from URL. Please check the URL format.',
-        NETWORK_ERROR: 'Network error occurred. Please check your internet connection and try again.'
+        NETWORK_ERROR: 'Network error occurred. Please check your internet connection and try again.',
+        // Quota and billing errors
+        QUOTA_EXCEEDED: (provider: string) => `${provider} API quota exceeded. Please check your plan and billing details, or try again later.`,
+        RATE_LIMITED: (provider: string) => `${provider} API rate limit reached. Please wait a moment and try again.`,
+        BILLING_REQUIRED: (provider: string) => `${provider} requires a paid plan. Please check your billing settings.`,
+        CREDIT_EXHAUSTED: (provider: string) => `${provider} API credits exhausted. Please top up your account or upgrade your plan.`
     },
     
     WARNINGS: {

@@ -3,10 +3,11 @@
  */
 
 import { App } from 'obsidian';
-import { 
-    ServiceContainer as IServiceContainer, 
-    YouTubePluginSettings, 
+import {
+    ServiceContainer as IServiceContainer,
+    YouTubePluginSettings,
     AIService as IAIService,
+    AIProvider,
     VideoDataService,
     FileService,
     CacheService,
@@ -35,18 +36,18 @@ export class ServiceContainer implements IServiceContainer {
 
     get aiService(): IAIService {
         if (!this._aiService) {
-            const providers: any[] = [];
-            
+            const providers: AIProvider[] = [];
+
             // Add Gemini provider if API key is available
             if (this.settings.geminiApiKey) {
                 providers.push(new GeminiProvider(this.settings.geminiApiKey));
             }
-            
+
             // Add Groq provider if API key is available
             if (this.settings.groqApiKey) {
                 providers.push(new GroqProvider(this.settings.groqApiKey));
             }
-            
+
             this._aiService = new AIService(providers, this.settings);
         }
         return this._aiService;
