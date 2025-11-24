@@ -8,6 +8,7 @@ import { MESSAGES } from './messages';
 import { PROVIDER_MODEL_OPTIONS, AI_MODELS } from './api';
 import { ValidationUtils } from './validation';
 import { ErrorHandler } from './services/error-handler';
+import { UserPreferencesService } from './services/user-preferences-service';
 import { OutputFormat, PerformanceMode } from './types/types';
 
 export interface YouTubeUrlModalOptions {
@@ -85,6 +86,16 @@ export class YouTubeUrlModal extends BaseModal {
     private lastValidUrl?: string;
     private lastValidResult?: boolean;
 
+    // Theme state
+    private isDarkMode = false;
+    private themeElements?: {
+        slider: HTMLDivElement;
+        knob: HTMLDivElement;
+        sunIcon: HTMLSpanElement;
+        moonIcon: HTMLSpanElement;
+        updateTheme: (isDark: boolean) => void;
+    };
+
     constructor(
         app: App,
         private options: YouTubeUrlModalOptions
@@ -93,19 +104,45 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.url = options.initialUrl || '';
 
-        // Initialize performance settings from options
-        this.performanceMode = options.performanceMode || 'balanced';
-        this.enableParallelProcessing = options.enableParallelProcessing || false;
-        this.preferMultimodal = options.preferMultimodal || false;
+        // Load smart defaults from user preferences
+        const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
+        const smartModelParams = UserPreferencesService.getSmartDefaultModelParameters();
 
-        // Initialize model parameters from options
-        this.maxTokens = options.defaultMaxTokens || 4096;
-        this.temperature = options.defaultTemperature || 0.5;
+        // Initialize performance settings with smart defaults
+        this.performanceMode = options.performanceMode || smartDefaults.mode;
+        this.enableParallelProcessing = options.enableParallelProcessing !== undefined ? options.enableParallelProcessing : smartDefaults.parallel;
+        this.preferMultimodal = options.preferMultimodal !== undefined ? options.preferMultimodal : smartDefaults.multimodal;
+
+        // Initialize model parameters with smart defaults
+        this.maxTokens = options.defaultMaxTokens || smartModelParams.maxTokens;
+        this.temperature = options.defaultTemperature || smartModelParams.temperature;
+
+        // Track usage for smart suggestions
+        UserPreferencesService.updateLastUsed({
+            format: 'detailed-guide',
+            provider: options.defaultProvider,
+            model: options.defaultModel,
+            maxTokens: this.maxTokens,
+            temperature: this.temperature,
+            performanceMode: this.performanceMode,
+            parallelProcessing: this.enableParallelProcessing,
+            multimodal: this.preferMultimodal
+        });
+
+        // Initialize theme from localStorage
+        const savedTheme = localStorage.getItem('ytc-theme-mode');
+        this.isDarkMode = savedTheme !== 'light'; // Default to dark
+        console.log('Theme initialized:', { savedTheme, isDarkMode: this.isDarkMode });
     }
 
     onOpen(): void {
         this.createModalContent();
         this.setupEventHandlers();
+        this.setupKeyboardShortcuts();
+
+        // Show user insights for enhanced experience
+        this.showUserInsights();
+
         // If an initial URL was provided, validate and focus the appropriate control
         if (this.options.initialUrl) {
             // Prevent cycles - if the URL is already being processed, don't reprocess
@@ -126,16 +163,455 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create modal content
+     * Create streamlined modal content
      */
     private createModalContent(): void {
         this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
-        this.createUrlInputSection();
-        this.createPerformanceSection();
-        this.createFormatSelectionSection();
+        this.createThemeToggle();
+        this.createStreamlinedUrlSection();
+        this.createQuickFormatSection();
         this.createAdvancedSettingsDrawer();
         this.createProgressSection();
         this.createActionButtons();
+    }
+
+    /**
+     * Create theme toggle component
+     */
+    private createThemeToggle(): void {
+        // Theme toggle container
+        const themeContainer = this.contentEl.createDiv();
+        themeContainer.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin: 8px 0 16px 0;
+            padding: 0 4px;
+        `;
+
+        // Theme toggle wrapper
+        const toggleWrapper = themeContainer.createDiv();
+        toggleWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--background-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--background-modifier-border);
+            transition: all 0.3s ease;
+        `;
+
+        // Add hover effect
+        toggleWrapper.addEventListener('mouseenter', () => {
+            toggleWrapper.style.borderColor = 'var(--interactive-accent)';
+            toggleWrapper.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.2)';
+        });
+        toggleWrapper.addEventListener('mouseleave', () => {
+            toggleWrapper.style.borderColor = 'var(--background-modifier-border)';
+            toggleWrapper.style.boxShadow = 'none';
+        });
+
+        // Sun icon for light mode
+        const sunIcon = toggleWrapper.createSpan();
+        sunIcon.innerHTML = '☀️';
+        sunIcon.style.cssText = `
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            opacity: ${this.isDarkMode ? '0.5' : '1'};
+        `;
+
+        // Theme toggle switch
+        const themeSwitch = toggleWrapper.createEl('input');
+        themeSwitch.type = 'checkbox';
+        themeSwitch.checked = this.isDarkMode;
+        themeSwitch.style.cssText = `
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        `;
+
+        // Toggle slider
+        const slider = toggleWrapper.createDiv();
+        slider.style.cssText = `
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: ${this.isDarkMode ? 'var(--interactive-accent)' : 'var(--text-muted)'};
+            border-radius: 24px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        `;
+
+        // Toggle knob
+        const knob = slider.createDiv();
+        knob.style.cssText = `
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: ${this.isDarkMode ? '24px' : '3px'};
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        `;
+
+        // Moon icon for dark mode
+        const moonIcon = toggleWrapper.createSpan();
+        moonIcon.innerHTML = '🌙';
+        moonIcon.style.cssText = `
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            opacity: ${this.isDarkMode ? '1' : '0.5'};
+        `;
+
+        // Theme toggle functionality
+        const updateTheme = (isDark: boolean) => {
+            this.isDarkMode = isDark;
+            themeSwitch.checked = isDark;
+
+            // Update slider and knob
+            slider.style.background = isDark ? 'var(--interactive-accent)' : 'var(--text-muted)';
+            knob.style.left = isDark ? '24px' : '3px';
+
+            // Update icons
+            sunIcon.style.opacity = isDark ? '0.5' : '1';
+            moonIcon.style.opacity = isDark ? '1' : '0.5';
+
+            // Apply theme to modal
+            this.applyTheme(isDark);
+
+            // Store preference
+            localStorage.setItem('ytc-theme-mode', isDark ? 'dark' : 'light');
+        };
+
+        // Event listeners
+        slider.addEventListener('click', () => {
+            updateTheme(!this.isDarkMode);
+        });
+
+        themeSwitch.addEventListener('change', () => {
+            updateTheme(themeSwitch.checked);
+        });
+
+        // Store elements for cleanup
+        this.themeElements = {
+            slider,
+            knob,
+            sunIcon,
+            moonIcon,
+            updateTheme
+        };
+    }
+
+    /**
+     * Apply theme to modal
+     */
+    private applyTheme(isDark: boolean): void {
+        // Add custom CSS variables for light theme
+        if (!document.getElementById('ytc-theme-styles')) {
+            const themeStyle = document.createElement('style');
+            themeStyle.id = 'ytc-theme-styles';
+            let css = '';
+
+            // Light theme colors
+            css += `.ytc-modal-light {`;
+            css += `--ytc-bg-primary: #fafbfc;`;
+            css += `--ytc-bg-secondary: #f1f5f9;`;
+            css += `--ytc-bg-tertiary: #e2e8f0;`;
+            css += `--ytc-text-primary: #1e293b;`;
+            css += `--ytc-text-secondary: #475569;`;
+            css += `--ytc-text-muted: #64748b;`;
+            css += `--ytc-border: #e2e8f0;`;
+            css += `--ytc-accent: #3b82f6;`;
+            css += `--ytc-accent-hover: #2563eb;`;
+            css += `--ytc-accent-light: #eff6ff;`;
+            css += `--ytc-success: #10b981;`;
+            css += `--ytc-warning: #f59e0b;`;
+            css += `--ytc-error: #ef4444;`;
+            css += `--ytc-shadow: rgba(15, 23, 42, 0.08);`;
+            css += `}`;
+
+            // Dark theme colors
+            css += `.ytc-modal-dark {`;
+            css += `--ytc-bg-primary: #0f172a;`;
+            css += `--ytc-bg-secondary: #1e293b;`;
+            css += `--ytc-bg-tertiary: #334155;`;
+            css += `--ytc-text-primary: #f8fafc;`;
+            css += `--ytc-text-secondary: #e2e8f0;`;
+            css += `--ytc-text-muted: #94a3b8;`;
+            css += `--ytc-border: #334155;`;
+            css += `--ytc-accent: #60a5fa;`;
+            css += `--ytc-accent-hover: #3b82f6;`;
+            css += `--ytc-accent-light: #1e3a8a;`;
+            css += `--ytc-success: #34d399;`;
+            css += `--ytc-warning: #fbbf24;`;
+            css += `--ytc-error: #f87171;`;
+            css += `--ytc-shadow: rgba(0, 0, 0, 0.3);`;
+            css += `}`;
+
+            themeStyle.innerHTML = css;
+            document.head.appendChild(themeStyle);
+        }
+
+        // Apply theme class to modal
+        this.modalEl?.classList.add('ytc-themed-modal');
+        this.modalEl?.classList.toggle('ytc-modal-light', !isDark);
+        this.modalEl?.classList.toggle('ytc-modal-dark', isDark);
+
+        // Update modal title
+        if (this.headerEl) {
+            this.headerEl.style.color = 'var(--ytc-text-primary)';
+            this.headerEl.style.background = 'var(--ytc-gradient-surface)';
+            this.headerEl.style.borderBottom = `1px solid var(--ytc-border)';
+            this.headerEl.style.fontWeight = '600';
+            this.headerEl.style.padding = '20px 24px';
+            this.headerEl.style.boxShadow = '0 2px 8px var(--ytc-shadow)';
+        }
+    }
+
+    /**
+     * Create streamlined URL section with integrated quick actions
+     */
+    private createStreamlinedUrlSection(): void {
+        const urlContainer = this.contentEl.createDiv();
+        urlContainer.className = 'ytc-streamlined-url-section';
+        urlContainer.style.margin = '16px 0';
+        urlContainer.style.position = 'relative';
+
+        // URL input with inline actions
+        const inputWrapper = urlContainer.createDiv();
+        inputWrapper.style.cssText = `
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+
+        // URL input
+        this.urlInput = inputWrapper.createEl('input');
+        this.urlInput.type = 'url';
+        this.urlInput.placeholder = '🎬 Paste YouTube URL here...';
+        this.urlInput.style.cssText = `
+            flex: 1;
+            padding: 14px 16px;
+            border: 2px solid var(--background-modifier-border);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            transition: all 0.3s ease;
+            outline: none;
+        `;
+
+        // Inline paste button
+        const pasteBtn = inputWrapper.createEl('button');
+        pasteBtn.innerHTML = '📋';
+        pasteBtn.style.cssText = `
+            padding: 12px;
+            background: var(--interactive-accent);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+            min-width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        pasteBtn.addEventListener('click', () => this.handleSmartPaste());
+        pasteBtn.addEventListener('mouseenter', () => {
+            pasteBtn.style.transform = 'scale(1.05)';
+            pasteBtn.style.background = 'var(--interactive-accent-hover)';
+        });
+        pasteBtn.addEventListener('mouseleave', () => {
+            pasteBtn.style.transform = 'scale(1)';
+            pasteBtn.style.background = 'var(--interactive-accent)';
+        });
+
+        // Focus effects
+        this.urlInput.addEventListener('focus', () => {
+            this.urlInput.style.borderColor = 'var(--interactive-accent)';
+            this.urlInput.style.boxShadow = '0 0 0 4px rgba(99, 102, 241, 0.1)';
+        });
+
+        this.urlInput.addEventListener('blur', () => {
+            this.urlInput.style.borderColor = 'var(--background-modifier-border)';
+            this.urlInput.style.boxShadow = 'none';
+        });
+
+        // Video metadata preview container
+        this.metadataContainer = urlContainer.createDiv();
+        this.metadataContainer.className = 'yt-preview-metadata';
+        this.metadataContainer.style.cssText = `
+            margin-top: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--background-secondary), var(--background-primary));
+            border-radius: 10px;
+            border: 1px solid var(--background-modifier-border);
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        `;
+
+        const metadataContent = this.metadataContainer.createDiv();
+        metadataContent.style.cssText = 'display: flex; gap: 12px; align-items: center;';
+
+        // Video icon
+        const videoIcon = metadataContent.createSpan();
+        videoIcon.textContent = '🎥';
+        videoIcon.style.cssText = 'font-size: 1.5rem;';
+
+        const textContent = metadataContent.createDiv();
+        textContent.style.flex = '1';
+
+        const titleEl = textContent.createDiv();
+        titleEl.className = 'yt-preview-title';
+        titleEl.style.cssText = 'font-weight: 600; margin-bottom: 4px; color: var(--text-normal);';
+
+        const channelEl = textContent.createDiv();
+        channelEl.className = 'yt-preview-channel';
+        channelEl.style.cssText = 'font-size: 0.85rem; color: var(--text-muted);';
+    }
+
+    /**
+     * Create quick format selection with visual pills
+     */
+    private createQuickFormatSection(): void {
+        const formatContainer = this.contentEl.createDiv();
+        formatContainer.className = 'ytc-quick-format-section';
+        formatContainer.style.cssText = `
+            margin: 20px 0;
+        `;
+
+        const label = formatContainer.createDiv();
+        label.textContent = '📝 Output Format';
+        label.style.cssText = `
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-normal);
+            font-size: 0.95rem;
+        `;
+
+        const pillsContainer = formatContainer.createDiv();
+        pillsContainer.style.cssText = `
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        `;
+
+        const formats = [
+            { id: 'executive-summary', icon: '📋', label: 'Executive', desc: 'Quick insights' },
+            { id: 'detailed-guide', icon: '📖', label: 'Detailed', desc: 'Comprehensive analysis' },
+            { id: 'brief', icon: '⚡', label: 'Brief', desc: 'Key points only' }
+        ];
+
+        formats.forEach((format, index) => {
+            const pill = pillsContainer.createEl('button');
+            pill.className = 'ytc-format-pill';
+            pill.setAttribute('data-format', format.id);
+            pill.innerHTML = `
+                <span style="font-size: 1.2rem; margin-right: 6px;">${format.icon}</span>
+                <div style="text-align: left;">
+                    <div style="font-weight: 600; font-size: 0.9rem;">${format.label}</div>
+                    <div style="font-size: 0.75rem; opacity: 0.8;">${format.desc}</div>
+                </div>
+            `;
+
+            // Styling
+            pill.style.cssText = `
+                padding: 12px 16px;
+                background: var(--background-secondary);
+                border: 2px solid var(--background-modifier-border);
+                border-radius: 12px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 140px;
+                text-align: left;
+                font-size: 0.85rem;
+                color: var(--text-normal);
+            `;
+
+            // Set default selection
+            if (format.id === 'detailed-guide') {
+                pill.style.borderColor = 'var(--interactive-accent)';
+                pill.style.background = 'var(--interactive-accent)';
+                pill.style.color = 'white';
+                this.format = format.id as OutputFormat;
+            }
+
+            // Hover and selection effects
+            pill.addEventListener('mouseenter', () => {
+                if (!pill.style.borderColor.includes('var(--interactive-accent)')) {
+                    pill.style.borderColor = 'var(--interactive-accent)';
+                    pill.style.transform = 'translateY(-2px)';
+                    pill.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.2)';
+                }
+            });
+
+            pill.addEventListener('mouseleave', () => {
+                if (!pill.style.borderColor.includes('var(--interactive-accent)') || pill.style.background === 'var(--interactive-accent)') {
+                    pill.style.transform = 'translateY(0)';
+                    pill.style.boxShadow = 'none';
+                }
+            });
+
+            pill.addEventListener('click', () => {
+                // Reset all pills
+                pillsContainer.querySelectorAll('button').forEach(p => {
+                    const btn = p as HTMLButtonElement;
+                    btn.style.borderColor = 'var(--background-modifier-border)';
+                    btn.style.background = 'var(--background-secondary)';
+                    btn.style.color = 'var(--text-normal)';
+                });
+
+                // Highlight selected pill
+                pill.style.borderColor = 'var(--interactive-accent)';
+                pill.style.background = 'var(--interactive-accent)';
+                pill.style.color = 'white';
+
+                this.format = format.id as OutputFormat;
+                this.updateProcessButtonState();
+            });
+        });
+
+        // Add custom prompt option
+        const customPill = pillsContainer.createEl('button');
+        customPill.innerHTML = `
+            <span style="font-size: 1.2rem; margin-right: 6px;">🎨</span>
+            <div style="text-align: left;">
+                <div style="font-weight: 600; font-size: 0.9rem;">Custom</div>
+                <div style="font-size: 0.75rem; opacity: 0.8;">Your own prompt</div>
+            </div>
+        `;
+
+        customPill.style.cssText = pillsContainer.children[0]!.getAttribute('style') || '';
+
+        customPill.addEventListener('click', () => {
+            // Reset format pills
+            pillsContainer.querySelectorAll('button').forEach(p => {
+                const btn = p as HTMLButtonElement;
+                btn.style.borderColor = 'var(--background-modifier-border)';
+                btn.style.background = 'var(--background-secondary)';
+                btn.style.color = 'var(--text-normal)';
+            });
+
+            customPill.style.borderColor = 'var(--interactive-accent)';
+            customPill.style.background = 'var(--interactive-accent)';
+            customPill.style.color = 'white';
+
+            this.format = 'custom';
+            this.updateProcessButtonState();
+            this.createCustomPromptSection();
+        });
     }
 
     /**
@@ -1280,46 +1756,263 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create collapsible advanced settings drawer
+     * Create streamlined advanced settings drawer
      */
     private createAdvancedSettingsDrawer(): void {
-        // Create a simple button element
-        this.drawerToggle = this.contentEl.createEl('button');
-        this.drawerToggle.textContent = '🤖 Advanced AI Settings ▶';
-        this.drawerToggle.style.width = '100%';
-        this.drawerToggle.style.padding = '10px';
-        this.drawerToggle.style.margin = '10px 0';
-        this.drawerToggle.style.backgroundColor = 'var(--background-secondary)';
-        this.drawerToggle.style.border = '1px solid var(--background-modifier-border)';
-        this.drawerToggle.style.borderRadius = '5px';
-        this.drawerToggle.style.cursor = 'pointer';
-        this.drawerToggle.style.fontSize = '14px';
-        this.drawerToggle.style.fontWeight = 'bold';
+        // Add custom CSS for enhanced styling
+        this.addEnhancedStyles();
 
-        // Create the content container
-        this.drawerContent = this.contentEl.createDiv();
-        this.drawerContent.style.display = 'none';
-        this.drawerContent.style.padding = '15px';
-        this.drawerContent.style.backgroundColor = 'var(--background-primary)';
-        this.drawerContent.style.border = '1px solid var(--background-modifier-border)';
-        this.drawerContent.style.borderRadius = '5px';
-        this.drawerContent.style.marginBottom = '10px';
+        // Main drawer container
+        const drawerContainer = this.contentEl.createDiv();
+        drawerContainer.className = 'ytc-streamlined-drawer';
+        drawerContainer.style.cssText = `
+            margin: 20px 0;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.2);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 1px solid var(--interactive-accent);
+        `;
 
-        // Add content to drawer
-        const title = this.drawerContent.createEl('h3');
-        title.textContent = 'AI Configuration';
-        title.style.marginBottom = '15px';
+        // Streamlined drawer toggle button
+        this.drawerToggle = drawerContainer.createEl('button');
+        this.drawerToggle.className = 'ytc-drawer-toggle-streamlined';
+        this.drawerToggle.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 1.3rem;">⚙️</span>
+                    <span style="font-weight: 600; font-size: 0.95rem; color: white;">AI Settings</span>
+                    <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">ADVANCED</span>
+                </div>
+                <div class="drawer-chevron" style="
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    transform: rotate(0deg);
+                    color: white;
+                    font-size: 0.9rem;
+                ">▶</div>
+            </div>
+        `;
 
-        // Add provider dropdown
-        const providerLabel = this.drawerContent.createEl('label');
-        providerLabel.textContent = 'AI Provider:';
-        providerLabel.style.display = 'block';
-        providerLabel.style.marginBottom = '5px';
+        this.drawerToggle.style.cssText = `
+            width: 100%;
+            padding: 16px 24px;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        `;
 
-        this.providerDropdown = this.drawerContent.createEl('select');
-        this.providerDropdown.style.width = '100%';
-        this.providerDropdown.style.padding = '5px';
-        this.providerDropdown.style.marginBottom = '10px';
+        // Click handler
+        this.drawerToggle.addEventListener('click', (e) => {
+            this.createRippleEffect(e, this.drawerToggle);
+            this.toggleDrawer();
+        });
+
+        // Drawer content with smooth animations
+        this.drawerContent = drawerContainer.createDiv();
+        this.drawerContent.className = 'ytc-drawer-content-streamlined';
+        this.drawerContent.style.cssText = `
+            max-height: 0px;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--background-primary);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--background-modifier-border);
+        `;
+
+        // Inner content with compact layout
+        const innerContent = this.drawerContent.createDiv();
+        innerContent.style.cssText = `
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            max-height: 600px;
+            overflow-y: auto;
+        `;
+
+        // Streamlined sections (2x2 grid)
+        const gridContainer = innerContent.createDiv();
+        gridContainer.style.cssText = `
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        `;
+
+        // Left column
+        const leftColumn = gridContainer.createDiv();
+        leftColumn.style.cssText = 'display: flex; flex-direction: column; gap: 24px;';
+
+        // Right column
+        const rightColumn = gridContainer.createDiv();
+        rightColumn.style.cssText = 'display: flex; flex-direction: column; gap: 24px;';
+
+        // Streamlined sections
+        this.createStreamlinedProviderSection(leftColumn);
+        this.createStreamlinedControlsSection(leftColumn);
+        this.createStreamlinedPerformanceSection(rightColumn);
+        this.createStreamlinedTipsSection(rightColumn);
+    }
+
+    /**
+     * Add enhanced CSS styles
+     */
+    private addEnhancedStyles(): void {
+        if (!document.getElementById('ytc-enhanced-styles')) {
+            const style = document.createElement('style');
+            style.id = 'ytc-enhanced-styles';
+            style.textContent = `
+                .ytc-enhanced-drawer {
+                    --gradient-1: var(--interactive-accent);
+                    --gradient-2: var(--interactive-accent-hover);
+                    --accent-rgb: 99, 102, 241;
+                }
+
+                .ytc-drawer-toggle-enhanced::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: -100%;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+                    transition: left 0.5s;
+                }
+
+                .ytc-drawer-toggle-enhanced:hover::before {
+                    left: 100%;
+                }
+
+                .ytc-input-enhanced, .ytc-select-enhanced {
+                    background: rgba(255,255,255,0.05);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-input-enhanced:hover, .ytc-select-enhanced:hover {
+                    background: rgba(255,255,255,0.08);
+                    border-color: var(--interactive-accent);
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                }
+
+                .ytc-input-enhanced:focus, .ytc-select-enhanced:focus {
+                    outline: none;
+                    border-color: var(--interactive-accent);
+                    background: rgba(255,255,255,0.1);
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+                }
+
+                .ytc-section-card {
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 12px;
+                    padding: 20px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-section-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                    border-color: var(--interactive-accent);
+                }
+
+                .ytc-slider-enhanced {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    background: linear-gradient(to right, var(--interactive-accent) 0%, var(--interactive-accent) var(--value, 50%), var(--interactive-normal) var(--value, 50%), var(--interactive-normal) 100%);
+                    border-radius: 10px;
+                    height: 8px;
+                    outline: none;
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-slider-enhanced::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: var(--interactive-accent);
+                    cursor: pointer;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-slider-enhanced::-webkit-slider-thumb:hover {
+                    transform: scale(1.2);
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+                }
+
+                .ytc-badge {
+                    background: var(--interactive-accent);
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    display: inline-block;
+                    margin-left: 8px;
+                }
+
+                @keyframes fadeInScale {
+                    from {
+                        opacity: 0;
+                        transform: scale(0.95);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+
+                .ytc-fade-in {
+                    animation: fadeInScale 0.4s ease-out;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    /**
+     * Create provider selection section
+     */
+    private createProviderSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.className = 'ytc-section-card ytc-fade-in';
+        section.style.animationDelay = '0.1s';
+
+        const header = section.createDiv();
+        header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;';
+
+        const title = header.createEl('h4');
+        title.textContent = '🤖 AI Provider';
+        title.style.cssText = 'margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);';
+
+        const badge = header.createSpan();
+        badge.className = 'ytc-badge';
+        badge.textContent = 'AI';
+
+        this.providerDropdown = section.createEl('select');
+        this.providerDropdown.className = 'ytc-select-enhanced';
+        this.providerDropdown.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-normal);
+        `;
 
         this.options.providers.forEach(provider => {
             const option = this.providerDropdown.createEl('option');
@@ -1327,81 +2020,619 @@ export class YouTubeUrlModal extends BaseModal {
             option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
         });
 
-        // Add model dropdown
-        const modelLabel = this.drawerContent.createEl('label');
-        modelLabel.textContent = 'Model:';
-        modelLabel.style.display = 'block';
-        modelLabel.style.marginBottom = '5px';
+        // Add provider info
+        const info = section.createDiv();
+        info.style.cssText = 'margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);';
+        info.textContent = 'Select your preferred AI provider for video processing';
+    }
 
-        this.modelDropdown = this.drawerContent.createEl('select');
-        this.modelDropdown.style.width = '100%';
-        this.modelDropdown.style.padding = '5px';
-        this.modelDropdown.style.marginBottom = '10px';
+    /**
+     * Create model selection section
+     */
+    private createModelSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.className = 'ytc-section-card ytc-fade-in';
+        section.style.animationDelay = '0.2s';
 
-        // Add model options
-        const models = ['gemini-2.5-pro', 'gemini-1.5-pro', 'gpt-4', 'gpt-3.5-turbo'];
+        const header = section.createDiv();
+        header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;';
+
+        const title = header.createEl('h4');
+        title.textContent = '🧠 AI Model';
+        title.style.cssText = 'margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);';
+
+        const refreshBtn = header.createEl('button');
+        refreshBtn.innerHTML = '🔄 Refresh';
+        refreshBtn.style.cssText = `
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        `;
+
+        this.modelDropdown = section.createEl('select');
+        this.modelDropdown.className = 'ytc-select-enhanced';
+        this.modelDropdown.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-normal);
+        `;
+
+        // Add model options with descriptions
+        const models = [
+            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', desc: 'Latest & most capable' },
+            { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', desc: 'Balanced performance' },
+            { value: 'gpt-4', label: 'GPT-4', desc: 'High quality analysis' },
+            { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', desc: 'Fast processing' }
+        ];
+
         models.forEach(model => {
             const option = this.modelDropdown.createEl('option');
-            option.value = model;
-            option.textContent = model;
+            option.value = model.value;
+            option.textContent = `${model.label} - ${model.desc}`;
         });
+    }
 
-        // Add max tokens slider
-        const tokensLabel = this.drawerContent.createEl('label');
-        tokensLabel.textContent = 'Max Tokens: 4096';
-        tokensLabel.style.display = 'block';
-        tokensLabel.style.marginBottom = '5px';
+    /**
+     * Create advanced controls section
+     */
+    private createAdvancedControlsSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.className = 'ytc-section-card ytc-fade-in';
+        section.style.animationDelay = '0.3s';
 
-        this.maxTokensSlider = this.drawerContent.createEl('input');
+        const title = section.createEl('h4');
+        title.textContent = '⚙️ Advanced Controls';
+        title.style.cssText = 'margin: 0 0 20px 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);';
+
+        // Max Tokens
+        const tokensControl = section.createDiv();
+        tokensControl.style.cssText = 'margin-bottom: 20px;';
+
+        const tokensLabel = tokensControl.createDiv();
+        tokensLabel.innerHTML = '📊 Max Tokens: <span style="color: var(--interactive-accent); font-weight: 600;">4096</span>';
+        tokensLabel.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;';
+
+        this.maxTokensSlider = tokensControl.createEl('input');
         this.maxTokensSlider.type = 'range';
         this.maxTokensSlider.min = '256';
         this.maxTokensSlider.max = '8192';
+        this.maxTokensSlider.step = '256';
         this.maxTokensSlider.value = '4096';
-        this.maxTokensSlider.style.width = '100%';
-        this.maxTokensSlider.style.marginBottom = '10px';
+        this.maxTokensSlider.className = 'ytc-slider-enhanced';
+        this.maxTokensSlider.style.cssText = 'width: 100%;';
 
         this.maxTokensSlider.addEventListener('input', (e) => {
             const value = (e.target as HTMLInputElement).value;
-            tokensLabel.textContent = `Max Tokens: ${value}`;
+            (tokensLabel.querySelector('span') as HTMLSpanElement).textContent = value;
+            this.maxTokensSlider.style.setProperty('--value', `${(parseInt(value) - 256) / (8192 - 256) * 100}%`);
         });
 
-        // Add temperature slider
-        const tempLabel = this.drawerContent.createEl('label');
-        tempLabel.textContent = 'Temperature: 0.5';
-        tempLabel.style.display = 'block';
-        tempLabel.style.marginBottom = '5px';
+        // Temperature
+        const tempControl = section.createDiv();
 
-        this.temperatureSlider = this.drawerContent.createEl('input');
+        const tempLabel = tempControl.createDiv();
+        tempLabel.innerHTML = '🌡️ Temperature: <span style="color: var(--interactive-accent); font-weight: 600;">0.5</span>';
+        tempLabel.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;';
+
+        this.temperatureSlider = tempControl.createEl('input');
         this.temperatureSlider.type = 'range';
         this.temperatureSlider.min = '0';
         this.temperatureSlider.max = '2';
         this.temperatureSlider.step = '0.1';
         this.temperatureSlider.value = '0.5';
-        this.temperatureSlider.style.width = '100%';
+        this.temperatureSlider.className = 'ytc-slider-enhanced';
+        this.temperatureSlider.style.cssText = 'width: 100%;';
 
         this.temperatureSlider.addEventListener('input', (e) => {
             const value = (e.target as HTMLInputElement).value;
-            tempLabel.textContent = `Temperature: ${value}`;
+            (tempLabel.querySelector('span') as HTMLSpanElement).textContent = value;
+            this.temperatureSlider.style.setProperty('--value', `${(parseFloat(value) / 2) * 100}%`);
         });
 
-        // Simple click handler
-        this.drawerToggle.onclick = () => {
-            console.log('Drawer button clicked!');
-            if (this.drawerContent.style.display === 'none') {
-                this.drawerContent.style.display = 'block';
-                this.drawerToggle.textContent = '🤖 Advanced AI Settings ▼';
-            } else {
-                this.drawerContent.style.display = 'none';
-                this.drawerToggle.textContent = '🤖 Advanced AI Settings ▶';
+        // Initialize slider values
+        this.maxTokensSlider.style.setProperty('--value', '50%');
+        this.temperatureSlider.style.setProperty('--value', '25%');
+    }
+
+    /**
+     * Create enhanced performance section for drawer
+     */
+    private createEnhancedPerformanceSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.className = 'ytc-section-card ytc-fade-in';
+        section.style.animationDelay = '0.4s';
+
+        const title = section.createEl('h4');
+        title.textContent = '⚡ Performance';
+        title.style.cssText = 'margin: 0 0 16px 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);';
+
+        // Performance mode selector
+        const perfContainer = section.createDiv();
+        perfContainer.style.cssText = 'margin-bottom: 16px;';
+
+        const perfLabel = perfContainer.createDiv();
+        perfLabel.textContent = 'Performance Mode:';
+        perfLabel.style.cssText = 'margin-bottom: 8px; font-weight: 500;';
+
+        const perfOptions = ['Fast', 'Balanced', 'Quality'];
+        const perfButtons = perfContainer.createDiv();
+        perfButtons.style.cssText = 'display: flex; gap: 8px;';
+
+        perfOptions.forEach((option, index) => {
+            const btn = perfButtons.createEl('button');
+            btn.textContent = option;
+            btn.style.cssText = `
+                flex: 1;
+                padding: 8px;
+                border: 1px solid rgba(255,255,255,0.2);
+                background: rgba(255,255,255,0.05);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                font-size: 0.8rem;
+            `;
+
+            if (index === 1) btn.style.background = 'var(--interactive-accent)';
+
+            btn.addEventListener('click', () => {
+                perfButtons.querySelectorAll('button').forEach(b => {
+                    b.style.background = 'rgba(255,255,255,0.05)';
+                });
+                btn.style.background = 'var(--interactive-accent)';
+            });
+        });
+
+        // Additional settings
+        const settingsContainer = section.createDiv();
+
+        const settings = [
+            { label: 'Enable parallel processing', checked: true },
+            { label: 'Prefer multimodal analysis', checked: true },
+            { label: 'Use smart defaults', checked: false }
+        ];
+
+        settings.forEach(setting => {
+            const settingItem = settingsContainer.createDiv();
+            settingItem.style.cssText = 'display: flex; align-items: center; margin-bottom: 8px;';
+
+            const checkbox = settingItem.createEl('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = setting.checked;
+            checkbox.style.cssText = 'margin-right: 8px; cursor: pointer;';
+
+            const label = settingItem.createEl('label');
+            label.textContent = setting.label;
+            label.style.cssText = 'cursor: pointer; font-size: 0.85rem;';
+        });
+    }
+
+    /**
+     * Create streamlined provider section
+     */
+    private createStreamlinedProviderSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.style.cssText = `
+            background: var(--background-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--background-modifier-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        `;
+
+        // Add hover effect
+        section.addEventListener('mouseenter', () => {
+            section.style.borderColor = 'var(--interactive-accent)';
+            section.style.transform = 'translateY(-2px)';
+            section.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+        });
+        section.addEventListener('mouseleave', () => {
+            section.style.borderColor = 'var(--background-modifier-border)';
+            section.style.transform = 'translateY(0)';
+            section.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        });
+
+        const header = section.createDiv();
+        header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">🤖</span>AI Provider & Model';
+        header.style.cssText = 'font-weight: 600; margin-bottom: 16px; color: var(--text-normal);';
+
+        // Provider label
+        const providerLabel = section.createEl('label');
+        providerLabel.textContent = 'AI Provider';
+        providerLabel.style.cssText = `
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+
+        // Provider dropdown
+        this.providerDropdown = section.createEl('select');
+        this.providerDropdown.setAttribute('aria-label', 'AI Provider');
+        this.providerDropdown.style.cssText = `
+            width: 100%;
+            padding: 14px 40px 14px 12px;
+            border: 2px solid var(--background-modifier-border);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            background: var(--background-primary) url('data:image/svg+xml;utf8,<svg fill="%23888888" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>') no-repeat right 10px center;
+            background-size: 20px;
+            color: var(--text-normal);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            appearance: none;
+        `;
+
+        // Add option styling for better visibility using inline styles
+        this.providerDropdown.style.cssText += `
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        `;
+
+        this.providerDropdown.className = 'ytc-provider-select';
+
+        // Add provider options with better labels
+        if (this.options.providers && this.options.providers.length > 0) {
+            this.options.providers.forEach(provider => {
+                const option = this.providerDropdown.createEl('option');
+                option.value = provider;
+                option.textContent = this.formatProviderName(provider);
+                option.style.cssText = 'background: var(--background-primary); color: var(--text-normal); font-weight: 500;';
+                if (provider === this.options.defaultProvider) {
+                    option.selected = true;
+                }
+            });
+        } else {
+            // Fallback providers if options is empty
+            const fallbackProviders = ['gemini', 'groq'];
+            fallbackProviders.forEach(provider => {
+                const option = this.providerDropdown.createEl('option');
+                option.value = provider;
+                option.textContent = this.formatProviderName(provider);
+                option.style.cssText = 'background: var(--background-primary); color: var(--text-normal); font-weight: 500;';
+                if (provider === 'gemini') {
+                    option.selected = true;
+                }
+            });
+        }
+
+        // Model label
+        const modelLabel = section.createEl('label');
+        modelLabel.textContent = 'AI Model';
+        modelLabel.style.cssText = providerLabel.style.cssText;
+
+        // Model dropdown
+        this.modelDropdown = section.createEl('select');
+        this.modelDropdown.setAttribute('aria-label', 'AI Model');
+        this.modelDropdown.style.cssText = this.providerDropdown.style.cssText;
+        this.modelDropdown.style.marginBottom = '0';
+        this.modelDropdown.className = 'ytc-model-select';
+
+        // Add model options with better labels
+        const models = [
+            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Latest)' },
+            { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+            { value: 'gpt-4', label: 'GPT-4' },
+            { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+        ];
+
+        models.forEach(model => {
+            const option = this.modelDropdown.createEl('option');
+            option.value = model.value;
+            option.textContent = model.label;
+            option.style.cssText = 'background: var(--background-primary); color: var(--text-normal); font-weight: 500;';
+            if (model.value === this.options.defaultModel) {
+                option.selected = true;
             }
-        };
-
-        // Also try event listener
-        this.drawerToggle.addEventListener('click', (e) => {
-            console.log('Click event fired!', e);
-            e.preventDefault();
-            e.stopPropagation();
         });
+
+        // Focus effects
+        [this.providerDropdown, this.modelDropdown].forEach(dropdown => {
+            dropdown.addEventListener('focus', () => {
+                dropdown.style.borderColor = 'var(--interactive-accent)';
+                dropdown.style.outline = 'none';
+            });
+            dropdown.addEventListener('blur', () => {
+                dropdown.style.borderColor = 'var(--background-modifier-border)';
+            });
+        });
+    }
+
+    /**
+     * Create streamlined controls section
+     */
+    private createStreamlinedControlsSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.style.cssText = `
+            background: var(--background-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--background-modifier-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        `;
+
+        // Add hover effect
+        section.addEventListener('mouseenter', () => {
+            section.style.borderColor = 'var(--interactive-accent)';
+            section.style.transform = 'translateY(-2px)';
+            section.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+        });
+        section.addEventListener('mouseleave', () => {
+            section.style.borderColor = 'var(--background-modifier-border)';
+            section.style.transform = 'translateY(0)';
+            section.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        });
+
+        const header = section.createDiv();
+        header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">⚙️</span>Model Parameters';
+        header.style.cssText = 'font-weight: 600; margin-bottom: 20px; color: var(--text-normal);';
+
+        // Max Tokens
+        const tokensControl = section.createDiv();
+        tokensControl.style.cssText = 'margin-bottom: 20px;';
+
+        const tokensLabel = tokensControl.createDiv();
+        tokensLabel.innerHTML = '📊 Max Tokens: <span style="color: var(--interactive-accent); font-weight: 600;">4096</span>';
+        tokensLabel.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;';
+
+        this.maxTokensSlider = tokensControl.createEl('input');
+        this.maxTokensSlider.type = 'range';
+        this.maxTokensSlider.min = '256';
+        this.maxTokensSlider.max = '8192';
+        this.maxTokensSlider.step = '256';
+        this.maxTokensSlider.value = '4096';
+        this.maxTokensSlider.className = 'ytc-slider-enhanced';
+        this.maxTokensSlider.style.cssText = 'width: 100%; height: 6px;';
+
+        this.maxTokensSlider.addEventListener('input', (e) => {
+            const value = (e.target as HTMLInputElement).value;
+            (tokensLabel.querySelector('span') as HTMLSpanElement).textContent = value;
+            this.maxTokensSlider.style.setProperty('--value', `${(parseInt(value) - 256) / (8192 - 256) * 100}%`);
+        });
+
+        // Temperature
+        const tempControl = section.createDiv();
+
+        const tempLabel = tempControl.createDiv();
+        tempLabel.innerHTML = '🌡️ Temperature: <span style="color: var(--interactive-accent); font-weight: 600;">0.5</span>';
+        tempLabel.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;';
+
+        this.temperatureSlider = tempControl.createEl('input');
+        this.temperatureSlider.type = 'range';
+        this.temperatureSlider.min = '0';
+        this.temperatureSlider.max = '2';
+        this.temperatureSlider.step = '0.1';
+        this.temperatureSlider.value = '0.5';
+        this.temperatureSlider.className = 'ytc-slider-enhanced';
+        this.temperatureSlider.style.cssText = 'width: 100%; height: 6px;';
+
+        this.temperatureSlider.addEventListener('input', (e) => {
+            const value = (e.target as HTMLInputElement).value;
+            (tempLabel.querySelector('span') as HTMLSpanElement).textContent = value;
+            this.temperatureSlider.style.setProperty('--value', `${(parseFloat(value) / 2) * 100}%`);
+        });
+
+        // Initialize slider values
+        this.maxTokensSlider.style.setProperty('--value', '50%');
+        this.temperatureSlider.style.setProperty('--value', '25%');
+    }
+
+    /**
+     * Create streamlined performance section
+     */
+    private createStreamlinedPerformanceSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.style.cssText = `
+            background: var(--background-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--background-modifier-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        `;
+
+        // Add hover effect
+        section.addEventListener('mouseenter', () => {
+            section.style.borderColor = 'var(--interactive-accent)';
+            section.style.transform = 'translateY(-2px)';
+            section.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+        });
+        section.addEventListener('mouseleave', () => {
+            section.style.borderColor = 'var(--background-modifier-border)';
+            section.style.transform = 'translateY(0)';
+            section.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        });
+
+        const header = section.createDiv();
+        header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">⚡</span>Performance';
+        header.style.cssText = 'font-weight: 600; margin-bottom: 16px; color: var(--text-normal);';
+
+        // Performance mode selector
+        const modes = ['Fast', 'Balanced', 'Quality'];
+        const modeButtons = section.createDiv();
+        modeButtons.style.cssText = 'display: flex; gap: 8px; margin-bottom: 16px;';
+
+        modes.forEach((mode, index) => {
+            const btn = modeButtons.createEl('button');
+            btn.textContent = mode;
+            btn.style.cssText = `
+                flex: 1;
+                padding: 10px;
+                border: 2px solid var(--background-modifier-border);
+                background: var(--background-primary);
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: var(--text-normal);
+            `;
+
+            if (index === 1) {
+                btn.style.borderColor = 'var(--interactive-accent)';
+                btn.style.background = 'var(--interactive-accent)';
+                btn.style.color = 'white';
+            }
+
+            btn.addEventListener('click', () => {
+                modeButtons.querySelectorAll('button').forEach(b => {
+                    b.style.borderColor = 'var(--background-modifier-border)';
+                    b.style.background = 'var(--background-primary)';
+                    b.style.color = 'var(--text-normal)';
+                });
+                btn.style.borderColor = 'var(--interactive-accent)';
+                btn.style.background = 'var(--interactive-accent)';
+                btn.style.color = 'white';
+            });
+        });
+
+        // Toggle switches
+        const toggles = [
+            { label: 'Parallel processing', checked: true },
+            { label: 'Multimodal analysis', checked: true }
+        ];
+
+        toggles.forEach(toggle => {
+            const toggleItem = section.createDiv();
+            toggleItem.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;';
+
+            const label = toggleItem.createEl('label');
+            label.textContent = toggle.label;
+            label.style.cssText = 'font-size: 0.9rem; cursor: pointer;';
+
+            const switchContainer = toggleItem.createDiv();
+            switchContainer.style.cssText = 'position: relative; width: 48px; height: 24px;';
+
+            const checkbox = switchContainer.createEl('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = toggle.checked;
+            checkbox.style.cssText = 'opacity: 0; width: 0; height: 0;';
+
+            const slider = switchContainer.createDiv();
+            slider.style.cssText = `
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: ${toggle.checked ? 'var(--interactive-accent)' : 'var(--background-modifier-border)'};
+                transition: 0.4s;
+                border-radius: 24px;
+            `;
+
+            const sliderKnob = slider.createDiv();
+            sliderKnob.style.cssText = `
+                position: absolute;
+                height: 18px;
+                width: 18px;
+                left: ${toggle.checked ? '26px' : '3px'};
+                bottom: 3px;
+                background-color: white;
+                transition: 0.4s;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            `;
+
+            checkbox.addEventListener('change', () => {
+                slider.style.backgroundColor = checkbox.checked ? 'var(--interactive-accent)' : 'var(--background-modifier-border)';
+                sliderKnob.style.left = checkbox.checked ? '26px' : '3px';
+            });
+        });
+    }
+
+    /**
+     * Create streamlined tips section
+     */
+    private createStreamlinedTipsSection(container: HTMLElement): void {
+        const section = container.createDiv();
+        section.style.cssText = `
+            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        `;
+
+        const header = section.createDiv();
+        header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">💡</span>Pro Tips';
+        header.style.cssText = 'font-weight: 600; margin-bottom: 16px; color: white;';
+
+        const tips = [
+            '⌨️ Press <kbd>Ctrl+Enter</kbd> to process instantly',
+            '🎯 Use "Detailed" for comprehensive analysis',
+            '⚡ Enable "Fast" mode for quick results',
+            '🤖 Gemini 2.5 Pro offers the best quality'
+        ];
+
+        tips.forEach(tip => {
+            const tipItem = section.createDiv();
+            tipItem.innerHTML = tip;
+            tipItem.style.cssText = 'margin-bottom: 12px; font-size: 0.85rem; line-height: 1.4; opacity: 0.95;';
+        });
+    }
+
+    /**
+     * Create ripple effect for buttons
+     */
+    private createRippleEffect(event: MouseEvent, button: HTMLElement): void {
+        const ripple = document.createElement('span');
+        ripple.style.cssText = `
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.6);
+            transform: scale(0);
+            animation: ripple 0.6s ease-out;
+            pointer-events: none;
+        `;
+
+        const rect = button.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = (event.clientX - rect.left - size / 2) + 'px';
+        ripple.style.top = (event.clientY - rect.top - size / 2) + 'px';
+
+        button.appendChild(ripple);
+
+        setTimeout(() => ripple.remove(), 600);
+    }
+
+    /**
+     * Streamlined drawer toggle with smooth animations
+     */
+    private toggleDrawer(): void {
+        this.isDrawerOpen = !this.isDrawerOpen;
+        const chevron = this.drawerToggle.querySelector('.drawer-chevron') as HTMLElement;
+
+        if (this.isDrawerOpen) {
+            // Open drawer
+            this.drawerContent.style.maxHeight = '700px';
+            this.drawerContent.style.opacity = '1';
+
+            if (chevron) chevron.style.transform = 'rotate(90deg)';
+
+            // Smooth scroll to top of drawer
+            setTimeout(() => {
+                this.drawerContent.scroll({ top: 0, behavior: 'smooth' });
+            }, 100);
+
+        } else {
+            // Close drawer
+            this.drawerContent.style.maxHeight = '0px';
+            this.drawerContent.style.opacity = '0';
+
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
     }
 
     
@@ -2108,6 +3339,12 @@ export class YouTubeUrlModal extends BaseModal {
         // Clean up retry event listener
         window.removeEventListener('yt-clipper-retry-processing', this.handleRetry);
 
+        // Clean up keyboard shortcuts
+        if (this.keydownHandler) {
+            document.removeEventListener('keydown', this.keydownHandler);
+            this.keydownHandler = undefined;
+        }
+
         // Call parent cleanup
         super.onClose();
     }
@@ -2401,4 +3638,298 @@ export class YouTubeUrlModal extends BaseModal {
             this.metadataContainer.style.display = 'none';
         }
     }
+
+    /**
+     * Setup keyboard shortcuts for enhanced productivity
+     */
+    private setupKeyboardShortcuts(): void {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Don't intercept shortcuts when typing in input fields
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            // Ctrl/Cmd + Enter: Process video
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (this.processButton && !this.processButton.disabled) {
+                    this.processButton.click();
+                }
+            }
+
+            // Ctrl/Cmd + D: Toggle drawer
+            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+                e.preventDefault();
+                if (this.drawerToggle) {
+                    this.drawerToggle.click();
+                }
+            }
+
+            // Escape: Close modal
+            if (e.key === 'Escape') {
+                this.close();
+            }
+
+            // Ctrl/Cmd + K: Focus URL input
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                this.focusUrlInput();
+            }
+
+            // Alt + 1/2/3: Quick format selection
+            if (e.altKey) {
+                if (e.key === '1') {
+                    e.preventDefault();
+                    this.selectFormat('executive-summary');
+                } else if (e.key === '2') {
+                    e.preventDefault();
+                    this.selectFormat('detailed-guide');
+                } else if (e.key === '3') {
+                    e.preventDefault();
+                    this.selectFormat('brief');
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+
+        // Store handler for cleanup
+        this.keydownHandler = handleKeyDown;
+    }
+
+    /**
+     * Show user insights and recommendations
+     */
+    private showUserInsights(): void {
+        const insights = UserPreferencesService.getUserInsights();
+
+        // Only show insights for users with some usage
+        if (insights.usageLevel === 'light') {
+            return;
+        }
+
+        // Create insights panel
+        const insightsPanel = this.contentEl.createDiv();
+        insightsPanel.className = 'ytc-insights-panel';
+        insightsPanel.style.cssText = `
+            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease-out;
+        `;
+
+        const icon = insightsPanel.createSpan();
+        icon.textContent = '💡';
+        icon.style.fontSize = '1.2rem';
+
+        const content = insightsPanel.createDiv();
+        content.style.flex = '1';
+
+        const title = content.createDiv();
+        title.textContent = 'Smart Suggestions';
+        title.style.fontWeight = '600';
+        title.style.marginBottom = '4px';
+
+        const suggestions = content.createDiv();
+        suggestions.style.opacity = '0.9';
+        suggestions.style.fontSize = '0.8rem';
+
+        // Generate personalized suggestions
+        const suggestionTexts = [];
+
+        if (insights.favoriteFormat !== 'detailed-guide') {
+            suggestionTexts.push(`Try ${insights.favoriteFormat.replace('-', ' ')} format`);
+        }
+
+        if (insights.usageLevel === 'heavy' && insights.recommendations.length > 0) {
+            suggestionTexts.push(insights.recommendations[0]);
+        }
+
+        if (suggestionTexts.length > 0) {
+            suggestions.textContent = suggestionTexts.join(' • ');
+
+            // Auto-hide after 8 seconds
+            setTimeout(() => {
+                insightsPanel.style.animation = 'slideUp 0.3s ease-out';
+                setTimeout(() => insightsPanel.remove(), 300);
+            }, 8000);
+        } else {
+            insightsPanel.remove();
+        }
+
+        // Add slide animations
+        if (!document.getElementById('ytc-insights-animations')) {
+            const animStyle = document.createElement('style');
+            animStyle.id = 'ytc-insights-animations';
+            animStyle.textContent = `
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes slideUp {
+                    from { opacity: 1; transform: translateY(0); }
+                    to { opacity: 0; transform: translateY(-10px); }
+                }
+            `;
+            document.head.appendChild(animStyle);
+        }
+    }
+
+    /**
+     * Select format programmatically
+     */
+    private selectFormat(format: OutputFormat): void {
+        const formatButtons = this.contentEl.querySelectorAll('.ytc-format-button');
+        formatButtons.forEach(button => {
+            const buttonFormat = button.getAttribute('data-format');
+            if (buttonFormat === format) {
+                (button as HTMLButtonElement).click();
+            }
+        });
+    }
+
+    /**
+     * Enhanced paste functionality with smart URL detection
+     */
+    private async handleSmartPaste(): Promise<void> {
+        try {
+            const text = await navigator.clipboard.readText();
+            const trimmed = text.trim();
+
+            // Check if it's a YouTube URL
+            if (ValidationUtils.isValidYouTubeUrl(trimmed)) {
+                this.setUrl(trimmed);
+                new Notice('YouTube URL detected and pasted!');
+
+                // Auto-focus process button if URL is valid
+                if (this.processButton && !this.processButton.disabled) {
+                    setTimeout(() => this.processButton?.focus(), 100);
+                }
+            } else {
+                // Try to extract YouTube URL from text
+                const urlMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+                if (urlMatch) {
+                    const videoId = urlMatch[1];
+                    const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                    this.setUrl(fullUrl);
+                    new Notice('YouTube URL extracted from clipboard!');
+                } else {
+                    new Notice('No YouTube URL found in clipboard');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to read clipboard:', error);
+            new Notice('Failed to access clipboard');
+        }
+    }
+
+    /**
+     * Add quick action buttons for common tasks
+     */
+    private addQuickActions(): void {
+        const quickActionsContainer = this.contentEl.createDiv();
+        quickActionsContainer.style.cssText = `
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        `;
+
+        // Paste from clipboard button
+        const pasteBtn = quickActionsContainer.createEl('button');
+        pasteBtn.innerHTML = '📋 Paste URL';
+        pasteBtn.style.cssText = `
+            padding: 6px 12px;
+            background: var(--background-secondary);
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        `;
+
+        pasteBtn.addEventListener('click', () => this.handleSmartPaste());
+        pasteBtn.addEventListener('mouseenter', () => {
+            pasteBtn.style.background = 'var(--background-modifier-hover)';
+        });
+        pasteBtn.addEventListener('mouseleave', () => {
+            pasteBtn.style.background = 'var(--background-secondary)';
+        });
+
+        // Clear URL button
+        const clearBtn = quickActionsContainer.createEl('button');
+        clearBtn.innerHTML = '🗑️ Clear';
+        clearBtn.style.cssText = pasteBtn.style.cssText;
+
+        clearBtn.addEventListener('click', () => {
+            this.setUrl('');
+            this.focusUrlInput();
+        });
+        clearBtn.addEventListener('mouseenter', () => {
+            clearBtn.style.background = 'var(--background-modifier-hover)';
+        });
+        clearBtn.addEventListener('mouseleave', () => {
+            clearBtn.style.background = 'var(--background-secondary)';
+        });
+
+        // Keyboard shortcuts help button
+        const helpBtn = quickActionsContainer.createEl('button');
+        helpBtn.innerHTML = '⌨️ Shortcuts';
+        helpBtn.style.cssText = pasteBtn.style.cssText;
+
+        helpBtn.addEventListener('click', () => {
+            this.showShortcutsHelp();
+        });
+        helpBtn.addEventListener('mouseenter', () => {
+            helpBtn.style.background = 'var(--background-modifier-hover)';
+        });
+        helpBtn.addEventListener('mouseleave', () => {
+            helpBtn.style.background = 'var(--background-secondary)';
+        });
+    }
+
+    /**
+     * Show keyboard shortcuts help modal
+     */
+    private showShortcutsHelp(): void {
+        const helpContent = `
+            <h4>⌨️ Keyboard Shortcuts</h4>
+            <div style="display: grid; gap: 8px; margin-top: 12px;">
+                <div><kbd>Ctrl/Cmd + Enter</kbd> - Process video</div>
+                <div><kbd>Ctrl/Cmd + D</kbd> - Toggle advanced settings</div>
+                <div><kbd>Ctrl/Cmd + K</kbd> - Focus URL input</div>
+                <div><kbd>Alt + 1</kbd> - Select Executive Summary</div>
+                <div><kbd>Alt + 2</kbd> - Select Detailed Guide</div>
+                <div><kbd>Alt + 3</kbd> - Select Brief format</div>
+                <div><kbd>Escape</kbd> - Close modal</div>
+            </div>
+            <p style="margin-top: 12px; font-size: 0.8rem; opacity: 0.8;">
+                Press <kbd>Escape</kbd> or click outside to close this help.
+            </p>
+        `;
+
+        new Notice('Keyboard shortcuts: Ctrl+Enter to process, Ctrl+D for settings, Alt+1/2/3 for formats', 8000);
+    }
+
+    /**
+     * Format provider name for display
+     */
+    private formatProviderName(provider: string): string {
+        const providerNames: Record<string, string> = {
+            'gemini': 'Google Gemini',
+            'groq': 'Groq',
+            'openai': 'OpenAI',
+            'anthropic': 'Anthropic Claude'
+        };
+        return providerNames[provider.toLowerCase()] || provider.charAt(0).toUpperCase() + provider.slice(1);
+    }
+
+    // Store keydown handler for cleanup
+    private keydownHandler?: (e: KeyboardEvent) => void;
 }

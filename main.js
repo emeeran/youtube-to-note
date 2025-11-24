@@ -1764,6 +1764,227 @@ var SaveConfirmationModal = class extends import_obsidian3.Modal {
 var import_obsidian5 = require("obsidian");
 init_base_modal();
 init_api();
+
+// src/services/user-preferences-service.ts
+var UserPreferencesService = class {
+  /**
+   * Load user preferences from storage
+   */
+  static loadPreferences() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { ...this.DEFAULT_PREFERENCES, ...parsed };
+      }
+    } catch (error) {
+      console.warn("Failed to load user preferences:", error);
+    }
+    return { ...this.DEFAULT_PREFERENCES };
+  }
+  /**
+   * Save user preferences to storage
+   */
+  static savePreferences(preferences) {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(preferences));
+    } catch (error) {
+      console.warn("Failed to save user preferences:", error);
+    }
+  }
+  /**
+   * Get a specific preference value
+   */
+  static getPreference(key) {
+    const preferences = this.loadPreferences();
+    return preferences[key];
+  }
+  /**
+   * Set a specific preference value
+   */
+  static setPreference(key, value) {
+    const preferences = this.loadPreferences();
+    preferences[key] = value;
+    this.savePreferences(preferences);
+  }
+  /**
+   * Update last used settings
+   */
+  static updateLastUsed(settings) {
+    const preferences = this.loadPreferences();
+    if (settings.format) {
+      preferences.lastFormat = settings.format;
+      preferences.formatUsage[settings.format] = (preferences.formatUsage[settings.format] || 0) + 1;
+    }
+    if (settings.provider) {
+      preferences.lastProvider = settings.provider;
+      preferences.providerUsage[settings.provider] = (preferences.providerUsage[settings.provider] || 0) + 1;
+    }
+    if (settings.model)
+      preferences.lastModel = settings.model;
+    if (settings.maxTokens)
+      preferences.lastMaxTokens = settings.maxTokens;
+    if (settings.temperature)
+      preferences.lastTemperature = settings.temperature;
+    if (settings.performanceMode)
+      preferences.lastPerformanceMode = settings.performanceMode;
+    if (settings.parallelProcessing !== void 0)
+      preferences.lastParallelProcessing = settings.parallelProcessing;
+    if (settings.multimodal !== void 0)
+      preferences.lastMultimodal = settings.multimodal;
+    preferences.lastUsed = (/* @__PURE__ */ new Date()).toISOString();
+    preferences.totalProcessed = (preferences.totalProcessed || 0) + 1;
+    this.savePreferences(preferences);
+  }
+  /**
+   * Get smart default format based on usage patterns
+   */
+  static getSmartDefaultFormat() {
+    const preferences = this.loadPreferences();
+    if (preferences.preferredFormat) {
+      return preferences.preferredFormat;
+    }
+    const formatUsage = preferences.formatUsage || {};
+    let maxUsage = 0;
+    let mostUsedFormat = "executive-summary";
+    for (const [format, count] of Object.entries(formatUsage)) {
+      if (count > maxUsage) {
+        maxUsage = count;
+        mostUsedFormat = format;
+      }
+    }
+    return mostUsedFormat;
+  }
+  /**
+   * Get smart default provider based on usage patterns
+   */
+  static getSmartDefaultProvider() {
+    const preferences = this.loadPreferences();
+    if (preferences.preferredProvider) {
+      return preferences.preferredProvider;
+    }
+    const providerUsage = preferences.providerUsage || {};
+    let maxUsage = 0;
+    let mostUsedProvider;
+    for (const [provider, count] of Object.entries(providerUsage)) {
+      if (count > maxUsage) {
+        maxUsage = count;
+        mostUsedProvider = provider;
+      }
+    }
+    return mostUsedProvider;
+  }
+  /**
+   * Get smart defaults for model parameters based on user history
+   */
+  static getSmartDefaultModelParameters() {
+    const preferences = this.loadPreferences();
+    return {
+      maxTokens: preferences.lastMaxTokens || 4096,
+      temperature: preferences.lastTemperature || 0.5
+    };
+  }
+  /**
+   * Get smart default performance settings
+   */
+  static getSmartDefaultPerformanceSettings() {
+    const preferences = this.loadPreferences();
+    return {
+      mode: preferences.lastPerformanceMode || "balanced",
+      parallel: preferences.lastParallelProcessing || false,
+      multimodal: preferences.lastMultimodal || true
+    };
+  }
+  /**
+   * Analyze user behavior and suggest optimizations
+   */
+  static getUserInsights() {
+    const preferences = this.loadPreferences();
+    const formatUsage = preferences.formatUsage || {};
+    const providerUsage = preferences.providerUsage || {};
+    let favoriteFormat = "executive-summary";
+    let maxFormatUsage = 0;
+    for (const [format, count] of Object.entries(formatUsage)) {
+      if (count > maxFormatUsage) {
+        maxFormatUsage = count;
+        favoriteFormat = format;
+      }
+    }
+    let favoriteProvider = "";
+    let maxProviderUsage = 0;
+    for (const [provider, count] of Object.entries(providerUsage)) {
+      if (count > maxProviderUsage) {
+        maxProviderUsage = count;
+        favoriteProvider = provider;
+      }
+    }
+    const totalProcessed = preferences.totalProcessed || 0;
+    const usageLevel = totalProcessed < 5 ? "light" : totalProcessed < 20 ? "moderate" : "heavy";
+    const recommendations = [];
+    if (usageLevel === "heavy" && !preferences.showAdvancedSettings) {
+      recommendations.push("Consider enabling advanced settings for more control");
+    }
+    if (!preferences.autoSelectProvider && Object.keys(providerUsage).length > 1) {
+      recommendations.push("Enable auto-select provider to speed up your workflow");
+    }
+    if (!preferences.showPreview && totalProcessed > 10) {
+      recommendations.push("Enable video preview for better context");
+    }
+    return {
+      favoriteFormat,
+      favoriteProvider,
+      averageTokens: preferences.lastMaxTokens || 4096,
+      averageTemperature: preferences.lastTemperature || 0.5,
+      usageLevel,
+      recommendations
+    };
+  }
+  /**
+   * Reset preferences to defaults
+   */
+  static resetPreferences() {
+    localStorage.removeItem(this.STORAGE_KEY);
+  }
+  /**
+   * Export preferences for backup
+   */
+  static exportPreferences() {
+    const preferences = this.loadPreferences();
+    return JSON.stringify(preferences, null, 2);
+  }
+  /**
+   * Import preferences from backup
+   */
+  static importPreferences(jsonData) {
+    try {
+      const preferences = JSON.parse(jsonData);
+      this.savePreferences({ ...this.DEFAULT_PREFERENCES, ...preferences });
+      return true;
+    } catch (error) {
+      console.error("Failed to import preferences:", error);
+      return false;
+    }
+  }
+};
+UserPreferencesService.STORAGE_KEY = "yt-clipper-user-preferences";
+UserPreferencesService.DEFAULT_PREFERENCES = {
+  autoSelectProvider: true,
+  showPreview: true,
+  enableKeyboardShortcuts: true,
+  enableAnimations: true,
+  autoFocusUrl: true,
+  showAdvancedSettings: false,
+  compactMode: false,
+  formatUsage: {
+    brief: 0,
+    "executive-summary": 0,
+    "detailed-guide": 0,
+    custom: 0
+  },
+  providerUsage: {}
+};
+
+// src/youtube-url-modal.ts
 var YouTubeUrlModal = class extends BaseModal {
   constructor(app, options) {
     super(app);
@@ -1783,21 +2004,40 @@ var YouTubeUrlModal = class extends BaseModal {
     // Model parameters
     this.maxTokens = 4096;
     this.temperature = 0.5;
+    // Theme state
+    this.isDarkMode = false;
     this.handleRetry = () => {
       if (this.processButton && !this.processButton.disabled) {
         this.handleProcess();
       }
     };
     this.url = options.initialUrl || "";
-    this.performanceMode = options.performanceMode || "balanced";
-    this.enableParallelProcessing = options.enableParallelProcessing || false;
-    this.preferMultimodal = options.preferMultimodal || false;
-    this.maxTokens = options.defaultMaxTokens || 4096;
-    this.temperature = options.defaultTemperature || 0.5;
+    const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
+    const smartModelParams = UserPreferencesService.getSmartDefaultModelParameters();
+    this.performanceMode = options.performanceMode || smartDefaults.mode;
+    this.enableParallelProcessing = options.enableParallelProcessing !== void 0 ? options.enableParallelProcessing : smartDefaults.parallel;
+    this.preferMultimodal = options.preferMultimodal !== void 0 ? options.preferMultimodal : smartDefaults.multimodal;
+    this.maxTokens = options.defaultMaxTokens || smartModelParams.maxTokens;
+    this.temperature = options.defaultTemperature || smartModelParams.temperature;
+    UserPreferencesService.updateLastUsed({
+      format: "detailed-guide",
+      provider: options.defaultProvider,
+      model: options.defaultModel,
+      maxTokens: this.maxTokens,
+      temperature: this.temperature,
+      performanceMode: this.performanceMode,
+      parallelProcessing: this.enableParallelProcessing,
+      multimodal: this.preferMultimodal
+    });
+    const savedTheme = localStorage.getItem("ytc-theme-mode");
+    this.isDarkMode = savedTheme !== "light";
+    console.log("Theme initialized:", { savedTheme, isDarkMode: this.isDarkMode });
   }
   onOpen() {
     this.createModalContent();
     this.setupEventHandlers();
+    this.setupKeyboardShortcuts();
+    this.showUserInsights();
     if (this.options.initialUrl) {
       if (this.url.trim() === this.options.initialUrl.trim()) {
         console.debug("YouTubeUrlModal: Same URL already set, preventing cycle");
@@ -1814,16 +2054,407 @@ var YouTubeUrlModal = class extends BaseModal {
     this.focusUrlInput();
   }
   /**
-   * Create modal content
+   * Create streamlined modal content
    */
   createModalContent() {
     this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
-    this.createUrlInputSection();
-    this.createPerformanceSection();
-    this.createFormatSelectionSection();
+    this.createThemeToggle();
+    this.createStreamlinedUrlSection();
+    this.createQuickFormatSection();
     this.createAdvancedSettingsDrawer();
     this.createProgressSection();
     this.createActionButtons();
+  }
+  /**
+   * Create theme toggle component
+   */
+  createThemeToggle() {
+    const themeContainer = this.contentEl.createDiv();
+    themeContainer.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin: 8px 0 16px 0;
+            padding: 0 4px;
+        `;
+    const toggleWrapper = themeContainer.createDiv();
+    toggleWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--background-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--background-modifier-border);
+            transition: all 0.3s ease;
+        `;
+    toggleWrapper.addEventListener("mouseenter", () => {
+      toggleWrapper.style.borderColor = "var(--interactive-accent)";
+      toggleWrapper.style.boxShadow = "0 2px 8px rgba(99, 102, 241, 0.2)";
+    });
+    toggleWrapper.addEventListener("mouseleave", () => {
+      toggleWrapper.style.borderColor = "var(--background-modifier-border)";
+      toggleWrapper.style.boxShadow = "none";
+    });
+    const sunIcon = toggleWrapper.createSpan();
+    sunIcon.innerHTML = "\u2600\uFE0F";
+    sunIcon.style.cssText = `
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            opacity: ${this.isDarkMode ? "0.5" : "1"};
+        `;
+    const themeSwitch = toggleWrapper.createEl("input");
+    themeSwitch.type = "checkbox";
+    themeSwitch.checked = this.isDarkMode;
+    themeSwitch.style.cssText = `
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        `;
+    const slider = toggleWrapper.createDiv();
+    slider.style.cssText = `
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: ${this.isDarkMode ? "var(--interactive-accent)" : "var(--text-muted)"};
+            border-radius: 24px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        `;
+    const knob = slider.createDiv();
+    knob.style.cssText = `
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: ${this.isDarkMode ? "24px" : "3px"};
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        `;
+    const moonIcon = toggleWrapper.createSpan();
+    moonIcon.innerHTML = "\u{1F319}";
+    moonIcon.style.cssText = `
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            opacity: ${this.isDarkMode ? "1" : "0.5"};
+        `;
+    const updateTheme = (isDark) => {
+      this.isDarkMode = isDark;
+      themeSwitch.checked = isDark;
+      slider.style.background = isDark ? "var(--interactive-accent)" : "var(--text-muted)";
+      knob.style.left = isDark ? "24px" : "3px";
+      sunIcon.style.opacity = isDark ? "0.5" : "1";
+      moonIcon.style.opacity = isDark ? "1" : "0.5";
+      this.applyTheme(isDark);
+      localStorage.setItem("ytc-theme-mode", isDark ? "dark" : "light");
+    };
+    slider.addEventListener("click", () => {
+      updateTheme(!this.isDarkMode);
+    });
+    themeSwitch.addEventListener("change", () => {
+      updateTheme(themeSwitch.checked);
+    });
+    this.themeElements = {
+      slider,
+      knob,
+      sunIcon,
+      moonIcon,
+      updateTheme
+    };
+  }
+  /**
+   * Apply theme to modal
+   */
+  applyTheme(isDark) {
+    var _a, _b, _c;
+    if (!document.getElementById("ytc-theme-styles")) {
+      const themeStyle = document.createElement("style");
+      themeStyle.id = "ytc-theme-styles";
+      themeStyle.textContent = `
+                .ytc-modal-light {
+                    --ytc-bg-primary: #ffffff;
+                    --ytc-bg-secondary: #f8f9fa;
+                    --ytc-bg-tertiary: #e9ecef;
+                    --ytc-text-primary: #212529;
+                    --ytc-text-secondary: #6c757d;
+                    --ytc-text-muted: #adb5bd;
+                    --ytc-border: #dee2e6;
+                    --ytc-accent: #0066cc;
+                    --ytc-accent-hover: #0056b3;
+                    --ytc-shadow: rgba(0, 0, 0, 0.1);
+                }
+
+                .ytc-modal-dark {
+                    --ytc-bg-primary: #1a1a1a;
+                    --ytc-bg-secondary: #2d2d2d;
+                    --ytc-bg-tertiary: #404040;
+                    --ytc-text-primary: #ffffff;
+                    --ytc-text-secondary: #e0e0e0;
+                    --ytc-text-muted: #a0a0a0;
+                    --ytc-border: #404040;
+                    --ytc-accent: #4a9eff;
+                    --ytc-accent-hover: #3a8eef;
+                    --ytc-shadow: rgba(0, 0, 0, 0.3);
+                }
+
+                .ytc-themed-modal {
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-themed-modal .modal-content {
+                    background: var(--ytc-bg-primary) !important;
+                    color: var(--ytc-text-primary) !important;
+                }
+
+                .ytc-themed-modal input,
+                .ytc-themed-modal select,
+                .ytc-themed-modal textarea {
+                    background: var(--ytc-bg-secondary) !important;
+                    color: var(--ytc-text-primary) !important;
+                    border-color: var(--ytc-border) !important;
+                }
+
+                .ytc-themed-modal input:focus,
+                .ytc-themed-modal select:focus,
+                .ytc-themed-modal textarea:focus {
+                    border-color: var(--ytc-accent) !important;
+                    box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1) !important;
+                }
+
+                .ytc-themed-modal button {
+                    background: var(--ytc-accent) !important;
+                    color: white !important;
+                    border-color: var(--ytc-accent) !important;
+                }
+
+                .ytc-themed-modal button:hover {
+                    background: var(--ytc-accent-hover) !important;
+                }
+
+                .ytc-themed-modal .ytc-section-card,
+                .ytc-themed-modal .ytc-streamlined-drawer {
+                    background: var(--ytc-bg-secondary) !important;
+                    border-color: var(--ytc-border) !important;
+                }
+
+                .ytc-themed-modal .ytc-drawer-content-streamlined {
+                    background: var(--ytc-bg-primary) !important;
+                }
+            `;
+      document.head.appendChild(themeStyle);
+    }
+    (_a = this.modalEl) == null ? void 0 : _a.classList.add("ytc-themed-modal");
+    (_b = this.modalEl) == null ? void 0 : _b.classList.toggle("ytc-modal-light", !isDark);
+    (_c = this.modalEl) == null ? void 0 : _c.classList.toggle("ytc-modal-dark", isDark);
+    if (this.headerEl) {
+      this.headerEl.style.color = "var(--ytc-text-primary)";
+      this.headerEl.style.background = "var(--ytc-bg-secondary)";
+      this.headerEl.style.borderBottom = `1px solid var(--ytc-border)`;
+    }
+  }
+  /**
+   * Create streamlined URL section with integrated quick actions
+   */
+  createStreamlinedUrlSection() {
+    const urlContainer = this.contentEl.createDiv();
+    urlContainer.className = "ytc-streamlined-url-section";
+    urlContainer.style.cssText = `
+            margin: 16px 0;
+            position: relative;
+        `;
+    const inputWrapper = urlContainer.createDiv();
+    inputWrapper.style.cssText = `
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+    this.urlInput = inputWrapper.createEl("input");
+    this.urlInput.type = "url";
+    this.urlInput.placeholder = "\u{1F3AC} Paste YouTube URL here...";
+    this.urlInput.style.cssText = `
+            flex: 1;
+            padding: 14px 16px;
+            border: 2px solid var(--background-modifier-border);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            transition: all 0.3s ease;
+            outline: none;
+        `;
+    const pasteBtn = inputWrapper.createEl("button");
+    pasteBtn.innerHTML = "\u{1F4CB}";
+    pasteBtn.style.cssText = `
+            padding: 12px;
+            background: var(--interactive-accent);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+            min-width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+    pasteBtn.addEventListener("click", () => this.handleSmartPaste());
+    pasteBtn.addEventListener("mouseenter", () => {
+      pasteBtn.style.transform = "scale(1.05)";
+      pasteBtn.style.background = "var(--interactive-accent-hover)";
+    });
+    pasteBtn.addEventListener("mouseleave", () => {
+      pasteBtn.style.transform = "scale(1)";
+      pasteBtn.style.background = "var(--interactive-accent)";
+    });
+    this.urlInput.addEventListener("focus", () => {
+      this.urlInput.style.borderColor = "var(--interactive-accent)";
+      this.urlInput.style.boxShadow = "0 0 0 4px rgba(99, 102, 241, 0.1)";
+    });
+    this.urlInput.addEventListener("blur", () => {
+      this.urlInput.style.borderColor = "var(--background-modifier-border)";
+      this.urlInput.style.boxShadow = "none";
+    });
+    this.metadataContainer = urlContainer.createDiv();
+    this.metadataContainer.className = "yt-preview-metadata";
+    this.metadataContainer.style.cssText = `
+            margin-top: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--background-secondary), var(--background-primary));
+            border-radius: 10px;
+            border: 1px solid var(--background-modifier-border);
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        `;
+    const metadataContent = this.metadataContainer.createDiv();
+    metadataContent.style.cssText = "display: flex; gap: 12px; align-items: center;";
+    const videoIcon = metadataContent.createSpan();
+    videoIcon.textContent = "\u{1F3A5}";
+    videoIcon.style.cssText = "font-size: 1.5rem;";
+    const textContent = metadataContent.createDiv();
+    textContent.style.flex = "1";
+    const titleEl = textContent.createDiv();
+    titleEl.className = "yt-preview-title";
+    titleEl.style.cssText = "font-weight: 600; margin-bottom: 4px; color: var(--text-normal);";
+    const channelEl = textContent.createDiv();
+    channelEl.className = "yt-preview-channel";
+    channelEl.style.cssText = "font-size: 0.85rem; color: var(--text-muted);";
+  }
+  /**
+   * Create quick format selection with visual pills
+   */
+  createQuickFormatSection() {
+    const formatContainer = this.contentEl.createDiv();
+    formatContainer.className = "ytc-quick-format-section";
+    formatContainer.style.cssText = `
+            margin: 20px 0;
+        `;
+    const label = formatContainer.createDiv();
+    label.textContent = "\u{1F4DD} Output Format";
+    label.style.cssText = `
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-normal);
+            font-size: 0.95rem;
+        `;
+    const pillsContainer = formatContainer.createDiv();
+    pillsContainer.style.cssText = `
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        `;
+    const formats = [
+      { id: "executive-summary", icon: "\u{1F4CB}", label: "Executive", desc: "Quick insights" },
+      { id: "detailed-guide", icon: "\u{1F4D6}", label: "Detailed", desc: "Comprehensive analysis" },
+      { id: "brief", icon: "\u26A1", label: "Brief", desc: "Key points only" }
+    ];
+    formats.forEach((format, index) => {
+      const pill = pillsContainer.createEl("button");
+      pill.className = "ytc-format-pill";
+      pill.setAttribute("data-format", format.id);
+      pill.innerHTML = `
+                <span style="font-size: 1.2rem; margin-right: 6px;">${format.icon}</span>
+                <div style="text-align: left;">
+                    <div style="font-weight: 600; font-size: 0.9rem;">${format.label}</div>
+                    <div style="font-size: 0.75rem; opacity: 0.8;">${format.desc}</div>
+                </div>
+            `;
+      pill.style.cssText = `
+                padding: 12px 16px;
+                background: var(--background-secondary);
+                border: 2px solid var(--background-modifier-border);
+                border-radius: 12px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 140px;
+                text-align: left;
+                font-size: 0.85rem;
+                color: var(--text-normal);
+            `;
+      if (format.id === "detailed-guide") {
+        pill.style.borderColor = "var(--interactive-accent)";
+        pill.style.background = "var(--interactive-accent)";
+        pill.style.color = "white";
+        this.format = format.id;
+      }
+      pill.addEventListener("mouseenter", () => {
+        if (!pill.style.borderColor.includes("var(--interactive-accent)")) {
+          pill.style.borderColor = "var(--interactive-accent)";
+          pill.style.transform = "translateY(-2px)";
+          pill.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.2)";
+        }
+      });
+      pill.addEventListener("mouseleave", () => {
+        if (!pill.style.borderColor.includes("var(--interactive-accent)") || pill.style.background === "var(--interactive-accent)") {
+          pill.style.transform = "translateY(0)";
+          pill.style.boxShadow = "none";
+        }
+      });
+      pill.addEventListener("click", () => {
+        pillsContainer.querySelectorAll("button").forEach((p) => {
+          const btn = p;
+          btn.style.borderColor = "var(--background-modifier-border)";
+          btn.style.background = "var(--background-secondary)";
+          btn.style.color = "var(--text-normal)";
+        });
+        pill.style.borderColor = "var(--interactive-accent)";
+        pill.style.background = "var(--interactive-accent)";
+        pill.style.color = "white";
+        this.format = format.id;
+        this.updateProcessButtonState();
+      });
+    });
+    const customPill = pillsContainer.createEl("button");
+    customPill.innerHTML = `
+            <span style="font-size: 1.2rem; margin-right: 6px;">\u{1F3A8}</span>
+            <div style="text-align: left;">
+                <div style="font-weight: 600; font-size: 0.9rem;">Custom</div>
+                <div style="font-size: 0.75rem; opacity: 0.8;">Your own prompt</div>
+            </div>
+        `;
+    customPill.style.cssText = pillsContainer.children[0].getAttribute("style") || "";
+    customPill.addEventListener("click", () => {
+      pillsContainer.querySelectorAll("button").forEach((p) => {
+        const btn = p;
+        btn.style.borderColor = "var(--background-modifier-border)";
+        btn.style.background = "var(--background-secondary)";
+        btn.style.color = "var(--text-normal)";
+      });
+      customPill.style.borderColor = "var(--interactive-accent)";
+      customPill.style.background = "var(--interactive-accent)";
+      customPill.style.color = "white";
+      this.format = "custom";
+      this.updateProcessButtonState();
+      this.createCustomPromptSection();
+    });
   }
   /**
    * Create compact performance and speed settings section
@@ -2796,102 +3427,746 @@ var YouTubeUrlModal = class extends BaseModal {
     }
   }
   /**
-   * Create collapsible advanced settings drawer
+   * Create streamlined advanced settings drawer
    */
   createAdvancedSettingsDrawer() {
-    this.drawerToggle = this.contentEl.createEl("button");
-    this.drawerToggle.textContent = "\u{1F916} Advanced AI Settings \u25B6";
-    this.drawerToggle.style.width = "100%";
-    this.drawerToggle.style.padding = "10px";
-    this.drawerToggle.style.margin = "10px 0";
-    this.drawerToggle.style.backgroundColor = "var(--background-secondary)";
-    this.drawerToggle.style.border = "1px solid var(--background-modifier-border)";
-    this.drawerToggle.style.borderRadius = "5px";
-    this.drawerToggle.style.cursor = "pointer";
-    this.drawerToggle.style.fontSize = "14px";
-    this.drawerToggle.style.fontWeight = "bold";
-    this.drawerContent = this.contentEl.createDiv();
-    this.drawerContent.style.display = "none";
-    this.drawerContent.style.padding = "15px";
-    this.drawerContent.style.backgroundColor = "var(--background-primary)";
-    this.drawerContent.style.border = "1px solid var(--background-modifier-border)";
-    this.drawerContent.style.borderRadius = "5px";
-    this.drawerContent.style.marginBottom = "10px";
-    const title = this.drawerContent.createEl("h3");
-    title.textContent = "AI Configuration";
-    title.style.marginBottom = "15px";
-    const providerLabel = this.drawerContent.createEl("label");
-    providerLabel.textContent = "AI Provider:";
-    providerLabel.style.display = "block";
-    providerLabel.style.marginBottom = "5px";
-    this.providerDropdown = this.drawerContent.createEl("select");
-    this.providerDropdown.style.width = "100%";
-    this.providerDropdown.style.padding = "5px";
-    this.providerDropdown.style.marginBottom = "10px";
+    this.addEnhancedStyles();
+    const drawerContainer = this.contentEl.createDiv();
+    drawerContainer.className = "ytc-streamlined-drawer";
+    drawerContainer.style.cssText = `
+            margin: 20px 0;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.2);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 1px solid var(--interactive-accent);
+        `;
+    this.drawerToggle = drawerContainer.createEl("button");
+    this.drawerToggle.className = "ytc-drawer-toggle-streamlined";
+    this.drawerToggle.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 1.3rem;">\u2699\uFE0F</span>
+                    <span style="font-weight: 600; font-size: 0.95rem; color: white;">AI Settings</span>
+                    <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">ADVANCED</span>
+                </div>
+                <div class="drawer-chevron" style="
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    transform: rotate(0deg);
+                    color: white;
+                    font-size: 0.9rem;
+                ">\u25B6</div>
+            </div>
+        `;
+    this.drawerToggle.style.cssText = `
+            width: 100%;
+            padding: 16px 24px;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        `;
+    this.drawerToggle.addEventListener("click", (e) => {
+      this.createRippleEffect(e, this.drawerToggle);
+      this.toggleDrawer();
+    });
+    this.drawerContent = drawerContainer.createDiv();
+    this.drawerContent.className = "ytc-drawer-content-streamlined";
+    this.drawerContent.style.cssText = `
+            max-height: 0px;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--background-primary);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--background-modifier-border);
+        `;
+    const innerContent = this.drawerContent.createDiv();
+    innerContent.style.cssText = `
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            max-height: 600px;
+            overflow-y: auto;
+        `;
+    const gridContainer = innerContent.createDiv();
+    gridContainer.style.cssText = `
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        `;
+    const leftColumn = gridContainer.createDiv();
+    leftColumn.style.cssText = "display: flex; flex-direction: column; gap: 24px;";
+    const rightColumn = gridContainer.createDiv();
+    rightColumn.style.cssText = "display: flex; flex-direction: column; gap: 24px;";
+    this.createStreamlinedProviderSection(leftColumn);
+    this.createStreamlinedControlsSection(leftColumn);
+    this.createStreamlinedPerformanceSection(rightColumn);
+    this.createStreamlinedTipsSection(rightColumn);
+  }
+  /**
+   * Add enhanced CSS styles
+   */
+  addEnhancedStyles() {
+    if (!document.getElementById("ytc-enhanced-styles")) {
+      const style = document.createElement("style");
+      style.id = "ytc-enhanced-styles";
+      style.textContent = `
+                .ytc-enhanced-drawer {
+                    --gradient-1: var(--interactive-accent);
+                    --gradient-2: var(--interactive-accent-hover);
+                    --accent-rgb: 99, 102, 241;
+                }
+
+                .ytc-drawer-toggle-enhanced::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: -100%;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+                    transition: left 0.5s;
+                }
+
+                .ytc-drawer-toggle-enhanced:hover::before {
+                    left: 100%;
+                }
+
+                .ytc-input-enhanced, .ytc-select-enhanced {
+                    background: rgba(255,255,255,0.05);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-input-enhanced:hover, .ytc-select-enhanced:hover {
+                    background: rgba(255,255,255,0.08);
+                    border-color: var(--interactive-accent);
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                }
+
+                .ytc-input-enhanced:focus, .ytc-select-enhanced:focus {
+                    outline: none;
+                    border-color: var(--interactive-accent);
+                    background: rgba(255,255,255,0.1);
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+                }
+
+                .ytc-section-card {
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 12px;
+                    padding: 20px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-section-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                    border-color: var(--interactive-accent);
+                }
+
+                .ytc-slider-enhanced {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    background: linear-gradient(to right, var(--interactive-accent) 0%, var(--interactive-accent) var(--value, 50%), var(--interactive-normal) var(--value, 50%), var(--interactive-normal) 100%);
+                    border-radius: 10px;
+                    height: 8px;
+                    outline: none;
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-slider-enhanced::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: var(--interactive-accent);
+                    cursor: pointer;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    transition: all 0.3s ease;
+                }
+
+                .ytc-slider-enhanced::-webkit-slider-thumb:hover {
+                    transform: scale(1.2);
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+                }
+
+                .ytc-badge {
+                    background: var(--interactive-accent);
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    display: inline-block;
+                    margin-left: 8px;
+                }
+
+                @keyframes fadeInScale {
+                    from {
+                        opacity: 0;
+                        transform: scale(0.95);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+
+                .ytc-fade-in {
+                    animation: fadeInScale 0.4s ease-out;
+                }
+            `;
+      document.head.appendChild(style);
+    }
+  }
+  /**
+   * Create provider selection section
+   */
+  createProviderSection(container) {
+    const section = container.createDiv();
+    section.className = "ytc-section-card ytc-fade-in";
+    section.style.animationDelay = "0.1s";
+    const header = section.createDiv();
+    header.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;";
+    const title = header.createEl("h4");
+    title.textContent = "\u{1F916} AI Provider";
+    title.style.cssText = "margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
+    const badge = header.createSpan();
+    badge.className = "ytc-badge";
+    badge.textContent = "AI";
+    this.providerDropdown = section.createEl("select");
+    this.providerDropdown.className = "ytc-select-enhanced";
+    this.providerDropdown.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-normal);
+        `;
     this.options.providers.forEach((provider) => {
       const option = this.providerDropdown.createEl("option");
       option.value = provider;
       option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
     });
-    const modelLabel = this.drawerContent.createEl("label");
-    modelLabel.textContent = "Model:";
-    modelLabel.style.display = "block";
-    modelLabel.style.marginBottom = "5px";
-    this.modelDropdown = this.drawerContent.createEl("select");
-    this.modelDropdown.style.width = "100%";
-    this.modelDropdown.style.padding = "5px";
-    this.modelDropdown.style.marginBottom = "10px";
-    const models = ["gemini-2.5-pro", "gemini-1.5-pro", "gpt-4", "gpt-3.5-turbo"];
+    const info = section.createDiv();
+    info.style.cssText = "margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);";
+    info.textContent = "Select your preferred AI provider for video processing";
+  }
+  /**
+   * Create model selection section
+   */
+  createModelSection(container) {
+    const section = container.createDiv();
+    section.className = "ytc-section-card ytc-fade-in";
+    section.style.animationDelay = "0.2s";
+    const header = section.createDiv();
+    header.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;";
+    const title = header.createEl("h4");
+    title.textContent = "\u{1F9E0} AI Model";
+    title.style.cssText = "margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
+    const refreshBtn = header.createEl("button");
+    refreshBtn.innerHTML = "\u{1F504} Refresh";
+    refreshBtn.style.cssText = `
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        `;
+    this.modelDropdown = section.createEl("select");
+    this.modelDropdown.className = "ytc-select-enhanced";
+    this.modelDropdown.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-normal);
+        `;
+    const models = [
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", desc: "Latest & most capable" },
+      { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro", desc: "Balanced performance" },
+      { value: "gpt-4", label: "GPT-4", desc: "High quality analysis" },
+      { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", desc: "Fast processing" }
+    ];
     models.forEach((model) => {
       const option = this.modelDropdown.createEl("option");
-      option.value = model;
-      option.textContent = model;
+      option.value = model.value;
+      option.textContent = `${model.label} - ${model.desc}`;
     });
-    const tokensLabel = this.drawerContent.createEl("label");
-    tokensLabel.textContent = "Max Tokens: 4096";
-    tokensLabel.style.display = "block";
-    tokensLabel.style.marginBottom = "5px";
-    this.maxTokensSlider = this.drawerContent.createEl("input");
+  }
+  /**
+   * Create advanced controls section
+   */
+  createAdvancedControlsSection(container) {
+    const section = container.createDiv();
+    section.className = "ytc-section-card ytc-fade-in";
+    section.style.animationDelay = "0.3s";
+    const title = section.createEl("h4");
+    title.textContent = "\u2699\uFE0F Advanced Controls";
+    title.style.cssText = "margin: 0 0 20px 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
+    const tokensControl = section.createDiv();
+    tokensControl.style.cssText = "margin-bottom: 20px;";
+    const tokensLabel = tokensControl.createDiv();
+    tokensLabel.innerHTML = '\u{1F4CA} Max Tokens: <span style="color: var(--interactive-accent); font-weight: 600;">4096</span>';
+    tokensLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;";
+    this.maxTokensSlider = tokensControl.createEl("input");
     this.maxTokensSlider.type = "range";
     this.maxTokensSlider.min = "256";
     this.maxTokensSlider.max = "8192";
+    this.maxTokensSlider.step = "256";
     this.maxTokensSlider.value = "4096";
-    this.maxTokensSlider.style.width = "100%";
-    this.maxTokensSlider.style.marginBottom = "10px";
+    this.maxTokensSlider.className = "ytc-slider-enhanced";
+    this.maxTokensSlider.style.cssText = "width: 100%;";
     this.maxTokensSlider.addEventListener("input", (e) => {
       const value = e.target.value;
-      tokensLabel.textContent = `Max Tokens: ${value}`;
+      tokensLabel.querySelector("span").textContent = value;
+      this.maxTokensSlider.style.setProperty("--value", `${(parseInt(value) - 256) / (8192 - 256) * 100}%`);
     });
-    const tempLabel = this.drawerContent.createEl("label");
-    tempLabel.textContent = "Temperature: 0.5";
-    tempLabel.style.display = "block";
-    tempLabel.style.marginBottom = "5px";
-    this.temperatureSlider = this.drawerContent.createEl("input");
+    const tempControl = section.createDiv();
+    const tempLabel = tempControl.createDiv();
+    tempLabel.innerHTML = '\u{1F321}\uFE0F Temperature: <span style="color: var(--interactive-accent); font-weight: 600;">0.5</span>';
+    tempLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;";
+    this.temperatureSlider = tempControl.createEl("input");
     this.temperatureSlider.type = "range";
     this.temperatureSlider.min = "0";
     this.temperatureSlider.max = "2";
     this.temperatureSlider.step = "0.1";
     this.temperatureSlider.value = "0.5";
-    this.temperatureSlider.style.width = "100%";
+    this.temperatureSlider.className = "ytc-slider-enhanced";
+    this.temperatureSlider.style.cssText = "width: 100%;";
     this.temperatureSlider.addEventListener("input", (e) => {
       const value = e.target.value;
-      tempLabel.textContent = `Temperature: ${value}`;
+      tempLabel.querySelector("span").textContent = value;
+      this.temperatureSlider.style.setProperty("--value", `${parseFloat(value) / 2 * 100}%`);
     });
-    this.drawerToggle.onclick = () => {
-      console.log("Drawer button clicked!");
-      if (this.drawerContent.style.display === "none") {
-        this.drawerContent.style.display = "block";
-        this.drawerToggle.textContent = "\u{1F916} Advanced AI Settings \u25BC";
-      } else {
-        this.drawerContent.style.display = "none";
-        this.drawerToggle.textContent = "\u{1F916} Advanced AI Settings \u25B6";
+    this.maxTokensSlider.style.setProperty("--value", "50%");
+    this.temperatureSlider.style.setProperty("--value", "25%");
+  }
+  /**
+   * Create enhanced performance section for drawer
+   */
+  createEnhancedPerformanceSection(container) {
+    const section = container.createDiv();
+    section.className = "ytc-section-card ytc-fade-in";
+    section.style.animationDelay = "0.4s";
+    const title = section.createEl("h4");
+    title.textContent = "\u26A1 Performance";
+    title.style.cssText = "margin: 0 0 16px 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
+    const perfContainer = section.createDiv();
+    perfContainer.style.cssText = "margin-bottom: 16px;";
+    const perfLabel = perfContainer.createDiv();
+    perfLabel.textContent = "Performance Mode:";
+    perfLabel.style.cssText = "margin-bottom: 8px; font-weight: 500;";
+    const perfOptions = ["Fast", "Balanced", "Quality"];
+    const perfButtons = perfContainer.createDiv();
+    perfButtons.style.cssText = "display: flex; gap: 8px;";
+    perfOptions.forEach((option, index) => {
+      const btn = perfButtons.createEl("button");
+      btn.textContent = option;
+      btn.style.cssText = `
+                flex: 1;
+                padding: 8px;
+                border: 1px solid rgba(255,255,255,0.2);
+                background: rgba(255,255,255,0.05);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                font-size: 0.8rem;
+            `;
+      if (index === 1)
+        btn.style.background = "var(--interactive-accent)";
+      btn.addEventListener("click", () => {
+        perfButtons.querySelectorAll("button").forEach((b) => {
+          b.style.background = "rgba(255,255,255,0.05)";
+        });
+        btn.style.background = "var(--interactive-accent)";
+      });
+    });
+    const settingsContainer = section.createDiv();
+    const settings = [
+      { label: "Enable parallel processing", checked: true },
+      { label: "Prefer multimodal analysis", checked: true },
+      { label: "Use smart defaults", checked: false }
+    ];
+    settings.forEach((setting) => {
+      const settingItem = settingsContainer.createDiv();
+      settingItem.style.cssText = "display: flex; align-items: center; margin-bottom: 8px;";
+      const checkbox = settingItem.createEl("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = setting.checked;
+      checkbox.style.cssText = "margin-right: 8px; cursor: pointer;";
+      const label = settingItem.createEl("label");
+      label.textContent = setting.label;
+      label.style.cssText = "cursor: pointer; font-size: 0.85rem;";
+    });
+  }
+  /**
+   * Create streamlined provider section
+   */
+  createStreamlinedProviderSection(container) {
+    const section = container.createDiv();
+    section.style.cssText = `
+            background: var(--background-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--background-modifier-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        `;
+    section.addEventListener("mouseenter", () => {
+      section.style.borderColor = "var(--interactive-accent)";
+      section.style.transform = "translateY(-2px)";
+      section.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
+    });
+    section.addEventListener("mouseleave", () => {
+      section.style.borderColor = "var(--background-modifier-border)";
+      section.style.transform = "translateY(0)";
+      section.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+    });
+    const header = section.createDiv();
+    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u{1F916}</span>AI Provider & Model';
+    header.style.cssText = "font-weight: 600; margin-bottom: 16px; color: var(--text-normal);";
+    const providerLabel = section.createEl("label");
+    providerLabel.textContent = "AI Provider";
+    providerLabel.style.cssText = `
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+    this.providerDropdown = section.createEl("select");
+    this.providerDropdown.setAttribute("aria-label", "AI Provider");
+    this.providerDropdown.style.cssText = `
+            width: 100%;
+            padding: 14px 40px 14px 12px;
+            border: 2px solid var(--background-modifier-border);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            background: var(--background-primary) url('data:image/svg+xml;utf8,<svg fill="%23888888" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>') no-repeat right 10px center;
+            background-size: 20px;
+            color: var(--text-normal);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            appearance: none;
+        `;
+    this.providerDropdown.style.cssText += `
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        `;
+    this.providerDropdown.className = "ytc-provider-select";
+    if (this.options.providers && this.options.providers.length > 0) {
+      this.options.providers.forEach((provider) => {
+        const option = this.providerDropdown.createEl("option");
+        option.value = provider;
+        option.textContent = this.formatProviderName(provider);
+        option.style.cssText = "background: var(--background-primary); color: var(--text-normal); font-weight: 500;";
+        if (provider === this.options.defaultProvider) {
+          option.selected = true;
+        }
+      });
+    } else {
+      const fallbackProviders = ["gemini", "groq"];
+      fallbackProviders.forEach((provider) => {
+        const option = this.providerDropdown.createEl("option");
+        option.value = provider;
+        option.textContent = this.formatProviderName(provider);
+        option.style.cssText = "background: var(--background-primary); color: var(--text-normal); font-weight: 500;";
+        if (provider === "gemini") {
+          option.selected = true;
+        }
+      });
+    }
+    const modelLabel = section.createEl("label");
+    modelLabel.textContent = "AI Model";
+    modelLabel.style.cssText = providerLabel.style.cssText;
+    this.modelDropdown = section.createEl("select");
+    this.modelDropdown.setAttribute("aria-label", "AI Model");
+    this.modelDropdown.style.cssText = this.providerDropdown.style.cssText;
+    this.modelDropdown.style.marginBottom = "0";
+    this.modelDropdown.className = "ytc-model-select";
+    const models = [
+      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Latest)" },
+      { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+      { value: "gpt-4", label: "GPT-4" },
+      { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
+    ];
+    models.forEach((model) => {
+      const option = this.modelDropdown.createEl("option");
+      option.value = model.value;
+      option.textContent = model.label;
+      option.style.cssText = "background: var(--background-primary); color: var(--text-normal); font-weight: 500;";
+      if (model.value === this.options.defaultModel) {
+        option.selected = true;
       }
-    };
-    this.drawerToggle.addEventListener("click", (e) => {
-      console.log("Click event fired!", e);
-      e.preventDefault();
-      e.stopPropagation();
     });
+    [this.providerDropdown, this.modelDropdown].forEach((dropdown) => {
+      dropdown.addEventListener("focus", () => {
+        dropdown.style.borderColor = "var(--interactive-accent)";
+        dropdown.style.outline = "none";
+      });
+      dropdown.addEventListener("blur", () => {
+        dropdown.style.borderColor = "var(--background-modifier-border)";
+      });
+    });
+  }
+  /**
+   * Create streamlined controls section
+   */
+  createStreamlinedControlsSection(container) {
+    const section = container.createDiv();
+    section.style.cssText = `
+            background: var(--background-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--background-modifier-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        `;
+    section.addEventListener("mouseenter", () => {
+      section.style.borderColor = "var(--interactive-accent)";
+      section.style.transform = "translateY(-2px)";
+      section.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
+    });
+    section.addEventListener("mouseleave", () => {
+      section.style.borderColor = "var(--background-modifier-border)";
+      section.style.transform = "translateY(0)";
+      section.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+    });
+    const header = section.createDiv();
+    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u2699\uFE0F</span>Model Parameters';
+    header.style.cssText = "font-weight: 600; margin-bottom: 20px; color: var(--text-normal);";
+    const tokensControl = section.createDiv();
+    tokensControl.style.cssText = "margin-bottom: 20px;";
+    const tokensLabel = tokensControl.createDiv();
+    tokensLabel.innerHTML = '\u{1F4CA} Max Tokens: <span style="color: var(--interactive-accent); font-weight: 600;">4096</span>';
+    tokensLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;";
+    this.maxTokensSlider = tokensControl.createEl("input");
+    this.maxTokensSlider.type = "range";
+    this.maxTokensSlider.min = "256";
+    this.maxTokensSlider.max = "8192";
+    this.maxTokensSlider.step = "256";
+    this.maxTokensSlider.value = "4096";
+    this.maxTokensSlider.className = "ytc-slider-enhanced";
+    this.maxTokensSlider.style.cssText = "width: 100%; height: 6px;";
+    this.maxTokensSlider.addEventListener("input", (e) => {
+      const value = e.target.value;
+      tokensLabel.querySelector("span").textContent = value;
+      this.maxTokensSlider.style.setProperty("--value", `${(parseInt(value) - 256) / (8192 - 256) * 100}%`);
+    });
+    const tempControl = section.createDiv();
+    const tempLabel = tempControl.createDiv();
+    tempLabel.innerHTML = '\u{1F321}\uFE0F Temperature: <span style="color: var(--interactive-accent); font-weight: 600;">0.5</span>';
+    tempLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;";
+    this.temperatureSlider = tempControl.createEl("input");
+    this.temperatureSlider.type = "range";
+    this.temperatureSlider.min = "0";
+    this.temperatureSlider.max = "2";
+    this.temperatureSlider.step = "0.1";
+    this.temperatureSlider.value = "0.5";
+    this.temperatureSlider.className = "ytc-slider-enhanced";
+    this.temperatureSlider.style.cssText = "width: 100%; height: 6px;";
+    this.temperatureSlider.addEventListener("input", (e) => {
+      const value = e.target.value;
+      tempLabel.querySelector("span").textContent = value;
+      this.temperatureSlider.style.setProperty("--value", `${parseFloat(value) / 2 * 100}%`);
+    });
+    this.maxTokensSlider.style.setProperty("--value", "50%");
+    this.temperatureSlider.style.setProperty("--value", "25%");
+  }
+  /**
+   * Create streamlined performance section
+   */
+  createStreamlinedPerformanceSection(container) {
+    const section = container.createDiv();
+    section.style.cssText = `
+            background: var(--background-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--background-modifier-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        `;
+    section.addEventListener("mouseenter", () => {
+      section.style.borderColor = "var(--interactive-accent)";
+      section.style.transform = "translateY(-2px)";
+      section.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
+    });
+    section.addEventListener("mouseleave", () => {
+      section.style.borderColor = "var(--background-modifier-border)";
+      section.style.transform = "translateY(0)";
+      section.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+    });
+    const header = section.createDiv();
+    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u26A1</span>Performance';
+    header.style.cssText = "font-weight: 600; margin-bottom: 16px; color: var(--text-normal);";
+    const modes = ["Fast", "Balanced", "Quality"];
+    const modeButtons = section.createDiv();
+    modeButtons.style.cssText = "display: flex; gap: 8px; margin-bottom: 16px;";
+    modes.forEach((mode, index) => {
+      const btn = modeButtons.createEl("button");
+      btn.textContent = mode;
+      btn.style.cssText = `
+                flex: 1;
+                padding: 10px;
+                border: 2px solid var(--background-modifier-border);
+                background: var(--background-primary);
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: var(--text-normal);
+            `;
+      if (index === 1) {
+        btn.style.borderColor = "var(--interactive-accent)";
+        btn.style.background = "var(--interactive-accent)";
+        btn.style.color = "white";
+      }
+      btn.addEventListener("click", () => {
+        modeButtons.querySelectorAll("button").forEach((b) => {
+          b.style.borderColor = "var(--background-modifier-border)";
+          b.style.background = "var(--background-primary)";
+          b.style.color = "var(--text-normal)";
+        });
+        btn.style.borderColor = "var(--interactive-accent)";
+        btn.style.background = "var(--interactive-accent)";
+        btn.style.color = "white";
+      });
+    });
+    const toggles = [
+      { label: "Parallel processing", checked: true },
+      { label: "Multimodal analysis", checked: true }
+    ];
+    toggles.forEach((toggle) => {
+      const toggleItem = section.createDiv();
+      toggleItem.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;";
+      const label = toggleItem.createEl("label");
+      label.textContent = toggle.label;
+      label.style.cssText = "font-size: 0.9rem; cursor: pointer;";
+      const switchContainer = toggleItem.createDiv();
+      switchContainer.style.cssText = "position: relative; width: 48px; height: 24px;";
+      const checkbox = switchContainer.createEl("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = toggle.checked;
+      checkbox.style.cssText = "opacity: 0; width: 0; height: 0;";
+      const slider = switchContainer.createDiv();
+      slider.style.cssText = `
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: ${toggle.checked ? "var(--interactive-accent)" : "var(--background-modifier-border)"};
+                transition: 0.4s;
+                border-radius: 24px;
+            `;
+      const sliderKnob = slider.createDiv();
+      sliderKnob.style.cssText = `
+                position: absolute;
+                height: 18px;
+                width: 18px;
+                left: ${toggle.checked ? "26px" : "3px"};
+                bottom: 3px;
+                background-color: white;
+                transition: 0.4s;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            `;
+      checkbox.addEventListener("change", () => {
+        slider.style.backgroundColor = checkbox.checked ? "var(--interactive-accent)" : "var(--background-modifier-border)";
+        sliderKnob.style.left = checkbox.checked ? "26px" : "3px";
+      });
+    });
+  }
+  /**
+   * Create streamlined tips section
+   */
+  createStreamlinedTipsSection(container) {
+    const section = container.createDiv();
+    section.style.cssText = `
+            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        `;
+    const header = section.createDiv();
+    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u{1F4A1}</span>Pro Tips';
+    header.style.cssText = "font-weight: 600; margin-bottom: 16px; color: white;";
+    const tips = [
+      "\u2328\uFE0F Press <kbd>Ctrl+Enter</kbd> to process instantly",
+      '\u{1F3AF} Use "Detailed" for comprehensive analysis',
+      '\u26A1 Enable "Fast" mode for quick results',
+      "\u{1F916} Gemini 2.5 Pro offers the best quality"
+    ];
+    tips.forEach((tip) => {
+      const tipItem = section.createDiv();
+      tipItem.innerHTML = tip;
+      tipItem.style.cssText = "margin-bottom: 12px; font-size: 0.85rem; line-height: 1.4; opacity: 0.95;";
+    });
+  }
+  /**
+   * Create ripple effect for buttons
+   */
+  createRippleEffect(event, button) {
+    const ripple = document.createElement("span");
+    ripple.style.cssText = `
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.6);
+            transform: scale(0);
+            animation: ripple 0.6s ease-out;
+            pointer-events: none;
+        `;
+    const rect = button.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + "px";
+    ripple.style.left = event.clientX - rect.left - size / 2 + "px";
+    ripple.style.top = event.clientY - rect.top - size / 2 + "px";
+    button.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  }
+  /**
+   * Streamlined drawer toggle with smooth animations
+   */
+  toggleDrawer() {
+    this.isDrawerOpen = !this.isDrawerOpen;
+    const chevron = this.drawerToggle.querySelector(".drawer-chevron");
+    if (this.isDrawerOpen) {
+      this.drawerContent.style.maxHeight = "700px";
+      this.drawerContent.style.opacity = "1";
+      if (chevron)
+        chevron.style.transform = "rotate(90deg)";
+      setTimeout(() => {
+        this.drawerContent.scroll({ top: 0, behavior: "smooth" });
+      }, 100);
+    } else {
+      this.drawerContent.style.maxHeight = "0px";
+      this.drawerContent.style.opacity = "0";
+      if (chevron)
+        chevron.style.transform = "rotate(0deg)";
+    }
   }
   /**
    * Create provider selection section for drawer (modified version)
@@ -3476,6 +4751,10 @@ Would you like to switch to a multimodal-capable model (${recommended}) for bett
     }
     this.progressSteps = [];
     window.removeEventListener("yt-clipper-retry-processing", this.handleRetry);
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = void 0;
+    }
     super.onClose();
   }
   /**
@@ -3734,6 +5013,247 @@ Would you like to switch to a multimodal-capable model (${recommended}) for bett
         channelEl.textContent = "";
       this.metadataContainer.style.display = "none";
     }
+  }
+  /**
+   * Setup keyboard shortcuts for enhanced productivity
+   */
+  setupKeyboardShortcuts() {
+    const handleKeyDown = (e) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (this.processButton && !this.processButton.disabled) {
+          this.processButton.click();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "d") {
+        e.preventDefault();
+        if (this.drawerToggle) {
+          this.drawerToggle.click();
+        }
+      }
+      if (e.key === "Escape") {
+        this.close();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        this.focusUrlInput();
+      }
+      if (e.altKey) {
+        if (e.key === "1") {
+          e.preventDefault();
+          this.selectFormat("executive-summary");
+        } else if (e.key === "2") {
+          e.preventDefault();
+          this.selectFormat("detailed-guide");
+        } else if (e.key === "3") {
+          e.preventDefault();
+          this.selectFormat("brief");
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    this.keydownHandler = handleKeyDown;
+  }
+  /**
+   * Show user insights and recommendations
+   */
+  showUserInsights() {
+    const insights = UserPreferencesService.getUserInsights();
+    if (insights.usageLevel === "light") {
+      return;
+    }
+    const insightsPanel = this.contentEl.createDiv();
+    insightsPanel.className = "ytc-insights-panel";
+    insightsPanel.style.cssText = `
+            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease-out;
+        `;
+    const icon = insightsPanel.createSpan();
+    icon.textContent = "\u{1F4A1}";
+    icon.style.fontSize = "1.2rem";
+    const content = insightsPanel.createDiv();
+    content.style.flex = "1";
+    const title = content.createDiv();
+    title.textContent = "Smart Suggestions";
+    title.style.fontWeight = "600";
+    title.style.marginBottom = "4px";
+    const suggestions = content.createDiv();
+    suggestions.style.opacity = "0.9";
+    suggestions.style.fontSize = "0.8rem";
+    const suggestionTexts = [];
+    if (insights.favoriteFormat !== "detailed-guide") {
+      suggestionTexts.push(`Try ${insights.favoriteFormat.replace("-", " ")} format`);
+    }
+    if (insights.usageLevel === "heavy" && insights.recommendations.length > 0) {
+      suggestionTexts.push(insights.recommendations[0]);
+    }
+    if (suggestionTexts.length > 0) {
+      suggestions.textContent = suggestionTexts.join(" \u2022 ");
+      setTimeout(() => {
+        insightsPanel.style.animation = "slideUp 0.3s ease-out";
+        setTimeout(() => insightsPanel.remove(), 300);
+      }, 8e3);
+    } else {
+      insightsPanel.remove();
+    }
+    if (!document.getElementById("ytc-insights-animations")) {
+      const animStyle = document.createElement("style");
+      animStyle.id = "ytc-insights-animations";
+      animStyle.textContent = `
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes slideUp {
+                    from { opacity: 1; transform: translateY(0); }
+                    to { opacity: 0; transform: translateY(-10px); }
+                }
+            `;
+      document.head.appendChild(animStyle);
+    }
+  }
+  /**
+   * Select format programmatically
+   */
+  selectFormat(format) {
+    const formatButtons = this.contentEl.querySelectorAll(".ytc-format-button");
+    formatButtons.forEach((button) => {
+      const buttonFormat = button.getAttribute("data-format");
+      if (buttonFormat === format) {
+        button.click();
+      }
+    });
+  }
+  /**
+   * Enhanced paste functionality with smart URL detection
+   */
+  async handleSmartPaste() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const trimmed = text.trim();
+      if (ValidationUtils.isValidYouTubeUrl(trimmed)) {
+        this.setUrl(trimmed);
+        new import_obsidian5.Notice("YouTube URL detected and pasted!");
+        if (this.processButton && !this.processButton.disabled) {
+          setTimeout(() => {
+            var _a;
+            return (_a = this.processButton) == null ? void 0 : _a.focus();
+          }, 100);
+        }
+      } else {
+        const urlMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+        if (urlMatch) {
+          const videoId = urlMatch[1];
+          const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
+          this.setUrl(fullUrl);
+          new import_obsidian5.Notice("YouTube URL extracted from clipboard!");
+        } else {
+          new import_obsidian5.Notice("No YouTube URL found in clipboard");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to read clipboard:", error);
+      new import_obsidian5.Notice("Failed to access clipboard");
+    }
+  }
+  /**
+   * Add quick action buttons for common tasks
+   */
+  addQuickActions() {
+    const quickActionsContainer = this.contentEl.createDiv();
+    quickActionsContainer.style.cssText = `
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        `;
+    const pasteBtn = quickActionsContainer.createEl("button");
+    pasteBtn.innerHTML = "\u{1F4CB} Paste URL";
+    pasteBtn.style.cssText = `
+            padding: 6px 12px;
+            background: var(--background-secondary);
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        `;
+    pasteBtn.addEventListener("click", () => this.handleSmartPaste());
+    pasteBtn.addEventListener("mouseenter", () => {
+      pasteBtn.style.background = "var(--background-modifier-hover)";
+    });
+    pasteBtn.addEventListener("mouseleave", () => {
+      pasteBtn.style.background = "var(--background-secondary)";
+    });
+    const clearBtn = quickActionsContainer.createEl("button");
+    clearBtn.innerHTML = "\u{1F5D1}\uFE0F Clear";
+    clearBtn.style.cssText = pasteBtn.style.cssText;
+    clearBtn.addEventListener("click", () => {
+      this.setUrl("");
+      this.focusUrlInput();
+    });
+    clearBtn.addEventListener("mouseenter", () => {
+      clearBtn.style.background = "var(--background-modifier-hover)";
+    });
+    clearBtn.addEventListener("mouseleave", () => {
+      clearBtn.style.background = "var(--background-secondary)";
+    });
+    const helpBtn = quickActionsContainer.createEl("button");
+    helpBtn.innerHTML = "\u2328\uFE0F Shortcuts";
+    helpBtn.style.cssText = pasteBtn.style.cssText;
+    helpBtn.addEventListener("click", () => {
+      this.showShortcutsHelp();
+    });
+    helpBtn.addEventListener("mouseenter", () => {
+      helpBtn.style.background = "var(--background-modifier-hover)";
+    });
+    helpBtn.addEventListener("mouseleave", () => {
+      helpBtn.style.background = "var(--background-secondary)";
+    });
+  }
+  /**
+   * Show keyboard shortcuts help modal
+   */
+  showShortcutsHelp() {
+    const helpContent = `
+            <h4>\u2328\uFE0F Keyboard Shortcuts</h4>
+            <div style="display: grid; gap: 8px; margin-top: 12px;">
+                <div><kbd>Ctrl/Cmd + Enter</kbd> - Process video</div>
+                <div><kbd>Ctrl/Cmd + D</kbd> - Toggle advanced settings</div>
+                <div><kbd>Ctrl/Cmd + K</kbd> - Focus URL input</div>
+                <div><kbd>Alt + 1</kbd> - Select Executive Summary</div>
+                <div><kbd>Alt + 2</kbd> - Select Detailed Guide</div>
+                <div><kbd>Alt + 3</kbd> - Select Brief format</div>
+                <div><kbd>Escape</kbd> - Close modal</div>
+            </div>
+            <p style="margin-top: 12px; font-size: 0.8rem; opacity: 0.8;">
+                Press <kbd>Escape</kbd> or click outside to close this help.
+            </p>
+        `;
+    new import_obsidian5.Notice("Keyboard shortcuts: Ctrl+Enter to process, Ctrl+D for settings, Alt+1/2/3 for formats", 8e3);
+  }
+  /**
+   * Format provider name for display
+   */
+  formatProviderName(provider) {
+    const providerNames = {
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openai": "OpenAI",
+      "anthropic": "Anthropic Claude"
+    };
+    return providerNames[provider.toLowerCase()] || provider.charAt(0).toUpperCase() + provider.slice(1);
   }
 };
 
