@@ -11,6 +11,7 @@ import { YouTubeUrlModal } from './youtube-url-modal';
 import { YouTubeSettingsTab } from './settings-tab';
 import { ServiceContainer } from './services/service-container';
 import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types/types';
+import { PluginAPIManager, pluginAPI } from './plugin-api';
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
@@ -36,6 +37,7 @@ export default class YoutubeClipperPlugin extends Plugin {
     private operationCount = 0;
     private urlHandler?: UrlHandler;
     private modalManager?: ModalManager;
+    private apiManager?: PluginAPIManager;
 
     async onload(): Promise<void> {
         // Set plugin version
@@ -49,6 +51,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             this.registerUIComponents();
             this.setupUrlHandling();
             this.setupProtocolHandler();
+            this.initializeAPI();
 
             logger.plugin('Plugin loaded successfully');
         } catch (error) {
@@ -70,6 +73,10 @@ export default class YoutubeClipperPlugin extends Plugin {
             this.serviceContainer?.clearServices();
             this.cleanupUIElements();
             ConflictPrevention.cleanupAllElements();
+            this.apiManager?.cleanup();
+
+            // Clean up global API reference
+            delete (globalThis as any).ytclipperAPI;
 
             logger.plugin('Plugin unloaded successfully');
         } catch (error) {
@@ -492,5 +499,22 @@ export default class YoutubeClipperPlugin extends Plugin {
     // Public method to get current settings
     getCurrentSettings(): YouTubePluginSettings {
         return { ...this.settings };
+    }
+
+    private initializeAPI(): void {
+        this.apiManager = PluginAPIManager.getInstance(this, this.app);
+
+        // Expose the API globally for third-party integrations
+        (globalThis as any).ytclipperAPI = this.apiManager.getAPI();
+
+        // Also make it available as a plugin property
+        (this as any).api = this.apiManager.getAPI();
+
+        logger.plugin('Plugin API initialized and exposed globally');
+    }
+
+    // Public method to get API manager
+    getAPIManager(): PluginAPIManager | undefined {
+        return this.apiManager;
     }
 }
