@@ -7,10 +7,12 @@ import { logger, LogLevel } from './services/logger';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ModalManager } from './services/modal-manager';
 import { SaveConfirmationModal } from './save-confirmation-modal';
-import { YouTubeUrlModal } from './youtube-url-modal';
+import { SimpleYouTubeModal } from './simple-youtube-modal'; // Temporary replacement
 import { YouTubeSettingsTab } from './settings-tab';
 import { ServiceContainer } from './services/service-container';
 import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types/types';
+import { PluginAPIManager, pluginAPI } from './plugin-api';
+import { directEnhancer } from './direct-enhancer';
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
@@ -36,19 +38,29 @@ export default class YoutubeClipperPlugin extends Plugin {
     private operationCount = 0;
     private urlHandler?: UrlHandler;
     private modalManager?: ModalManager;
+    private apiManager?: PluginAPIManager;
+
+    constructor(app: App) {
+        super(app);
+
+        // Initialize direct UI enhancer immediately
+        setTimeout(() => {
+            directEnhancer.forceEnhancement();
+        }, 1000);
+    }
 
     async onload(): Promise<void> {
-        // Set plugin version
-        this.manifest.version = PLUGIN_VERSION;
         logger.info(`Initializing YoutubeClipper Plugin v${PLUGIN_VERSION}...`);
 
         try {
             await this.loadSettings();
             this.setupLogger();
+            await this.initializeUI();
             await this.initializeServices();
             this.registerUIComponents();
             this.setupUrlHandling();
             this.setupProtocolHandler();
+            this.initializeAPI();
 
             logger.plugin('Plugin loaded successfully');
         } catch (error) {
@@ -70,6 +82,11 @@ export default class YoutubeClipperPlugin extends Plugin {
             this.serviceContainer?.clearServices();
             this.cleanupUIElements();
             ConflictPrevention.cleanupAllElements();
+            this.apiManager?.cleanup();
+            this.cleanupUI();
+
+            // Clean up global API reference
+            delete (globalThis as any).ytclipperAPI;
 
             logger.plugin('Plugin unloaded successfully');
         } catch (error) {
@@ -155,6 +172,15 @@ export default class YoutubeClipperPlugin extends Plugin {
                 await this.handleClipboardUrl();
             }
         });
+
+        this.addCommand({
+            id: `${PLUGIN_PREFIX}-force-enhance-ui`,
+            name: 'YouTube Clipper: Force Enhanced UI',
+            callback: () => {
+                directEnhancer.forceEnhancement();
+                new Notice('Enhanced UI applied');
+            }
+        });
     }
 
     private cleanupUIElements(): void {
@@ -225,36 +251,24 @@ export default class YoutubeClipperPlugin extends Plugin {
                 }
             }
 
-            const modal = new YouTubeUrlModal(this.app, {
-                onProcess: this.processYouTubeVideo.bind(this),
-                onOpenFile: this.openFileByPath.bind(this),
-                ...(initialUrl && { initialUrl }),
-                providers,
-                defaultProvider: 'gemini', // Prefer Gemini as default provider
-                defaultModel: 'gemini-2.5-pro', // Use the latest Gemini model
-                defaultMaxTokens: this.settings.defaultMaxTokens,
-                defaultTemperature: this.settings.defaultTemperature,
-                modelOptions: modelOptionsMap,
-                fetchModels: async () => {
-                    try {
-                        const map = await (this.serviceContainer!.aiService as any).fetchLatestModels();
-                        this.settings.modelOptionsCache = map;
-                        await this.saveSettings();
-                        return map;
-                    } catch (error) {
-                        return modelOptionsMap;
-                    }
+            // Simple modal for testing enhanced UI
+            const modal = new SimpleYouTubeModal(this.app, {
+                onProcess: async (url: string) => {
+                    // Basic processing using default settings
+                    await this.processYouTubeVideo(
+                        url,
+                        'detailed-guide', // Default format
+                        'gemini', // Default provider
+                        'gemini-2.5-pro', // Default model
+                        undefined, // No custom prompt
+                        'balanced', // Default performance mode
+                        false, // No parallel processing
+                        false, // No multimodal preference
+                        this.settings.defaultMaxTokens,
+                        this.settings.defaultTemperature
+                    );
                 },
-                performanceMode: this.settings.performanceMode || 'balanced',
-                enableParallelProcessing: this.settings.enableParallelProcessing || false,
-                preferMultimodal: this.settings.preferMultimodal || false,
-                onPerformanceSettingsChange: async (performanceMode: any, enableParallel: boolean, preferMultimodal: boolean) => {
-                    this.settings.performanceMode = performanceMode;
-                    this.settings.enableParallelProcessing = enableParallel;
-                    this.settings.preferMultimodal = preferMultimodal;
-                    await this.saveSettings();
-                    this.serviceContainer = new ServiceContainer(this.settings, this.app);
-                }
+                ...(initialUrl && { initialUrl })
             });
 
             modal.open();
@@ -446,7 +460,44 @@ export default class YoutubeClipperPlugin extends Plugin {
         }
     }
 
-    private async loadSettings(): Promise<void> {
+      /**
+     * Initialize enhanced UI system
+     */
+    private initializeUI(): void {
+        logger.info('Initializing direct enhanced UI system...');
+
+        try {
+            // Direct enhancer starts automatically
+            logger.info('Direct enhanced UI system initialized successfully');
+
+            // Force enhancement after a short delay
+            setTimeout(() => {
+                directEnhancer.forceEnhancement();
+            }, 500);
+
+        } catch (error) {
+            logger.error('Failed to initialize direct enhanced UI system', 'Plugin', {
+                error: error instanceof Error ? error.message : String(error)
+            });
+            // Continue without enhanced UI if it fails
+        }
+    }
+
+    /**
+     * Cleanup enhanced UI system
+     */
+    private cleanupUI(): void {
+        try {
+            directEnhancer.destroy();
+            logger.plugin('Direct enhanced UI system cleaned up');
+        } catch (error) {
+            logger.error('Error during UI cleanup', 'Plugin', {
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+  private async loadSettings(): Promise<void> {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
@@ -480,6 +531,11 @@ export default class YoutubeClipperPlugin extends Plugin {
         return this.serviceContainer;
     }
 
+    // Expose UI enhancer for debugging and testing
+    getUIEnhancer(): any {
+        return directEnhancer;
+    }
+
     // Expose services for testing and external access
     getUrlHandler(): UrlHandler | undefined {
         return this.urlHandler;
@@ -492,5 +548,28 @@ export default class YoutubeClipperPlugin extends Plugin {
     // Public method to get current settings
     getCurrentSettings(): YouTubePluginSettings {
         return { ...this.settings };
+    }
+
+    private initializeAPI(): void {
+        this.apiManager = PluginAPIManager.getInstance(this, this.app);
+
+        // Expose the API globally for third-party integrations
+        (globalThis as any).ytclipperAPI = this.apiManager.getAPI();
+
+        // Also make it available as a plugin property
+        (this as any).api = this.apiManager.getAPI();
+
+        // Expose UI enhancer globally for debugging
+        (globalThis as any).ytclipperUI = {
+            enhance: () => directEnhancer.forceEnhancement(),
+            direct: directEnhancer
+        };
+
+        logger.plugin('Plugin API and UI enhancer initialized and exposed globally');
+    }
+
+    // Public method to get API manager
+    getAPIManager(): PluginAPIManager | undefined {
+        return this.apiManager;
     }
 }

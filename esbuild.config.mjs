@@ -17,12 +17,6 @@ const context = await esbuild.context({
     },
     entryPoints: ['src/main.ts'],
     bundle: true,
-    minify: prod,
-    sourcemap: prod ? false : 'inline',
-    treeShaking: true,
-    splitting: prod,
-    chunkNames: prod ? '[name]-[hash]' : undefined,
-    metafile: prod,
     external: [
         'obsidian',
         'electron',
@@ -41,44 +35,9 @@ const context = await esbuild.context({
     format: 'cjs',
     target: 'es2018',
     logLevel: "info",
-    define: prod ? {
-        'process.env.NODE_ENV': '"production"',
-        'process.env.DEBUG': 'false'
-    } : {
-        'process.env.NODE_ENV': '"development"',
-        'process.env.DEBUG': 'true'
-    },
+    sourcemap: prod ? false : 'inline',
+    treeShaking: true,
     outfile: 'main.js',
-    plugins: [
-        {
-            name: 'bundle-analyzer',
-            setup(build) {
-                build.onEnd((result) => {
-                    if (prod && result.metafile) {
-                        console.log('\n📊 Bundle Analysis:');
-                        const outputs = result.metafile.outputs;
-                        for (const [file, output] of Object.entries(outputs)) {
-                            if (file.endsWith('.js')) {
-                                const sizeKB = (output.bytes / 1024).toFixed(2);
-                                console.log(`  ${file}: ${sizeKB} KB`);
-                            }
-                        }
-
-                        console.log('\n📦 Largest Imports:');
-                        const inputs = result.metafile.inputs;
-                        const imports = Object.entries(inputs)
-                            .sort(([,a], [,b]) => (b.bytes || 0) - (a.bytes || 0))
-                            .slice(0, 10);
-
-                        imports.forEach(([file, input]) => {
-                            const sizeKB = (input.bytes / 1024).toFixed(2);
-                            console.log(`  ${file}: ${sizeKB} KB`);
-                        });
-                    }
-                });
-            }
-        }
-    ]
 });
 
 if (prod) {
