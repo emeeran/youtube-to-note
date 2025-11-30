@@ -205,15 +205,31 @@ var init_api = __esm({
         // Llama 3.x series
         { name: "llama-3.3-70b-versatile" },
         { name: "llama-3.1-8b-instant" }
+      ],
+      "Ollama": [
+        // Various Ollama models
+        { name: "qwen3-coder:480b-cloud" },
+        { name: "llama3.2" },
+        { name: "llama3.1" },
+        { name: "mistral" },
+        { name: "mixtral" },
+        { name: "gemma2" },
+        { name: "phi3" },
+        { name: "qwen2" },
+        { name: "command-r" }
       ]
     };
     PROVIDER_MODEL_LIST_URLS = {
       "Google Gemini": "https://developers.generativeai.google/models",
-      "Groq": "https://groq.com"
+      "Groq": "https://groq.com",
+      "Ollama": "http://localhost:11434"
+      // Local Ollama instance
     };
     PROVIDER_MODEL_REGEX = {
       "Google Gemini": /gemini[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
-      "Groq": /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi
+      "Groq": /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
+      "Ollama": /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g
+      // General pattern for Ollama models
     };
     API_LIMITS = {
       MAX_TOKENS: 8e3,
@@ -2191,7 +2207,8 @@ var YouTubeUrlModal = class extends BaseModal {
         `;
     const providerOptions = [
       { value: "Google Gemini", text: "Google" },
-      { value: "Groq", text: "Groq" }
+      { value: "Groq", text: "Groq" },
+      { value: "Ollama", text: "Ollama" }
     ];
     providerOptions.forEach((option) => {
       const optionEl = this.providerSelect.createEl("option");
@@ -2201,19 +2218,68 @@ var YouTubeUrlModal = class extends BaseModal {
     this.providerSelect.value = "Google Gemini";
     this.providerSelect.addEventListener("change", () => {
       this.selectedProvider = this.providerSelect.value;
+      if (this.options.modelOptions) {
+        this.updateModelDropdown(this.options.modelOptions);
+      }
     });
     const modelContainer = dropdownContainer.createDiv();
     modelContainer.style.cssText = `
             flex: 1;
+            position: relative;
         `;
-    const modelLabel = modelContainer.createDiv();
+    const modelLabelRow = modelContainer.createDiv();
+    modelLabelRow.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        `;
+    const modelLabel = modelLabelRow.createDiv();
     modelLabel.textContent = "Model";
     modelLabel.style.cssText = `
             font-weight: 500;
-            margin-bottom: 6px;
             color: var(--text-normal);
             font-size: 0.9rem;
         `;
+    const refreshBtn = modelLabelRow.createEl("button");
+    refreshBtn.innerHTML = "\u{1F504}";
+    refreshBtn.style.cssText = `
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 2px 4px;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s, background 0.2s;
+        `;
+    refreshBtn.addEventListener("mouseenter", () => {
+      refreshBtn.style.opacity = "1";
+      refreshBtn.style.background = "var(--background-modifier-hover)";
+    });
+    refreshBtn.addEventListener("mouseleave", () => {
+      refreshBtn.style.opacity = "0.7";
+      refreshBtn.style.background = "none";
+    });
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.innerHTML = "\u23F3";
+      refreshBtn.style.opacity = "0.5";
+      refreshBtn.style.cursor = "wait";
+      try {
+        if (this.options.fetchModels) {
+          const modelOptionsMap = await this.options.fetchModels();
+          this.updateModelDropdown(modelOptionsMap);
+          new import_obsidian5.Notice("Model list updated!");
+        }
+      } catch (error) {
+        console.error("Error refreshing models:", error);
+        new import_obsidian5.Notice("Failed to refresh models. Using cached options.");
+      } finally {
+        refreshBtn.innerHTML = "\u{1F504}";
+        refreshBtn.style.opacity = "0.7";
+        refreshBtn.style.cursor = "pointer";
+      }
+    });
     this.modelSelect = modelContainer.createEl("select");
     this.modelSelect.style.cssText = `
             width: 100%;
@@ -2235,7 +2301,13 @@ var YouTubeUrlModal = class extends BaseModal {
       { value: "gemini-2.5-pro", text: "Gemini Pro 2.5" },
       { value: "gemini-2.5-flash", text: "Gemini Flash 2.5" },
       { value: "gemini-1.5-pro", text: "Gemini Pro 1.5" },
-      { value: "gemini-1.5-flash", text: "Gemini Flash 1.5" }
+      { value: "gemini-1.5-flash", text: "Gemini Flash 1.5" },
+      { value: "qwen3-coder:480b-cloud", text: "Qwen3-Coder 480B Cloud" },
+      { value: "llama3.2", text: "Llama 3.2" },
+      { value: "llama3.1", text: "Llama 3.1" },
+      { value: "mistral", text: "Mistral" },
+      { value: "gemma2", text: "Gemma 2" },
+      { value: "phi3", text: "Phi 3" }
     ];
     modelOptions.forEach((option) => {
       const optionEl = this.modelSelect.createEl("option");
@@ -2246,6 +2318,68 @@ var YouTubeUrlModal = class extends BaseModal {
     this.modelSelect.addEventListener("change", () => {
       this.selectedModel = this.modelSelect.value;
     });
+  }
+  /**
+   * Update the model dropdown options based on provider selection and fetched data
+   */
+  updateModelDropdown(modelOptionsMap) {
+    if (!this.modelSelect || !this.providerSelect)
+      return;
+    this.modelSelect.innerHTML = "";
+    const currentProvider = this.providerSelect.value;
+    let models = [];
+    if (modelOptionsMap && modelOptionsMap[currentProvider]) {
+      models = modelOptionsMap[currentProvider];
+    } else {
+      switch (currentProvider) {
+        case "Google Gemini":
+          models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash"];
+          break;
+        case "Groq":
+          models = ["llama-4-maverick-17b-128e-instruct", "llama-4-scout-17b-16e-instruct", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+          break;
+        case "Ollama":
+          models = ["qwen3-coder:480b-cloud", "llama3.2", "llama3.1", "mistral", "mixtral", "gemma2", "phi3", "qwen2", "command-r"];
+          break;
+        default:
+          models = [];
+      }
+    }
+    models.forEach((model) => {
+      const option = this.modelSelect.createEl("option");
+      option.value = model;
+      option.textContent = this.formatModelName(model);
+    });
+    if (this.selectedModel && models.includes(this.selectedModel)) {
+      this.modelSelect.value = this.selectedModel;
+    } else if (models.length > 0) {
+      this.modelSelect.value = models[0];
+      this.selectedModel = models[0];
+    }
+  }
+  /**
+   * Format model names to be more user-friendly
+   */
+  formatModelName(modelName) {
+    if (modelName === "gemini-2.5-pro")
+      return "Gemini Pro 2.5";
+    if (modelName === "gemini-2.5-flash")
+      return "Gemini Flash 2.5";
+    if (modelName === "gemini-1.5-pro")
+      return "Gemini Pro 1.5";
+    if (modelName === "gemini-1.5-flash")
+      return "Gemini Flash 1.5";
+    if (modelName === "qwen3-coder:480b-cloud")
+      return "Qwen3-Coder 480B Cloud";
+    if (modelName === "llama-4-maverick-17b-128e-instruct")
+      return "Llama 4 Maverick 17B";
+    if (modelName === "llama-4-scout-17b-16e-instruct")
+      return "Llama 4 Scout 17B";
+    if (modelName === "llama-3.3-70b-versatile")
+      return "Llama 3.3 70B";
+    if (modelName === "llama-3.1-8b-instant")
+      return "Llama 3.1 8B";
+    return modelName.charAt(0).toUpperCase() + modelName.slice(1).replace(/[-_]/g, " ");
   }
   /**
    * Create theme toggle component (light/dark mode)
@@ -4129,6 +4263,111 @@ var GroqProvider = class extends BaseAIProvider {
   }
 };
 
+// src/ollama.ts
+var OllamaProvider = class extends BaseAIProvider {
+  constructor(apiKey = "", model, timeout, endpoint) {
+    super(apiKey || "ollama", model || "qwen3-coder:480b-cloud", timeout);
+    this.name = "Ollama";
+    this.ollamaEndpoint = endpoint || "http://localhost:11434";
+  }
+  async process(prompt) {
+    try {
+      if (!prompt || prompt.trim().length === 0) {
+        throw new Error("Prompt cannot be empty");
+      }
+      const requestBody = {
+        model: this._model,
+        prompt,
+        stream: false,
+        options: {
+          temperature: this._temperature,
+          num_predict: this._maxTokens
+        }
+      };
+      const response = await fetch(`${this.ollamaEndpoint}/api/generate`, {
+        method: "POST",
+        headers: this.createHeaders(),
+        body: JSON.stringify(requestBody)
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Ollama model not found: ${this._model}. Please make sure the model is pulled in Ollama using 'ollama pull ${this._model}'.`);
+        }
+        if (response.status === 500) {
+          const errorData = await this.safeJsonParse(response);
+          const errorMessage = (errorData == null ? void 0 : errorData.error) || "Ollama server error";
+          throw new Error(`Ollama error: ${errorMessage}`);
+        }
+        throw new Error(`Ollama API error: ${response.status} - ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (!this.validateResponse(data, ["response"])) {
+        throw new Error("Invalid response format from Ollama API");
+      }
+      return this.extractContent(data);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes("fetch") || error.message.includes("network") || error.message.includes("ECONNREFUSED") || error.message.includes("ENOTFOUND")) {
+          throw new Error("Ollama server is not running or unreachable. Please ensure Ollama is installed and running on your system.");
+        }
+        throw error;
+      }
+      throw new Error(`Ollama processing failed: ${error}`);
+    }
+  }
+  /**
+   * Check if Ollama server is accessible
+   */
+  async checkAvailability() {
+    try {
+      const response = await fetch(`${this.ollamaEndpoint}/api/tags`, {
+        method: "GET",
+        headers: this.createHeaders()
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+  /**
+   * Check if a specific model is available in Ollama
+   */
+  async checkModelAvailability(modelName) {
+    try {
+      const response = await fetch(`${this.ollamaEndpoint}/api/tags`, {
+        method: "GET",
+        headers: this.createHeaders()
+      });
+      if (!response.ok) {
+        return false;
+      }
+      const data = await response.json();
+      if (!data || !data.models) {
+        return false;
+      }
+      return data.models.some(
+        (model) => model.name === modelName || model.name.startsWith(`${modelName}:`) || model.id && model.id.includes(modelName)
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+  createHeaders() {
+    return {
+      "Content-Type": "application/json"
+    };
+  }
+  createRequestBody(prompt) {
+    return {};
+  }
+  extractContent(response) {
+    if (response && typeof response === "object" && "response" in response) {
+      return response.response.trim();
+    }
+    return "";
+  }
+};
+
 // src/video-data.ts
 init_api();
 
@@ -5272,6 +5511,7 @@ var ServiceContainer = class {
       if (this.settings.groqApiKey) {
         providers.push(new GroqProvider(this.settings.groqApiKey));
       }
+      providers.push(new OllamaProvider());
       this._aiService = new AIService(providers, this.settings);
     }
     return this._aiService;
@@ -5507,7 +5747,7 @@ var YoutubeClipperPlugin = class extends import_obsidian8.Plugin {
         onOpenFile: this.openFileByPath.bind(this),
         ...initialUrl && { initialUrl },
         providers,
-        defaultProvider: "gemini",
+        defaultProvider: "Google Gemini",
         // Prefer Gemini as default provider
         defaultModel: "gemini-2.5-pro",
         // Use the latest Gemini model

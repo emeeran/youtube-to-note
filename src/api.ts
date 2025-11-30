@@ -41,19 +41,33 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         // Llama 3.x series
         { name: 'llama-3.3-70b-versatile' },
         { name: 'llama-3.1-8b-instant' }
+    ],
+    'Ollama': [
+        // Various Ollama models
+        { name: 'qwen3-coder:480b-cloud' },
+        { name: 'llama3.2' },
+        { name: 'llama3.1' },
+        { name: 'mistral' },
+        { name: 'mixtral' },
+        { name: 'gemma2' },
+        { name: 'phi3' },
+        { name: 'qwen2' },
+        { name: 'command-r' }
     ]
 };
 
 // Optional: provider pages to attempt to scrape for latest model names (best-effort)
 export const PROVIDER_MODEL_LIST_URLS: Record<string, string> = {
     'Google Gemini': 'https://developers.generativeai.google/models',
-    'Groq': 'https://groq.com'
+    'Groq': 'https://groq.com',
+    'Ollama': 'http://localhost:11434'  // Local Ollama instance
 };
 
 // Simple regex patterns to try to extract model-like tokens from provider pages
 export const PROVIDER_MODEL_REGEX: Record<string, RegExp> = {
     'Google Gemini': /gemini[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
-    'Groq': /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi
+    'Groq': /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
+    'Ollama': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g  // General pattern for Ollama models
 };
 
 export const API_LIMITS = {

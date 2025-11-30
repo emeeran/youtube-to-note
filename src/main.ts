@@ -230,7 +230,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 onOpenFile: this.openFileByPath.bind(this),
                 ...(initialUrl && { initialUrl }),
                 providers,
-                defaultProvider: 'gemini', // Prefer Gemini as default provider
+                defaultProvider: 'Google Gemini', // Prefer Gemini as default provider
                 defaultModel: 'gemini-2.5-pro', // Use the latest Gemini model
                 defaultMaxTokens: this.settings.defaultMaxTokens,
                 defaultTemperature: this.settings.defaultTemperature,

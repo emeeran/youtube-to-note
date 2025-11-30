@@ -316,7 +316,8 @@ export class YouTubeUrlModal extends BaseModal {
         // Add provider options
         const providerOptions = [
             { value: 'Google Gemini', text: 'Google' },
-            { value: 'Groq', text: 'Groq' }
+            { value: 'Groq', text: 'Groq' },
+            { value: 'Ollama', text: 'Ollama' }
         ];
 
         providerOptions.forEach(option => {
@@ -331,22 +332,82 @@ export class YouTubeUrlModal extends BaseModal {
         // Update provider when changed
         this.providerSelect.addEventListener('change', () => {
             this.selectedProvider = this.providerSelect.value;
+
+            // Update the model dropdown to show models for the selected provider
+            // Use the cached model options if available
+            if (this.options.modelOptions) {
+                this.updateModelDropdown(this.options.modelOptions);
+            }
         });
 
-        // Model dropdown
+        // Model dropdown with refresh button container
         const modelContainer = dropdownContainer.createDiv();
         modelContainer.style.cssText = `
             flex: 1;
+            position: relative;
         `;
 
-        const modelLabel = modelContainer.createDiv();
+        const modelLabelRow = modelContainer.createDiv();
+        modelLabelRow.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        `;
+
+        const modelLabel = modelLabelRow.createDiv();
         modelLabel.textContent = 'Model';
         modelLabel.style.cssText = `
             font-weight: 500;
-            margin-bottom: 6px;
             color: var(--text-normal);
             font-size: 0.9rem;
         `;
+
+        // Create refresh button
+        const refreshBtn = modelLabelRow.createEl('button');
+        refreshBtn.innerHTML = '🔄';
+        refreshBtn.style.cssText = `
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 2px 4px;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s, background 0.2s;
+        `;
+
+        refreshBtn.addEventListener('mouseenter', () => {
+            refreshBtn.style.opacity = '1';
+            refreshBtn.style.background = 'var(--background-modifier-hover)';
+        });
+
+        refreshBtn.addEventListener('mouseleave', () => {
+            refreshBtn.style.opacity = '0.7';
+            refreshBtn.style.background = 'none';
+        });
+
+        refreshBtn.addEventListener('click', async () => {
+            refreshBtn.innerHTML = '⏳'; // Loading indicator
+            refreshBtn.style.opacity = '0.5';
+            refreshBtn.style.cursor = 'wait';
+
+            try {
+                // Call the fetchModels function passed from main.ts
+                if (this.options.fetchModels) {
+                    const modelOptionsMap = await this.options.fetchModels();
+                    this.updateModelDropdown(modelOptionsMap);
+                    new Notice('Model list updated!');
+                }
+            } catch (error) {
+                console.error('Error refreshing models:', error);
+                new Notice('Failed to refresh models. Using cached options.');
+            } finally {
+                refreshBtn.innerHTML = '🔄';
+                refreshBtn.style.opacity = '0.7';
+                refreshBtn.style.cursor = 'pointer';
+            }
+        });
 
         this.modelSelect = modelContainer.createEl('select');
         this.modelSelect.style.cssText = `
@@ -371,7 +432,13 @@ export class YouTubeUrlModal extends BaseModal {
             { value: 'gemini-2.5-pro', text: 'Gemini Pro 2.5' },
             { value: 'gemini-2.5-flash', text: 'Gemini Flash 2.5' },
             { value: 'gemini-1.5-pro', text: 'Gemini Pro 1.5' },
-            { value: 'gemini-1.5-flash', text: 'Gemini Flash 1.5' }
+            { value: 'gemini-1.5-flash', text: 'Gemini Flash 1.5' },
+            { value: 'qwen3-coder:480b-cloud', text: 'Qwen3-Coder 480B Cloud' },
+            { value: 'llama3.2', text: 'Llama 3.2' },
+            { value: 'llama3.1', text: 'Llama 3.1' },
+            { value: 'mistral', text: 'Mistral' },
+            { value: 'gemma2', text: 'Gemma 2' },
+            { value: 'phi3', text: 'Phi 3' }
         ];
 
         modelOptions.forEach(option => {
@@ -387,6 +454,75 @@ export class YouTubeUrlModal extends BaseModal {
         this.modelSelect.addEventListener('change', () => {
             this.selectedModel = this.modelSelect.value;
         });
+    }
+
+    /**
+     * Update the model dropdown options based on provider selection and fetched data
+     */
+    private updateModelDropdown(modelOptionsMap: Record<string, string[]>): void {
+        if (!this.modelSelect || !this.providerSelect) return;
+
+        // Clear existing options
+        this.modelSelect.innerHTML = '';
+
+        // Get the currently selected provider
+        const currentProvider = this.providerSelect.value;
+
+        // Get available models for the current provider
+        let models: string[] = [];
+        if (modelOptionsMap && modelOptionsMap[currentProvider]) {
+            models = modelOptionsMap[currentProvider];
+        } else {
+            // Fallback to static options if not available in dynamic map
+            switch(currentProvider) {
+                case 'Google Gemini':
+                    models = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+                    break;
+                case 'Groq':
+                    models = ['llama-4-maverick-17b-128e-instruct', 'llama-4-scout-17b-16e-instruct', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+                    break;
+                case 'Ollama':
+                    models = ['qwen3-coder:480b-cloud', 'llama3.2', 'llama3.1', 'mistral', 'mixtral', 'gemma2', 'phi3', 'qwen2', 'command-r'];
+                    break;
+                default:
+                    models = [];
+            }
+        }
+
+        // Add models to dropdown with friendly names
+        models.forEach(model => {
+            const option = this.modelSelect.createEl('option');
+            option.value = model;
+            // Format model names to be more user-friendly
+            option.textContent = this.formatModelName(model);
+        });
+
+        // Preserve the previously selected model if it's still available, otherwise use first option
+        if (this.selectedModel && models.includes(this.selectedModel)) {
+            this.modelSelect.value = this.selectedModel;
+        } else if (models.length > 0) {
+            this.modelSelect.value = models[0];
+            this.selectedModel = models[0];
+        }
+    }
+
+    /**
+     * Format model names to be more user-friendly
+     */
+    private formatModelName(modelName: string): string {
+        // Handle special cases for better naming
+        if (modelName === 'gemini-2.5-pro') return 'Gemini Pro 2.5';
+        if (modelName === 'gemini-2.5-flash') return 'Gemini Flash 2.5';
+        if (modelName === 'gemini-1.5-pro') return 'Gemini Pro 1.5';
+        if (modelName === 'gemini-1.5-flash') return 'Gemini Flash 1.5';
+        if (modelName === 'qwen3-coder:480b-cloud') return 'Qwen3-Coder 480B Cloud';
+        if (modelName === 'llama-4-maverick-17b-128e-instruct') return 'Llama 4 Maverick 17B';
+        if (modelName === 'llama-4-scout-17b-16e-instruct') return 'Llama 4 Scout 17B';
+        if (modelName === 'llama-3.3-70b-versatile') return 'Llama 3.3 70B';
+        if (modelName === 'llama-3.1-8b-instant') return 'Llama 3.1 8B';
+
+        // Default fallback: capitalize first letter and replace dashes/underscores with spaces
+        return modelName.charAt(0).toUpperCase() + modelName.slice(1).replace(/[-_]/g, ' ');
     }
 
     /**

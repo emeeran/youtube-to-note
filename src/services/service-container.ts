@@ -17,6 +17,7 @@ import {
 import { AIService } from './ai-service';
 import { GeminiProvider } from './../gemini';
 import { GroqProvider } from './../groq';
+import { OllamaProvider } from './../ollama';
 import { YouTubeVideoService } from './../video-data';
 import { ObsidianFileService } from './../obsidian-file';
 import { AIPromptService } from './prompt-service';
@@ -47,6 +48,10 @@ export class ServiceContainer implements IServiceContainer {
             if (this.settings.groqApiKey) {
                 providers.push(new GroqProvider(this.settings.groqApiKey));
             }
+
+            // Add Ollama provider (doesn't require API key)
+            // We add it always so it appears in dropdowns, but processing will check availability
+            providers.push(new OllamaProvider());
 
             this._aiService = new AIService(providers, this.settings);
         }
