@@ -93,6 +93,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.createAPISettingsSection(mainContent);
         this.createAIParametersSection(mainContent);
         this.createFileSettingsSection(mainContent);
+        this.createAdvancedSettingsSection(mainContent);
         this.createQuickStartSection(mainContent);
     }
 
@@ -206,188 +207,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     /**
-     * Validate entire configuration
-     */
-    private validateConfiguration(): boolean {
-        const hasApiKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
-        const hasValidPath = ValidationUtils.isValidPath(this.settings.outputPath);
-        return Boolean(hasApiKey && hasValidPath);
-    }
-
-    /**
-     * Show inline documentation
-     */
-    private showDocumentation(): void {
-        window.open('https://github.com/youtube-clipper/obsidian-plugin#readme', '_blank');
-    }    /**
-     * Create API configuration settings
-     */
-    private createAPISettings(container: HTMLElement = this.containerEl): void {
-
-        // API Keys section - compact header
-        const apiHeader = container.createEl('h3', {
-            text: 'API Keys',
-            style: 'margin: 0 0 12px 0; font-size: 1rem; color: var(--text-normal);'
-        });
-
-        // Gemini API Key (password field)
-        const geminiSetting = new Setting(container)
-            .setName('Gemini API Key')
-            .setDesc('Google Gemini API key')
-            .addText(text => {
-                // Use password-like input
-                const inputEl = text
-                    .setPlaceholder('sk-... (your key is encrypted)')
-                    .setValue(this.settings.geminiApiKey || '')
-                    .onChange(async (value) => {
-                        await this.updateSetting('geminiApiKey', value);
-                    })
-                    .inputEl;
-                
-                // Make it password field
-                inputEl.type = 'password';
-                
-                // Add toggle to show/hide
-                inputEl.style.fontFamily = 'monospace';
-                inputEl.style.letterSpacing = '0.1em';
-                
-                return text;
-            });
-        
-        // Add show/hide toggle for Gemini key
-        this.addKeyToggle(geminiSetting, this.settings.geminiApiKey);
-        
-        // Add clear button for Gemini key
-        this.addKeyClearButton(geminiSetting, 'geminiApiKey');
-
-        // Groq API Key (password field)
-        const groqSetting = new Setting(container)
-            .setName('Groq API Key')
-            .setDesc('Groq API key (fast processing)')
-            .addText(text => {
-                // Use password-like input
-                const inputEl = text
-                    .setPlaceholder('gsk_... (your key is encrypted)')
-                    .setValue(this.settings.groqApiKey || '')
-                    .onChange(async (value) => {
-                        await this.updateSetting('groqApiKey', value);
-                    })
-                    .inputEl;
-                
-                // Make it password field
-                inputEl.type = 'password';
-                
-                // Add visual feedback
-                inputEl.style.fontFamily = 'monospace';
-                inputEl.style.letterSpacing = '0.1em';
-                
-                return text;
-            });
-        
-        // Add show/hide toggle for Groq key
-        this.addKeyToggle(groqSetting, this.settings.groqApiKey);
-        
-        // Add clear button for Groq key
-        this.addKeyClearButton(groqSetting, 'groqApiKey');
-
-        // Test Connectivity - compact
-        const testSection = container.createDiv('ytc-test-connection');
-        testSection.style.marginTop = '8px';
-        testSection.style.paddingTop = '8px';
-        testSection.style.borderTop = '1px solid var(--background-modifier-border)';
-
-        new Setting(testSection)
-            .setName('Test Connection')
-            .setDesc('Verify API keys')
-            .addButton(btn => btn
-                .setButtonText('Test')
-                .onClick(async () => {
-                    btn.setDisabled(true);
-                    btn.setButtonText('...');
-                    try {
-                        await this.testAPIKeys();
-                        btn.setButtonText('✓ OK');
-                        setTimeout(() => {
-                            btn.setButtonText('Test');
-                            btn.setDisabled(false);
-                        }, 1500);
-                    } catch (error) {
-                        btn.setButtonText('✗ Error');
-                        ErrorHandler.handle(error as Error, 'API key test failed', true);
-                        setTimeout(() => {
-                            btn.setButtonText('Test');
-                            btn.setDisabled(false);
-                        }, 1500);
-                    }
-                }));
-    }
-
-    /**
-     * Add show/hide toggle for sensitive API keys
-     */
-    private addKeyToggle(setting: Setting, keyValue: string): void {
-        // Always add toggle button, even if key is empty (user might be entering it now)
-        const toggleBtn = setting.addButton(btn => btn
-            .setButtonText('👁️ Show')
-            .setTooltip('Toggle key visibility')
-            .onClick((e) => {
-                const inputs = setting.settingEl.querySelectorAll('input[type="password"], input[type="text"]');
-                if (inputs.length === 0) return;
-
-                const input = inputs[0] as HTMLInputElement;
-                const isPassword = input.type === 'password';
-
-                input.type = isPassword ? 'text' : 'password';
-                btn.setButtonText(isPassword ? '👁️‍🗨️ Hide' : '👁️ Show');
-            }));
-    }
-
-    /**
-     * Add clear button to remove API key
-     */
-    private addKeyClearButton(setting: Setting, settingKey: 'geminiApiKey' | 'groqApiKey'): void {
-        const clearBtn = setting.addButton(btn => btn
-            .setButtonText('🗑️ Clear')
-            .setTooltip('Remove this API key')
-            .onClick(async () => {
-                // Confirm before clearing
-                const keyName = settingKey === 'geminiApiKey' ? 'Gemini' : 'Groq';
-                if (confirm(`Are you sure you want to clear the ${keyName} API key?`)) {
-                    await this.updateSetting(settingKey, '');
-                    // Refresh the display to show empty field
-                    this.display();
-                }
-            }));
-    }
-
-    /**
-     * Test API keys for validity
-     */
-    private async testAPIKeys(): Promise<void> {
-        const errors: string[] = [];
-
-        if (this.settings.geminiApiKey) {
-            try {
-                const response = await fetch(
-                    'https://generativelanguage.googleapis.com/v1beta/models?key=' + this.settings.geminiApiKey
-                );
-                if (!response.ok) {
-                    errors.push(`Gemini API key invalid (${response.status})`);
-                }
-            } catch (error) {
-                errors.push('Gemini API key test failed (network error)');
-            }
-        } else {
-            errors.push('Gemini API key not configured');
-        }
-
-        if (errors.length > 0) {
-            throw new Error(errors.join('\n'));
-        }
-    }
-
-    /**
-     * Create AI parameters section
+     * Create AI parameters section with model defaults
      */
     private createAIParametersSection(mainContent: HTMLElement): void {
         const section = mainContent.createDiv();
@@ -530,86 +350,59 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         scaleDiv.style.padding = '0 4px';
         scaleDiv.createSpan({ text: 'Precise' });
         scaleDiv.createSpan({ text: 'Creative' });
+
+        // Performance Mode
+        new Setting(section)
+            .setName('Performance Mode')
+            .setDesc('Speed vs. quality balance')
+            .addDropdown(dropdown => dropdown
+                .addOption('fast', 'Fast (10-30s)')
+                .addOption('balanced', 'Balanced (30-60s)')
+                .addOption('quality', 'Quality (60-120s)')
+                .setValue(this.settings.performanceMode || 'balanced')
+                .onChange(async (value) => {
+                    await this.updateSetting('performanceMode', value as 'fast' | 'balanced' | 'quality');
+                }));
     }
 
     /**
-     * Create security configuration settings
+     * Create advanced settings section for moved options from modal
      */
-    private createSecuritySettings(container: HTMLElement = this.containerEl): void {
-        
-        // Security Settings section - compact header
-        container.createEl('h3', {
-            text: 'Security',
-            style: 'margin: 0 0 12px 0; font-size: 1rem; color: var(--text-normal);'
+    private createAdvancedSettingsSection(mainContent: HTMLElement): void {
+        const section = mainContent.createDiv();
+        section.style.background = 'var(--background-secondary)';
+        section.style.border = '1px solid var(--background-modifier-border)';
+        section.style.borderRadius = '6px';
+        section.style.padding = '12px';
+        section.style.display = 'flex';
+        section.style.flexDirection = 'column';
+        section.style.gap = '8px';
+
+        // Header
+        const header = section.createEl('h3', {
+            text: '⚙️ Advanced Settings',
+            style: 'margin: 0 0 4px 0; font-size: 0.9rem; font-weight: 600; color: var(--text-normal);'
         });
 
-        // Use Environment Variables
-        new Setting(container)
-            .setName('Use Environment Variables')
-            .setDesc('Load API keys from environment variables instead of storing them in configuration')
+        // Enable Parallel Processing
+        new Setting(section)
+            .setName('Enable Parallel Processing')
+            .setDesc('Process with multiple providers simultaneously for faster results')
             .addToggle(toggle => toggle
-                .setValue(this.settings.useEnvironmentVariables || false)
+                .setValue(this.settings.enableParallelProcessing || false)
                 .onChange(async (value) => {
-                    await this.updateSetting('useEnvironmentVariables', value);
-                    this.display(); // Refresh display to show/hide relevant settings
+                    await this.updateSetting('enableParallelProcessing', value);
                 }));
 
-        // Environment Variable Prefix
-        if (this.settings.useEnvironmentVariables) {
-            new Setting(container)
-                .setName('Environment Variable Prefix')
-                .setDesc('Prefix for environment variable names')
-                .addText(text => text
-                    .setPlaceholder('YTC')
-                    .setValue(this.settings.environmentPrefix || 'YTC')
-                    .onChange(async (value) => {
-                        await this.updateSetting('environmentPrefix', value || 'YTC');
-                    }));
-
-            // Environment Template - compact
-            const envTemplate = this.secureConfig.getEnvironmentTemplate();
-            const envSection = container.createDiv('ytc-env-template');
-            envSection.style.marginTop = '8px';
-            envSection.style.padding = '8px';
-            envSection.style.backgroundColor = 'var(--background-primary)';
-            envSection.style.borderRadius = '4px';
-            envSection.style.border = '1px solid var(--background-modifier-border)';
-
-            const envTitle = envSection.createEl('h4', {
-                text: 'Environment Variables',
-                style: 'margin: 0 0 4px 0; font-size: 0.8rem;'
-            });
-
-            const preEl = envSection.createEl('pre');
-            preEl.style.margin = '0';
-            preEl.style.fontSize = '0.7rem';
-            preEl.style.lineHeight = '1.2';
-            preEl.createEl('code', { text: envTemplate });
-
-            // Copy button - compact
-            const copyBtn = envSection.createEl('button', {
-                text: '📋 Copy',
-                style: 'margin-top: 6px; padding: 2px 6px; font-size: 0.7rem; border-radius: 3px; border: 1px solid var(--background-modifier-border); background: var(--interactive-normal); cursor: pointer;'
-            });
-            copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(envTemplate);
-                copyBtn.textContent = '✓ Copied';
-                setTimeout(() => copyBtn.textContent = '📋 Copy', 1500);
-            });
-        }
-
-        // Security Validation - compact
-        const validation = this.secureConfig.validateSecurityConfiguration();
-        if (!validation.isSecure) {
-            const warningEl = container.createDiv('ytc-security-warnings');
-            warningEl.style.marginTop = '8px';
-            warningEl.style.padding = '6px';
-            warningEl.style.backgroundColor = 'var(--background-warning)';
-            warningEl.style.borderRadius = '4px';
-            warningEl.style.fontSize = '0.75rem';
-            warningEl.style.color = 'var(--text-warning)';
-            warningEl.createEl('div', { text: '⚠️ ' + validation.warnings.join(' ') });
-        }
+        // Prefer Multimodal Analysis
+        new Setting(section)
+            .setName('Prefer Multimodal Analysis')
+            .setDesc('Use video-capable models that can analyze both audio and visual content')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.preferMultimodal || false)
+                .onChange(async (value) => {
+                    await this.updateSetting('preferMultimodal', value);
+                }));
     }
 
     /**
@@ -637,46 +430,26 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .setDesc('Folder for processed videos (relative to vault root)')
             .addText(text => text
                 .setPlaceholder('YouTube/Processed Videos')
-                .setValue(this.settings.outputPath)
+                .setValue(this.settings.outputPath || 'YouTube/Processed Videos')
                 .onChange(async (value) => {
                     await this.updateSetting('outputPath', value);
                 }));
     }
 
     /**
-     * Create validation status display
+     * Validate entire configuration
      */
-    private createValidationStatus(): void {
-        const { containerEl } = this;
-        
-        if (this.validationErrors.length > 0) {
-            const errorSection = containerEl.createDiv();
-            errorSection.style.marginTop = '20px';
-            errorSection.style.padding = '10px';
-            errorSection.style.backgroundColor = 'var(--background-modifier-error)';
-            errorSection.style.borderRadius = '4px';
-            
-            errorSection.createEl('h4', { 
-                text: '⚠️ Configuration Issues',
-                attr: { style: 'color: var(--text-error); margin-top: 0;' }
-            });
-            
-            const errorList = errorSection.createEl('ul');
-            this.validationErrors.forEach(error => {
-                errorList.createEl('li', { text: error });
-            });
-        } else {
-            const successSection = containerEl.createDiv();
-            successSection.style.marginTop = '20px';
-            successSection.style.padding = '10px';
-            successSection.style.backgroundColor = 'var(--background-modifier-success)';
-            successSection.style.borderRadius = '4px';
-            
-            successSection.createEl('h4', { 
-                text: '✅ Configuration Valid',
-                attr: { style: 'color: var(--text-success); margin-top: 0;' }
-            });
-        }
+    private validateConfiguration(): boolean {
+        const hasApiKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
+        const hasValidPath = ValidationUtils.isValidPath(this.settings.outputPath);
+        return Boolean(hasApiKey && hasValidPath);
+    }
+
+    /**
+     * Show inline documentation
+     */
+    private showDocumentation(): void {
+        window.open('https://github.com/youtube-clipper/obsidian-plugin#readme', '_blank');
     }
 
     /**
@@ -756,11 +529,37 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     /**
+     * Test API keys for validity
+     */
+    private async testAPIKeys(): Promise<void> {
+        const errors: string[] = [];
+
+        if (this.settings.geminiApiKey) {
+            try {
+                const response = await fetch(
+                    'https://generativelanguage.googleapis.com/v1beta/models?key=' + this.settings.geminiApiKey
+                );
+                if (!response.ok) {
+                    errors.push(`Gemini API key invalid (${response.status})`);
+                }
+            } catch (error) {
+                errors.push('Gemini API key test failed (network error)');
+            }
+        } else {
+            errors.push('Gemini API key not configured');
+        }
+
+        if (errors.length > 0) {
+            throw new Error(errors.join('\n'));
+        }
+    }
+
+    /**
      * Update a setting value
      */
     private async updateSetting(
-        key: keyof YouTubePluginSettings, 
-        value: string | boolean
+        key: keyof YouTubePluginSettings,
+        value: string | boolean | number | 'fast' | 'balanced' | 'quality'
     ): Promise<void> {
         try {
             (this.settings as any)[key] = value;
@@ -776,11 +575,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private async validateAndSaveSettings(): Promise<void> {
         const validation = ValidationUtils.validateSettings(this.settings);
         this.validationErrors = validation.errors;
-        
+
         if (validation.isValid) {
             await this.options.onSettingsChange(this.settings);
         }
-        
+
         // Refresh display to show validation status
         this.display();
     }

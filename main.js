@@ -1763,7 +1763,6 @@ var SaveConfirmationModal = class extends import_obsidian3.Modal {
 // src/youtube-url-modal.ts
 var import_obsidian5 = require("obsidian");
 init_base_modal();
-init_api();
 
 // src/services/user-preferences-service.ts
 var UserPreferencesService = class {
@@ -1995,55 +1994,32 @@ var YouTubeUrlModal = class extends BaseModal {
     this.progressSteps = [];
     this.currentStepIndex = 0;
     this.isProcessing = false;
-    // Advanced settings drawer state
-    this.isDrawerOpen = false;
-    // Performance settings
-    this.performanceMode = "balanced";
-    this.enableParallelProcessing = false;
-    this.preferMultimodal = false;
-    // Model parameters
-    this.maxTokens = 4096;
-    this.temperature = 0.5;
     // Theme state
-    this.isDarkMode = false;
-    this.handleRetry = () => {
-      if (this.processButton && !this.processButton.disabled) {
-        this.handleProcess();
-      }
-    };
+    this.isLightTheme = false;
     this.url = options.initialUrl || "";
+    const savedTheme = localStorage.getItem("ytc-theme-mode");
+    this.isLightTheme = savedTheme === "light";
     const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
     const smartModelParams = UserPreferencesService.getSmartDefaultModelParameters();
-    this.performanceMode = options.performanceMode || smartDefaults.mode;
-    this.enableParallelProcessing = options.enableParallelProcessing !== void 0 ? options.enableParallelProcessing : smartDefaults.parallel;
-    this.preferMultimodal = options.preferMultimodal !== void 0 ? options.preferMultimodal : smartDefaults.multimodal;
-    this.maxTokens = options.defaultMaxTokens || smartModelParams.maxTokens;
-    this.temperature = options.defaultTemperature || smartModelParams.temperature;
+    this.selectedProvider = "Google Gemini";
+    this.selectedModel = "gemini-2.5-pro";
     UserPreferencesService.updateLastUsed({
       format: "detailed-guide",
-      provider: options.defaultProvider,
-      model: options.defaultModel,
-      maxTokens: this.maxTokens,
-      temperature: this.temperature,
-      performanceMode: this.performanceMode,
-      parallelProcessing: this.enableParallelProcessing,
-      multimodal: this.preferMultimodal
+      provider: this.selectedProvider,
+      model: this.selectedModel,
+      maxTokens: options.defaultMaxTokens || 4096,
+      temperature: options.defaultTemperature || 0.5,
+      performanceMode: smartDefaults.mode,
+      parallelProcessing: smartDefaults.parallel,
+      multimodal: smartDefaults.multimodal
     });
-    const savedTheme = localStorage.getItem("ytc-theme-mode");
-    this.isDarkMode = savedTheme !== "light";
-    console.log("Theme initialized:", { savedTheme, isDarkMode: this.isDarkMode });
   }
   onOpen() {
     this.createModalContent();
     this.setupEventHandlers();
     this.setupKeyboardShortcuts();
-    this.showUserInsights();
     if (this.options.initialUrl) {
-      if (this.url.trim() === this.options.initialUrl.trim()) {
-        console.debug("YouTubeUrlModal: Same URL already set, preventing cycle");
-      } else {
-        this.setUrl(this.options.initialUrl);
-      }
+      this.setUrl(this.options.initialUrl);
       this.updateProcessButtonState();
       const isValid = ValidationUtils.isValidYouTubeUrl((this.options.initialUrl || "").trim());
       if (isValid && this.processButton) {
@@ -2054,26 +2030,231 @@ var YouTubeUrlModal = class extends BaseModal {
     this.focusUrlInput();
   }
   /**
-   * Create streamlined modal content
+   * Create streamlined modal content with compact UI
    */
   createModalContent() {
     this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
     this.createThemeToggle();
-    this.createStreamlinedUrlSection();
-    this.createQuickFormatSection();
-    this.createAdvancedSettingsDrawer();
+    this.createCompactUrlSection();
+    this.createDropDownRow();
     this.createProgressSection();
     this.createActionButtons();
   }
   /**
-   * Create theme toggle component
+   * Create compact URL section with paste button
+   */
+  createCompactUrlSection() {
+    const urlContainer = this.contentEl.createDiv();
+    urlContainer.style.cssText = `
+            margin: 16px 0;
+            position: relative;
+        `;
+    const inputWrapper = urlContainer.createDiv();
+    inputWrapper.style.cssText = `
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+    this.urlInput = inputWrapper.createEl("input");
+    this.urlInput.type = "url";
+    this.urlInput.placeholder = "Paste YouTube URL here...";
+    this.urlInput.style.cssText = `
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            transition: all 0.2s ease;
+            outline: none;
+        `;
+    this.pasteButton = inputWrapper.createEl("button");
+    this.pasteButton.innerHTML = "\u{1F4CB}";
+    this.pasteButton.style.cssText = `
+            padding: 8px 12px;
+            background: var(--interactive-accent);
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            color: white;
+        `;
+    this.pasteButton.addEventListener("click", () => this.handleSmartPaste());
+    this.pasteButton.addEventListener("mouseenter", () => {
+      this.pasteButton.style.background = "var(--interactive-accent-hover)";
+    });
+    this.pasteButton.addEventListener("mouseleave", () => {
+      this.pasteButton.style.background = "var(--interactive-accent)";
+    });
+    this.urlInput.addEventListener("focus", () => {
+      this.urlInput.style.borderColor = "var(--interactive-accent)";
+      this.urlInput.style.boxShadow = "0 0 0 2px rgba(99, 102, 241, 0.2)";
+    });
+    this.urlInput.addEventListener("blur", () => {
+      this.urlInput.style.borderColor = "var(--background-modifier-border)";
+      this.urlInput.style.boxShadow = "none";
+    });
+    this.validationMessage = urlContainer.createDiv();
+    this.validationMessage.style.cssText = `
+            margin-top: 6px;
+            padding: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-radius: 4px;
+        `;
+  }
+  /**
+   * Create three dropdowns in a single row: Format, Provider, Model
+   */
+  createDropDownRow() {
+    const dropdownContainer = this.contentEl.createDiv();
+    dropdownContainer.style.cssText = `
+            display: flex;
+            gap: 10px;
+            margin: 12px 0;
+        `;
+    const formatContainer = dropdownContainer.createDiv();
+    formatContainer.style.cssText = `
+            flex: 1;
+        `;
+    const formatLabel = formatContainer.createDiv();
+    formatLabel.textContent = "Format";
+    formatLabel.style.cssText = `
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+    this.formatSelect = formatContainer.createEl("select");
+    this.formatSelect.style.cssText = `
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            min-height: 40px;
+        `;
+    const formatOptions = [
+      { value: "executive-summary", text: "1. Executive" },
+      { value: "detailed-guide", text: "2. Comprehensive" },
+      { value: "brief", text: "3. Brief" },
+      { value: "custom", text: "4. Custom" }
+    ];
+    formatOptions.forEach((option) => {
+      const optionEl = this.formatSelect.createEl("option");
+      optionEl.value = option.value;
+      optionEl.textContent = option.text;
+    });
+    this.formatSelect.value = "executive-summary";
+    this.formatSelect.addEventListener("change", () => {
+      this.format = this.formatSelect.value;
+    });
+    const providerContainer = dropdownContainer.createDiv();
+    providerContainer.style.cssText = `
+            flex: 1;
+        `;
+    const providerLabel = providerContainer.createDiv();
+    providerLabel.textContent = "Provider";
+    providerLabel.style.cssText = `
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+    this.providerSelect = providerContainer.createEl("select");
+    this.providerSelect.style.cssText = `
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            min-height: 40px;
+        `;
+    const providerOptions = [
+      { value: "Google Gemini", text: "Google" },
+      { value: "Groq", text: "Groq" }
+    ];
+    providerOptions.forEach((option) => {
+      const optionEl = this.providerSelect.createEl("option");
+      optionEl.value = option.value;
+      optionEl.textContent = option.text;
+    });
+    this.providerSelect.value = "Google Gemini";
+    this.providerSelect.addEventListener("change", () => {
+      this.selectedProvider = this.providerSelect.value;
+    });
+    const modelContainer = dropdownContainer.createDiv();
+    modelContainer.style.cssText = `
+            flex: 1;
+        `;
+    const modelLabel = modelContainer.createDiv();
+    modelLabel.textContent = "Model";
+    modelLabel.style.cssText = `
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+    this.modelSelect = modelContainer.createEl("select");
+    this.modelSelect.style.cssText = `
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            min-height: 40px;
+        `;
+    const modelOptions = [
+      { value: "gemini-2.5-pro", text: "Gemini Pro 2.5" },
+      { value: "gemini-2.5-flash", text: "Gemini Flash 2.5" },
+      { value: "gemini-1.5-pro", text: "Gemini Pro 1.5" },
+      { value: "gemini-1.5-flash", text: "Gemini Flash 1.5" }
+    ];
+    modelOptions.forEach((option) => {
+      const optionEl = this.modelSelect.createEl("option");
+      optionEl.value = option.value;
+      optionEl.textContent = option.text;
+    });
+    this.modelSelect.value = "gemini-2.5-pro";
+    this.modelSelect.addEventListener("change", () => {
+      this.selectedModel = this.modelSelect.value;
+    });
+  }
+  /**
+   * Create theme toggle component (light/dark mode)
    */
   createThemeToggle() {
     const themeContainer = this.contentEl.createDiv();
     themeContainer.style.cssText = `
             display: flex;
             justify-content: flex-end;
-            align-items: center;
             margin: 8px 0 16px 0;
             padding: 0 4px;
         `;
@@ -2083,7 +2264,7 @@ var YouTubeUrlModal = class extends BaseModal {
             align-items: center;
             gap: 12px;
             background: var(--background-secondary);
-            padding: 8px 16px;
+            padding: 6px 12px;
             border-radius: 20px;
             border: 1px solid var(--background-modifier-border);
             transition: all 0.3s ease;
@@ -2101,11 +2282,11 @@ var YouTubeUrlModal = class extends BaseModal {
     sunIcon.style.cssText = `
             font-size: 1.1rem;
             transition: all 0.3s ease;
-            opacity: ${this.isDarkMode ? "0.5" : "1"};
+            opacity: ${this.isLightTheme ? "1" : "0.5"};
         `;
     const themeSwitch = toggleWrapper.createEl("input");
     themeSwitch.type = "checkbox";
-    themeSwitch.checked = this.isDarkMode;
+    themeSwitch.checked = this.isLightTheme;
     themeSwitch.style.cssText = `
             opacity: 0;
             width: 0;
@@ -2117,7 +2298,7 @@ var YouTubeUrlModal = class extends BaseModal {
             position: relative;
             width: 44px;
             height: 24px;
-            background: ${this.isDarkMode ? "var(--interactive-accent)" : "var(--text-muted)"};
+            background: ${this.isLightTheme ? "var(--interactive-accent)" : "var(--text-muted)"};
             border-radius: 24px;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
@@ -2128,7 +2309,7 @@ var YouTubeUrlModal = class extends BaseModal {
             position: absolute;
             height: 18px;
             width: 18px;
-            left: ${this.isDarkMode ? "24px" : "3px"};
+            left: ${this.isLightTheme ? "24px" : "3px"};
             bottom: 3px;
             background: white;
             border-radius: 50%;
@@ -2140,20 +2321,20 @@ var YouTubeUrlModal = class extends BaseModal {
     moonIcon.style.cssText = `
             font-size: 1.1rem;
             transition: all 0.3s ease;
-            opacity: ${this.isDarkMode ? "1" : "0.5"};
+            opacity: ${this.isLightTheme ? "0.5" : "1"};
         `;
-    const updateTheme = (isDark) => {
-      this.isDarkMode = isDark;
-      themeSwitch.checked = isDark;
-      slider.style.background = isDark ? "var(--interactive-accent)" : "var(--text-muted)";
-      knob.style.left = isDark ? "24px" : "3px";
-      sunIcon.style.opacity = isDark ? "0.5" : "1";
-      moonIcon.style.opacity = isDark ? "1" : "0.5";
-      this.applyTheme(isDark);
-      localStorage.setItem("ytc-theme-mode", isDark ? "dark" : "light");
+    const updateTheme = (isLight) => {
+      this.isLightTheme = isLight;
+      themeSwitch.checked = isLight;
+      slider.style.background = isLight ? "var(--interactive-accent)" : "var(--text-muted)";
+      knob.style.left = isLight ? "24px" : "3px";
+      sunIcon.style.opacity = isLight ? "1" : "0.5";
+      moonIcon.style.opacity = isLight ? "0.5" : "1";
+      this.applyTheme(isLight);
+      localStorage.setItem("ytc-theme-mode", isLight ? "light" : "dark");
     };
     slider.addEventListener("click", () => {
-      updateTheme(!this.isDarkMode);
+      updateTheme(!this.isLightTheme);
     });
     themeSwitch.addEventListener("change", () => {
       updateTheme(themeSwitch.checked);
@@ -2169,2137 +2350,74 @@ var YouTubeUrlModal = class extends BaseModal {
   /**
    * Apply theme to modal
    */
-  applyTheme(isDark) {
+  applyTheme(isLight) {
     var _a, _b, _c;
     if (!document.getElementById("ytc-theme-styles")) {
       const themeStyle = document.createElement("style");
       themeStyle.id = "ytc-theme-styles";
-      themeStyle.textContent = `
-                .ytc-modal-light {
-                    --ytc-bg-primary: #ffffff;
-                    --ytc-bg-secondary: #f8f9fa;
-                    --ytc-bg-tertiary: #e9ecef;
-                    --ytc-text-primary: #212529;
-                    --ytc-text-secondary: #6c757d;
-                    --ytc-text-muted: #adb5bd;
-                    --ytc-border: #dee2e6;
-                    --ytc-accent: #0066cc;
-                    --ytc-accent-hover: #0056b3;
-                    --ytc-shadow: rgba(0, 0, 0, 0.1);
-                }
-
-                .ytc-modal-dark {
-                    --ytc-bg-primary: #1a1a1a;
-                    --ytc-bg-secondary: #2d2d2d;
-                    --ytc-bg-tertiary: #404040;
-                    --ytc-text-primary: #ffffff;
-                    --ytc-text-secondary: #e0e0e0;
-                    --ytc-text-muted: #a0a0a0;
-                    --ytc-border: #404040;
-                    --ytc-accent: #4a9eff;
-                    --ytc-accent-hover: #3a8eef;
-                    --ytc-shadow: rgba(0, 0, 0, 0.3);
-                }
-
-                .ytc-themed-modal {
-                    transition: all 0.3s ease;
-                }
-
-                .ytc-themed-modal .modal-content {
-                    background: var(--ytc-bg-primary) !important;
-                    color: var(--ytc-text-primary) !important;
-                }
-
-                .ytc-themed-modal input,
-                .ytc-themed-modal select,
-                .ytc-themed-modal textarea {
-                    background: var(--ytc-bg-secondary) !important;
-                    color: var(--ytc-text-primary) !important;
-                    border-color: var(--ytc-border) !important;
-                }
-
-                .ytc-themed-modal input:focus,
-                .ytc-themed-modal select:focus,
-                .ytc-themed-modal textarea:focus {
-                    border-color: var(--ytc-accent) !important;
-                    box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1) !important;
-                }
-
-                .ytc-themed-modal button {
-                    background: var(--ytc-accent) !important;
-                    color: white !important;
-                    border-color: var(--ytc-accent) !important;
-                }
-
-                .ytc-themed-modal button:hover {
-                    background: var(--ytc-accent-hover) !important;
-                }
-
-                .ytc-themed-modal .ytc-section-card,
-                .ytc-themed-modal .ytc-streamlined-drawer {
-                    background: var(--ytc-bg-secondary) !important;
-                    border-color: var(--ytc-border) !important;
-                }
-
-                .ytc-themed-modal .ytc-drawer-content-streamlined {
-                    background: var(--ytc-bg-primary) !important;
-                }
-            `;
+      let css = "";
+      css += `.ytc-modal-light {`;
+      css += `--ytc-bg-primary: #ffffff;`;
+      css += `--ytc-bg-secondary: #f8f9fa;`;
+      css += `--ytc-bg-tertiary: #e9ecef;`;
+      css += `--ytc-text-primary: #212529;`;
+      css += `--ytc-text-secondary: #6c757d;`;
+      css += `--ytc-text-muted: #adb5bd;`;
+      css += `--ytc-border: #dee2e6;`;
+      css += `--ytc-accent: #0d6efd;`;
+      css += `--ytc-accent-hover: #0b5ed7;`;
+      css += `--ytc-success: #198754;`;
+      css += `--ytc-warning: #ffc107;`;
+      css += `--ytc-error: #dc3545;`;
+      css += `--ytc-shadow: rgba(0, 0, 0, 0.1);`;
+      css += `}`;
+      css += `.ytc-modal-dark {`;
+      css += `--ytc-bg-primary: #1e1e1e;`;
+      css += `--ytc-bg-secondary: #252526;`;
+      css += `--ytc-bg-tertiary: #3c3c3c;`;
+      css += `--ytc-text-primary: #ffffff;`;
+      css += `--ytc-text-secondary: #e0e0e0;`;
+      css += `--ytc-text-muted: #a0a0a0;`;
+      css += `--ytc-border: #3c3c3c;`;
+      css += `--ytc-accent: #4a9eff;`;
+      css += `--ytc-accent-hover: #3a8eef;`;
+      css += `--ytc-success: #4caf50;`;
+      css += `--ytc-warning: #ff9800;`;
+      css += `--ytc-error: #f44336;`;
+      css += `--ytc-shadow: rgba(0, 0, 0, 0.3);`;
+      css += `}`;
+      themeStyle.innerHTML = css;
       document.head.appendChild(themeStyle);
     }
     (_a = this.modalEl) == null ? void 0 : _a.classList.add("ytc-themed-modal");
-    (_b = this.modalEl) == null ? void 0 : _b.classList.toggle("ytc-modal-light", !isDark);
-    (_c = this.modalEl) == null ? void 0 : _c.classList.toggle("ytc-modal-dark", isDark);
+    (_b = this.modalEl) == null ? void 0 : _b.classList.toggle("ytc-modal-light", isLight);
+    (_c = this.modalEl) == null ? void 0 : _c.classList.toggle("ytc-modal-dark", !isLight);
+    if (this.formatSelect) {
+      this.formatSelect.style.background = `var(--ytc-bg-primary)`;
+      this.formatSelect.style.color = `var(--ytc-text-primary)`;
+      this.formatSelect.style.borderColor = `var(--ytc-border)`;
+    }
+    if (this.providerSelect) {
+      this.providerSelect.style.background = `var(--ytc-bg-primary)`;
+      this.providerSelect.style.color = `var(--ytc-text-primary)`;
+      this.providerSelect.style.borderColor = `var(--ytc-border)`;
+    }
+    if (this.modelSelect) {
+      this.modelSelect.style.background = `var(--ytc-bg-primary)`;
+      this.modelSelect.style.color = `var(--ytc-text-primary)`;
+      this.modelSelect.style.borderColor = `var(--ytc-border)`;
+    }
     if (this.headerEl) {
       this.headerEl.style.color = "var(--ytc-text-primary)";
-      this.headerEl.style.background = "var(--ytc-bg-secondary)";
-      this.headerEl.style.borderBottom = `1px solid var(--ytc-border)`;
+    }
+    if (this.progressText) {
+      this.progressText.style.color = "var(--ytc-text-primary)";
     }
   }
   /**
-   * Create streamlined URL section with integrated quick actions
-   */
-  createStreamlinedUrlSection() {
-    const urlContainer = this.contentEl.createDiv();
-    urlContainer.className = "ytc-streamlined-url-section";
-    urlContainer.style.cssText = `
-            margin: 16px 0;
-            position: relative;
-        `;
-    const inputWrapper = urlContainer.createDiv();
-    inputWrapper.style.cssText = `
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        `;
-    this.urlInput = inputWrapper.createEl("input");
-    this.urlInput.type = "url";
-    this.urlInput.placeholder = "\u{1F3AC} Paste YouTube URL here...";
-    this.urlInput.style.cssText = `
-            flex: 1;
-            padding: 14px 16px;
-            border: 2px solid var(--background-modifier-border);
-            border-radius: 12px;
-            font-size: 1rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            transition: all 0.3s ease;
-            outline: none;
-        `;
-    const pasteBtn = inputWrapper.createEl("button");
-    pasteBtn.innerHTML = "\u{1F4CB}";
-    pasteBtn.style.cssText = `
-            padding: 12px;
-            background: var(--interactive-accent);
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            transition: all 0.2s ease;
-            min-width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-    pasteBtn.addEventListener("click", () => this.handleSmartPaste());
-    pasteBtn.addEventListener("mouseenter", () => {
-      pasteBtn.style.transform = "scale(1.05)";
-      pasteBtn.style.background = "var(--interactive-accent-hover)";
-    });
-    pasteBtn.addEventListener("mouseleave", () => {
-      pasteBtn.style.transform = "scale(1)";
-      pasteBtn.style.background = "var(--interactive-accent)";
-    });
-    this.urlInput.addEventListener("focus", () => {
-      this.urlInput.style.borderColor = "var(--interactive-accent)";
-      this.urlInput.style.boxShadow = "0 0 0 4px rgba(99, 102, 241, 0.1)";
-    });
-    this.urlInput.addEventListener("blur", () => {
-      this.urlInput.style.borderColor = "var(--background-modifier-border)";
-      this.urlInput.style.boxShadow = "none";
-    });
-    this.metadataContainer = urlContainer.createDiv();
-    this.metadataContainer.className = "yt-preview-metadata";
-    this.metadataContainer.style.cssText = `
-            margin-top: 12px;
-            padding: 16px;
-            background: linear-gradient(135deg, var(--background-secondary), var(--background-primary));
-            border-radius: 10px;
-            border: 1px solid var(--background-modifier-border);
-            display: none;
-            animation: slideDown 0.3s ease-out;
-        `;
-    const metadataContent = this.metadataContainer.createDiv();
-    metadataContent.style.cssText = "display: flex; gap: 12px; align-items: center;";
-    const videoIcon = metadataContent.createSpan();
-    videoIcon.textContent = "\u{1F3A5}";
-    videoIcon.style.cssText = "font-size: 1.5rem;";
-    const textContent = metadataContent.createDiv();
-    textContent.style.flex = "1";
-    const titleEl = textContent.createDiv();
-    titleEl.className = "yt-preview-title";
-    titleEl.style.cssText = "font-weight: 600; margin-bottom: 4px; color: var(--text-normal);";
-    const channelEl = textContent.createDiv();
-    channelEl.className = "yt-preview-channel";
-    channelEl.style.cssText = "font-size: 0.85rem; color: var(--text-muted);";
-  }
-  /**
-   * Create quick format selection with visual pills
-   */
-  createQuickFormatSection() {
-    const formatContainer = this.contentEl.createDiv();
-    formatContainer.className = "ytc-quick-format-section";
-    formatContainer.style.cssText = `
-            margin: 20px 0;
-        `;
-    const label = formatContainer.createDiv();
-    label.textContent = "\u{1F4DD} Output Format";
-    label.style.cssText = `
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--text-normal);
-            font-size: 0.95rem;
-        `;
-    const pillsContainer = formatContainer.createDiv();
-    pillsContainer.style.cssText = `
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        `;
-    const formats = [
-      { id: "executive-summary", icon: "\u{1F4CB}", label: "Executive", desc: "Quick insights" },
-      { id: "detailed-guide", icon: "\u{1F4D6}", label: "Detailed", desc: "Comprehensive analysis" },
-      { id: "brief", icon: "\u26A1", label: "Brief", desc: "Key points only" }
-    ];
-    formats.forEach((format, index) => {
-      const pill = pillsContainer.createEl("button");
-      pill.className = "ytc-format-pill";
-      pill.setAttribute("data-format", format.id);
-      pill.innerHTML = `
-                <span style="font-size: 1.2rem; margin-right: 6px;">${format.icon}</span>
-                <div style="text-align: left;">
-                    <div style="font-weight: 600; font-size: 0.9rem;">${format.label}</div>
-                    <div style="font-size: 0.75rem; opacity: 0.8;">${format.desc}</div>
-                </div>
-            `;
-      pill.style.cssText = `
-                padding: 12px 16px;
-                background: var(--background-secondary);
-                border: 2px solid var(--background-modifier-border);
-                border-radius: 12px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                min-width: 140px;
-                text-align: left;
-                font-size: 0.85rem;
-                color: var(--text-normal);
-            `;
-      if (format.id === "detailed-guide") {
-        pill.style.borderColor = "var(--interactive-accent)";
-        pill.style.background = "var(--interactive-accent)";
-        pill.style.color = "white";
-        this.format = format.id;
-      }
-      pill.addEventListener("mouseenter", () => {
-        if (!pill.style.borderColor.includes("var(--interactive-accent)")) {
-          pill.style.borderColor = "var(--interactive-accent)";
-          pill.style.transform = "translateY(-2px)";
-          pill.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.2)";
-        }
-      });
-      pill.addEventListener("mouseleave", () => {
-        if (!pill.style.borderColor.includes("var(--interactive-accent)") || pill.style.background === "var(--interactive-accent)") {
-          pill.style.transform = "translateY(0)";
-          pill.style.boxShadow = "none";
-        }
-      });
-      pill.addEventListener("click", () => {
-        pillsContainer.querySelectorAll("button").forEach((p) => {
-          const btn = p;
-          btn.style.borderColor = "var(--background-modifier-border)";
-          btn.style.background = "var(--background-secondary)";
-          btn.style.color = "var(--text-normal)";
-        });
-        pill.style.borderColor = "var(--interactive-accent)";
-        pill.style.background = "var(--interactive-accent)";
-        pill.style.color = "white";
-        this.format = format.id;
-        this.updateProcessButtonState();
-      });
-    });
-    const customPill = pillsContainer.createEl("button");
-    customPill.innerHTML = `
-            <span style="font-size: 1.2rem; margin-right: 6px;">\u{1F3A8}</span>
-            <div style="text-align: left;">
-                <div style="font-weight: 600; font-size: 0.9rem;">Custom</div>
-                <div style="font-size: 0.75rem; opacity: 0.8;">Your own prompt</div>
-            </div>
-        `;
-    customPill.style.cssText = pillsContainer.children[0].getAttribute("style") || "";
-    customPill.addEventListener("click", () => {
-      pillsContainer.querySelectorAll("button").forEach((p) => {
-        const btn = p;
-        btn.style.borderColor = "var(--background-modifier-border)";
-        btn.style.background = "var(--background-secondary)";
-        btn.style.color = "var(--text-normal)";
-      });
-      customPill.style.borderColor = "var(--interactive-accent)";
-      customPill.style.background = "var(--interactive-accent)";
-      customPill.style.color = "white";
-      this.format = "custom";
-      this.updateProcessButtonState();
-      this.createCustomPromptSection();
-    });
-  }
-  /**
-   * Create compact performance and speed settings section
-   */
-  createPerformanceSection() {
-    const container = this.contentEl.createDiv();
-    container.className = "ytc-performance-section";
-    container.style.marginTop = "12px";
-    container.style.padding = "10px";
-    container.style.backgroundColor = "var(--background-secondary)";
-    container.style.borderRadius = "6px";
-    container.style.border = "1px solid var(--interactive-accent)";
-    const headerContainer = container.createDiv();
-    headerContainer.style.display = "flex";
-    headerContainer.style.alignItems = "center";
-    headerContainer.style.justifyContent = "space-between";
-    headerContainer.style.marginBottom = "10px";
-    const sectionHeader = headerContainer.createEl("h3");
-    sectionHeader.textContent = "\u26A1 Performance";
-    sectionHeader.style.margin = "0";
-    sectionHeader.style.fontSize = "0.9rem";
-    sectionHeader.style.fontWeight = "600";
-    sectionHeader.style.color = "var(--text-accent)";
-    sectionHeader.style.display = "flex";
-    sectionHeader.style.alignItems = "center";
-    sectionHeader.style.gap = "6px";
-    const modeContainer = container.createDiv();
-    modeContainer.style.marginBottom = "8px";
-    this.performanceModeSelect = modeContainer.createEl("select");
-    this.performanceModeSelect.style.width = "100%";
-    this.performanceModeSelect.style.padding = "6px 8px";
-    this.performanceModeSelect.style.borderRadius = "4px";
-    this.performanceModeSelect.style.border = "1px solid var(--background-modifier-border)";
-    this.performanceModeSelect.style.backgroundColor = "var(--background-primary)";
-    this.performanceModeSelect.style.color = "var(--text-normal)";
-    this.performanceModeSelect.style.fontSize = "0.85rem";
-    this.performanceModeSelect.style.cursor = "pointer";
-    const fastOption = this.performanceModeSelect.createEl("option");
-    fastOption.value = "fast";
-    fastOption.textContent = "\u26A1 Fast (10-30s)";
-    const balancedOption = this.performanceModeSelect.createEl("option");
-    balancedOption.value = "balanced";
-    balancedOption.textContent = "\u2696\uFE0F Balanced (30-60s)";
-    const qualityOption = this.performanceModeSelect.createEl("option");
-    qualityOption.value = "quality";
-    qualityOption.textContent = "\u{1F3AF} Quality (60-120s)";
-    this.performanceModeSelect.value = this.performanceMode;
-    this.performanceModeSelect.addEventListener("change", () => {
-      this.performanceMode = this.performanceModeSelect.value;
-      this.handlePerformanceSettingsChange();
-    });
-    const togglesContainer = container.createDiv();
-    togglesContainer.style.display = "flex";
-    togglesContainer.style.gap = "16px";
-    togglesContainer.style.marginTop = "6px";
-    const parallelContainer = togglesContainer.createDiv();
-    const parallelLabel = parallelContainer.createEl("label");
-    parallelLabel.style.display = "flex";
-    parallelLabel.style.alignItems = "center";
-    parallelLabel.style.gap = "4px";
-    parallelLabel.style.fontSize = "0.8rem";
-    parallelLabel.style.cursor = "pointer";
-    parallelLabel.style.color = "var(--text-normal)";
-    const parallelToggle = parallelLabel.createEl("input");
-    parallelToggle.type = "checkbox";
-    parallelToggle.id = "parallel-toggle";
-    parallelToggle.checked = this.enableParallelProcessing;
-    parallelToggle.addEventListener("change", () => {
-      this.enableParallelProcessing = parallelToggle.checked;
-      this.handlePerformanceSettingsChange();
-    });
-    parallelLabel.appendChild(document.createTextNode("\u{1F504} Parallel"));
-    parallelContainer.appendChild(parallelLabel);
-    const multimodalContainer = togglesContainer.createDiv();
-    const multimodalLabel = multimodalContainer.createEl("label");
-    multimodalLabel.style.display = "flex";
-    multimodalLabel.style.alignItems = "center";
-    multimodalLabel.style.gap = "4px";
-    multimodalLabel.style.fontSize = "0.8rem";
-    multimodalLabel.style.cursor = "pointer";
-    multimodalLabel.style.color = "var(--text-normal)";
-    const multimodalToggle = multimodalLabel.createEl("input");
-    multimodalToggle.type = "checkbox";
-    multimodalToggle.id = "multimodal-toggle";
-    multimodalToggle.checked = this.preferMultimodal;
-    multimodalToggle.addEventListener("change", () => {
-      this.preferMultimodal = multimodalToggle.checked;
-      this.handlePerformanceSettingsChange();
-    });
-    multimodalLabel.appendChild(document.createTextNode("\u{1F3A5} Multimodal"));
-    multimodalContainer.appendChild(multimodalLabel);
-  }
-  /**
-   * Create enhanced performance toggle component
-   */
-  createPerformanceToggle(container, id, icon, label, checked, onChange, description) {
-    const toggleContainer = container.createDiv();
-    toggleContainer.style.padding = "12px";
-    toggleContainer.style.backgroundColor = "var(--background-primary)";
-    toggleContainer.style.borderRadius = "6px";
-    toggleContainer.style.border = "1px solid var(--background-modifier-border)";
-    toggleContainer.style.transition = "all 0.2s ease";
-    toggleContainer.style.cursor = "pointer";
-    const toggleHeader = toggleContainer.createDiv();
-    toggleHeader.style.display = "flex";
-    toggleHeader.style.alignItems = "center";
-    toggleHeader.style.justifyContent = "space-between";
-    toggleHeader.style.marginBottom = "4px";
-    const labelContainer = toggleHeader.createEl("div");
-    labelContainer.style.display = "flex";
-    labelContainer.style.alignItems = "center";
-    labelContainer.style.gap = "8px";
-    const iconSpan = labelContainer.createEl("span");
-    iconSpan.textContent = icon;
-    iconSpan.style.fontSize = "1rem";
-    const labelText = labelContainer.createEl("span");
-    labelText.textContent = label;
-    labelText.style.fontWeight = "500";
-    labelText.style.color = "var(--text-normal)";
-    const toggle = toggleContainer.createEl("input");
-    toggle.type = "checkbox";
-    toggle.id = id;
-    toggle.checked = checked;
-    toggle.style.width = "20px";
-    toggle.style.height = "20px";
-    toggle.style.cursor = "pointer";
-    const descriptionText = toggleContainer.createEl("div");
-    descriptionText.textContent = description;
-    descriptionText.style.fontSize = "0.8rem";
-    descriptionText.style.color = "var(--text-muted)";
-    descriptionText.style.marginTop = "4px";
-    descriptionText.style.lineHeight = "1.3";
-    toggleContainer.addEventListener("mouseenter", () => {
-      toggleContainer.style.backgroundColor = "var(--background-modifier-hover)";
-      toggleContainer.style.borderColor = "var(--interactive-accent)";
-      toggleContainer.style.transform = "translateY(-2px)";
-      toggleContainer.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-    });
-    toggleContainer.addEventListener("mouseleave", () => {
-      toggleContainer.style.backgroundColor = "var(--background-primary)";
-      toggleContainer.style.borderColor = "var(--background-modifier-border)";
-      toggleContainer.style.transform = "translateY(0)";
-      toggleContainer.style.boxShadow = "none";
-    });
-    toggle.addEventListener("change", () => onChange(toggle.checked));
-  }
-  /**
-   * Add performance preview with mode descriptions
-   */
-  addPerformancePreview(container) {
-    const previewContainer = container.createDiv();
-    previewContainer.style.marginTop = "16px";
-    previewContainer.style.padding = "12px";
-    previewContainer.style.backgroundColor = "var(--background-modifier-hover)";
-    previewContainer.style.borderRadius = "6px";
-    previewContainer.style.border = "1px dashed var(--interactive-accent)";
-    const previewTitle = previewContainer.createEl("div");
-    previewTitle.textContent = "\u{1F4CB} Current Configuration";
-    previewTitle.style.fontWeight = "600";
-    previewTitle.style.marginBottom = "8px";
-    previewTitle.style.color = "var(--text-accent)";
-    const previewText = previewContainer.createEl("div");
-    previewText.className = "ytc-performance-preview";
-    previewText.style.fontSize = "0.85rem";
-    previewText.style.lineHeight = "1.4";
-    previewText.style.color = "var(--text-muted)";
-    this.updatePerformancePreview(previewText);
-  }
-  /**
-   * Update performance preview text
-   */
-  updatePerformancePreview(previewElement) {
-    const modeText = this.performanceMode === "fast" ? "\u26A1 Fast Mode" : this.performanceMode === "balanced" ? "\u2696\uFE0F Balanced Mode" : "\u{1F3AF} Quality Mode";
-    const parallelText = this.enableParallelProcessing ? "\u{1F504} Enabled" : "\u23F8\uFE0F Disabled";
-    const multimodalText = this.preferMultimodal ? "\u{1F3A5} Enabled" : "\u{1F4C4} Text Only";
-    previewElement.innerHTML = `
-            <strong>Mode:</strong> ${modeText}<br>
-            <strong>Parallel Processing:</strong> ${parallelText}<br>
-            <strong>Multimodal Analysis:</strong> ${multimodalText}
-        `;
-  }
-  /**
-   * Add subtle animation when performance mode changes
-   */
-  addPerformanceModeAnimation() {
-    const previewElement = document.querySelector(".ytc-performance-preview");
-    if (previewElement) {
-      previewElement.style.transition = "all 0.3s ease";
-      previewElement.style.transform = "scale(1.02)";
-      setTimeout(() => {
-        previewElement.style.transform = "scale(1)";
-      }, 200);
-    }
-  }
-  /**
-   * Handle performance settings change
-   */
-  async handlePerformanceSettingsChange() {
-    if (this.options.onPerformanceSettingsChange) {
-      await this.options.onPerformanceSettingsChange(
-        this.performanceMode,
-        this.enableParallelProcessing,
-        this.preferMultimodal
-      );
-    }
-  }
-  createProviderSelectionSection() {
-    const container = this.contentEl.createDiv();
-    container.style.marginTop = "10px";
-    const label = container.createEl("label", { text: "AI Provider & Model:" });
-    label.setAttribute("for", "ytc-provider-select");
-    const row = container.createDiv();
-    row.style.display = "flex";
-    row.style.gap = "8px";
-    row.style.alignItems = "center";
-    this.providerSelect = document.createElement("select");
-    this.providerSelect.id = "ytc-provider-select";
-    this.providerSelect.setAttribute("aria-label", "AI Provider");
-    this.providerSelect.style.flex = "1";
-    this.providerSelect.style.padding = "6px";
-    this.providerSelect.style.borderRadius = "6px";
-    this.providerSelect.style.border = "1px solid var(--background-modifier-border)";
-    row.appendChild(this.providerSelect);
-    this.modelSelect = document.createElement("select");
-    this.modelSelect.id = "ytc-model-select";
-    this.modelSelect.setAttribute("aria-label", "AI Model");
-    this.modelSelect.style.width = "220px";
-    this.modelSelect.style.padding = "6px";
-    this.modelSelect.style.borderRadius = "6px";
-    this.modelSelect.style.border = "1px solid var(--background-modifier-border)";
-    row.appendChild(this.modelSelect);
-    const providers = this.options.providers || [];
-    const modelOptions = this.options.modelOptions || {};
-    const autoOpt = document.createElement("option");
-    autoOpt.value = "";
-    autoOpt.text = "Auto (fallback)";
-    this.providerSelect.appendChild(autoOpt);
-    providers.forEach((p) => {
-      const opt = document.createElement("option");
-      opt.value = p;
-      opt.text = p;
-      this.providerSelect.appendChild(opt);
-    });
-    const refreshBtn = this.createInlineButton(row, "Refresh models", () => {
-      void this.handleRefreshModels();
-    });
-    this.refreshSpinner = document.createElement("span");
-    this.refreshSpinner.style.display = "none";
-    this.refreshSpinner.style.marginLeft = "8px";
-    this.refreshSpinner.style.width = "16px";
-    this.refreshSpinner.style.height = "16px";
-    this.refreshSpinner.style.border = "2px solid var(--background-modifier-border)";
-    this.refreshSpinner.style.borderTop = "2px solid var(--interactive-accent)";
-    this.refreshSpinner.style.borderRadius = "50%";
-    this.refreshSpinner.style.animation = "ytp-spin 1s linear infinite";
-    row.appendChild(this.refreshSpinner);
-    this.providerSelect.addEventListener("change", () => {
-      this.selectedProvider = this.providerSelect.value || void 0;
-      this.populateModelsForProvider(this.selectedProvider || "", modelOptions, this.options.defaultModel);
-    });
-    if (this.options.defaultProvider) {
-      this.providerSelect.value = this.options.defaultProvider;
-      this.selectedProvider = this.options.defaultProvider;
-    }
-    this.populateModelsForProvider(this.selectedProvider || "", modelOptions, this.options.defaultModel);
-  }
-  async handleRefreshModels() {
-    if (!this.options.fetchModels) {
-      this.setValidationMessage("Model refresh not available.", "error");
-      return;
-    }
-    this.setValidationMessage("Refreshing model lists\u2026", "info");
-    if (this.refreshSpinner)
-      this.refreshSpinner.style.display = "inline-block";
-    try {
-      const map = await this.options.fetchModels();
-      const providers = Object.keys(map);
-      if (this.providerSelect) {
-        const current = this.providerSelect.value;
-        this.providerSelect.innerHTML = "";
-        const autoOpt = document.createElement("option");
-        autoOpt.value = "";
-        autoOpt.text = "Auto (fallback)";
-        this.providerSelect.appendChild(autoOpt);
-        providers.forEach((p) => {
-          const opt = document.createElement("option");
-          opt.value = p;
-          opt.text = p;
-          this.providerSelect.appendChild(opt);
-        });
-        if (current && Array.from(this.providerSelect.options).some((o) => o.value === current)) {
-          this.providerSelect.value = current;
-          this.selectedProvider = current;
-        }
-      }
-      const modelOptions = map;
-      this.populateModelsForProvider(this.selectedProvider || "", modelOptions, this.options.defaultModel);
-      this.setValidationMessage("Model lists refreshed.", "success");
-    } catch (error) {
-      this.setValidationMessage("Failed to refresh models. Using cached options.", "error");
-    } finally {
-      if (this.refreshSpinner)
-        this.refreshSpinner.style.display = "none";
-    }
-  }
-  populateModelsForProvider(providerName, modelOptions, defaultModel) {
-    if (!this.modelSelect)
-      return;
-    this.modelSelect.innerHTML = "";
-    const models = modelOptions[providerName] || [];
-    if (models.length === 0) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.text = "Default model";
-      this.modelSelect.appendChild(opt);
-      this.selectedModel = "";
-      return;
-    }
-    models.forEach((m) => {
-      const opt = document.createElement("option");
-      opt.value = m;
-      let label = m;
-      try {
-        const providerModels = PROVIDER_MODEL_OPTIONS[providerName] || [];
-        const match = providerModels.find((pm) => {
-          const name = typeof pm === "string" ? pm : pm && pm.name ? pm.name : "";
-          return String(name).toLowerCase() === String(m).toLowerCase();
-        });
-        if (match && match.supportsAudioVideo) {
-          label = `${m}  \u{1F3A5}`;
-          opt.title = "Supports multimodal audio/video tokens";
-        }
-      } catch (err) {
-      }
-      opt.text = label;
-      this.modelSelect.appendChild(opt);
-    });
-    if (defaultModel && models.includes(defaultModel)) {
-      this.modelSelect.value = defaultModel;
-      this.selectedModel = defaultModel;
-    } else {
-      this.modelSelect.selectedIndex = 0;
-      this.selectedModel = this.modelSelect.value;
-    }
-    this.modelSelect.addEventListener("change", () => {
-      this.selectedModel = this.modelSelect.value;
-    });
-  }
-  /**
-   * Create URL input section
-   */
-  createUrlInputSection() {
-    const container = this.contentEl.createDiv();
-    const label = container.createEl("label", { text: "YouTube URL:" });
-    label.setAttribute("for", "ytc-url-input");
-    const inputRow = container.createDiv();
-    inputRow.style.display = "flex";
-    inputRow.style.gap = "8px";
-    inputRow.style.alignItems = "center";
-    this.urlInput = this.createInput(
-      inputRow,
-      "url",
-      MESSAGES.PLACEHOLDERS.YOUTUBE_URL + " (Press Enter to process)"
-    );
-    this.urlInput.id = "ytc-url-input";
-    this.urlInput.setAttribute("aria-label", "YouTube URL");
-    this.urlInput.setAttribute("aria-describedby", "ytc-url-hint");
-    this.urlInput.style.flex = "1";
-    this.urlInput.style.transition = "border-color 0.2s ease, box-shadow 0.2s ease";
-    this.pasteButton = this.createInlineButton(inputRow, "Paste", () => {
-      void this.handlePasteFromClipboard();
-    });
-    this.pasteButton.setAttribute("aria-label", "Paste YouTube URL from clipboard");
-    this.clearButton = this.createInlineButton(inputRow, "Clear", () => {
-      this.handleClearUrl();
-    });
-    this.clearButton.setAttribute("aria-label", "Clear YouTube URL input");
-    if (this.options.initialUrl) {
-      this.urlInput.value = this.options.initialUrl;
-      this.url = this.options.initialUrl;
-    }
-    this.urlInput.addEventListener("input", (e) => {
-      this.url = e.target.value;
-      this.updateProcessButtonState();
-      this.updateQuickActionsState();
-    });
-    this.validationMessage = container.createDiv();
-    this.validationMessage.id = "ytc-url-hint";
-    this.validationMessage.style.marginTop = "6px";
-    this.validationMessage.style.fontSize = "0.85rem";
-    this.validationMessage.style.color = "var(--text-muted)";
-    this.validationMessage.setAttribute("role", "status");
-    this.setValidationMessage("Paste a YouTube link to begin processing.", "info");
-    const preview = container.createDiv();
-    preview.style.display = "flex";
-    preview.style.gap = "8px";
-    preview.style.alignItems = "center";
-    preview.style.marginTop = "6px";
-    this.thumbnailEl = preview.createEl("img");
-    this.thumbnailEl.setAttribute("aria-label", "Video thumbnail");
-    this.thumbnailEl.style.width = "90px";
-    this.thumbnailEl.style.height = "50px";
-    this.thumbnailEl.style.objectFit = "cover";
-    this.thumbnailEl.style.borderRadius = "4px";
-    this.thumbnailEl.style.display = "none";
-    this.metadataContainer = preview.createDiv();
-    this.metadataContainer.setAttribute("aria-label", "Video metadata");
-    this.metadataContainer.style.display = "none";
-    this.metadataContainer.style.fontSize = "0.9rem";
-    this.metadataContainer.style.color = "var(--text-normal)";
-    this.metadataContainer.createDiv({ cls: "yt-preview-title" });
-    this.metadataContainer.createDiv({ cls: "yt-preview-channel" });
-    this.setUrlInputState("idle");
-    this.updateQuickActionsState();
-  }
-  /**
-   * Create compact format selection section
-   */
-  createFormatSelectionSection() {
-    const container = this.contentEl.createDiv();
-    container.className = "ytc-format-section";
-    container.style.marginTop = "12px";
-    container.style.padding = "8px";
-    container.style.backgroundColor = "var(--background-secondary)";
-    container.style.borderRadius = "6px";
-    container.style.border = "1px solid var(--background-modifier-border)";
-    const label = container.createEl("label", { text: "\u{1F4DD} Format" });
-    label.id = "format-group-label";
-    label.style.display = "block";
-    label.style.marginBottom = "8px";
-    label.style.fontSize = "0.9rem";
-    label.style.fontWeight = "600";
-    label.style.color = "var(--text-normal)";
-    const radioContainer = container.createDiv();
-    radioContainer.setAttribute("role", "group");
-    radioContainer.setAttribute("aria-labelledby", "format-group-label");
-    radioContainer.style.display = "grid";
-    radioContainer.style.gridTemplateColumns = "repeat(4, 1fr)";
-    radioContainer.style.gap = "8px";
-    try {
-      this.createCompactFormatRadio(radioContainer, "executive-radio", "executive-summary", "Executive", "", this.format === "executive-summary");
-      this.createCompactFormatRadio(radioContainer, "tutorial-radio", "detailed-guide", "Tutorial", "", this.format === "detailed-guide");
-      this.createCompactFormatRadio(radioContainer, "brief-radio", "brief", "Brief", "", this.format === "brief");
-      this.createCompactFormatRadio(radioContainer, "custom-radio", "custom", "Custom", "", this.format === "custom");
-    } catch (error) {
-      console.error("Error creating compact format radio buttons:", error);
-      this.createFormatRadio(radioContainer, "executive-radio", "executive-summary", "Executive", "Quick insights with action items", this.format === "executive-summary");
-      this.createFormatRadio(radioContainer, "tutorial-radio", "detailed-guide", "Tutorial", "\u{1F4DA} Step-by-step walkthrough", this.format === "detailed-guide");
-      this.createFormatRadio(radioContainer, "brief-radio", "brief", "Brief", "\u{1F4CB} Key points and takeaways", this.format === "brief");
-      this.createFormatRadio(radioContainer, "custom-radio", "custom", "Custom", "\u270F\uFE0F Your custom analysis", this.format === "custom");
-    }
-    this.customPromptContainer = container.createDiv();
-    this.customPromptContainer.style.marginTop = "12px";
-    this.customPromptContainer.style.padding = "12px";
-    this.customPromptContainer.style.backgroundColor = "var(--background-modifier-hover)";
-    this.customPromptContainer.style.borderRadius = "4px";
-    this.customPromptContainer.style.display = "none";
-    const customPromptLabel = this.customPromptContainer.createEl("label", {
-      text: "Custom Prompt (this session only):"
-    });
-    customPromptLabel.setAttribute("for", "custom-prompt-input");
-    customPromptLabel.style.display = "block";
-    customPromptLabel.style.marginBottom = "6px";
-    customPromptLabel.style.fontWeight = "600";
-    customPromptLabel.style.fontSize = "0.95rem";
-    this.customPromptInput = this.customPromptContainer.createEl("textarea");
-    this.customPromptInput.id = "custom-prompt-input";
-    this.customPromptInput.setAttribute("aria-label", "Custom AI prompt");
-    this.customPromptInput.setAttribute("placeholder", "Enter your custom prompt here. Available placeholders: __VIDEO_TITLE__, __VIDEO_DESCRIPTION__, __VIDEO_URL__");
-    this.customPromptInput.style.width = "100%";
-    this.customPromptInput.style.height = "100px";
-    this.customPromptInput.style.padding = "8px";
-    this.customPromptInput.style.fontFamily = "monospace";
-    this.customPromptInput.style.fontSize = "12px";
-    this.customPromptInput.style.border = "1px solid var(--background-modifier-border)";
-    this.customPromptInput.style.borderRadius = "4px";
-    this.customPromptInput.style.resize = "vertical";
-    this.customPromptInput.style.marginBottom = "6px";
-    const helpText = this.customPromptContainer.createEl("small");
-    helpText.textContent = "Placeholders: __VIDEO_TITLE__, __VIDEO_DESCRIPTION__, __VIDEO_URL__, __VIDEO_ID__, __EMBED_URL__, __DATE__, __TIMESTAMP__";
-    helpText.style.display = "block";
-    helpText.style.marginTop = "4px";
-    helpText.style.color = "var(--text-muted)";
-    helpText.style.fontSize = "11px";
-  }
-  /**
-   * Create enhanced format radio button
-   */
-  createFormatRadio(container, id, value, title, description, isChecked) {
-    const radioContainer = container.createDiv();
-    radioContainer.style.padding = "12px";
-    radioContainer.style.border = "2px solid var(--background-modifier-border)";
-    radioContainer.style.borderRadius = "8px";
-    radioContainer.style.backgroundColor = "var(--background-primary)";
-    radioContainer.style.cursor = "pointer";
-    radioContainer.style.transition = "all 0.2s ease";
-    radioContainer.style.textAlign = "center";
-    const radio = radioContainer.createEl("input");
-    radio.type = "radio";
-    radio.name = "outputFormat";
-    radio.value = value;
-    radio.id = id;
-    radio.checked = isChecked;
-    radio.style.marginBottom = "8px";
-    const icon = radioContainer.createEl("div");
-    icon.style.fontSize = "1.5rem";
-    icon.style.marginBottom = "4px";
-    if (value === "executive-summary") {
-      icon.textContent = "\u{1F3AF}";
-    } else if (value === "detailed-guide") {
-      icon.textContent = "\u{1F4DA}";
-    } else if (value === "brief") {
-      icon.textContent = "\u{1F4CB}";
-    } else if (value === "custom") {
-      icon.textContent = "\u270F\uFE0F";
-    }
-    const titleElement = radioContainer.createEl("div");
-    titleElement.textContent = title;
-    titleElement.style.fontWeight = "600";
-    titleElement.style.fontSize = "0.9rem";
-    titleElement.style.marginBottom = "2px";
-    const descElement = radioContainer.createEl("div");
-    descElement.textContent = description;
-    descElement.style.fontSize = "0.75rem";
-    descElement.style.color = "var(--text-muted)";
-    if (isChecked) {
-      radioContainer.style.borderColor = "var(--interactive-accent)";
-      radioContainer.style.backgroundColor = "var(--interactive-accent-hover)";
-    }
-    radioContainer.addEventListener("mouseenter", () => {
-      radioContainer.style.borderColor = "var(--interactive-accent)";
-      radioContainer.style.transform = "translateY(-2px)";
-      radioContainer.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-    });
-    radioContainer.addEventListener("mouseleave", () => {
-      if (!radio.checked) {
-        radioContainer.style.borderColor = "var(--background-modifier-border)";
-        radioContainer.style.transform = "translateY(0)";
-        radioContainer.style.boxShadow = "none";
-      }
-    });
-    radio.addEventListener("change", (e) => {
-      var _a;
-      if (e.target.checked) {
-        this.format = value;
-        const allContainers = container.querySelectorAll("div");
-        allContainers.forEach((containerEl) => {
-          const divEl = containerEl;
-          divEl.style.borderColor = "var(--background-modifier-border)";
-          divEl.style.backgroundColor = "var(--background-primary)";
-        });
-        radioContainer.style.borderColor = "var(--interactive-accent)";
-        radioContainer.style.backgroundColor = "var(--interactive-accent-hover)";
-        if (this.customPromptContainer) {
-          if (value === "custom") {
-            this.customPromptContainer.style.display = "block";
-            (_a = this.customPromptInput) == null ? void 0 : _a.focus();
-          } else {
-            this.customPromptContainer.style.display = "none";
-          }
-        }
-      }
-    });
-    radioContainer.addEventListener("click", () => {
-      radio.checked = true;
-      radio.dispatchEvent(new Event("change"));
-    });
-  }
-  /**
-   * Create compact format radio button
-   */
-  createCompactFormatRadio(container, id, value, title, icon, isChecked) {
-    const radioContainer = container.createDiv();
-    radioContainer.style.padding = "8px 4px";
-    radioContainer.style.border = "1px solid var(--background-modifier-border)";
-    radioContainer.style.borderRadius = "4px";
-    radioContainer.style.backgroundColor = "var(--background-primary)";
-    radioContainer.style.cursor = "pointer";
-    radioContainer.style.transition = "all 0.2s ease";
-    radioContainer.style.textAlign = "center";
-    const radio = radioContainer.createEl("input");
-    radio.type = "radio";
-    radio.name = "outputFormat";
-    radio.value = value;
-    radio.id = id;
-    radio.checked = isChecked;
-    radio.style.marginBottom = "4px";
-    if (icon) {
-      const iconEl = radioContainer.createEl("div");
-      iconEl.textContent = icon;
-      iconEl.style.fontSize = "1.2rem";
-      iconEl.style.marginBottom = "2px";
-    }
-    const titleElement = radioContainer.createEl("div");
-    titleElement.textContent = title;
-    titleElement.style.fontWeight = "500";
-    titleElement.style.fontSize = "0.8rem";
-    if (isChecked) {
-      radioContainer.style.borderColor = "var(--interactive-accent)";
-      radioContainer.style.backgroundColor = "var(--interactive-accent-hover)";
-    }
-    radioContainer.addEventListener("mouseenter", () => {
-      radioContainer.style.borderColor = "var(--interactive-accent)";
-      radioContainer.style.transform = "translateY(-1px)";
-    });
-    radioContainer.addEventListener("mouseleave", () => {
-      if (!radio.checked) {
-        radioContainer.style.borderColor = "var(--background-modifier-border)";
-        radioContainer.style.transform = "translateY(0)";
-      }
-    });
-    radio.addEventListener("change", (e) => {
-      var _a;
-      if (e.target.checked) {
-        this.format = value;
-        const allContainers = container.querySelectorAll("div");
-        allContainers.forEach((containerEl) => {
-          const divEl = containerEl;
-          divEl.style.borderColor = "var(--background-modifier-border)";
-          divEl.style.backgroundColor = "var(--background-primary)";
-        });
-        radioContainer.style.borderColor = "var(--interactive-accent)";
-        radioContainer.style.backgroundColor = "var(--interactive-accent-hover)";
-        if (this.customPromptContainer) {
-          if (value === "custom") {
-            this.customPromptContainer.style.display = "block";
-            (_a = this.customPromptInput) == null ? void 0 : _a.focus();
-          } else {
-            this.customPromptContainer.style.display = "none";
-          }
-        }
-      }
-    });
-    radioContainer.addEventListener("click", () => {
-      radio.checked = true;
-      radio.dispatchEvent(new Event("change"));
-    });
-  }
-  /**
-   * Create model parameters section with sliders for max tokens and temperature
-   */
-  createModelParametersSection() {
-    const container = this.contentEl.createDiv();
-    container.className = "ytc-model-params-section";
-    container.style.marginTop = "16px";
-    container.style.padding = "16px";
-    container.style.backgroundColor = "var(--background-secondary)";
-    container.style.borderRadius = "8px";
-    container.style.border = "1px solid var(--background-modifier-border-hover)";
-    container.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-    const headerContainer = container.createDiv();
-    headerContainer.className = "ytc-model-params-header";
-    headerContainer.style.display = "flex";
-    headerContainer.style.alignItems = "center";
-    headerContainer.style.justifyContent = "space-between";
-    headerContainer.style.marginBottom = "16px";
-    const sectionHeader = headerContainer.createEl("h3");
-    sectionHeader.textContent = "\u2699\uFE0F Model Parameters";
-    sectionHeader.style.margin = "0";
-    sectionHeader.style.fontSize = "1rem";
-    sectionHeader.style.fontWeight = "600";
-    sectionHeader.style.color = "var(--text-normal)";
-    sectionHeader.style.display = "flex";
-    sectionHeader.style.alignItems = "center";
-    sectionHeader.style.gap = "8px";
-    const description = headerContainer.createDiv();
-    description.className = "ytc-model-params-description";
-    description.textContent = "Fine-tune AI model behavior for optimal results";
-    description.style.fontSize = "0.75rem";
-    description.style.color = "var(--text-muted)";
-    description.style.fontWeight = "400";
-    const maxTokensContainer = container.createDiv();
-    maxTokensContainer.className = "ytc-slider-container";
-    maxTokensContainer.style.marginBottom = "20px";
-    const maxTokensHeader = maxTokensContainer.createDiv();
-    maxTokensHeader.className = "ytc-slider-header";
-    maxTokensHeader.style.display = "flex";
-    maxTokensHeader.style.alignItems = "center";
-    maxTokensHeader.style.justifyContent = "space-between";
-    maxTokensHeader.style.marginBottom = "8px";
-    const maxTokensLabel = maxTokensHeader.createEl("label");
-    maxTokensLabel.textContent = "Max Tokens";
-    maxTokensLabel.className = "ytc-slider-label";
-    maxTokensLabel.style.fontSize = "0.9rem";
-    maxTokensLabel.style.fontWeight = "600";
-    maxTokensLabel.style.color = "var(--text-normal)";
-    maxTokensLabel.style.margin = "0";
-    maxTokensLabel.style.display = "flex";
-    maxTokensLabel.style.alignItems = "center";
-    maxTokensLabel.style.gap = "6px";
-    const maxTokensInfo = maxTokensHeader.createSpan();
-    maxTokensInfo.className = "ytc-slider-info";
-    maxTokensInfo.textContent = "Controls response length";
-    maxTokensInfo.style.fontSize = "0.75rem";
-    maxTokensInfo.style.color = "var(--text-muted)";
-    maxTokensInfo.style.fontWeight = "400";
-    const maxTokensRow = maxTokensContainer.createDiv();
-    maxTokensRow.className = "ytc-slider-row";
-    maxTokensRow.style.display = "flex";
-    maxTokensRow.style.alignItems = "center";
-    maxTokensRow.style.gap = "12px";
-    maxTokensRow.style.padding = "12px";
-    maxTokensRow.style.backgroundColor = "var(--background-primary)";
-    maxTokensRow.style.borderRadius = "6px";
-    maxTokensRow.style.border = "1px solid var(--background-modifier-border)";
-    const sliderContainer = maxTokensRow.createDiv();
-    sliderContainer.style.position = "relative";
-    sliderContainer.style.flex = "1";
-    sliderContainer.style.height = "32px";
-    sliderContainer.style.display = "flex";
-    sliderContainer.style.alignItems = "center";
-    this.maxTokensSlider = sliderContainer.createEl("input");
-    this.maxTokensSlider.type = "range";
-    this.maxTokensSlider.min = "256";
-    this.maxTokensSlider.max = "8192";
-    this.maxTokensSlider.step = "256";
-    this.maxTokensSlider.value = this.maxTokens.toString();
-    this.maxTokensSlider.className = "ytc-model-slider";
-    this.maxTokensSlider.style.flex = "1";
-    this.maxTokensSlider.style.margin = "0 8px";
-    this.maxTokensValue = maxTokensRow.createDiv();
-    this.maxTokensValue.className = "ytc-slider-value";
-    this.maxTokensValue.textContent = this.maxTokens.toString();
-    this.maxTokensValue.style.fontSize = "0.9rem";
-    this.maxTokensValue.style.fontWeight = "700";
-    this.maxTokensValue.style.color = "var(--text-accent)";
-    this.maxTokensValue.style.minWidth = "70px";
-    this.maxTokensValue.style.textAlign = "center";
-    this.maxTokensValue.style.padding = "6px 12px";
-    this.maxTokensValue.style.backgroundColor = "var(--background-secondary)";
-    this.maxTokensValue.style.borderRadius = "4px";
-    this.maxTokensValue.style.border = "1px solid var(--background-modifier-border)";
-    const temperatureContainer = container.createDiv();
-    temperatureContainer.className = "ytc-slider-container";
-    temperatureContainer.style.marginBottom = "8px";
-    const temperatureHeader = temperatureContainer.createDiv();
-    temperatureHeader.className = "ytc-slider-header";
-    temperatureHeader.style.display = "flex";
-    temperatureHeader.style.alignItems = "center";
-    temperatureHeader.style.justifyContent = "space-between";
-    temperatureHeader.style.marginBottom = "8px";
-    const temperatureLabel = temperatureHeader.createEl("label");
-    temperatureLabel.textContent = "Temperature";
-    temperatureLabel.className = "ytc-slider-label";
-    temperatureLabel.style.fontSize = "0.9rem";
-    temperatureLabel.style.fontWeight = "600";
-    temperatureLabel.style.color = "var(--text-normal)";
-    temperatureLabel.style.margin = "0";
-    temperatureLabel.style.display = "flex";
-    temperatureLabel.style.alignItems = "center";
-    temperatureLabel.style.gap = "6px";
-    const temperatureInfo = temperatureHeader.createSpan();
-    temperatureInfo.className = "ytc-slider-info";
-    temperatureInfo.textContent = "Controls creativity level";
-    temperatureInfo.style.fontSize = "0.75rem";
-    temperatureInfo.style.color = "var(--text-muted)";
-    temperatureInfo.style.fontWeight = "400";
-    const temperatureRow = temperatureContainer.createDiv();
-    temperatureRow.className = "ytc-slider-row";
-    temperatureRow.style.display = "flex";
-    temperatureRow.style.alignItems = "center";
-    temperatureRow.style.gap = "12px";
-    temperatureRow.style.padding = "12px";
-    temperatureRow.style.backgroundColor = "var(--background-primary)";
-    temperatureRow.style.borderRadius = "6px";
-    temperatureRow.style.border = "1px solid var(--background-modifier-border)";
-    const tempSliderContainer = temperatureRow.createDiv();
-    tempSliderContainer.style.position = "relative";
-    tempSliderContainer.style.flex = "1";
-    tempSliderContainer.style.height = "32px";
-    tempSliderContainer.style.display = "flex";
-    tempSliderContainer.style.alignItems = "center";
-    this.temperatureSlider = tempSliderContainer.createEl("input");
-    this.temperatureSlider.type = "range";
-    this.temperatureSlider.min = "0";
-    this.temperatureSlider.max = "2";
-    this.temperatureSlider.step = "0.1";
-    this.temperatureSlider.value = this.temperature.toString();
-    this.temperatureSlider.className = "ytc-model-slider";
-    this.temperatureSlider.style.flex = "1";
-    this.temperatureSlider.style.margin = "0 8px";
-    this.temperatureValue = temperatureRow.createDiv();
-    this.temperatureValue.className = "ytc-slider-value";
-    this.temperatureValue.textContent = this.temperature.toFixed(1);
-    this.temperatureValue.style.fontSize = "0.9rem";
-    this.temperatureValue.style.fontWeight = "700";
-    this.temperatureValue.style.color = "var(--text-accent)";
-    this.temperatureValue.style.minWidth = "60px";
-    this.temperatureValue.style.textAlign = "center";
-    this.temperatureValue.style.padding = "6px 12px";
-    this.temperatureValue.style.backgroundColor = "var(--background-secondary)";
-    this.temperatureValue.style.borderRadius = "4px";
-    this.temperatureValue.style.border = "1px solid var(--background-modifier-border)";
-    const tempScale = temperatureRow.createDiv();
-    tempScale.className = "ytc-temp-scale";
-    tempScale.style.fontSize = "0.75rem";
-    tempScale.style.color = "var(--text-muted)";
-    tempScale.style.fontWeight = "500";
-    tempScale.style.display = "flex";
-    tempScale.style.justifyContent = "space-between";
-    tempScale.style.padding = "0 12px";
-    tempScale.style.width = "100%";
-    tempScale.style.marginTop = "8px";
-    tempScale.innerHTML = '<span style="text-align: left;">0.0</span><span style="text-align: center;">Precise</span><span style="text-align: center;">Balanced</span><span style="text-align: center;">Creative</span><span style="text-align: right;">2.0</span>';
-    this.addSliderStyling();
-    this.maxTokensSlider.addEventListener("input", (e) => {
-      this.maxTokens = parseInt(e.target.value);
-      this.maxTokensValue.textContent = this.maxTokens.toString();
-    });
-    this.temperatureSlider.addEventListener("input", (e) => {
-      this.temperature = parseFloat(e.target.value);
-      this.temperatureValue.textContent = this.temperature.toFixed(1);
-    });
-  }
-  /**
-   * Add comprehensive CSS styling for sliders
-   */
-  addSliderStyling() {
-    const style = document.createElement("style");
-    style.textContent = `
-            .ytc-model-slider {
-                -webkit-appearance: none;
-                appearance: none;
-                background: transparent;
-                cursor: pointer;
-                width: 100%;
-                height: 4px;
-                outline: none;
-                position: relative;
-                z-index: 1;
-            }
-
-            .ytc-model-slider::-webkit-slider-track {
-                background: var(--interactive-normal);
-                height: 4px;
-                border-radius: 2px;
-            }
-
-            .ytc-model-slider::-moz-range-track {
-                background: var(--interactive-normal);
-                height: 4px;
-                border-radius: 2px;
-                border: none;
-            }
-
-            .ytc-model-slider::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 18px;
-                height: 18px;
-                border-radius: 50%;
-                background: var(--interactive-accent);
-                cursor: pointer;
-                border: 3px solid var(--background-primary);
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                margin-top: -7px;
-                position: relative;
-                z-index: 2;
-                transition: all 0.2s ease;
-            }
-
-            .ytc-model-slider::-moz-range-thumb {
-                width: 18px;
-                height: 18px;
-                border-radius: 50%;
-                background: var(--interactive-accent);
-                cursor: pointer;
-                border: 3px solid var(--background-primary);
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                position: relative;
-                z-index: 2;
-                transition: all 0.2s ease;
-            }
-
-            .ytc-model-slider:hover::-webkit-slider-thumb {
-                background: var(--interactive-accent-hover);
-                transform: scale(1.1);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            }
-
-            .ytc-model-slider:hover::-moz-range-thumb {
-                background: var(--interactive-accent-hover);
-                transform: scale(1.1);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            }
-
-            .ytc-model-slider:focus {
-                outline: none;
-            }
-
-            .ytc-model-slider:focus::-webkit-slider-thumb {
-                border-color: var(--interactive-accent);
-                box-shadow: 0 0 0 3px var(--interactive-accent), 0 2px 8px rgba(0,0,0,0.3);
-            }
-
-            .ytc-model-slider:focus::-moz-range-thumb {
-                border-color: var(--interactive-accent);
-                box-shadow: 0 0 0 3px var(--interactive-accent), 0 2px 8px rgba(0,0,0,0.3);
-            }
-
-            .ytc-slider-row {
-                transition: all 0.2s ease;
-            }
-
-            .ytc-slider-row:hover {
-                border-color: var(--interactive-accent);
-                box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-            }
-
-            .ytc-slider-value {
-                transition: all 0.2s ease;
-                font-variant-numeric: tabular-nums;
-            }
-
-            .ytc-model-params-section:hover {
-                border-color: var(--interactive-accent);
-                box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-            }
-
-            .ytc-temp-scale span {
-                flex: 1;
-                text-align: center;
-                position: relative;
-            }
-
-            .ytc-temp-scale span::before {
-                content: '';
-                position: absolute;
-                bottom: -4px;
-                left: 0;
-                right: 0;
-                height: 1px;
-                background: var(--background-modifier-border);
-            }
-
-            .ytc-temp-scale span:first-child::before {
-                left: 50%;
-            }
-
-            .ytc-temp-scale span:last-child::before {
-                right: 50%;
-            }
-
-            /* Dark theme adjustments */
-            body.theme-dark .ytc-slider-row {
-                background: var(--background-primary-alt);
-            }
-
-            body.theme-dark .ytc-slider-value {
-                background: var(--background-primary-alt);
-            }
-
-            /* High contrast theme adjustments */
-            body.theme-high-contrast .ytc-model-slider {
-                background: var(--text-normal);
-            }
-
-            body.theme-high-contrast .ytc-model-slider::-webkit-slider-track {
-                background: var(--text-muted);
-            }
-
-            body.theme-high-contrast .ytc-model-slider::-webkit-slider-thumb {
-                background: var(--text-accent);
-                border-color: var(--background-primary);
-            }
-        `;
-    if (!document.querySelector("style[data-ytc-model-params]")) {
-      style.setAttribute("data-ytc-model-params", "true");
-      document.head.appendChild(style);
-    }
-  }
-  /**
-   * Create streamlined advanced settings drawer
-   */
-  createAdvancedSettingsDrawer() {
-    this.addEnhancedStyles();
-    const drawerContainer = this.contentEl.createDiv();
-    drawerContainer.className = "ytc-streamlined-drawer";
-    drawerContainer.style.cssText = `
-            margin: 20px 0;
-            border-radius: 16px;
-            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
-            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.2);
-            overflow: hidden;
-            transition: all 0.3s ease;
-            border: 1px solid var(--interactive-accent);
-        `;
-    this.drawerToggle = drawerContainer.createEl("button");
-    this.drawerToggle.className = "ytc-drawer-toggle-streamlined";
-    this.drawerToggle.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 1.3rem;">\u2699\uFE0F</span>
-                    <span style="font-weight: 600; font-size: 0.95rem; color: white;">AI Settings</span>
-                    <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">ADVANCED</span>
-                </div>
-                <div class="drawer-chevron" style="
-                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    transform: rotate(0deg);
-                    color: white;
-                    font-size: 0.9rem;
-                ">\u25B6</div>
-            </div>
-        `;
-    this.drawerToggle.style.cssText = `
-            width: 100%;
-            padding: 16px 24px;
-            background: transparent;
-            border: none;
-            border-radius: 0;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            color: white;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        `;
-    this.drawerToggle.addEventListener("click", (e) => {
-      this.createRippleEffect(e, this.drawerToggle);
-      this.toggleDrawer();
-    });
-    this.drawerContent = drawerContainer.createDiv();
-    this.drawerContent.className = "ytc-drawer-content-streamlined";
-    this.drawerContent.style.cssText = `
-            max-height: 0px;
-            opacity: 0;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background: var(--background-primary);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid var(--background-modifier-border);
-        `;
-    const innerContent = this.drawerContent.createDiv();
-    innerContent.style.cssText = `
-            padding: 32px;
-            display: flex;
-            flex-direction: column;
-            gap: 32px;
-            max-height: 600px;
-            overflow-y: auto;
-        `;
-    const gridContainer = innerContent.createDiv();
-    gridContainer.style.cssText = `
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        `;
-    const leftColumn = gridContainer.createDiv();
-    leftColumn.style.cssText = "display: flex; flex-direction: column; gap: 24px;";
-    const rightColumn = gridContainer.createDiv();
-    rightColumn.style.cssText = "display: flex; flex-direction: column; gap: 24px;";
-    this.createStreamlinedProviderSection(leftColumn);
-    this.createStreamlinedControlsSection(leftColumn);
-    this.createStreamlinedPerformanceSection(rightColumn);
-    this.createStreamlinedTipsSection(rightColumn);
-  }
-  /**
-   * Add enhanced CSS styles
-   */
-  addEnhancedStyles() {
-    if (!document.getElementById("ytc-enhanced-styles")) {
-      const style = document.createElement("style");
-      style.id = "ytc-enhanced-styles";
-      style.textContent = `
-                .ytc-enhanced-drawer {
-                    --gradient-1: var(--interactive-accent);
-                    --gradient-2: var(--interactive-accent-hover);
-                    --accent-rgb: 99, 102, 241;
-                }
-
-                .ytc-drawer-toggle-enhanced::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: -100%;
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-                    transition: left 0.5s;
-                }
-
-                .ytc-drawer-toggle-enhanced:hover::before {
-                    left: 100%;
-                }
-
-                .ytc-input-enhanced, .ytc-select-enhanced {
-                    background: rgba(255,255,255,0.05);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    backdrop-filter: blur(10px);
-                    transition: all 0.3s ease;
-                }
-
-                .ytc-input-enhanced:hover, .ytc-select-enhanced:hover {
-                    background: rgba(255,255,255,0.08);
-                    border-color: var(--interactive-accent);
-                    transform: translateY(-1px);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                }
-
-                .ytc-input-enhanced:focus, .ytc-select-enhanced:focus {
-                    outline: none;
-                    border-color: var(--interactive-accent);
-                    background: rgba(255,255,255,0.1);
-                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-                }
-
-                .ytc-section-card {
-                    background: rgba(255,255,255,0.05);
-                    border-radius: 12px;
-                    padding: 20px;
-                    border: 1px solid rgba(255,255,255,0.1);
-                    backdrop-filter: blur(10px);
-                    transition: all 0.3s ease;
-                }
-
-                .ytc-section-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-                    border-color: var(--interactive-accent);
-                }
-
-                .ytc-slider-enhanced {
-                    -webkit-appearance: none;
-                    appearance: none;
-                    background: linear-gradient(to right, var(--interactive-accent) 0%, var(--interactive-accent) var(--value, 50%), var(--interactive-normal) var(--value, 50%), var(--interactive-normal) 100%);
-                    border-radius: 10px;
-                    height: 8px;
-                    outline: none;
-                    transition: all 0.3s ease;
-                }
-
-                .ytc-slider-enhanced::-webkit-slider-thumb {
-                    -webkit-appearance: none;
-                    appearance: none;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    background: var(--interactive-accent);
-                    cursor: pointer;
-                    border: 3px solid white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    transition: all 0.3s ease;
-                }
-
-                .ytc-slider-enhanced::-webkit-slider-thumb:hover {
-                    transform: scale(1.2);
-                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-                }
-
-                .ytc-badge {
-                    background: var(--interactive-accent);
-                    color: white;
-                    padding: 4px 8px;
-                    border-radius: 12px;
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    display: inline-block;
-                    margin-left: 8px;
-                }
-
-                @keyframes fadeInScale {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-
-                .ytc-fade-in {
-                    animation: fadeInScale 0.4s ease-out;
-                }
-            `;
-      document.head.appendChild(style);
-    }
-  }
-  /**
-   * Create provider selection section
-   */
-  createProviderSection(container) {
-    const section = container.createDiv();
-    section.className = "ytc-section-card ytc-fade-in";
-    section.style.animationDelay = "0.1s";
-    const header = section.createDiv();
-    header.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;";
-    const title = header.createEl("h4");
-    title.textContent = "\u{1F916} AI Provider";
-    title.style.cssText = "margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
-    const badge = header.createSpan();
-    badge.className = "ytc-badge";
-    badge.textContent = "AI";
-    this.providerDropdown = section.createEl("select");
-    this.providerDropdown.className = "ytc-select-enhanced";
-    this.providerDropdown.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            color: var(--text-normal);
-        `;
-    this.options.providers.forEach((provider) => {
-      const option = this.providerDropdown.createEl("option");
-      option.value = provider;
-      option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
-    });
-    const info = section.createDiv();
-    info.style.cssText = "margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);";
-    info.textContent = "Select your preferred AI provider for video processing";
-  }
-  /**
-   * Create model selection section
-   */
-  createModelSection(container) {
-    const section = container.createDiv();
-    section.className = "ytc-section-card ytc-fade-in";
-    section.style.animationDelay = "0.2s";
-    const header = section.createDiv();
-    header.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;";
-    const title = header.createEl("h4");
-    title.textContent = "\u{1F9E0} AI Model";
-    title.style.cssText = "margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
-    const refreshBtn = header.createEl("button");
-    refreshBtn.innerHTML = "\u{1F504} Refresh";
-    refreshBtn.style.cssText = `
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s ease;
-        `;
-    this.modelDropdown = section.createEl("select");
-    this.modelDropdown.className = "ytc-select-enhanced";
-    this.modelDropdown.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            color: var(--text-normal);
-        `;
-    const models = [
-      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", desc: "Latest & most capable" },
-      { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro", desc: "Balanced performance" },
-      { value: "gpt-4", label: "GPT-4", desc: "High quality analysis" },
-      { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", desc: "Fast processing" }
-    ];
-    models.forEach((model) => {
-      const option = this.modelDropdown.createEl("option");
-      option.value = model.value;
-      option.textContent = `${model.label} - ${model.desc}`;
-    });
-  }
-  /**
-   * Create advanced controls section
-   */
-  createAdvancedControlsSection(container) {
-    const section = container.createDiv();
-    section.className = "ytc-section-card ytc-fade-in";
-    section.style.animationDelay = "0.3s";
-    const title = section.createEl("h4");
-    title.textContent = "\u2699\uFE0F Advanced Controls";
-    title.style.cssText = "margin: 0 0 20px 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
-    const tokensControl = section.createDiv();
-    tokensControl.style.cssText = "margin-bottom: 20px;";
-    const tokensLabel = tokensControl.createDiv();
-    tokensLabel.innerHTML = '\u{1F4CA} Max Tokens: <span style="color: var(--interactive-accent); font-weight: 600;">4096</span>';
-    tokensLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;";
-    this.maxTokensSlider = tokensControl.createEl("input");
-    this.maxTokensSlider.type = "range";
-    this.maxTokensSlider.min = "256";
-    this.maxTokensSlider.max = "8192";
-    this.maxTokensSlider.step = "256";
-    this.maxTokensSlider.value = "4096";
-    this.maxTokensSlider.className = "ytc-slider-enhanced";
-    this.maxTokensSlider.style.cssText = "width: 100%;";
-    this.maxTokensSlider.addEventListener("input", (e) => {
-      const value = e.target.value;
-      tokensLabel.querySelector("span").textContent = value;
-      this.maxTokensSlider.style.setProperty("--value", `${(parseInt(value) - 256) / (8192 - 256) * 100}%`);
-    });
-    const tempControl = section.createDiv();
-    const tempLabel = tempControl.createDiv();
-    tempLabel.innerHTML = '\u{1F321}\uFE0F Temperature: <span style="color: var(--interactive-accent); font-weight: 600;">0.5</span>';
-    tempLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;";
-    this.temperatureSlider = tempControl.createEl("input");
-    this.temperatureSlider.type = "range";
-    this.temperatureSlider.min = "0";
-    this.temperatureSlider.max = "2";
-    this.temperatureSlider.step = "0.1";
-    this.temperatureSlider.value = "0.5";
-    this.temperatureSlider.className = "ytc-slider-enhanced";
-    this.temperatureSlider.style.cssText = "width: 100%;";
-    this.temperatureSlider.addEventListener("input", (e) => {
-      const value = e.target.value;
-      tempLabel.querySelector("span").textContent = value;
-      this.temperatureSlider.style.setProperty("--value", `${parseFloat(value) / 2 * 100}%`);
-    });
-    this.maxTokensSlider.style.setProperty("--value", "50%");
-    this.temperatureSlider.style.setProperty("--value", "25%");
-  }
-  /**
-   * Create enhanced performance section for drawer
-   */
-  createEnhancedPerformanceSection(container) {
-    const section = container.createDiv();
-    section.className = "ytc-section-card ytc-fade-in";
-    section.style.animationDelay = "0.4s";
-    const title = section.createEl("h4");
-    title.textContent = "\u26A1 Performance";
-    title.style.cssText = "margin: 0 0 16px 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);";
-    const perfContainer = section.createDiv();
-    perfContainer.style.cssText = "margin-bottom: 16px;";
-    const perfLabel = perfContainer.createDiv();
-    perfLabel.textContent = "Performance Mode:";
-    perfLabel.style.cssText = "margin-bottom: 8px; font-weight: 500;";
-    const perfOptions = ["Fast", "Balanced", "Quality"];
-    const perfButtons = perfContainer.createDiv();
-    perfButtons.style.cssText = "display: flex; gap: 8px;";
-    perfOptions.forEach((option, index) => {
-      const btn = perfButtons.createEl("button");
-      btn.textContent = option;
-      btn.style.cssText = `
-                flex: 1;
-                padding: 8px;
-                border: 1px solid rgba(255,255,255,0.2);
-                background: rgba(255,255,255,0.05);
-                border-radius: 6px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                font-size: 0.8rem;
-            `;
-      if (index === 1)
-        btn.style.background = "var(--interactive-accent)";
-      btn.addEventListener("click", () => {
-        perfButtons.querySelectorAll("button").forEach((b) => {
-          b.style.background = "rgba(255,255,255,0.05)";
-        });
-        btn.style.background = "var(--interactive-accent)";
-      });
-    });
-    const settingsContainer = section.createDiv();
-    const settings = [
-      { label: "Enable parallel processing", checked: true },
-      { label: "Prefer multimodal analysis", checked: true },
-      { label: "Use smart defaults", checked: false }
-    ];
-    settings.forEach((setting) => {
-      const settingItem = settingsContainer.createDiv();
-      settingItem.style.cssText = "display: flex; align-items: center; margin-bottom: 8px;";
-      const checkbox = settingItem.createEl("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = setting.checked;
-      checkbox.style.cssText = "margin-right: 8px; cursor: pointer;";
-      const label = settingItem.createEl("label");
-      label.textContent = setting.label;
-      label.style.cssText = "cursor: pointer; font-size: 0.85rem;";
-    });
-  }
-  /**
-   * Create streamlined provider section
-   */
-  createStreamlinedProviderSection(container) {
-    const section = container.createDiv();
-    section.style.cssText = `
-            background: var(--background-secondary);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--background-modifier-border);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-        `;
-    section.addEventListener("mouseenter", () => {
-      section.style.borderColor = "var(--interactive-accent)";
-      section.style.transform = "translateY(-2px)";
-      section.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
-    });
-    section.addEventListener("mouseleave", () => {
-      section.style.borderColor = "var(--background-modifier-border)";
-      section.style.transform = "translateY(0)";
-      section.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-    });
-    const header = section.createDiv();
-    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u{1F916}</span>AI Provider & Model';
-    header.style.cssText = "font-weight: 600; margin-bottom: 16px; color: var(--text-normal);";
-    const providerLabel = section.createEl("label");
-    providerLabel.textContent = "AI Provider";
-    providerLabel.style.cssText = `
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--text-normal);
-            font-size: 0.9rem;
-        `;
-    this.providerDropdown = section.createEl("select");
-    this.providerDropdown.setAttribute("aria-label", "AI Provider");
-    this.providerDropdown.style.cssText = `
-            width: 100%;
-            padding: 14px 40px 14px 12px;
-            border: 2px solid var(--background-modifier-border);
-            border-radius: 10px;
-            margin-bottom: 16px;
-            font-size: 0.95rem;
-            font-weight: 500;
-            background: var(--background-primary) url('data:image/svg+xml;utf8,<svg fill="%23888888" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>') no-repeat right 10px center;
-            background-size: 20px;
-            color: var(--text-normal);
-            transition: all 0.3s ease;
-            cursor: pointer;
-            appearance: none;
-        `;
-    this.providerDropdown.style.cssText += `
-            -webkit-appearance: none;
-            -moz-appearance: none;
-        `;
-    this.providerDropdown.className = "ytc-provider-select";
-    if (this.options.providers && this.options.providers.length > 0) {
-      this.options.providers.forEach((provider) => {
-        const option = this.providerDropdown.createEl("option");
-        option.value = provider;
-        option.textContent = this.formatProviderName(provider);
-        option.style.cssText = "background: var(--background-primary); color: var(--text-normal); font-weight: 500;";
-        if (provider === this.options.defaultProvider) {
-          option.selected = true;
-        }
-      });
-    } else {
-      const fallbackProviders = ["gemini", "groq"];
-      fallbackProviders.forEach((provider) => {
-        const option = this.providerDropdown.createEl("option");
-        option.value = provider;
-        option.textContent = this.formatProviderName(provider);
-        option.style.cssText = "background: var(--background-primary); color: var(--text-normal); font-weight: 500;";
-        if (provider === "gemini") {
-          option.selected = true;
-        }
-      });
-    }
-    const modelLabel = section.createEl("label");
-    modelLabel.textContent = "AI Model";
-    modelLabel.style.cssText = providerLabel.style.cssText;
-    this.modelDropdown = section.createEl("select");
-    this.modelDropdown.setAttribute("aria-label", "AI Model");
-    this.modelDropdown.style.cssText = this.providerDropdown.style.cssText;
-    this.modelDropdown.style.marginBottom = "0";
-    this.modelDropdown.className = "ytc-model-select";
-    const models = [
-      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Latest)" },
-      { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
-      { value: "gpt-4", label: "GPT-4" },
-      { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" }
-    ];
-    models.forEach((model) => {
-      const option = this.modelDropdown.createEl("option");
-      option.value = model.value;
-      option.textContent = model.label;
-      option.style.cssText = "background: var(--background-primary); color: var(--text-normal); font-weight: 500;";
-      if (model.value === this.options.defaultModel) {
-        option.selected = true;
-      }
-    });
-    [this.providerDropdown, this.modelDropdown].forEach((dropdown) => {
-      dropdown.addEventListener("focus", () => {
-        dropdown.style.borderColor = "var(--interactive-accent)";
-        dropdown.style.outline = "none";
-      });
-      dropdown.addEventListener("blur", () => {
-        dropdown.style.borderColor = "var(--background-modifier-border)";
-      });
-    });
-  }
-  /**
-   * Create streamlined controls section
-   */
-  createStreamlinedControlsSection(container) {
-    const section = container.createDiv();
-    section.style.cssText = `
-            background: var(--background-secondary);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--background-modifier-border);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-        `;
-    section.addEventListener("mouseenter", () => {
-      section.style.borderColor = "var(--interactive-accent)";
-      section.style.transform = "translateY(-2px)";
-      section.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
-    });
-    section.addEventListener("mouseleave", () => {
-      section.style.borderColor = "var(--background-modifier-border)";
-      section.style.transform = "translateY(0)";
-      section.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-    });
-    const header = section.createDiv();
-    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u2699\uFE0F</span>Model Parameters';
-    header.style.cssText = "font-weight: 600; margin-bottom: 20px; color: var(--text-normal);";
-    const tokensControl = section.createDiv();
-    tokensControl.style.cssText = "margin-bottom: 20px;";
-    const tokensLabel = tokensControl.createDiv();
-    tokensLabel.innerHTML = '\u{1F4CA} Max Tokens: <span style="color: var(--interactive-accent); font-weight: 600;">4096</span>';
-    tokensLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;";
-    this.maxTokensSlider = tokensControl.createEl("input");
-    this.maxTokensSlider.type = "range";
-    this.maxTokensSlider.min = "256";
-    this.maxTokensSlider.max = "8192";
-    this.maxTokensSlider.step = "256";
-    this.maxTokensSlider.value = "4096";
-    this.maxTokensSlider.className = "ytc-slider-enhanced";
-    this.maxTokensSlider.style.cssText = "width: 100%; height: 6px;";
-    this.maxTokensSlider.addEventListener("input", (e) => {
-      const value = e.target.value;
-      tokensLabel.querySelector("span").textContent = value;
-      this.maxTokensSlider.style.setProperty("--value", `${(parseInt(value) - 256) / (8192 - 256) * 100}%`);
-    });
-    const tempControl = section.createDiv();
-    const tempLabel = tempControl.createDiv();
-    tempLabel.innerHTML = '\u{1F321}\uFE0F Temperature: <span style="color: var(--interactive-accent); font-weight: 600;">0.5</span>';
-    tempLabel.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;";
-    this.temperatureSlider = tempControl.createEl("input");
-    this.temperatureSlider.type = "range";
-    this.temperatureSlider.min = "0";
-    this.temperatureSlider.max = "2";
-    this.temperatureSlider.step = "0.1";
-    this.temperatureSlider.value = "0.5";
-    this.temperatureSlider.className = "ytc-slider-enhanced";
-    this.temperatureSlider.style.cssText = "width: 100%; height: 6px;";
-    this.temperatureSlider.addEventListener("input", (e) => {
-      const value = e.target.value;
-      tempLabel.querySelector("span").textContent = value;
-      this.temperatureSlider.style.setProperty("--value", `${parseFloat(value) / 2 * 100}%`);
-    });
-    this.maxTokensSlider.style.setProperty("--value", "50%");
-    this.temperatureSlider.style.setProperty("--value", "25%");
-  }
-  /**
-   * Create streamlined performance section
-   */
-  createStreamlinedPerformanceSection(container) {
-    const section = container.createDiv();
-    section.style.cssText = `
-            background: var(--background-secondary);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--background-modifier-border);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-        `;
-    section.addEventListener("mouseenter", () => {
-      section.style.borderColor = "var(--interactive-accent)";
-      section.style.transform = "translateY(-2px)";
-      section.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)";
-    });
-    section.addEventListener("mouseleave", () => {
-      section.style.borderColor = "var(--background-modifier-border)";
-      section.style.transform = "translateY(0)";
-      section.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
-    });
-    const header = section.createDiv();
-    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u26A1</span>Performance';
-    header.style.cssText = "font-weight: 600; margin-bottom: 16px; color: var(--text-normal);";
-    const modes = ["Fast", "Balanced", "Quality"];
-    const modeButtons = section.createDiv();
-    modeButtons.style.cssText = "display: flex; gap: 8px; margin-bottom: 16px;";
-    modes.forEach((mode, index) => {
-      const btn = modeButtons.createEl("button");
-      btn.textContent = mode;
-      btn.style.cssText = `
-                flex: 1;
-                padding: 10px;
-                border: 2px solid var(--background-modifier-border);
-                background: var(--background-primary);
-                border-radius: 8px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                font-size: 0.85rem;
-                font-weight: 500;
-                color: var(--text-normal);
-            `;
-      if (index === 1) {
-        btn.style.borderColor = "var(--interactive-accent)";
-        btn.style.background = "var(--interactive-accent)";
-        btn.style.color = "white";
-      }
-      btn.addEventListener("click", () => {
-        modeButtons.querySelectorAll("button").forEach((b) => {
-          b.style.borderColor = "var(--background-modifier-border)";
-          b.style.background = "var(--background-primary)";
-          b.style.color = "var(--text-normal)";
-        });
-        btn.style.borderColor = "var(--interactive-accent)";
-        btn.style.background = "var(--interactive-accent)";
-        btn.style.color = "white";
-      });
-    });
-    const toggles = [
-      { label: "Parallel processing", checked: true },
-      { label: "Multimodal analysis", checked: true }
-    ];
-    toggles.forEach((toggle) => {
-      const toggleItem = section.createDiv();
-      toggleItem.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;";
-      const label = toggleItem.createEl("label");
-      label.textContent = toggle.label;
-      label.style.cssText = "font-size: 0.9rem; cursor: pointer;";
-      const switchContainer = toggleItem.createDiv();
-      switchContainer.style.cssText = "position: relative; width: 48px; height: 24px;";
-      const checkbox = switchContainer.createEl("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = toggle.checked;
-      checkbox.style.cssText = "opacity: 0; width: 0; height: 0;";
-      const slider = switchContainer.createDiv();
-      slider.style.cssText = `
-                position: absolute;
-                cursor: pointer;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background-color: ${toggle.checked ? "var(--interactive-accent)" : "var(--background-modifier-border)"};
-                transition: 0.4s;
-                border-radius: 24px;
-            `;
-      const sliderKnob = slider.createDiv();
-      sliderKnob.style.cssText = `
-                position: absolute;
-                height: 18px;
-                width: 18px;
-                left: ${toggle.checked ? "26px" : "3px"};
-                bottom: 3px;
-                background-color: white;
-                transition: 0.4s;
-                border-radius: 50%;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            `;
-      checkbox.addEventListener("change", () => {
-        slider.style.backgroundColor = checkbox.checked ? "var(--interactive-accent)" : "var(--background-modifier-border)";
-        sliderKnob.style.left = checkbox.checked ? "26px" : "3px";
-      });
-    });
-  }
-  /**
-   * Create streamlined tips section
-   */
-  createStreamlinedTipsSection(container) {
-    const section = container.createDiv();
-    section.style.cssText = `
-            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
-            border-radius: 16px;
-            padding: 20px;
-            color: white;
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-        `;
-    const header = section.createDiv();
-    header.innerHTML = '<span style="font-size: 1.2rem; margin-right: 8px;">\u{1F4A1}</span>Pro Tips';
-    header.style.cssText = "font-weight: 600; margin-bottom: 16px; color: white;";
-    const tips = [
-      "\u2328\uFE0F Press <kbd>Ctrl+Enter</kbd> to process instantly",
-      '\u{1F3AF} Use "Detailed" for comprehensive analysis',
-      '\u26A1 Enable "Fast" mode for quick results',
-      "\u{1F916} Gemini 2.5 Pro offers the best quality"
-    ];
-    tips.forEach((tip) => {
-      const tipItem = section.createDiv();
-      tipItem.innerHTML = tip;
-      tipItem.style.cssText = "margin-bottom: 12px; font-size: 0.85rem; line-height: 1.4; opacity: 0.95;";
-    });
-  }
-  /**
-   * Create ripple effect for buttons
-   */
-  createRippleEffect(event, button) {
-    const ripple = document.createElement("span");
-    ripple.style.cssText = `
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.6);
-            transform: scale(0);
-            animation: ripple 0.6s ease-out;
-            pointer-events: none;
-        `;
-    const rect = button.getBoundingClientRect();
-    const size = Math.max(rect.width, rect.height);
-    ripple.style.width = ripple.style.height = size + "px";
-    ripple.style.left = event.clientX - rect.left - size / 2 + "px";
-    ripple.style.top = event.clientY - rect.top - size / 2 + "px";
-    button.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 600);
-  }
-  /**
-   * Streamlined drawer toggle with smooth animations
-   */
-  toggleDrawer() {
-    this.isDrawerOpen = !this.isDrawerOpen;
-    const chevron = this.drawerToggle.querySelector(".drawer-chevron");
-    if (this.isDrawerOpen) {
-      this.drawerContent.style.maxHeight = "700px";
-      this.drawerContent.style.opacity = "1";
-      if (chevron)
-        chevron.style.transform = "rotate(90deg)";
-      setTimeout(() => {
-        this.drawerContent.scroll({ top: 0, behavior: "smooth" });
-      }, 100);
-    } else {
-      this.drawerContent.style.maxHeight = "0px";
-      this.drawerContent.style.opacity = "0";
-      if (chevron)
-        chevron.style.transform = "rotate(0deg)";
-    }
-  }
-  /**
-   * Create provider selection section for drawer (modified version)
-   */
-  createProviderSelectionSectionForDrawer(container) {
-    const sectionContainer = container.createDiv();
-    sectionContainer.style.padding = "12px";
-    sectionContainer.style.backgroundColor = "var(--background-secondary)";
-    sectionContainer.style.borderRadius = "6px";
-    sectionContainer.style.border = "1px solid var(--background-modifier-border)";
-    const label = sectionContainer.createEl("label", { text: "\u{1F916} AI Provider & Model:" });
-    label.setAttribute("for", "ytc-provider-select");
-    label.style.display = "block";
-    label.style.marginBottom = "8px";
-    label.style.fontWeight = "500";
-    label.style.color = "var(--text-normal)";
-    const row = sectionContainer.createDiv();
-    row.style.display = "flex";
-    row.style.gap = "8px";
-    row.style.alignItems = "center";
-    this.providerSelect = document.createElement("select");
-    this.providerSelect.id = "ytc-provider-select";
-    this.providerSelect.setAttribute("aria-label", "AI Provider");
-    this.providerSelect.style.flex = "1";
-    this.providerSelect.style.padding = "4px 8px";
-    this.providerSelect.style.borderRadius = "4px";
-    this.providerSelect.style.border = "1px solid var(--background-modifier-border)";
-    row.appendChild(this.providerSelect);
-    this.modelSelect = document.createElement("select");
-    this.modelSelect.setAttribute("aria-label", "AI Model");
-    this.modelSelect.style.flex = "1";
-    this.modelSelect.style.padding = "4px 8px";
-    this.modelSelect.style.borderRadius = "4px";
-    this.modelSelect.style.border = "1px solid var(--background-modifier-border)";
-    row.appendChild(this.modelSelect);
-    const refreshBtn = document.createElement("button");
-    refreshBtn.textContent = "\u{1F504}";
-    refreshBtn.style.padding = "4px 8px";
-    refreshBtn.style.borderRadius = "4px";
-    refreshBtn.style.border = "1px solid var(--background-modifier-border)";
-    refreshBtn.style.cursor = "pointer";
-    refreshBtn.setAttribute("aria-label", "Refresh model list");
-    refreshBtn.addEventListener("click", () => this.handleRefreshModels());
-    row.appendChild(refreshBtn);
-    this.refreshSpinner = document.createElement("span");
-    this.refreshSpinner.textContent = "\u23F3";
-    this.refreshSpinner.style.display = "none";
-    this.refreshSpinner.style.marginLeft = "4px";
-    row.appendChild(this.refreshSpinner);
-    this.setupProviderModelHandlers();
-  }
-  /**
-   * Create model parameters section for drawer (modified version)
-   */
-  createModelParametersSectionForDrawer(container) {
-    const paramsContainer = container.createDiv();
-    paramsContainer.className = "ytc-model-params-section";
-    paramsContainer.style.padding = "12px";
-    paramsContainer.style.backgroundColor = "var(--background-secondary)";
-    paramsContainer.style.borderRadius = "6px";
-    paramsContainer.style.border = "1px solid var(--background-modifier-border)";
-    const header = paramsContainer.createEl("h4");
-    header.textContent = "\u2699\uFE0F Model Parameters";
-    header.style.margin = "0 0 12px 0";
-    header.style.fontSize = "0.95rem";
-    header.style.color = "var(--text-normal)";
-    const maxTokensContainer = paramsContainer.createDiv();
-    maxTokensContainer.style.marginBottom = "12px";
-    const maxTokensLabel = maxTokensContainer.createDiv();
-    maxTokensLabel.textContent = "Max Tokens: " + this.maxTokens;
-    maxTokensLabel.style.fontSize = "0.85rem";
-    maxTokensLabel.style.fontWeight = "500";
-    maxTokensLabel.style.marginBottom = "6px";
-    maxTokensLabel.style.color = "var(--text-normal)";
-    this.maxTokensSlider = document.createElement("input");
-    this.maxTokensSlider.type = "range";
-    this.maxTokensSlider.min = "256";
-    this.maxTokensSlider.max = "8192";
-    this.maxTokensSlider.step = "256";
-    this.maxTokensSlider.value = this.maxTokens.toString();
-    this.maxTokensSlider.style.width = "100%";
-    this.maxTokensSlider.style.height = "4px";
-    this.maxTokensSlider.className = "ytc-model-slider";
-    maxTokensContainer.appendChild(this.maxTokensSlider);
-    this.maxTokensValue = document.createElement("span");
-    this.maxTokensValue.textContent = this.maxTokens.toString();
-    this.maxTokensValue.style.fontSize = "0.8rem";
-    this.maxTokensValue.style.fontWeight = "600";
-    this.maxTokensValue.style.color = "var(--text-accent)";
-    this.maxTokensValue.style.marginLeft = "8px";
-    maxTokensContainer.appendChild(this.maxTokensValue);
-    const tempContainer = paramsContainer.createDiv();
-    const tempLabel = tempContainer.createDiv();
-    tempLabel.textContent = "Temperature: " + this.temperature.toFixed(1);
-    tempLabel.style.fontSize = "0.85rem";
-    tempLabel.style.fontWeight = "500";
-    tempLabel.style.marginBottom = "6px";
-    tempLabel.style.color = "var(--text-normal)";
-    this.temperatureSlider = document.createElement("input");
-    this.temperatureSlider.type = "range";
-    this.temperatureSlider.min = "0";
-    this.temperatureSlider.max = "2";
-    this.temperatureSlider.step = "0.1";
-    this.temperatureSlider.value = this.temperature.toString();
-    this.temperatureSlider.style.width = "100%";
-    this.temperatureSlider.style.height = "4px";
-    this.temperatureSlider.className = "ytc-model-slider";
-    tempContainer.appendChild(this.temperatureSlider);
-    this.temperatureValue = document.createElement("span");
-    this.temperatureValue.textContent = this.temperature.toFixed(1);
-    this.temperatureValue.style.fontSize = "0.8rem";
-    this.temperatureValue.style.fontWeight = "600";
-    this.temperatureValue.style.color = "var(--text-accent)";
-    this.temperatureValue.style.marginLeft = "8px";
-    tempContainer.appendChild(this.temperatureValue);
-    const scaleContainer = paramsContainer.createDiv();
-    scaleContainer.style.display = "flex";
-    scaleContainer.style.justifyContent = "space-between";
-    scaleContainer.style.fontSize = "0.75rem";
-    scaleContainer.style.color = "var(--text-muted)";
-    scaleContainer.style.marginTop = "4px";
-    scaleContainer.createSpan({ text: "Precise" });
-    scaleContainer.createSpan({ text: "Creative" });
-    this.setupSliderEventHandlers();
-  }
-  /**
-   * Create progress section
+   * Create progress section to display real-time progress
    */
   createProgressSection() {
-    if (this.progressContainer) {
-      this.progressContainer.remove();
-      this.progressSteps = [];
-    }
     this.progressContainer = this.contentEl.createDiv();
     this.progressContainer.setAttribute("role", "region");
     this.progressContainer.setAttribute("aria-label", "Processing progress");
@@ -4319,299 +2437,259 @@ var YouTubeUrlModal = class extends BaseModal {
     progressBarContainer.setAttribute("aria-valuemax", "100");
     progressBarContainer.setAttribute("aria-labelledby", "progress-text");
     progressBarContainer.style.width = "100%";
-    progressBarContainer.style.height = "6px";
+    progressBarContainer.style.height = "10px";
     progressBarContainer.style.backgroundColor = "var(--background-modifier-border)";
-    progressBarContainer.style.borderRadius = "3px";
+    progressBarContainer.style.borderRadius = "5px";
     progressBarContainer.style.overflow = "hidden";
     this.progressBar = progressBarContainer.createDiv();
     this.progressBar.style.height = "100%";
-    this.progressBar.style.backgroundColor = "var(--text-accent)";
-    this.progressBar.style.borderRadius = "3px";
+    this.progressBar.style.backgroundColor = "var(--interactive-accent)";
+    this.progressBar.style.borderRadius = "5px";
     this.progressBar.style.width = "0%";
     this.progressBar.style.transition = "width 0.3s ease";
-    const stepList = this.progressContainer.createEl("ol");
-    stepList.setAttribute("aria-label", "Processing steps");
-    stepList.style.marginTop = "12px";
-    stepList.style.paddingLeft = "20px";
-    stepList.style.fontSize = "0.9rem";
-    stepList.style.color = "var(--text-normal)";
-    const labels = [
-      "Validate URL",
-      "Fetch video info",
-      "Run AI analysis",
-      "Save note"
-    ];
-    this.progressSteps = labels.map((label, index) => {
-      const item = stepList.createEl("li");
-      item.setAttribute("role", "status");
-      item.style.marginBottom = "4px";
-      item.textContent = `\u25CB ${label}`;
-      return { label, element: item };
-    });
   }
   /**
    * Create action buttons with accessibility
    */
   createActionButtons() {
-    const container = this.createButtonContainer();
-    const cancelBtn = this.createButton(
-      container,
-      MESSAGES.MODALS.CANCEL,
-      false,
-      () => this.close()
-    );
-    cancelBtn.setAttribute("aria-label", "Cancel video processing");
-    this.processButton = this.createButton(
-      container,
-      MESSAGES.MODALS.PROCESS,
-      true,
-      () => this.handleProcess()
-    );
-    this.processButton.setAttribute("aria-label", "Process YouTube video");
-    this.openButton = this.createButton(
-      container,
-      "Open Note",
-      true,
-      () => this.handleOpenFile()
-    );
-    this.openButton.setAttribute("aria-label", "Open the processed note");
+    const container = this.contentEl.createDiv();
+    container.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--background-modifier-border);
+        `;
+    const cancelBtn = container.createEl("button");
+    cancelBtn.textContent = MESSAGES.MODALS.CANCEL;
+    cancelBtn.style.cssText = `
+            padding: 8px 16px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            background: var(--background-secondary);
+            color: var(--text-normal);
+            transition: all 0.2s ease;
+        `;
+    cancelBtn.addEventListener("click", () => this.close());
+    this.processButton = container.createEl("button");
+    this.processButton.textContent = MESSAGES.MODALS.PROCESS;
+    this.processButton.style.cssText = `
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            background: var(--interactive-accent);
+            color: var(--text-on-accent);
+            transition: all 0.2s ease;
+        `;
+    this.processButton.addEventListener("click", () => this.handleProcess());
+    this.openButton = container.createEl("button");
+    this.openButton.textContent = "Open Note";
+    this.openButton.style.cssText = `
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            background: var(--interactive-accent);
+            color: var(--text-on-accent);
+            transition: all 0.2s ease;
+        `;
     this.openButton.style.display = "none";
+    this.openButton.addEventListener("click", () => this.handleOpenFile());
     this.updateProcessButtonState();
   }
   /**
-   * Create button container for action buttons
-   */
-  createButtonContainer() {
-    const container = this.contentEl.createDiv();
-    container.style.display = "flex";
-    container.style.justifyContent = "center";
-    container.style.gap = "12px";
-    container.style.marginTop = "20px";
-    container.style.padding = "0 16px";
-    container.style.borderTop = "1px solid var(--background-modifier-border)";
-    container.style.backgroundColor = "var(--background-primary)";
-    return container;
-  }
-  /**
-   * Create a button with consistent styling
-   */
-  createButton(container, text, isPrimary = false, onClick) {
-    const button = container.createEl("button");
-    button.textContent = text;
-    button.style.padding = "8px 16px";
-    button.style.borderRadius = "6px";
-    button.style.border = "1px solid";
-    button.style.cursor = "pointer";
-    button.style.fontSize = "0.9rem";
-    button.style.fontWeight = "500";
-    button.style.transition = "all 0.2s ease";
-    if (isPrimary) {
-      button.style.backgroundColor = "var(--interactive-accent)";
-      button.style.color = "var(--text-on-accent)";
-      button.style.borderColor = "var(--interactive-accent)";
-    } else {
-      button.style.backgroundColor = "var(--background-secondary)";
-      button.style.color = "var(--text-normal)";
-      button.style.borderColor = "var(--background-modifier-border)";
-    }
-    button.addEventListener("mouseenter", () => {
-      if (isPrimary) {
-        button.style.backgroundColor = "var(--interactive-accent-hover)";
-      } else {
-        button.style.backgroundColor = "var(--background-modifier-hover)";
-        button.style.borderColor = "var(--interactive-accent)";
-      }
-    });
-    button.addEventListener("mouseleave", () => {
-      if (isPrimary) {
-        button.style.backgroundColor = "var(--interactive-accent)";
-        button.style.color = "var(--text-on-accent)";
-        button.style.borderColor = "var(--interactive-accent)";
-      } else {
-        button.style.backgroundColor = "var(--background-secondary)";
-        button.style.color = "var(--text-normal)";
-        button.style.borderColor = "var(--background-modifier-border)";
-      }
-    });
-    if (onClick) {
-      button.addEventListener("click", onClick);
-    }
-    return button;
-  }
-  /**
-   * Set up event handlers
+   * Set up event handlers for the modal
    */
   setupEventHandlers() {
-    this.setupKeyHandlers(
-      () => this.handleProcess(),
-      () => this.close()
-    );
-    window.addEventListener("yt-clipper-retry-processing", this.handleRetry);
+    this.scope.register([], "Enter", () => {
+      if (this.processButton && !this.processButton.disabled) {
+        this.processButton.click();
+      }
+      return false;
+    });
+    this.scope.register([], "Escape", () => {
+      this.close();
+      return false;
+    });
+    if (this.urlInput) {
+      this.urlInput.addEventListener("input", () => {
+        this.url = this.urlInput.value;
+        this.updateProcessButtonState();
+      });
+    }
   }
   /**
    * Focus on URL input
    */
   focusUrlInput() {
     if (this.urlInput) {
-      this.focusElement(this.urlInput);
+      this.urlInput.focus();
     }
   }
   /**
-   * Update process button enabled state (optimized with debouncing and memoization)
+   * Update process button enabled state
    */
   updateProcessButtonState() {
     if (!this.processButton)
       return;
-    if (this.isProcessing) {
-      return;
-    }
     const trimmedUrl = this.url.trim();
-    if (this.processButton && this.processButton.textContent !== MESSAGES.MODALS.PROCESS && trimmedUrl.length >= 0) {
-      this.processButton.textContent = MESSAGES.MODALS.PROCESS;
+    const isValid = ValidationUtils.isValidYouTubeUrl(trimmedUrl);
+    this.processButton.disabled = !isValid || this.isProcessing;
+    this.processButton.style.opacity = this.processButton.disabled ? "0.5" : "1";
+    if (trimmedUrl.length === 0) {
+      this.setValidationMessage("Paste a YouTube link to begin processing.", "info");
+    } else {
+      this.setValidationMessage(
+        isValid ? "Ready to process this video." : "Enter a valid YouTube video URL.",
+        isValid ? "success" : "error"
+      );
     }
-    if (trimmedUrl === this.lastValidUrl) {
-      const isValid = this.lastValidResult;
-      this.processButton.disabled = !isValid;
-      this.processButton.style.opacity = isValid ? "1" : "0.5";
-      if (trimmedUrl.length === 0) {
-        this.setValidationMessage("Paste a YouTube link to begin processing.", "info");
-        this.setUrlInputState("idle");
-      } else {
-        this.setValidationMessage(
-          isValid ? "Ready to process this video." : "Enter a valid YouTube video URL.",
-          isValid ? "success" : "error"
-        );
-        this.setUrlInputState(isValid ? "valid" : "invalid");
-      }
-      this.updateQuickActionsState();
-      return;
-    }
-    if (this.validationTimer) {
-      clearTimeout(this.validationTimer);
-    }
-    this.validationTimer = window.setTimeout(() => {
-      const isValid = ValidationUtils.isValidYouTubeUrl(trimmedUrl);
-      this.lastValidUrl = trimmedUrl;
-      this.lastValidResult = isValid;
-      this.processButton.disabled = !isValid;
-      this.processButton.style.opacity = isValid ? "1" : "0.5";
-      if (trimmedUrl.length === 0) {
-        this.setValidationMessage("Paste a YouTube link to begin processing.", "info");
-        this.setUrlInputState("idle");
-      } else {
-        this.setValidationMessage(
-          isValid ? "Ready to process this video." : "Enter a valid YouTube video URL.",
-          isValid ? "success" : "error"
-        );
-        this.setUrlInputState(isValid ? "valid" : "invalid");
-      }
-      this.updateQuickActionsState();
-      if (isValid) {
-        void this.maybeFetchPreview(trimmedUrl);
-      } else {
-        this.clearPreview();
-      }
-    }, 300);
   }
   /**
-   * Validate URL input (simplified - used by debounced handler)
+   * Set validation message
    */
-  isUrlValid() {
-    return ValidationUtils.isValidYouTubeUrl(this.url.trim());
+  setValidationMessage(message, type = "info") {
+    if (!this.validationMessage)
+      return;
+    this.validationMessage.textContent = message;
+    let color = "var(--text-muted)";
+    if (type === "error") {
+      color = "var(--text-error)";
+    } else if (type === "success") {
+      color = "var(--text-accent)";
+    }
+    this.validationMessage.style.color = color;
   }
   /**
    * Handle process button click
    */
   async handleProcess() {
-    var _a;
     const trimmedUrl = this.url.trim();
     if (!trimmedUrl) {
       new import_obsidian5.Notice(MESSAGES.ERRORS.ENTER_URL);
       this.focusUrlInput();
       return;
     }
-    if (!this.isUrlValid()) {
+    if (!ValidationUtils.isValidYouTubeUrl(trimmedUrl)) {
       new import_obsidian5.Notice(MESSAGES.ERRORS.INVALID_URL);
       this.focusUrlInput();
       return;
     }
     try {
-      if (this.selectedProvider === "Google Gemini" && this.selectedModel && this.isUrlValid()) {
-        try {
-          const models = PROVIDER_MODEL_OPTIONS["Google Gemini"] || [];
-          const match = models.find((m) => {
-            const name = typeof m === "string" ? m : m && m.name ? m.name : "";
-            return String(name).toLowerCase() === String(this.selectedModel || "").toLowerCase();
-          });
-          const supportsAudioVideo = !!(match && match.supportsAudioVideo);
-          if (!supportsAudioVideo) {
-            const recommended = (models.find((m) => m && m.supportsAudioVideo) || { name: AI_MODELS.GEMINI }).name;
-            const shouldSwitch = await this.showConfirmationModal(
-              "Multimodal Model Recommended",
-              `The selected model (${this.selectedModel}) may not support multimodal analysis.
-
-Would you like to switch to a multimodal-capable model (${recommended}) for better video analysis?`,
-              "Switch to Multimodal",
-              "Keep Current Model",
-              false
-            );
-            if (shouldSwitch) {
-              if (this.modelSelect) {
-                const exists = Array.from(this.modelSelect.options).some((o) => o.value === recommended);
-                if (!exists) {
-                  const opt = document.createElement("option");
-                  opt.value = recommended;
-                  opt.text = recommended;
-                  this.modelSelect.appendChild(opt);
-                }
-                this.modelSelect.value = recommended;
-                this.selectedModel = recommended;
-              } else {
-                this.selectedModel = recommended;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("[YouTubeUrlModal] model recommendation failed", err);
-        }
-      }
       this.showProcessingState();
-      this.setStepState(0, "active");
-      this.updateProgress(20, "Validating YouTube URL...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      this.setStepState(0, "complete");
-      this.setStepState(1, "active");
-      this.updateProgress(40, "Extracting video data...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      this.setStepState(1, "complete");
-      this.setStepState(2, "active");
-      this.updateProgress(60, "Analyzing video content...");
-      const customPrompt = this.format === "custom" ? (_a = this.customPromptInput) == null ? void 0 : _a.value : void 0;
+      this.updateProgress(0, "Starting...");
+      this.updateProgress(25, "Validating URL...");
+      const videoId = ValidationUtils.extractVideoId(trimmedUrl);
+      if (!videoId) {
+        throw new Error("Could not extract YouTube video ID");
+      }
+      this.updateProgress(50, "Fetching video data...");
+      this.updateProgress(75, "Processing with AI...");
+      this.format = this.formatSelect.value;
+      this.selectedProvider = this.providerSelect.value;
+      this.selectedModel = this.modelSelect.value;
       const filePath = await this.options.onProcess(
         trimmedUrl,
         this.format,
         this.selectedProvider,
         this.selectedModel,
-        customPrompt,
-        this.performanceMode,
-        this.enableParallelProcessing,
-        this.preferMultimodal,
-        this.maxTokens,
-        this.temperature
+        this.format === "custom" ? void 0 : void 0,
+        this.options.performanceMode || "balanced",
+        this.options.enableParallelProcessing || false,
+        this.options.preferMultimodal || false,
+        this.options.defaultMaxTokens || 4096,
+        this.options.defaultTemperature || 0.5
       );
-      this.setStepState(2, "complete");
-      this.setStepState(3, "active");
-      this.updateProgress(80, "Generating note...");
-      await new Promise((resolve) => setTimeout(resolve, 300));
       this.updateProgress(100, "Complete!");
-      this.setStepState(3, "complete");
       this.processedFilePath = filePath;
       this.showCompletionState();
     } catch (error) {
-      this.flagActiveStepAsError();
       this.showErrorState(error);
       ErrorHandler.handle(error, "YouTube URL processing");
     }
+  }
+  /**
+   * Show processing state
+   */
+  showProcessingState() {
+    this.isProcessing = true;
+    if (this.progressContainer) {
+      this.progressContainer.style.display = "block";
+    }
+    if (this.urlInput) {
+      this.urlInput.disabled = true;
+    }
+    if (this.processButton) {
+      this.processButton.disabled = true;
+      this.processButton.textContent = "Processing...";
+    }
+    if (this.openButton) {
+      this.openButton.style.display = "none";
+    }
+  }
+  /**
+   * Update progress bar and text in real-time
+   */
+  updateProgress(percent, text) {
+    if (this.progressBar) {
+      this.progressBar.style.width = `${percent}%`;
+    }
+    if (this.progressText) {
+      this.progressText.textContent = text;
+    }
+  }
+  /**
+   * Show completion state
+   */
+  showCompletionState() {
+    this.isProcessing = false;
+    if (this.urlInput) {
+      this.urlInput.disabled = false;
+      this.urlInput.value = "";
+      this.url = "";
+    }
+    if (this.processButton) {
+      this.processButton.disabled = false;
+      this.processButton.textContent = "Process Another";
+      this.processButton.style.display = "inline-block";
+    }
+    if (this.openButton) {
+      this.openButton.style.display = "inline-block";
+    }
+    if (this.headerEl) {
+      this.headerEl.textContent = "\u2705 Video Processed Successfully!";
+    }
+    this.setValidationMessage("Note saved. You can open it now or process another video.", "success");
+    this.focusUrlInput();
+  }
+  /**
+   * Show error state
+   */
+  showErrorState(error) {
+    this.isProcessing = false;
+    if (this.urlInput) {
+      this.urlInput.disabled = false;
+    }
+    if (this.processButton) {
+      this.processButton.disabled = false;
+      this.processButton.textContent = MESSAGES.MODALS.PROCESS;
+    }
+    if (this.openButton) {
+      this.openButton.style.display = "none";
+    }
+    if (this.headerEl) {
+      this.headerEl.textContent = "\u274C Processing Failed";
+    }
+    this.setValidationMessage(error.message, "error");
   }
   /**
    * Handle open file button click
@@ -4627,391 +2705,44 @@ Would you like to switch to a multimodal-capable model (${recommended}) for bett
     }
   }
   /**
-   * Show processing state
-   */
-  showProcessingState() {
-    this.isProcessing = true;
-    this.setValidationMessage("Processing video. This may take a moment...", "info");
-    this.resetProgressSteps();
-    if (this.progressContainer) {
-      this.progressContainer.style.display = "block";
-    }
-    if (this.urlInput) {
-      this.urlInput.disabled = true;
-    }
-    if (this.processButton) {
-      this.processButton.disabled = true;
-      this.processButton.textContent = "Processing...";
-    }
-    if (this.openButton) {
-      this.openButton.style.display = "none";
-    }
-    this.setUrlInputState("idle");
-    this.updateQuickActionsState();
-  }
-  /**
-   * Show completion state
-   */
-  showCompletionState() {
-    this.isProcessing = false;
-    if (this.progressContainer) {
-      this.progressContainer.style.display = "none";
-    }
-    if (this.urlInput) {
-      this.urlInput.disabled = false;
-      this.urlInput.value = "";
-      this.url = "";
-    }
-    if (this.processButton) {
-      this.processButton.disabled = false;
-      this.processButton.textContent = "Process Another";
-      this.processButton.style.display = "inline-block";
-      this.processButton.style.opacity = "1";
-    }
-    if (this.openButton) {
-      this.openButton.style.display = "inline-block";
-    }
-    if (this.headerEl) {
-      this.headerEl.textContent = "\u2705 Video Processed Successfully!";
-    }
-    this.setValidationMessage("Note saved to today's folder. You can open it now or process another video.", "success");
-    this.focusUrlInput();
-    this.updateQuickActionsState();
-    this.setUrlInputState("idle");
-  }
-  /**
-   * Show error state
-   */
-  showErrorState(error) {
-    this.isProcessing = false;
-    if (this.progressContainer) {
-      this.progressContainer.style.display = "none";
-    }
-    if (this.urlInput) {
-      this.urlInput.disabled = false;
-    }
-    if (this.processButton) {
-      this.processButton.disabled = false;
-      this.processButton.textContent = MESSAGES.MODALS.PROCESS;
-      this.processButton.style.display = "inline-block";
-    }
-    if (this.openButton) {
-      this.openButton.style.display = "none";
-    }
-    if (this.headerEl) {
-      this.headerEl.textContent = "\u274C Processing Failed";
-    }
-    this.setValidationMessage(error.message, "error");
-    this.updateQuickActionsState();
-    this.setUrlInputState(this.url.trim().length > 0 ? "invalid" : "idle");
-  }
-  /**
-   * Update progress bar and text
-   */
-  updateProgress(percent, text) {
-    if (this.progressBar) {
-      this.progressBar.style.width = `${percent}%`;
-    }
-    if (this.progressText) {
-      this.progressText.textContent = text;
-    }
-  }
-  /**
-   * Set initial URL value
+   * Set URL value
    */
   setUrl(url) {
-    if (this.url.trim() === url.trim()) {
-      console.debug("YouTubeUrlModal: setUrl called with same URL, preventing cycle");
-      return;
-    }
     this.url = url;
     if (this.urlInput) {
       this.urlInput.value = url;
-      this.updateProcessButtonState();
-      this.updateQuickActionsState();
-      const trimmed = url.trim();
-      if (trimmed.length === 0) {
-        this.setUrlInputState("idle");
-      } else {
-        this.setUrlInputState(ValidationUtils.isValidYouTubeUrl(trimmed) ? "valid" : "invalid");
-      }
     }
+    this.updateProcessButtonState();
   }
   /**
-   * Clean up resources when modal is closed
+   * Enhanced paste functionality with smart URL detection
    */
-  onClose() {
-    if (this.validationTimer) {
-      clearTimeout(this.validationTimer);
-      this.validationTimer = void 0;
-    }
-    if (this.progressContainer) {
-      this.progressContainer.remove();
-      this.progressContainer = void 0;
-    }
-    this.progressSteps = [];
-    window.removeEventListener("yt-clipper-retry-processing", this.handleRetry);
-    if (this.keydownHandler) {
-      document.removeEventListener("keydown", this.keydownHandler);
-      this.keydownHandler = void 0;
-    }
-    super.onClose();
-  }
-  /**
-   * Get current URL value
-   */
-  getUrl() {
-    return this.url;
-  }
-  resetProgressSteps() {
-    this.currentStepIndex = 0;
-    if (this.progressSteps.length === 0) {
-      return;
-    }
-    this.progressSteps.forEach((step) => {
-      step.element.textContent = `\u25CB ${step.label}`;
-    });
-  }
-  setStepState(index, state) {
-    const target = this.progressSteps[index];
-    if (!target) {
-      return;
-    }
-    const prefix = this.getStepPrefix(state);
-    target.element.textContent = `${prefix} ${target.label}`;
-    if (state === "active") {
-      this.currentStepIndex = index;
-    } else if (state === "complete" && this.currentStepIndex === index) {
-      this.currentStepIndex = Math.min(index + 1, this.progressSteps.length - 1);
-    }
-  }
-  flagActiveStepAsError() {
-    if (this.progressSteps.length === 0) {
-      return;
-    }
-    this.setStepState(this.currentStepIndex, "error");
-  }
-  getStepPrefix(state) {
-    switch (state) {
-      case "active":
-        return "\u25CF";
-      case "complete":
-        return "\u2714";
-      case "error":
-        return "\u26A0";
-      default:
-        return "\u25CB";
-    }
-  }
-  createInlineButton(container, label, onClick) {
-    const button = container.createEl("button", { text: label });
-    button.style.padding = "6px 12px";
-    button.style.fontSize = "0.85rem";
-    button.style.borderRadius = "6px";
-    button.style.border = "1px solid var(--background-modifier-border)";
-    button.style.backgroundColor = "var(--background-primary)";
-    button.style.color = "var(--text-normal)";
-    button.style.cursor = "pointer";
-    button.style.transition = "background-color 0.2s ease";
-    button.addEventListener("mouseenter", () => {
-      button.style.backgroundColor = "var(--background-modifier-hover)";
-    });
-    button.addEventListener("mouseleave", () => {
-      button.style.backgroundColor = "var(--background-primary)";
-    });
-    button.addEventListener("click", onClick);
-    return button;
-  }
-  async handlePasteFromClipboard() {
-    if (this.isProcessing) {
-      return;
-    }
-    if (!navigator.clipboard || !navigator.clipboard.readText) {
-      this.setValidationMessage("Clipboard access is not available in this environment.", "error");
-      new import_obsidian5.Notice("Clipboard access is not available.");
-      return;
-    }
+  async handleSmartPaste() {
     try {
       const text = await navigator.clipboard.readText();
-      if (!text) {
-        this.setValidationMessage("Clipboard is empty. Copy a YouTube URL first.", "info");
-        return;
-      }
       const trimmed = text.trim();
-      this.url = trimmed;
-      if (this.urlInput) {
-        this.urlInput.value = trimmed;
+      if (ValidationUtils.isValidYouTubeUrl(trimmed)) {
+        this.setUrl(trimmed);
+        new import_obsidian5.Notice("YouTube URL detected and pasted!");
+      } else {
+        const urlMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+        if (urlMatch) {
+          const videoId = urlMatch[1];
+          const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
+          this.setUrl(fullUrl);
+          new import_obsidian5.Notice("YouTube URL extracted from clipboard!");
+        } else {
+          new import_obsidian5.Notice("No YouTube URL found in clipboard");
+        }
       }
-      this.lastValidUrl = void 0;
-      this.updateProcessButtonState();
-      this.updateQuickActionsState();
-      const isValid = ValidationUtils.isValidYouTubeUrl(trimmed);
-      this.setValidationMessage(
-        isValid ? "Ready to process this video." : "Enter a valid YouTube video URL.",
-        isValid ? "success" : "error"
-      );
-      this.setUrlInputState(isValid ? "valid" : "invalid");
-      if (this.processButton && !this.isProcessing && isValid) {
+      if (this.processButton && !this.isProcessing && ValidationUtils.isValidYouTubeUrl(trimmed)) {
         this.processButton.focus();
       } else {
         this.focusUrlInput();
       }
     } catch (error) {
-      ErrorHandler.handle(error, "Reading clipboard", false);
-      this.setValidationMessage("Could not read from clipboard. Paste manually instead.", "error");
-      new import_obsidian5.Notice("Could not read from clipboard.");
-    }
-  }
-  handleClearUrl() {
-    if (this.isProcessing) {
-      return;
-    }
-    this.url = "";
-    if (this.urlInput) {
-      this.urlInput.value = "";
-    }
-    this.lastValidUrl = void 0;
-    this.updateProcessButtonState();
-    this.updateQuickActionsState();
-    this.setValidationMessage("Paste a YouTube link to begin processing.", "info");
-    this.setUrlInputState("idle");
-    this.focusUrlInput();
-  }
-  updateQuickActionsState() {
-    const hasUrl = this.url.trim().length > 0;
-    if (this.clearButton) {
-      this.clearButton.disabled = !hasUrl || this.isProcessing;
-      this.clearButton.style.opacity = this.clearButton.disabled ? "0.5" : "1";
-    }
-    if (this.pasteButton) {
-      this.pasteButton.disabled = this.isProcessing;
-      this.pasteButton.style.opacity = this.pasteButton.disabled ? "0.5" : "1";
-    }
-  }
-  setUrlInputState(state) {
-    if (!this.urlInput) {
-      return;
-    }
-    let borderColor = "var(--background-modifier-border)";
-    let boxShadow = "none";
-    if (state === "valid") {
-      borderColor = "var(--text-accent)";
-      boxShadow = "0 0 0 1px var(--text-accent)";
-    } else if (state === "invalid") {
-      borderColor = "var(--text-error)";
-      boxShadow = "0 0 0 1px var(--text-error)";
-    }
-    this.urlInput.style.borderColor = borderColor;
-    this.urlInput.style.boxShadow = boxShadow;
-  }
-  setValidationMessage(message, type) {
-    if (!this.validationMessage) {
-      return;
-    }
-    this.validationMessage.textContent = message;
-    let color = "var(--text-muted)";
-    if (type === "error") {
-      color = "var(--text-error)";
-    } else if (type === "success") {
-      color = "var(--text-accent)";
-    } else {
-      color = "var(--text-muted)";
-    }
-    this.validationMessage.style.color = color;
-  }
-  /**
-   * Try to fetch a lightweight preview for the provided YouTube URL using oEmbed.
-   */
-  async maybeFetchPreview(url) {
-    if (this.fetchInProgress)
-      return;
-    if (!url)
-      return;
-    if (this.lastValidUrl === url && this.thumbnailEl && this.thumbnailEl.style.display === "block") {
-      return;
-    }
-    this.setFetchingState(true);
-    try {
-      const meta = await this.fetchVideoPreview(url);
-      if (meta) {
-        this.showPreview(meta);
-      } else {
-        this.clearPreview();
-      }
-    } catch (error) {
-      this.clearPreview();
-    } finally {
-      this.setFetchingState(false);
-    }
-  }
-  setFetchingState(isFetching) {
-    var _a;
-    this.fetchInProgress = isFetching;
-    if (this.processButton) {
-      this.processButton.disabled = isFetching || !((_a = this.lastValidResult) != null ? _a : false);
-      this.processButton.style.opacity = this.processButton.disabled ? "0.5" : "1";
-    }
-    if (this.validationMessage) {
-      if (isFetching)
-        this.setValidationMessage("Fetching preview...", "info");
-      else if (this.lastValidResult)
-        this.setValidationMessage("Ready to process this video.", "success");
-      else
-        this.setValidationMessage("Enter a valid YouTube video URL.", "error");
-    }
-  }
-  async fetchVideoPreview(url) {
-    try {
-      const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-      const res = await fetch(oembed);
-      if (!res.ok)
-        return null;
-      const data = await res.json();
-      return {
-        title: data.title || "",
-        author: data.author_name || "",
-        thumbnail: data.thumbnail_url || ""
-      };
-    } catch (error) {
-      return null;
-    }
-  }
-  showPreview(meta) {
-    if (!this.thumbnailEl || !this.metadataContainer)
-      return;
-    if (meta.thumbnail) {
-      this.thumbnailEl.src = meta.thumbnail;
-      this.thumbnailEl.style.display = "block";
-    } else {
-      this.thumbnailEl.style.display = "none";
-    }
-    const titleEl = this.metadataContainer.querySelector(".yt-preview-title");
-    const channelEl = this.metadataContainer.querySelector(".yt-preview-channel");
-    if (titleEl) {
-      titleEl.textContent = meta.title;
-      titleEl.style.fontWeight = "600";
-      titleEl.style.marginBottom = "4px";
-    }
-    if (channelEl) {
-      channelEl.textContent = meta.author;
-      channelEl.style.color = "var(--text-muted)";
-      channelEl.style.fontSize = "0.85rem";
-    }
-    this.metadataContainer.style.display = "block";
-  }
-  clearPreview() {
-    if (this.thumbnailEl) {
-      this.thumbnailEl.src = "";
-      this.thumbnailEl.style.display = "none";
-    }
-    if (this.metadataContainer) {
-      const titleEl = this.metadataContainer.querySelector(".yt-preview-title");
-      const channelEl = this.metadataContainer.querySelector(".yt-preview-channel");
-      if (titleEl)
-        titleEl.textContent = "";
-      if (channelEl)
-        channelEl.textContent = "";
-      this.metadataContainer.style.display = "none";
+      console.error("Failed to read clipboard:", error);
+      new import_obsidian5.Notice("Could not access clipboard");
     }
   }
   /**
@@ -5028,232 +2759,25 @@ Would you like to switch to a multimodal-capable model (${recommended}) for bett
           this.processButton.click();
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "d") {
-        e.preventDefault();
-        if (this.drawerToggle) {
-          this.drawerToggle.click();
-        }
-      }
       if (e.key === "Escape") {
         this.close();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        this.focusUrlInput();
-      }
-      if (e.altKey) {
-        if (e.key === "1") {
-          e.preventDefault();
-          this.selectFormat("executive-summary");
-        } else if (e.key === "2") {
-          e.preventDefault();
-          this.selectFormat("detailed-guide");
-        } else if (e.key === "3") {
-          e.preventDefault();
-          this.selectFormat("brief");
-        }
-      }
     };
-    document.addEventListener("keydown", handleKeyDown);
-    this.keydownHandler = handleKeyDown;
-  }
-  /**
-   * Show user insights and recommendations
-   */
-  showUserInsights() {
-    const insights = UserPreferencesService.getUserInsights();
-    if (insights.usageLevel === "light") {
-      return;
-    }
-    const insightsPanel = this.contentEl.createDiv();
-    insightsPanel.className = "ytc-insights-panel";
-    insightsPanel.style.cssText = `
-            background: linear-gradient(135deg, var(--interactive-accent), var(--interactive-accent-hover));
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            animation: slideDown 0.3s ease-out;
-        `;
-    const icon = insightsPanel.createSpan();
-    icon.textContent = "\u{1F4A1}";
-    icon.style.fontSize = "1.2rem";
-    const content = insightsPanel.createDiv();
-    content.style.flex = "1";
-    const title = content.createDiv();
-    title.textContent = "Smart Suggestions";
-    title.style.fontWeight = "600";
-    title.style.marginBottom = "4px";
-    const suggestions = content.createDiv();
-    suggestions.style.opacity = "0.9";
-    suggestions.style.fontSize = "0.8rem";
-    const suggestionTexts = [];
-    if (insights.favoriteFormat !== "detailed-guide") {
-      suggestionTexts.push(`Try ${insights.favoriteFormat.replace("-", " ")} format`);
-    }
-    if (insights.usageLevel === "heavy" && insights.recommendations.length > 0) {
-      suggestionTexts.push(insights.recommendations[0]);
-    }
-    if (suggestionTexts.length > 0) {
-      suggestions.textContent = suggestionTexts.join(" \u2022 ");
-      setTimeout(() => {
-        insightsPanel.style.animation = "slideUp 0.3s ease-out";
-        setTimeout(() => insightsPanel.remove(), 300);
-      }, 8e3);
-    } else {
-      insightsPanel.remove();
-    }
-    if (!document.getElementById("ytc-insights-animations")) {
-      const animStyle = document.createElement("style");
-      animStyle.id = "ytc-insights-animations";
-      animStyle.textContent = `
-                @keyframes slideDown {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                @keyframes slideUp {
-                    from { opacity: 1; transform: translateY(0); }
-                    to { opacity: 0; transform: translateY(-10px); }
-                }
-            `;
-      document.head.appendChild(animStyle);
-    }
-  }
-  /**
-   * Select format programmatically
-   */
-  selectFormat(format) {
-    const formatButtons = this.contentEl.querySelectorAll(".ytc-format-button");
-    formatButtons.forEach((button) => {
-      const buttonFormat = button.getAttribute("data-format");
-      if (buttonFormat === format) {
-        button.click();
+    this.scope.register(["Ctrl"], "Enter", () => {
+      if (this.processButton && !this.processButton.disabled) {
+        this.processButton.click();
       }
+      return false;
     });
   }
   /**
-   * Enhanced paste functionality with smart URL detection
+   * Clean up resources when modal is closed
    */
-  async handleSmartPaste() {
-    try {
-      const text = await navigator.clipboard.readText();
-      const trimmed = text.trim();
-      if (ValidationUtils.isValidYouTubeUrl(trimmed)) {
-        this.setUrl(trimmed);
-        new import_obsidian5.Notice("YouTube URL detected and pasted!");
-        if (this.processButton && !this.processButton.disabled) {
-          setTimeout(() => {
-            var _a;
-            return (_a = this.processButton) == null ? void 0 : _a.focus();
-          }, 100);
-        }
-      } else {
-        const urlMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-        if (urlMatch) {
-          const videoId = urlMatch[1];
-          const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
-          this.setUrl(fullUrl);
-          new import_obsidian5.Notice("YouTube URL extracted from clipboard!");
-        } else {
-          new import_obsidian5.Notice("No YouTube URL found in clipboard");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to read clipboard:", error);
-      new import_obsidian5.Notice("Failed to access clipboard");
+  onClose() {
+    if (this.validationTimer) {
+      clearTimeout(this.validationTimer);
     }
-  }
-  /**
-   * Add quick action buttons for common tasks
-   */
-  addQuickActions() {
-    const quickActionsContainer = this.contentEl.createDiv();
-    quickActionsContainer.style.cssText = `
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        `;
-    const pasteBtn = quickActionsContainer.createEl("button");
-    pasteBtn.innerHTML = "\u{1F4CB} Paste URL";
-    pasteBtn.style.cssText = `
-            padding: 6px 12px;
-            background: var(--background-secondary);
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.2s ease;
-        `;
-    pasteBtn.addEventListener("click", () => this.handleSmartPaste());
-    pasteBtn.addEventListener("mouseenter", () => {
-      pasteBtn.style.background = "var(--background-modifier-hover)";
-    });
-    pasteBtn.addEventListener("mouseleave", () => {
-      pasteBtn.style.background = "var(--background-secondary)";
-    });
-    const clearBtn = quickActionsContainer.createEl("button");
-    clearBtn.innerHTML = "\u{1F5D1}\uFE0F Clear";
-    clearBtn.style.cssText = pasteBtn.style.cssText;
-    clearBtn.addEventListener("click", () => {
-      this.setUrl("");
-      this.focusUrlInput();
-    });
-    clearBtn.addEventListener("mouseenter", () => {
-      clearBtn.style.background = "var(--background-modifier-hover)";
-    });
-    clearBtn.addEventListener("mouseleave", () => {
-      clearBtn.style.background = "var(--background-secondary)";
-    });
-    const helpBtn = quickActionsContainer.createEl("button");
-    helpBtn.innerHTML = "\u2328\uFE0F Shortcuts";
-    helpBtn.style.cssText = pasteBtn.style.cssText;
-    helpBtn.addEventListener("click", () => {
-      this.showShortcutsHelp();
-    });
-    helpBtn.addEventListener("mouseenter", () => {
-      helpBtn.style.background = "var(--background-modifier-hover)";
-    });
-    helpBtn.addEventListener("mouseleave", () => {
-      helpBtn.style.background = "var(--background-secondary)";
-    });
-  }
-  /**
-   * Show keyboard shortcuts help modal
-   */
-  showShortcutsHelp() {
-    const helpContent = `
-            <h4>\u2328\uFE0F Keyboard Shortcuts</h4>
-            <div style="display: grid; gap: 8px; margin-top: 12px;">
-                <div><kbd>Ctrl/Cmd + Enter</kbd> - Process video</div>
-                <div><kbd>Ctrl/Cmd + D</kbd> - Toggle advanced settings</div>
-                <div><kbd>Ctrl/Cmd + K</kbd> - Focus URL input</div>
-                <div><kbd>Alt + 1</kbd> - Select Executive Summary</div>
-                <div><kbd>Alt + 2</kbd> - Select Detailed Guide</div>
-                <div><kbd>Alt + 3</kbd> - Select Brief format</div>
-                <div><kbd>Escape</kbd> - Close modal</div>
-            </div>
-            <p style="margin-top: 12px; font-size: 0.8rem; opacity: 0.8;">
-                Press <kbd>Escape</kbd> or click outside to close this help.
-            </p>
-        `;
-    new import_obsidian5.Notice("Keyboard shortcuts: Ctrl+Enter to process, Ctrl+D for settings, Alt+1/2/3 for formats", 8e3);
-  }
-  /**
-   * Format provider name for display
-   */
-  formatProviderName(provider) {
-    const providerNames = {
-      "gemini": "Google Gemini",
-      "groq": "Groq",
-      "openai": "OpenAI",
-      "anthropic": "Anthropic Claude"
-    };
-    return providerNames[provider.toLowerCase()] || provider.charAt(0).toUpperCase() + provider.slice(1);
+    super.onClose();
   }
 };
 
@@ -5399,6 +2923,7 @@ var YouTubeSettingsTab = class extends import_obsidian6.PluginSettingTab {
     this.createAPISettingsSection(mainContent);
     this.createAIParametersSection(mainContent);
     this.createFileSettingsSection(mainContent);
+    this.createAdvancedSettingsSection(mainContent);
     this.createQuickStartSection(mainContent);
   }
   /**
@@ -5479,125 +3004,7 @@ var YouTubeSettingsTab = class extends import_obsidian6.PluginSettingTab {
     }));
   }
   /**
-   * Validate entire configuration
-   */
-  validateConfiguration() {
-    var _a, _b;
-    const hasApiKey = ((_a = this.settings.geminiApiKey) == null ? void 0 : _a.trim()) || ((_b = this.settings.groqApiKey) == null ? void 0 : _b.trim());
-    const hasValidPath = ValidationUtils.isValidPath(this.settings.outputPath);
-    return Boolean(hasApiKey && hasValidPath);
-  }
-  /**
-   * Show inline documentation
-   */
-  showDocumentation() {
-    window.open("https://github.com/youtube-clipper/obsidian-plugin#readme", "_blank");
-  }
-  /**
-  * Create API configuration settings
-  */
-  createAPISettings(container = this.containerEl) {
-    const apiHeader = container.createEl("h3", {
-      text: "API Keys",
-      style: "margin: 0 0 12px 0; font-size: 1rem; color: var(--text-normal);"
-    });
-    const geminiSetting = new import_obsidian6.Setting(container).setName("Gemini API Key").setDesc("Google Gemini API key").addText((text) => {
-      const inputEl = text.setPlaceholder("sk-... (your key is encrypted)").setValue(this.settings.geminiApiKey || "").onChange(async (value) => {
-        await this.updateSetting("geminiApiKey", value);
-      }).inputEl;
-      inputEl.type = "password";
-      inputEl.style.fontFamily = "monospace";
-      inputEl.style.letterSpacing = "0.1em";
-      return text;
-    });
-    this.addKeyToggle(geminiSetting, this.settings.geminiApiKey);
-    this.addKeyClearButton(geminiSetting, "geminiApiKey");
-    const groqSetting = new import_obsidian6.Setting(container).setName("Groq API Key").setDesc("Groq API key (fast processing)").addText((text) => {
-      const inputEl = text.setPlaceholder("gsk_... (your key is encrypted)").setValue(this.settings.groqApiKey || "").onChange(async (value) => {
-        await this.updateSetting("groqApiKey", value);
-      }).inputEl;
-      inputEl.type = "password";
-      inputEl.style.fontFamily = "monospace";
-      inputEl.style.letterSpacing = "0.1em";
-      return text;
-    });
-    this.addKeyToggle(groqSetting, this.settings.groqApiKey);
-    this.addKeyClearButton(groqSetting, "groqApiKey");
-    const testSection = container.createDiv("ytc-test-connection");
-    testSection.style.marginTop = "8px";
-    testSection.style.paddingTop = "8px";
-    testSection.style.borderTop = "1px solid var(--background-modifier-border)";
-    new import_obsidian6.Setting(testSection).setName("Test Connection").setDesc("Verify API keys").addButton((btn) => btn.setButtonText("Test").onClick(async () => {
-      btn.setDisabled(true);
-      btn.setButtonText("...");
-      try {
-        await this.testAPIKeys();
-        btn.setButtonText("\u2713 OK");
-        setTimeout(() => {
-          btn.setButtonText("Test");
-          btn.setDisabled(false);
-        }, 1500);
-      } catch (error) {
-        btn.setButtonText("\u2717 Error");
-        ErrorHandler.handle(error, "API key test failed", true);
-        setTimeout(() => {
-          btn.setButtonText("Test");
-          btn.setDisabled(false);
-        }, 1500);
-      }
-    }));
-  }
-  /**
-   * Add show/hide toggle for sensitive API keys
-   */
-  addKeyToggle(setting, keyValue) {
-    const toggleBtn = setting.addButton((btn) => btn.setButtonText("\u{1F441}\uFE0F Show").setTooltip("Toggle key visibility").onClick((e) => {
-      const inputs = setting.settingEl.querySelectorAll('input[type="password"], input[type="text"]');
-      if (inputs.length === 0)
-        return;
-      const input = inputs[0];
-      const isPassword = input.type === "password";
-      input.type = isPassword ? "text" : "password";
-      btn.setButtonText(isPassword ? "\u{1F441}\uFE0F\u200D\u{1F5E8}\uFE0F Hide" : "\u{1F441}\uFE0F Show");
-    }));
-  }
-  /**
-   * Add clear button to remove API key
-   */
-  addKeyClearButton(setting, settingKey) {
-    const clearBtn = setting.addButton((btn) => btn.setButtonText("\u{1F5D1}\uFE0F Clear").setTooltip("Remove this API key").onClick(async () => {
-      const keyName = settingKey === "geminiApiKey" ? "Gemini" : "Groq";
-      if (confirm(`Are you sure you want to clear the ${keyName} API key?`)) {
-        await this.updateSetting(settingKey, "");
-        this.display();
-      }
-    }));
-  }
-  /**
-   * Test API keys for validity
-   */
-  async testAPIKeys() {
-    const errors = [];
-    if (this.settings.geminiApiKey) {
-      try {
-        const response = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models?key=" + this.settings.geminiApiKey
-        );
-        if (!response.ok) {
-          errors.push(`Gemini API key invalid (${response.status})`);
-        }
-      } catch (error) {
-        errors.push("Gemini API key test failed (network error)");
-      }
-    } else {
-      errors.push("Gemini API key not configured");
-    }
-    if (errors.length > 0) {
-      throw new Error(errors.join("\n"));
-    }
-  }
-  /**
-   * Create AI parameters section
+   * Create AI parameters section with model defaults
    */
   createAIParametersSection(mainContent) {
     const section = mainContent.createDiv();
@@ -5717,60 +3124,32 @@ var YouTubeSettingsTab = class extends import_obsidian6.PluginSettingTab {
     scaleDiv.style.padding = "0 4px";
     scaleDiv.createSpan({ text: "Precise" });
     scaleDiv.createSpan({ text: "Creative" });
+    new import_obsidian6.Setting(section).setName("Performance Mode").setDesc("Speed vs. quality balance").addDropdown((dropdown) => dropdown.addOption("fast", "Fast (10-30s)").addOption("balanced", "Balanced (30-60s)").addOption("quality", "Quality (60-120s)").setValue(this.settings.performanceMode || "balanced").onChange(async (value) => {
+      await this.updateSetting("performanceMode", value);
+    }));
   }
   /**
-   * Create security configuration settings
+   * Create advanced settings section for moved options from modal
    */
-  createSecuritySettings(container = this.containerEl) {
-    container.createEl("h3", {
-      text: "Security",
-      style: "margin: 0 0 12px 0; font-size: 1rem; color: var(--text-normal);"
+  createAdvancedSettingsSection(mainContent) {
+    const section = mainContent.createDiv();
+    section.style.background = "var(--background-secondary)";
+    section.style.border = "1px solid var(--background-modifier-border)";
+    section.style.borderRadius = "6px";
+    section.style.padding = "12px";
+    section.style.display = "flex";
+    section.style.flexDirection = "column";
+    section.style.gap = "8px";
+    const header = section.createEl("h3", {
+      text: "\u2699\uFE0F Advanced Settings",
+      style: "margin: 0 0 4px 0; font-size: 0.9rem; font-weight: 600; color: var(--text-normal);"
     });
-    new import_obsidian6.Setting(container).setName("Use Environment Variables").setDesc("Load API keys from environment variables instead of storing them in configuration").addToggle((toggle) => toggle.setValue(this.settings.useEnvironmentVariables || false).onChange(async (value) => {
-      await this.updateSetting("useEnvironmentVariables", value);
-      this.display();
+    new import_obsidian6.Setting(section).setName("Enable Parallel Processing").setDesc("Process with multiple providers simultaneously for faster results").addToggle((toggle) => toggle.setValue(this.settings.enableParallelProcessing || false).onChange(async (value) => {
+      await this.updateSetting("enableParallelProcessing", value);
     }));
-    if (this.settings.useEnvironmentVariables) {
-      new import_obsidian6.Setting(container).setName("Environment Variable Prefix").setDesc("Prefix for environment variable names").addText((text) => text.setPlaceholder("YTC").setValue(this.settings.environmentPrefix || "YTC").onChange(async (value) => {
-        await this.updateSetting("environmentPrefix", value || "YTC");
-      }));
-      const envTemplate = this.secureConfig.getEnvironmentTemplate();
-      const envSection = container.createDiv("ytc-env-template");
-      envSection.style.marginTop = "8px";
-      envSection.style.padding = "8px";
-      envSection.style.backgroundColor = "var(--background-primary)";
-      envSection.style.borderRadius = "4px";
-      envSection.style.border = "1px solid var(--background-modifier-border)";
-      const envTitle = envSection.createEl("h4", {
-        text: "Environment Variables",
-        style: "margin: 0 0 4px 0; font-size: 0.8rem;"
-      });
-      const preEl = envSection.createEl("pre");
-      preEl.style.margin = "0";
-      preEl.style.fontSize = "0.7rem";
-      preEl.style.lineHeight = "1.2";
-      preEl.createEl("code", { text: envTemplate });
-      const copyBtn = envSection.createEl("button", {
-        text: "\u{1F4CB} Copy",
-        style: "margin-top: 6px; padding: 2px 6px; font-size: 0.7rem; border-radius: 3px; border: 1px solid var(--background-modifier-border); background: var(--interactive-normal); cursor: pointer;"
-      });
-      copyBtn.addEventListener("click", () => {
-        navigator.clipboard.writeText(envTemplate);
-        copyBtn.textContent = "\u2713 Copied";
-        setTimeout(() => copyBtn.textContent = "\u{1F4CB} Copy", 1500);
-      });
-    }
-    const validation = this.secureConfig.validateSecurityConfiguration();
-    if (!validation.isSecure) {
-      const warningEl = container.createDiv("ytc-security-warnings");
-      warningEl.style.marginTop = "8px";
-      warningEl.style.padding = "6px";
-      warningEl.style.backgroundColor = "var(--background-warning)";
-      warningEl.style.borderRadius = "4px";
-      warningEl.style.fontSize = "0.75rem";
-      warningEl.style.color = "var(--text-warning)";
-      warningEl.createEl("div", { text: "\u26A0\uFE0F " + validation.warnings.join(" ") });
-    }
+    new import_obsidian6.Setting(section).setName("Prefer Multimodal Analysis").setDesc("Use video-capable models that can analyze both audio and visual content").addToggle((toggle) => toggle.setValue(this.settings.preferMultimodal || false).onChange(async (value) => {
+      await this.updateSetting("preferMultimodal", value);
+    }));
   }
   /**
    * Create file settings section
@@ -5788,40 +3167,24 @@ var YouTubeSettingsTab = class extends import_obsidian6.PluginSettingTab {
       text: "\u{1F4C1} File Configuration",
       style: "margin: 0 0 4px 0; font-size: 0.9rem; font-weight: 600; color: var(--text-normal);"
     });
-    new import_obsidian6.Setting(section).setName("Output Path").setDesc("Folder for processed videos (relative to vault root)").addText((text) => text.setPlaceholder("YouTube/Processed Videos").setValue(this.settings.outputPath).onChange(async (value) => {
+    new import_obsidian6.Setting(section).setName("Output Path").setDesc("Folder for processed videos (relative to vault root)").addText((text) => text.setPlaceholder("YouTube/Processed Videos").setValue(this.settings.outputPath || "YouTube/Processed Videos").onChange(async (value) => {
       await this.updateSetting("outputPath", value);
     }));
   }
   /**
-   * Create validation status display
+   * Validate entire configuration
    */
-  createValidationStatus() {
-    const { containerEl } = this;
-    if (this.validationErrors.length > 0) {
-      const errorSection = containerEl.createDiv();
-      errorSection.style.marginTop = "20px";
-      errorSection.style.padding = "10px";
-      errorSection.style.backgroundColor = "var(--background-modifier-error)";
-      errorSection.style.borderRadius = "4px";
-      errorSection.createEl("h4", {
-        text: "\u26A0\uFE0F Configuration Issues",
-        attr: { style: "color: var(--text-error); margin-top: 0;" }
-      });
-      const errorList = errorSection.createEl("ul");
-      this.validationErrors.forEach((error) => {
-        errorList.createEl("li", { text: error });
-      });
-    } else {
-      const successSection = containerEl.createDiv();
-      successSection.style.marginTop = "20px";
-      successSection.style.padding = "10px";
-      successSection.style.backgroundColor = "var(--background-modifier-success)";
-      successSection.style.borderRadius = "4px";
-      successSection.createEl("h4", {
-        text: "\u2705 Configuration Valid",
-        attr: { style: "color: var(--text-success); margin-top: 0;" }
-      });
-    }
+  validateConfiguration() {
+    var _a, _b;
+    const hasApiKey = ((_a = this.settings.geminiApiKey) == null ? void 0 : _a.trim()) || ((_b = this.settings.groqApiKey) == null ? void 0 : _b.trim());
+    const hasValidPath = ValidationUtils.isValidPath(this.settings.outputPath);
+    return Boolean(hasApiKey && hasValidPath);
+  }
+  /**
+   * Show inline documentation
+   */
+  showDocumentation() {
+    window.open("https://github.com/youtube-clipper/obsidian-plugin#readme", "_blank");
   }
   /**
    * Create quick start section
@@ -5884,6 +3247,29 @@ var YouTubeSettingsTab = class extends import_obsidian6.PluginSettingTab {
       cls: "external-link"
     });
     groqLink.style.color = "var(--link-color)";
+  }
+  /**
+   * Test API keys for validity
+   */
+  async testAPIKeys() {
+    const errors = [];
+    if (this.settings.geminiApiKey) {
+      try {
+        const response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models?key=" + this.settings.geminiApiKey
+        );
+        if (!response.ok) {
+          errors.push(`Gemini API key invalid (${response.status})`);
+        }
+      } catch (error) {
+        errors.push("Gemini API key test failed (network error)");
+      }
+    } else {
+      errors.push("Gemini API key not configured");
+    }
+    if (errors.length > 0) {
+      throw new Error(errors.join("\n"));
+    }
   }
   /**
    * Update a setting value
