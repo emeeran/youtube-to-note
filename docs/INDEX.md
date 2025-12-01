@@ -4,8 +4,8 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
 
 ## 📚 Documentation Structure
 
-### For Users
 - **[README.md](../README.md)** - Start here! Overview, features, quick start, and usage guide
+- **[SETUP Guide](SETUP/README.md)** - End-to-end installation + deployment for plugin, extension, helper, and automation surfaces
 - **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
   - Plugin not appearing
   - API key errors
@@ -17,7 +17,6 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
   - Protecting your credentials
   - What to do if compromised
 
-### For Developers
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - How to develop and contribute
   - Environment setup
   - Project structure
@@ -39,7 +38,9 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
   - Utility functions
   - Constants and examples
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute
+- **[OPERATIONS.md](OPERATIONS.md)** - Monitoring, performance tuning, testing strategy, and release validation
+
+- **[CONTRIBUTING.md](../CONTRIBUTING.md)** - How to contribute
   - Reporting bugs and features
   - Submitting code changes
   - PR process
@@ -54,15 +55,17 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
 
 #### Use the Plugin
 1. Start with [README.md](../README.md) - User guide section
-2. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if something doesn't work
-3. Review [SECURITY.md](SECURITY.md) for protecting your API keys
-4. Open GitHub Discussions for questions
+2. Follow the [Setup Guide](SETUP/README.md) for installation & deployment
+3. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if something doesn't work
+4. Review [SECURITY.md](SECURITY.md) for protecting your API keys
+5. Open GitHub Discussions for questions
 
 #### Develop Features
 1. Read [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) - Getting started
 2. Review [ARCHITECTURE.md](ARCHITECTURE.md) - Understand design
 3. Check [API.md](API.md) - API reference
-4. Look at `src/` examples in codebase
+4. Consult [OPERATIONS.md](OPERATIONS.md) for testing + release expectations
+5. Look at `src/` examples in codebase
 
 #### Fix a Bug
 1. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Known issues
@@ -71,11 +74,12 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
 4. Look at error logs and stack traces
 
 #### Add a New Feature
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md) - Feature submission
+1. Read [CONTRIBUTING.md](../CONTRIBUTING.md) - Feature submission
 2. Review [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) - Feature examples
 3. Study [ARCHITECTURE.md](ARCHITECTURE.md) - How to integrate
 4. Check [API.md](API.md) - Available interfaces
-5. Follow development workflow in [CONTRIBUTING.md](CONTRIBUTING.md)
+5. Consult [OPERATIONS.md](OPERATIONS.md) for validation expectations
+6. Follow development workflow in [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 #### Understand the System
 1. Start with [ARCHITECTURE.md](ARCHITECTURE.md) - High-level overview
@@ -107,6 +111,20 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
 - Community and support info
 
 **Read when**: You're new to the plugin or want to use it
+
+---
+
+### SETUP Guide (SETUP/README.md)
+**Audience**: Users deploying any surface (plugin, extension, helper, automation)
+**Purpose**: Provide a single installation + release checklist
+**Contains**:
+- Development vs. production plugin install
+- API key handling recap with security pointers
+- Chrome extension loading + helper server wiring
+- Automation tooling references (agent chain, scripts)
+- Cross-surface release checklist
+
+**Read when**: You need to install, redeploy, or validate environments end-to-end
 
 ---
 
@@ -158,6 +176,21 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
 - Release process
 
 **Read when**: You want to develop features or fix bugs
+
+---
+
+### OPERATIONS.md
+**Audience**: Maintainers, release engineers, and advanced contributors
+**Purpose**: Document monitoring, performance, testing, and release operations
+**Contains**:
+- Logging + performance monitor usage
+- Performance tuning levers and workflow
+- Automated + manual testing expectations
+- Security/compliance operations
+- Troubleshooting + incident response guidance
+- Release validation checklist
+
+**Read when**: You need to triage issues, tune performance, or prep releases
 
 ---
 

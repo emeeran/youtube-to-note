@@ -33,82 +33,18 @@ YoutubeClipperPlugin (Main)
 4. **Strategy Pattern**: Multiple processing formats and performance modes
 5. **Repository Pattern**: Abstraction for data access and caching
 
-## Core Services
+# Architecture Reference
 
-### AIService
-**Purpose**: Manages multiple AI providers with intelligent fallback and parallel processing
+The full architecture narrative now lives under `docs/ARCHITECTURE.md`. That document consolidates the previous root-level write-up plus the deep-dive maintained in `docs/`, covering:
 
-**Key Features**:
-- Multi-provider support (Google Gemini, Groq)
-- Automatic failover between providers
-- Parallel provider racing for optimal performance
-- Dynamic model selection and management
-- Comprehensive retry logic with exponential backoff
+- Layered system diagram (UI, DI container, services, providers, integrations)
+- Component responsibilities for modals, settings surfaces, and Chrome extension hooks
+- Service-level contracts (AI, prompt, file, video metadata, retry, cache, logger, encryption)
+- Provider adapters (Gemini, Groq, optional Ollama/local providers) and selection logic
+- Data flow + error handling patterns, including retry backoff and performance monitoring
+- Security considerations for API key handling, file access, and helper bridge deployments
 
-**Architecture**:
-```typescript
-interface AIService {
-    process(prompt: string): Promise<AIResponse>;
-    processWith(provider: string, prompt: string, model?: string): Promise<AIResponse>;
-    fetchLatestModels(): Promise<Record<string, string[]>>;
-}
-```
-
-### UrlHandler
-**Purpose**: Detects and processes YouTube URLs from various sources
-
-**Key Features**:
-- Multiple detection strategies (file creation, active leaf changes, protocol handlers)
-- Intelligent temp file detection
-- Debouncing and deduplication
-- Configurable detection parameters
-
-**Detection Flow**:
-1. File creation events → Temp file validation → URL extraction
-2. Active leaf changes → Duplicate detection → Processing
-3. Protocol handlers → Direct URL processing
-4. Clipboard monitoring → Manual fallback
-
-### ModalManager
-**Purpose**: Prevents modal conflicts and manages UI state
-
-**Key Features**:
-- Singleton modal enforcement
-- State tracking and cleanup
-- Fallback timeout mechanisms
-- Thread-safe operations
-
-### EncryptionService
-**Purpose**: Secure storage of API keys and sensitive data
-
-**Key Features**:
-- AES-GCM encryption with PBKDF2 key derivation
-- Browser Web Crypto API integration
-- Key rotation support
-- Automatic migration from unencrypted to encrypted storage
-
-### PerformanceMonitor
-**Purpose**: Tracks and analyzes plugin performance
-
-**Key Features**:
-- Automatic metric collection
-- Configurable performance thresholds
-- Real-time performance alerts
-- Statistical analysis and reporting
-
-## Data Flow
-
-### Video Processing Flow
-
-```
-1. URL Detection (UrlHandler)
-   ├── File creation events
-   ├── Active leaf changes
-   ├── Protocol handlers
-   └── Clipboard monitoring
-
-2. URL Validation
-   ├── YouTube URL format validation
+👉 **Go to [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the authoritative diagram set, sequence descriptions, and implementation notes referenced by contributors and release engineering checklists.
    ├── Video ID extraction
    └── Duplicate detection
 

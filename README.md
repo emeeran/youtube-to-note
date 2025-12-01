@@ -23,6 +23,19 @@ YouTube Processor is an advanced Obsidian plugin that extracts YouTube video con
 
 ---
 
+### 📦 Surfaces at a Glance
+
+| Surface | Purpose | Where to learn more |
+| --- | --- | --- |
+| Obsidian Plugin | Primary experience for processing clips into vault notes | `docs/SETUP/README.md` (installation), `docs/ARCHITECTURE.md` (internals) |
+| Chrome Extension | Injects a "Clip" button on YouTube and forwards URLs to Obsidian/bridge endpoints | `docs/SETUP/README.md` → Chrome Extension section, `extension/chrome-extension/README.md` |
+| Helper Server / Bridge | Optional HTTP endpoint translating browser calls into `obsidian://` URIs for remote contexts | `docs/SETUP/README.md` Section 4, `SECURITY.md` |
+| Automation & Agents | Scripts/agents that lint, test, refactor, or profile the plugin | `docs/SETUP/README.md` Section 5, `docs/OPERATIONS.md` |
+
+**Need the fastest path to working code?** Follow the consolidated [Setup & Deployment Guide](docs/SETUP/README.md) after skimming this README.
+
+---
+
 ## 🏗️ Architecture Overview
 
 ### Core System Architecture
