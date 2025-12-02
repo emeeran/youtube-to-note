@@ -1,15 +1,15 @@
+import { BaseModal } from './components/common';
+import { ErrorHandler } from './services/error-handler';
+import { MESSAGES } from './constants';
+import { OutputFormat, PerformanceMode } from './types/types';
+import { UserPreferencesService } from './services/user-preferences-service';
+import { ValidationUtils } from './lib/utils-consolidated';
+import { App, Notice } from 'obsidian';
+
 /**
  * YouTube URL input modal component
  */
 
-import { App, Notice } from 'obsidian';
-import { BaseModal } from './base-modal';
-import { MESSAGES } from './messages';
-import { PROVIDER_MODEL_OPTIONS, AI_MODELS } from './api';
-import { ValidationUtils } from './validation';
-import { ErrorHandler } from './services/error-handler';
-import { UserPreferencesService } from './services/user-preferences-service';
-import { OutputFormat, PerformanceMode } from './types/types';
 
 export interface YouTubeUrlModalOptions {
     onProcess: (url: string, format: OutputFormat, provider?: string, model?: string, customPrompt?: string, performanceMode?: PerformanceMode, enableParallel?: boolean, preferMultimodal?: boolean, maxTokens?: number, temperature?: number) => Promise<string>; // Return file path
@@ -400,8 +400,8 @@ export class YouTubeUrlModal extends BaseModal {
                     new Notice('Model list updated!');
                 }
             } catch (error) {
-                console.error('Error refreshing models:', error);
-                new Notice('Failed to refresh models. Using cached options.');
+                
+new Notice('Failed to refresh models. Using cached options.');
             } finally {
                 refreshBtn.innerHTML = '🔄';
                 refreshBtn.style.opacity = '0.7';
@@ -1121,8 +1121,8 @@ export class YouTubeUrlModal extends BaseModal {
                 this.focusUrlInput();
             }
         } catch (error) {
-            console.error('Failed to read clipboard:', error);
-            new Notice('Could not access clipboard');
+            
+new Notice('Could not access clipboard');
         }
     }
 

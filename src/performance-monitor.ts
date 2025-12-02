@@ -1,3 +1,4 @@
+
 export interface PerformanceMetrics {
     name: string;
     startTime: number;
@@ -99,8 +100,8 @@ export class PerformanceMonitor {
         // Set up memory monitoring
         this.setupMemoryMonitoring();
 
-        console.info('📊 Performance monitoring initialized');
-    }
+        
+}
 
     private setupPerformanceObservers(): void {
         if (typeof PerformanceObserver === 'undefined') return;
@@ -151,8 +152,8 @@ export class PerformanceMonitor {
             this.observers.push(resourceObserver);
 
         } catch (error) {
-            console.warn('Performance observers not fully supported:', error);
-        }
+            
+}
     }
 
     private startPeriodicCollection(): void {
@@ -381,7 +382,8 @@ export class PerformanceMonitor {
             this.alerts = this.alerts.slice(-100);
         }
 
-        console.warn(`🚨 Performance Alert [${alert.severity.toUpperCase()}]: ${alert.message}`, {
+        
+}]: ${alert.message}`, {
             value: alert.value,
             threshold: alert.threshold
         });
@@ -419,8 +421,8 @@ export class PerformanceMonitor {
 
         const startTime = this.startTimes.get(name);
         if (!startTime) {
-            console.warn(`No start time found for operation: ${name}`);
-            return 0;
+            
+return 0;
         }
 
         const endTime = performance.now();
@@ -497,8 +499,8 @@ export class PerformanceMonitor {
                 performance.measure(name, startMark, endMark);
                 return 0; // The actual duration will be captured by the observer
             } catch (error) {
-                console.warn('Failed to create performance measure:', error);
-                return 0;
+                
+return 0;
             }
         }
         return 0;

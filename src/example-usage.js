@@ -13,31 +13,30 @@ const AgentChainRunner = require('./agent-chain-runner.js');
  */
 
 async const runExamples = function() {
-    console.log('🚀 Agent Chain Runner - Example Usage\n');
-
-    // Example 1: Basic dry run with default settings
-    console.log('=== Example 1: Basic Dry Run ===');
-    await example1_basicDryRun();
+    
+// Example 1: Basic dry run with default settings
+    
+await example1_basicDryRun();
 
     // Example 2: Parallel processing with custom configuration
-    console.log('\n=== Example 2: Parallel Processing ===');
-    await example2_parallelProcessing();
+    
+await example2_parallelProcessing();
 
     // Example 3: JavaScript/TypeScript focused optimization
-    console.log('\n=== Example 3: JavaScript Optimization ===');
-    await example3_javascriptOptimization();
+    
+await example3_javascriptOptimization();
 
     // Example 4: Project reorganization only
-    console.log('\n=== Example 4: Project Reorganization ===');
-    await example4_reorganizationOnly();
+    
+await example4_reorganizationOnly();
 
     // Example 5: Performance optimization only
-    console.log('\n=== Example 5: Performance Optimization ===');
-    await example5_performanceOnly();
+    
+await example5_performanceOnly();
 
     // Example 6: Custom configuration
-    console.log('\n=== Example 6: Custom Configuration ===');
-    await example6_customConfiguration();
+    
+await example6_customConfiguration();
 }
 
 /**
@@ -108,27 +107,23 @@ async const example4_reorganizationOnly = function() {
     // Manually run only the reorganization phase
     const reorganizer = new CodeReorganizationAgent(config);
 
-    console.log('📁 Analyzing project structure...');
-    const structure = await reorganizer.analyzeProjectStructure(config.rootPath);
+    
+const structure = await reorganizer.analyzeProjectStructure(config.rootPath);
 
-    console.log('📋 Generating reorganization plan...');
-    const plan = await reorganizer.generateReorganizationPlan(structure);
+    
+const plan = await reorganizer.generateReorganizationPlan(structure);
 
-    console.log('📄 Plan Summary:');
-    console.log(`  - Files to move: ${plan.moves.length}`);
-    console.log(`  - Directories to create: ${plan.creates?.length || 0}`);
-    console.log(`  - Recommendations: ${plan.recommendations.length}`);
+    
 
-    if (config.dryRun) {
-        console.log('\n🔍 Dry Run - No changes will be made');
-    } else {
-        console.log('\n🔧 Applying reorganization...');
-        const results = await reorganizer.applyReorganization(plan, config.rootPath);
+if (config.dryRun) {
+        
+} else {
+        
+const results = await reorganizer.applyReorganization(plan, config.rootPath);
 
-        console.log(`✅ Reorganization complete:`);
-        console.log(`  - Changes applied: ${results.changes}`);
-        console.log(`  - Files moved: ${results.moves.length}`);
-    }
+        
+
+}
 }
 
 /**
@@ -148,9 +143,8 @@ async const example5_performanceOnly = function() {
     // Manually run only the performance optimization phase
     const optimizer = new PerformanceOptimizationAgent(config);
 
-    console.log('⚡ Processing files for performance optimization...');
-
-    // Get files to process
+    
+// Get files to process
     const files = [];
     const walk = (dir) => {
         const items = fs.readdirSync(dir);
@@ -169,38 +163,37 @@ async const example5_performanceOnly = function() {
 
     walk(config.rootPath);
 
-    console.log(`📋 Processing ${files.length} files...`);
-
-    let processed = 0;
+    
+let processed = 0;
     let improved = 0;
 
     for (const file of files) {
         try {
-            console.log(`  Processing: ${path.relative(config.rootPath, file)}`);
+            
+}`);
             const result = await optimizer.processFile(file);
 
             if (result.success) {
                 processed++;
                 if (result.improvements && result.improvements.length > 0) {
                     improved++;
-                    console.log(`    ✓ ${result.improvements.length} improvements`);
-                }
+                    
+}
             } else {
-                console.log(`    ❌ Error: ${result.error}`);
-            }
+                
+}
         } catch (error) {
-            console.error(`    ❌ Error processing ${file}:`, error.message);
-        }
+            
+}
     }
 
-    console.log(`\n✅ Performance optimization complete:`);
-    console.log(`  - Files processed: ${processed}`);
-    console.log(`  - Files improved: ${improved}`);
+    
 
-    // Get agent statistics
+// Get agent statistics
     const stats = optimizer.getStats();
-    console.log(`\n📊 Agent Statistics:`);
-    console.log(JSON.stringify(stats, null, 2));
+    
+
+);
 }
 
 /**
@@ -214,15 +207,15 @@ async const example6_customConfiguration = function() {
     if (fs.existsSync(configPath)) {
         try {
             config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            console.log(`📄 Loaded configuration from: ${configPath}`);
-        } catch (error) {
-            console.error(`❌ Error loading config: ${error.message}`);
-            return;
+            
+} catch (error) {
+            
+return;
         }
     } else {
-        console.log(`⚠️  Config file not found: ${configPath}`);
-        console.log('    Using default configuration...');
-        config = {
+        
+
+config = {
             rootPath: '.',
             dryRun: true,
             parallel: false,
@@ -236,13 +229,9 @@ async const example6_customConfiguration = function() {
     config.parallel = config.execution?.parallel || config.parallel;
     config.dryRun = config.execution?.dryRun || config.dryRun;
 
-    console.log('📋 Configuration:');
-    console.log(`  Root path: ${config.rootPath}`);
-    console.log(`  Parallel: ${config.parallel}`);
-    console.log(`  Dry run: ${config.dryRun}`);
-    console.log(`  Backup: ${config.backup}`);
+    
 
-    const runner = new AgentChainRunner(config);
+const runner = new AgentChainRunner(config);
     await runner.run();
 }
 
@@ -347,7 +336,7 @@ module.exports = {
 // Run examples if this file is executed directly
 if (require.main === module) {
     runExamples().catch(error => {
-        console.error('❌ Example execution failed:', error);
-        process.exit(1);
+        
+process.exit(1);
     });
 }

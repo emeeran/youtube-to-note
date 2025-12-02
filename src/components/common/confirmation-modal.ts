@@ -1,10 +1,11 @@
+import { BaseModal } from './components/common';
+import { App } from 'obsidian';
+
 /**
  * Custom styled confirmation modal for better accessibility and UX
  * Replaces native browser confirm() with a fully accessible modal dialog
  */
 
-import { App, Modal } from 'obsidian';
-import { BaseModal } from './base-modal';
 
 export interface ConfirmationModalOptions {
     title: string;

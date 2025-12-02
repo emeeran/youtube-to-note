@@ -1,14 +1,14 @@
+import { FileConflictModal } from './components/common';
+import { FileService } from './types/types';
+import { MESSAGES } from './constants';
+import { TIMEOUTS } from './constants';
+import { ValidationUtils } from './lib/utils-consolidated';
+import { App, TFile } from 'obsidian';
+
 /**
  * File management service for Obsidian vault operations
  */
 
-import { App, TFile } from 'obsidian';
-import { FileService } from './types/types';
-import { ValidationUtils } from './validation';
-import { ErrorHandler } from './services/error-handler';
-import { MESSAGES } from './messages';
-import { TIMEOUTS } from './api';
-import { FileConflictModal } from './file-conflict-modal';
 
 export class ObsidianFileService implements FileService {
     constructor(private app: App) {}

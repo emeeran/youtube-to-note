@@ -59,40 +59,35 @@ class AgentChainRunner {
      * Main execution method
      */
     async run() {
-        console.log('🚀 Starting Agent Chain Runner...');
-        console.log(`📁 Target: ${this.config.rootPath}`);
-        console.log(`🔧 Dry Run: ${this.config.dryRun ? 'YES' : 'NO'}`);
-        console.log(`💾 Backup: ${this.config.backup ? 'YES' : 'NO'}`);
+        
 
-        try {
+try {
             // Create backup if enabled
             if (this.config.backup && !this.config.dryRun) {
                 await this.createBackup();
             }
 
             // Phase 1: Rebase and restructure code
-            console.log('\n🔗 Phase 1: Code Rebasing');
-            await this.runRebasingAgent();
+            
+await this.runRebasingAgent();
 
             // Phase 2: Reorganize file structure
-            console.log('\n📁 Phase 2: Code Reorganization');
-            await this.runReorganizationAgent();
+            
+await this.runReorganizationAgent();
 
             // Phase 3: Performance optimization
-            console.log('\n⚡ Phase 3: Performance Optimization');
-            await this.runOptimizationAgent();
+            
+await this.runOptimizationAgent();
 
             // Generate final report
             await this.generateReport();
 
             const duration = ((Date.now() - this.stats.startTime) / 1000).toFixed(2);
-            console.log(`\n✅ Agent Chain completed in ${duration}s`);
-            console.log(`📊 Files scanned: ${this.stats.filesScanned}`);
-            console.log(`📝 Files modified: ${this.stats.filesModified}`);
+            
 
-        } catch (error) {
-            console.error('❌ Agent Chain failed:', error.message);
-            throw error;
+} catch (error) {
+            
+throw error;
         }
     }
 
@@ -103,10 +98,10 @@ class AgentChainRunner {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupPath = path.join(this.config.rootPath, '..', `codebase-backup-${timestamp}`);
 
-        console.log(`💾 Creating backup: ${backupPath}`);
-        execSync(`cp -r "${this.config.rootPath}" "${backupPath}"`, { stdio: 'inherit' });
-        console.log('✅ Backup created');
-    }
+        
+execSync(`cp -r "${this.config.rootPath}" "${backupPath}"`, { stdio: 'inherit' });
+        
+}
 
     /**
      * Phase 1: Code Rebasing Agent
@@ -115,16 +110,15 @@ class AgentChainRunner {
         const agent = new CodeRebasingAgent(this.config);
         const files = await this.getRelevantFiles();
 
-        console.log(`📋 Processing ${files.length} files for rebasing...`);
-
-        if (this.config.parallel) {
+        
+if (this.config.parallel) {
             await this.processFilesInParallel(files, agent, 'rebasing');
         } else {
             await this.processFilesSequentially(files, agent, 'rebasing');
         }
 
-        console.log(`✅ Rebasing complete - ${this.results.rebasing.processed} files processed`);
-    }
+        
+}
 
     /**
      * Phase 2: Code Reorganization Agent
@@ -132,24 +126,25 @@ class AgentChainRunner {
     async runReorganizationAgent() {
         const agent = new CodeReorganizationAgent(this.config);
 
-        console.log('🔍 Analyzing project structure...');
-        const structure = await agent.analyzeProjectStructure(this.config.rootPath);
+        
+const structure = await agent.analyzeProjectStructure(this.config.rootPath);
 
-        console.log('📋 Generating reorganization plan...');
-        const plan = await agent.generateReorganizationPlan(structure);
+        
+const plan = await agent.generateReorganizationPlan(structure);
 
         if (this.config.dryRun) {
-            console.log('📄 Reorganization Plan:');
-            console.log(JSON.stringify(plan, null, 2));
+            
+
+);
             return;
         }
 
-        console.log('🔧 Applying reorganization...');
-        const results = await agent.applyReorganization(plan, this.config.rootPath);
+        
+const results = await agent.applyReorganization(plan, this.config.rootPath);
 
         this.results.reorganization.changes = results.changes;
-        console.log(`✅ Reorganization complete - ${results.changes.length} changes applied`);
-    }
+        
+}
 
     /**
      * Phase 3: Performance Optimization Agent
@@ -158,16 +153,15 @@ class AgentChainRunner {
         const agent = new PerformanceOptimizationAgent(this.config);
         const files = await this.getRelevantFiles();
 
-        console.log(`📋 Processing ${files.length} files for optimization...`);
-
-        if (this.config.parallel) {
+        
+if (this.config.parallel) {
             await this.processFilesInParallel(files, agent, 'optimization');
         } else {
             await this.processFilesSequentially(files, agent, 'optimization');
         }
 
-        console.log(`✅ Optimization complete - ${this.results.optimization.processed} files processed`);
-    }
+        
+}
 
     /**
      * Get all relevant source files
@@ -222,7 +216,8 @@ class AgentChainRunner {
     async processFilesSequentially(files, agent, phase) {
         for (const file of files) {
             try {
-                console.log(`  Processing: ${path.relative(this.config.rootPath, file)}`);
+                
+}`);
                 const result = await agent.processFile(file);
 
                 if (result.success) {
@@ -235,12 +230,12 @@ class AgentChainRunner {
                     }
                 } else {
                     this.results[phase].errors++;
-                    console.error(`    ❌ Error: ${result.error}`);
-                }
+                    
+}
             } catch (error) {
                 this.results[phase].errors++;
-                console.error(`    ❌ Error processing ${file}:`, error.message);
-            }
+                
+}
         }
     }
 
@@ -258,7 +253,8 @@ class AgentChainRunner {
         for (const chunk of chunks) {
             const promises = chunk.map(async (file) => {
                 try {
-                    console.log(`  Processing: ${path.relative(this.config.rootPath, file)}`);
+                    
+}`);
                     const result = await agent.processFile(file);
 
                     if (result.success) {
@@ -271,14 +267,14 @@ class AgentChainRunner {
                         }
                     } else {
                         this.results[phase].errors++;
-                        console.error(`    ❌ Error: ${result.error}`);
-                    }
+                        
+}
 
                     return result;
                 } catch (error) {
                     this.results[phase].errors++;
-                    console.error(`    ❌ Error processing ${file}:`, error.message);
-                    return { success: false, error: error.message };
+                    
+return { success: false, error: error.message };
                 }
             });
 
@@ -312,12 +308,9 @@ class AgentChainRunner {
         const reportPath = path.join(this.config.rootPath, 'agent-chain-report.json');
         fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
-        console.log(`\n📊 Report generated: ${reportPath}`);
-        console.log(`📈 Summary: ${report.summary.totalProcessed} files processed`);
-        console.log(`⚠️  Errors: ${report.summary.totalErrors}`);
-        console.log(`🔄 Changes: ${report.summary.totalChanges}`);
+        
 
-        return report;
+return report;
     }
 }
 
@@ -356,18 +349,8 @@ if (require.main === module) {
                 options.maxConcurrency = parseInt(args[++i]);
                 break;
             case '--help':
-                console.log(`
-Agent Chain Runner - Code Optimization System
-
-Usage: node agent-chain-runner.js [options]
-
-Options:
-  --dry-run              Run without making actual changes
-  --no-backup            Skip creating backup
-  --parallel             Process files in parallel
-  --verbose              Enable verbose logging
-  --root <path>          Root directory to process (default: current directory)
-  --output <path>        Output directory for reports
+                
+--output <path>        Output directory for reports
   --max-concurrency <n>  Maximum parallel processes (default: 3)
   --help                 Show this help message
 
@@ -383,7 +366,7 @@ Examples:
     // Run the agent chain
     const runner = new AgentChainRunner(options);
     runner.run().catch(error => {
-        console.error('Agent Chain failed:', error);
-        process.exit(1);
+        
+process.exit(1);
     });
 }

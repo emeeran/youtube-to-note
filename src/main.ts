@@ -1,16 +1,17 @@
-import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { ConflictPrevention } from './conflict-prevention';
-import { MESSAGES } from './messages';
-import { ValidationUtils } from './validation';
 import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
-import { UrlHandler, UrlDetectionResult } from './services/url-handler';
+import { MESSAGES } from './constants';
 import { ModalManager } from './services/modal-manager';
-import { SaveConfirmationModal } from './save-confirmation-modal';
-import { YouTubeUrlModal } from './youtube-url-modal';
-import { YouTubeSettingsTab } from './settings-tab';
-import { ServiceContainer } from './services/service-container';
 import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types/types';
+import { SaveConfirmationModal } from './components/common';
+import { ServiceContainer } from './services/service-container';
+import { UrlHandler, UrlDetectionResult } from './services/url-handler';
+import { ValidationUtils } from './lib/utils-consolidated';
+import { YouTubeSettingsTab } from './settings-tab';
+import { YouTubeUrlModal } from './components/features/youtube';
+import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';

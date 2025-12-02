@@ -1,4 +1,4 @@
-import { AnimationManager } from './animations';
+
 
 /**
  * Accessibility Manager for comprehensive a11y support

@@ -1,11 +1,12 @@
+import { Agent, AgentContext, AgentExecutionResult, CodeChange, Artifact } from './types/agent-types';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
 /**
  * Performance Optimization Agent
  * Specializes in maximizing speed, reducing resource usage, and optimizing algorithms
  */
 
-import { Agent, AgentContext, AgentExecutionResult, CodeChange, Artifact } from './types/agent-types';
-import * as fs from 'fs/promises';
-import * as path from 'path';
 
 export class PerformanceOptimizerAgent implements Agent {
     name = 'performance-optimizer';
@@ -34,9 +35,8 @@ export class PerformanceOptimizerAgent implements Agent {
     ];
 
     async execute(context: AgentContext): Promise<AgentExecutionResult> {
-        console.log('🚀 Performance Optimizer Agent starting analysis...');
-
-        const changes: CodeChange[] = [];
+        
+const changes: CodeChange[] = [];
         const metrics: Record<string, number> = {};
         const artifacts: Artifact[] = [];
 
@@ -82,12 +82,12 @@ export class PerformanceOptimizerAgent implements Agent {
                 severity: performanceGain.overallImprovement > 0.3 ? 'info' : 'warning'
             };
 
-            console.log('✅ Performance optimization completed:', result.message);
-            return result;
+            
+return result;
 
         } catch (error) {
-            console.error('❌ Performance optimization failed:', error);
-            return {
+            
+return {
                 success: false,
                 changes,
                 metrics,
@@ -367,8 +367,8 @@ export class PerformanceOptimizerAgent implements Agent {
             });
 
         } catch (error) {
-            console.warn('Could not optimize parallel processing:', error);
-        }
+            
+}
     }
 
     /**
@@ -415,8 +415,8 @@ private static getOptimizedTemplate(template: string, variables: Record<string, 
             });
 
         } catch (error) {
-            console.warn('Could not optimize prompt generation:', error);
-        }
+            
+}
     }
 
     /**
@@ -497,8 +497,8 @@ interface CacheStats {
             });
 
         } catch (error) {
-            console.warn('Could not enhance caching:', error);
-        }
+            
+}
     }
 
     /**
@@ -644,8 +644,8 @@ export const performanceMonitor = new PerformanceMonitor();
         try {
             await scanDirectory(srcPath);
         } catch (error) {
-            console.warn('Could not scan source files:', error);
-        }
+            
+}
 
         return files;
     }

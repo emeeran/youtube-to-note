@@ -1,3 +1,4 @@
+
 /**
  * Performance monitoring service for tracking plugin performance
  */
@@ -241,9 +242,11 @@ export class PerformanceMonitor {
         }
 
         if (metric.duration > threshold.critical) {
-            console.warn(`Performance Alert: ${metric.name} exceeded critical threshold (${metric.duration}ms > ${threshold.critical}ms)`, metric);
+            
+`, metric);
         } else if (metric.duration > threshold.warning) {
-            console.warn(`Performance Warning: ${metric.name} exceeded warning threshold (${metric.duration}ms > ${threshold.warning}ms)`, metric);
+            
+`, metric);
         }
     }
 
@@ -280,8 +283,8 @@ export class PerformanceMonitor {
 
         const removed = initialCount - this.metrics.length;
         if (removed > 0) {
-            console.debug(`Cleaned up ${removed} old performance metrics`);
-        }
+            
+}
     }
 
     /**

@@ -1,3 +1,4 @@
+
 /**
  * Modal Enhancer - Automatically applies enhanced UI to all modals
  */
@@ -85,10 +86,10 @@ export class ModalEnhancer {
                 headerEl.classList.add('ytc-modal-header', 'yt-enhanced');
             }
 
-            console.log('[Enhanced UI] Modal enhanced successfully');
-        } catch (error) {
-            console.warn('[Enhanced UI] Failed to enhance modal:', error);
-        }
+            
+} catch (error) {
+            
+}
     }
 
     /**
@@ -181,9 +182,8 @@ export class ModalEnhancer {
      * Force enhancement of current UI
      */
     forceEnhancement(): void {
-        console.log('[Enhanced UI] Force enhancing all UI elements...');
-
-        // Add enhanced UI styles if not already present
+        
+// Add enhanced UI styles if not already present
         this.addEnhancedStyles();
 
         // Enhance all current modals
@@ -192,8 +192,8 @@ export class ModalEnhancer {
         // Enhance any standalone buttons or inputs
         this.enhanceStandaloneElements();
 
-        console.log('[Enhanced UI] Force enhancement complete');
-    }
+        
+}
 
     /**
      * Add enhanced UI styles to the document
@@ -489,8 +489,8 @@ export class ModalEnhancer {
 
         document.head.appendChild(style);
         this.isEnhanced = true;
-        console.log('[Enhanced UI] Enhanced styles applied');
-    }
+        
+}
 
     /**
      * Enhance standalone elements (not in modals)
@@ -538,8 +538,8 @@ export class ModalEnhancer {
         }
 
         this.isEnhanced = false;
-        console.log('[Enhanced UI] Modal enhancer destroyed');
-    }
+        
+}
 }
 
 // Export singleton instance

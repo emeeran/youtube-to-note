@@ -1,8 +1,9 @@
+import { logger } from './logger';
+
 /**
  * Modal management service to prevent duplicate modal openings
  */
 
-import { logger } from './logger';
 
 export interface ModalState {
     isModalOpen: boolean;

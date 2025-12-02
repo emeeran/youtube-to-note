@@ -1,10 +1,10 @@
+import { PromptService, VideoData, OutputFormat, PerformanceMode } from '../types/types';
+import { ValidationUtils } from '../validation';
+
 /**
  * Prompt generation service for AI processing
  */
 
-import { PromptService, VideoData, OutputFormat, PerformanceMode } from '../types/types';
-import { ValidationUtils } from '../validation';
-import { PerformanceOptimizer } from '../performance';
 
 export class AIPromptService implements PromptService {
     // Optimized prompt templates for different performance modes

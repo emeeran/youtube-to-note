@@ -1,3 +1,4 @@
+
 /**
  * Universal UI Enhancer - Works with ANY modal structure
  * Applies enhanced styling regardless of the specific CSS classes used
@@ -48,8 +49,8 @@ export class UniversalUIEnhancer {
 
             this.isEnhanced = true;
         } catch (error) {
-            console.warn('[Universal Enhanced UI] Enhancement failed:', error);
-        }
+            
+}
     }
 
     /**
@@ -365,8 +366,8 @@ export class UniversalUIEnhancer {
         `;
 
         document.head.appendChild(style);
-        console.log('[Universal Enhanced UI] Enhanced styles applied globally');
-    }
+        
+}
 
     /**
      * Enhance all modal elements - catch-all approach
@@ -497,22 +498,16 @@ export class UniversalUIEnhancer {
      * Force enhancement right now
      */
     forceEnhancement(): void {
-        console.log('[Universal Enhanced UI] Force enhancing ALL elements...');
-        this.enhanceAllUI();
+        
+this.enhanceAllUI();
 
         // Log enhanced elements for debugging
         const enhancedModals = document.querySelectorAll('[data-universal-enhanced="true"]');
         const enhancedButtons = document.querySelectorAll('.universal-enhanced-button');
         const enhancedInputs = document.querySelectorAll('.universal-enhanced-input');
 
-        console.log('[Universal Enhanced UI] Enhanced elements:', {
-            modals: enhancedModals.length,
-            buttons: enhancedButtons.length,
-            inputs: enhancedInputs.length,
-            total: enhancedModals.length + enhancedButtons.length + enhancedInputs.length
-        });
-
-        // Show notification
+        
+// Show notification
         if (typeof window !== 'undefined' && window.app) {
             const { Notice } = require('obsidian');
             new Notice(`✨ Enhanced UI applied to ${enhancedModals.length + enhancedButtons.length + enhancedInputs.length} elements`);
@@ -542,8 +537,8 @@ export class UniversalUIEnhancer {
         }
 
         this.isEnhanced = false;
-        console.log('[Universal Enhanced UI] Enhancer destroyed');
-    }
+        
+}
 }
 
 // Export singleton instance

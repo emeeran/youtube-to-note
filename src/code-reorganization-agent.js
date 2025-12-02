@@ -27,9 +27,8 @@ class CodeReorganizationAgent {
      * Analyze project structure
      */
     async analyzeProjectStructure(rootPath) {
-        console.log('🔍 Analyzing project structure...');
-
-        const structure = {
+        
+const structure = {
             directories: [],
             files: [],
             dependencies: {},
@@ -82,8 +81,8 @@ class CodeReorganizationAgent {
                 }
             }
         } catch (error) {
-            console.warn(`Warning: Could not read directory ${dir}:`, error.message);
-        }
+            
+}
     }
 
     /**
@@ -240,9 +239,8 @@ class CodeReorganizationAgent {
      * Analyze dependencies between files
      */
     async analyzeDependencies(rootPath) {
-        console.log('🔗 Analyzing dependencies...');
-
-        const dependencies = {};
+        
+const dependencies = {};
         const files = await this.getAllFiles(rootPath);
 
         for (const file of files) {
@@ -345,9 +343,8 @@ class CodeReorganizationAgent {
      * Generate reorganization plan
      */
     async generateReorganizationPlan(structure) {
-        console.log('📋 Generating reorganization plan...');
-
-        const plan = {
+        
+const plan = {
             targetStructure: this.generateOptimalStructure(structure),
             moves: [],
             creates: [],
@@ -542,11 +539,10 @@ class CodeReorganizationAgent {
      * Apply reorganization plan
      */
     async applyReorganization(plan, rootPath) {
-        console.log('🔧 Applying reorganization...');
-
-        if (this.config.dryRun) {
-            console.log('📄 Dry run - no changes will be made');
-            return { changes: plan.moves.length, moves: plan.moves };
+        
+if (this.config.dryRun) {
+            
+return { changes: plan.moves.length, moves: plan.moves };
         }
 
         const results = {
@@ -561,8 +557,8 @@ class CodeReorganizationAgent {
                 const fullPath = path.join(rootPath, dir);
                 if (!fs.existsSync(fullPath)) {
                     fs.mkdirSync(fullPath, { recursive: true });
-                    console.log(`  Created directory: ${dir}`);
-                }
+                    
+}
             } catch (error) {
                 results.errors.push(`Failed to create directory ${dir}: ${error.message}`);
             }
@@ -599,7 +595,8 @@ class CodeReorganizationAgent {
                         category: move.category
                     });
                     results.changes++;
-                    console.log(`  Moved: ${move.from} → ${path.relative(rootPath, finalToPath)}`);
+                    
+}`);
                 }
 
             } catch (error) {
@@ -617,9 +614,8 @@ class CodeReorganizationAgent {
      * Update import paths after file moves
      */
     async updateImportPaths(moves, rootPath) {
-        console.log('🔄 Updating import paths...');
-
-        const sourceFiles = await this.getAllSourceFiles(rootPath);
+        
+const sourceFiles = await this.getAllSourceFiles(rootPath);
         let updatedFiles = 0;
 
         for (const file of sourceFiles) {
@@ -654,13 +650,13 @@ class CodeReorganizationAgent {
                 }
 
             } catch (error) {
-                console.warn(`  Warning: Could not update imports in ${file.relativePath}: ${error.message}`);
-            }
+                
+}
         }
 
         if (updatedFiles > 0) {
-            console.log(`  Updated import paths in ${updatedFiles} files`);
-        }
+            
+}
     }
 
     /**

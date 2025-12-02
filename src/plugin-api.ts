@@ -1,6 +1,7 @@
-import { App, Plugin, TFile } from 'obsidian';
+import { debounce, throttle } from './lib/utils-consolidated';
 import { YoutubeClipperPlugin } from './main';
-import { PerformanceMonitor } from './performance-monitor';
+import { App, Plugin, TFile } from 'obsidian';
+
 
 export interface PluginAPI {
     version: string;
@@ -65,8 +66,7 @@ export interface UtilsAPI {
     formatTimestamp: (timestamp: number) => string;
     sanitizeFilename: (filename: string) => string;
     generateId: () => string;
-    debounce: <T extends (...args: any[]) => any>(fn: T, delay: number) => T;
-    throttle: <T extends (...args: any[]) => any>(fn: T, limit: number) => T;
+    debounce, throttle limit: number) => T;
 }
 
 export interface VideoProcessingOptions {
@@ -406,14 +406,14 @@ export class PluginAPIManager {
             setProvider: (provider: string) => {
                 const settings = this.plugin.getCurrentSettings();
                 // This would need to be implemented in the main plugin
-                console.info('AI provider set to:', provider);
-            },
+                
+},
 
             setModel: (model: string) => {
                 const settings = this.plugin.getCurrentSettings();
                 // This would need to be implemented in the main plugin
-                console.info('AI model set to:', model);
-            }
+                
+}
         };
     }
 
@@ -504,17 +504,17 @@ export class PluginAPIManager {
             createProgressBar: (max: number) => {
                 return {
                     update: (value: number, text?: string) => {
-                        console.log(`Progress: ${value}/${max}${text ? ` - ${text}` : ''}`);
-                    },
+                        
+},
                     increment: (amount = 1) => {
-                        console.log(`Progress incremented by ${amount}`);
-                    },
+                        
+},
                     complete: (text?: string) => {
-                        console.log(`Progress complete${text ? ` - ${text}` : ''}`);
-                    },
+                        
+},
                     hide: () => {
-                        console.log('Progress hidden');
-                    }
+                        
+}
                 };
             }
         };
@@ -548,8 +548,8 @@ export class PluginAPIManager {
                         try {
                             callback(data);
                         } catch (error) {
-                            console.error(`Error in event listener for ${event}:`, error);
-                        }
+                            
+}
                     });
                 }
             },
@@ -593,15 +593,7 @@ export class PluginAPIManager {
                 return Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
             },
 
-            debounce: <T extends (...args: any[]) => any>(fn: T, delay: number) => {
-                let timeoutId: number;
-                return ((...args: Parameters<T>) => {
-                    clearTimeout(timeoutId);
-                    timeoutId = window.setTimeout(() => fn(...args), delay);
-                }) as T;
-            },
-
-            throttle: <T extends (...args: any[]) => any>(fn: T, limit: number) => {
+            debounce, throttle limit: number) => {
                 let inThrottle = false;
                 return ((...args: Parameters<T>) => {
                     if (!inThrottle) {
@@ -712,11 +704,11 @@ Please structure your response to be actionable and informative.`;
             // Emit registration event
             this.emit('plugin-registered', { plugin: registeredPlugin });
 
-            console.info(`Plugin registered: ${pluginInfo.name} v${pluginInfo.version}`);
-            return true;
+            
+return true;
         } catch (error) {
-            console.error(`Failed to register plugin ${pluginInfo.name}:`, error);
-            return false;
+            
+return false;
         }
     }
 
@@ -740,11 +732,11 @@ Please structure your response to be actionable and informative.`;
             // Emit unregistration event
             this.emit('plugin-unregistered', { plugin });
 
-            console.info(`Plugin unregistered: ${name}`);
-            return true;
+            
+return true;
         } catch (error) {
-            console.error(`Failed to unregister plugin ${name}:`, error);
-            return false;
+            
+return false;
         }
     }
 
@@ -774,8 +766,8 @@ Please structure your response to be actionable and informative.`;
                 try {
                     plugin.eventHandler(event, data);
                 } catch (error) {
-                    console.error(`Error in plugin ${plugin.name} event handler:`, error);
-                }
+                    
+}
             }
         });
     }
@@ -797,8 +789,8 @@ Please structure your response to be actionable and informative.`;
                 try {
                     plugin.cleanup();
                 } catch (error) {
-                    console.error(`Error cleaning up plugin ${name}:`, error);
-                }
+                    
+}
             }
         });
 

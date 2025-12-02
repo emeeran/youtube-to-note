@@ -60,17 +60,18 @@ app.post('/clip', (req, res) => {
     if (timestamp) entry += `\n\n  _at ${timestamp}_`;
 
     appendEntry(filePath, entry);
-    console.log('Appended clip to', filePath);
-    res.json({ ok: true, path: filePath });
+    
+res.json({ ok: true, path: filePath });
   } catch (e) {
-    console.error('Failed to append clip', e);
-    res.status(500).json({ error: 'failed', message: String(e) });
+    
+res.status(500).json({ error: 'failed', message: String(e) });
   }
 });
 
 app.get('/', (req, res) => res.send('YouTube Clipper helper is running. POST /clip with JSON { url }'));
 
 app.listen(PORT, () => {
-  console.log(`YouTube Clipper helper listening on port ${PORT}`);
-  console.log('Target file:', resolveTargetFile());
+  
+
+);
 });

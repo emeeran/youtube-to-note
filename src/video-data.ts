@@ -1,14 +1,15 @@
+import { API_ENDPOINTS, API_LIMITS } from './constants';
+import { ErrorHandler } from './services/error-handler';
+import { MESSAGES } from './constants';
+import { ValidationUtils } from './lib/utils-consolidated';
+import { VideoAnalysisStrategy } from './constants';
+import { VideoDataService, VideoData, CacheService } from './types/types';
+import { YouTubeTranscriptService } from './services/transcript-service';
+
 /**
  * YouTube video data extraction service
  */
 
-import { VideoDataService, VideoData, CacheService } from './types/types';
-import { API_ENDPOINTS, API_LIMITS } from './api';
-import { MESSAGES } from './messages';
-import { ValidationUtils } from './validation';
-import { ErrorHandler } from './services/error-handler';
-import { YouTubeTranscriptService } from './services/transcript-service';
-import { VideoOptimizationEngine, VideoAnalysisStrategy } from './video-optimization';
 
 export interface EnhancedVideoData extends VideoData {
     duration?: number;
@@ -139,8 +140,8 @@ export class YouTubeVideoService implements VideoDataService {
                 enhancedData = { ...enhancedData, ...pageData };
             } catch (error) {
                 // Ignore scraping errors, proceed with oEmbed data
-                console.debug('Could not scrape additional metadata:', error);
-            }
+                
+}
 
             const metadata = {
                 title: enhancedData.title,
@@ -219,8 +220,8 @@ export class YouTubeVideoService implements VideoDataService {
             this.cache?.set(cacheKey, description, this.descriptionTTL);
             return description;
         } catch (error) {
-            console.warn('Failed to scrape video page:', error);
-            const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
+            
+const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
             this.cache?.set(cacheKey, fallback, this.descriptionTTL);
             return fallback;
         }

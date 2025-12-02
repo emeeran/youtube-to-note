@@ -1,8 +1,9 @@
+import { logger } from './logger';
+
 /**
  * Encryption service for secure storage of API keys and sensitive data
  */
 
-import { logger } from './logger';
 
 export interface EncryptionConfig {
     algorithm: string;

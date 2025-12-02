@@ -1,10 +1,11 @@
+import { API_ENDPOINTS, AI_MODELS } from './constants';
+import { BaseAIProvider } from './base';
+import { MESSAGES } from './constants';
+
 /**
  * Groq AI provider implementation
  */
 
-import { API_ENDPOINTS, AI_MODELS, API_LIMITS } from './api';
-import { MESSAGES } from './messages';
-import { BaseAIProvider } from './base';
 
 export class GroqProvider extends BaseAIProvider {
     readonly name = 'Groq';

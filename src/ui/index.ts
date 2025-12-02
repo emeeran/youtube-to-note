@@ -1,3 +1,13 @@
+import { AccessibilityManager } from './accessibility';
+import { AnimationManager } from './animations';
+import { FormValidationManager } from './form-validation';
+import { HelpSystemManager } from './help-system';
+import { InteractionManager } from './interactions';
+import { LoadingStateManager } from './loading-states';
+import { ResponsiveManager } from './responsive';
+import { StyleManager } from './constants';
+import { ThemeOptimizationManager } from './theme-optimization';
+
 /**
  * Enhanced UI System Integration
  *
@@ -6,15 +16,6 @@
  */
 
 // import { ComponentManager } from './components'; // Simple implementation, not needed for now
-import { StyleManager } from './styles';
-import { AnimationManager } from './animations';
-import { AccessibilityManager } from './accessibility';
-import { ResponsiveManager } from './responsive';
-import { InteractionManager } from './interactions';
-import { FormValidationManager } from './form-validation';
-import { HelpSystemManager } from './help-system';
-import { LoadingStateManager } from './loading-states';
-import { ThemeOptimizationManager } from './theme-optimization';
 
 /**
  * Main UI System class that coordinates all UI components
@@ -41,9 +42,8 @@ export class UISystem {
             return;
         }
 
-        console.log('[YouTube Clipper UI] Initializing enhanced UI system...');
-
-        try {
+        
+try {
             // Initialize core systems in order
             this.initializeThemeSystem();
             this.initializeStyleSystem();
@@ -57,14 +57,13 @@ export class UISystem {
             this.initializeComponentSystem();
 
             this.isInitialized = true;
-            console.log('[YouTube Clipper UI] Enhanced UI system initialized successfully');
-
-            // Announce to screen readers
+            
+// Announce to screen readers
             this.announce('Enhanced UI system loaded', 'polite');
 
         } catch (error) {
-            console.error('[YouTube Clipper UI] Failed to initialize UI system:', error);
-            throw error;
+            
+throw error;
         }
     }
 
@@ -72,19 +71,19 @@ export class UISystem {
      * Initialize theme system first (other systems depend on it)
      */
     private initializeThemeSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing theme system...');
-        // Theme system is auto-initialized via singleton
+        
+// Theme system is auto-initialized via singleton
         // Just ensure it's ready
         ThemeOptimizationManager.getInstance();
-        console.log('[YouTube Clipper UI] Theme system initialized');
-    }
+        
+}
 
     /**
      * Initialize style system
      */
     private initializeStyleSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing style system...');
-        // Style system is auto-initialized via singleton
+        
+// Style system is auto-initialized via singleton
         StyleManager.addClass('yt-enhanced-ui', {
             'root': `
                 /* Base enhanced UI styles */
@@ -223,96 +222,96 @@ export class UISystem {
                 }
             `
         });
-        console.log('[YouTube Clipper UI] Style system initialized');
-    }
+        
+}
 
     /**
      * Initialize animation system
      */
     private initializeAnimationSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing animation system...');
-        // Animation system is auto-initialized via singleton
+        
+// Animation system is auto-initialized via singleton
         AnimationManager.getInstance();
-        console.log('[YouTube Clipper UI] Animation system initialized');
-    }
+        
+}
 
     /**
      * Initialize accessibility system
      */
     private initializeAccessibilitySystem(): void {
-        console.log('[YouTube Clipper UI] Initializing accessibility system...');
-        // Accessibility system is auto-initialized via singleton
+        
+// Accessibility system is auto-initialized via singleton
         AccessibilityManager.getInstance();
-        console.log('[YouTube Clipper UI] Accessibility system initialized');
-    }
+        
+}
 
     /**
      * Initialize responsive system
      */
     private initializeResponsiveSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing responsive system...');
-        // Responsive system is auto-initialized via singleton
+        
+// Responsive system is auto-initialized via singleton
         ResponsiveManager.getInstance();
-        console.log('[YouTube Clipper UI] Responsive system initialized');
-    }
+        
+}
 
     /**
      * Initialize interaction system
      */
     private initializeInteractionSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing interaction system...');
-        // Interaction system is auto-initialized via singleton
+        
+// Interaction system is auto-initialized via singleton
         InteractionManager.getInstance();
-        console.log('[YouTube Clipper UI] Interaction system initialized');
-    }
+        
+}
 
     /**
      * Initialize form validation system
      */
     private initializeFormValidationSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing form validation system...');
-        // Form validation system is auto-initialized via singleton
+        
+// Form validation system is auto-initialized via singleton
         FormValidationManager.getInstance();
-        console.log('[YouTube Clipper UI] Form validation system initialized');
-    }
+        
+}
 
     /**
      * Initialize help system
      */
     private initializeHelpSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing help system...');
-        // Help system is auto-initialized via singleton
+        
+// Help system is auto-initialized via singleton
         HelpSystemManager.getInstance();
-        console.log('[YouTube Clipper UI] Help system initialized');
-    }
+        
+}
 
     /**
      * Initialize loading system
      */
     private initializeLoadingSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing loading system...');
-        // Loading system is auto-initialized via singleton
+        
+// Loading system is auto-initialized via singleton
         LoadingStateManager.getInstance();
-        console.log('[YouTube Clipper UI] Loading system initialized');
-    }
+        
+}
 
     /**
      * Initialize component system
      */
     private initializeComponentSystem(): void {
-        console.log('[YouTube Clipper UI] Initializing component system...');
-        // Component system is auto-initialized via singleton
+        
+// Component system is auto-initialized via singleton
         // ComponentManager.getInstance(); // Simplified implementation
-        console.log('[YouTube Clipper UI] Component system initialized');
-    }
+        
+}
 
     /**
      * Enhance an existing modal element with enhanced UI
      */
     enhanceModal(modalEl: HTMLElement): void {
         if (!this.isInitialized) {
-            console.warn('[YouTube Clipper UI] UI system not initialized, skipping modal enhancement');
-            return;
+            
+return;
         }
 
         // Add enhanced UI class
@@ -327,8 +326,8 @@ export class UISystem {
         // Setup enhanced accessibility
         this.setupModalAccessibility(modalEl);
 
-        console.log('[YouTube Clipper UI] Modal enhanced with enhanced UI');
-    }
+        
+}
 
     /**
      * Enhance modal elements with enhanced UI components
@@ -477,9 +476,8 @@ export class UISystem {
             return;
         }
 
-        console.log('[YouTube Clipper UI] Destroying enhanced UI system...');
-
-        this.isDestroyed = true;
+        
+this.isDestroyed = true;
         this.isInitialized = false;
 
         // Destroy all UI systems in reverse order
@@ -494,8 +492,8 @@ export class UISystem {
         ThemeOptimizationManager.getInstance().destroy();
         StyleManager.destroy();
 
-        console.log('[YouTube Clipper UI] Enhanced UI system destroyed');
-    }
+        
+}
 }
 
 // Export singleton instance
@@ -503,7 +501,7 @@ export const uiSystem = UISystem.getInstance();
 
 // Export all UI utilities and managers for convenience
 export * from './components';
-export * from './styles';
+export * from './constants';
 export * from './animations';
 export * from './accessibility';
 export * from './responsive';

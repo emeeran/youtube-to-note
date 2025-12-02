@@ -1,10 +1,10 @@
+import { AIProvider } from './types/types';
+import { ErrorHandler } from './services/error-handler';
+
 /**
  * Base AI provider interface and abstract implementation
  */
 
-import { AIProvider } from './types/types';
-import { ErrorHandler } from './services/error-handler';
-import { CustomTimeoutSettings } from './types/types';
 
 export abstract class BaseAIProvider implements AIProvider {
     abstract readonly name: string;

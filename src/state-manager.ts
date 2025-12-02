@@ -1,5 +1,7 @@
-import { PerformanceMonitor } from './performance-monitor';
 import { ComponentManager } from './memory-management';
+import { PerformanceMonitor } from './performance-monitor';
+    import(data: string): void {
+
 
 export type StateValue = any;
 export type StateKey = string;
@@ -111,11 +113,12 @@ export class StateManager {
                     this.persistedKeys.add(key);
                 });
 
-                console.info(`Loaded ${Object.keys(data.state).length} state items from persistence`);
+                
+.length} state items from persistence`);
             }
         } catch (error) {
-            console.error('Failed to load persisted state:', error);
-        }
+            
+}
     }
 
     private savePersistedState(): void {
@@ -142,8 +145,8 @@ export class StateManager {
 
             localStorage.setItem('ytclipper_state', JSON.stringify(snapshot));
         } catch (error) {
-            console.error('Failed to save persisted state:', error);
-        }
+            
+}
     }
 
     private startCleanupInterval(): void {
@@ -274,8 +277,8 @@ export class StateManager {
             return transformedValue;
         } catch (error) {
             this.metrics.errors++;
-            console.error(`Failed to set state for key ${key}:`, error);
-            throw error;
+            
+throw error;
         }
     }
 
@@ -328,8 +331,8 @@ export class StateManager {
             return value as T;
         } catch (error) {
             this.metrics.errors++;
-            console.error(`Failed to get state for key ${key}:`, error);
-            return defaultValue as T;
+            
+return defaultValue as T;
         }
     }
 
@@ -487,8 +490,8 @@ export class StateManager {
                         dependencies
                     }, 'derived');
                 } catch (error) {
-                    console.error(`Failed to compute derived state ${key}:`, error);
-                }
+                    
+}
             }, { immediate: true });
         });
 
@@ -594,13 +597,12 @@ export class StateManager {
     /**
      * Import state from backup
      */
-    import(data: string): void {
         try {
             const snapshot = JSON.parse(data) as StateSnapshot;
             this.restoreSnapshot(snapshot);
         } catch (error) {
-            console.error('Failed to import state:', error);
-            throw error;
+            
+throw error;
         }
     }
 
@@ -643,8 +645,8 @@ export class StateManager {
                         subscriber.callback(value, previousValue);
                     }
                 } catch (error) {
-                    console.error('Error in state subscriber callback:', error);
-                }
+                    
+}
             });
         }
 
@@ -653,8 +655,8 @@ export class StateManager {
             try {
                 subscriber.callback(key, value, previousValue);
             } catch (error) {
-                console.error('Error in global state subscriber callback:', error);
-            }
+                
+}
         });
     }
 
@@ -727,12 +729,12 @@ export const StateMiddlewarePresets = {
     logging: {
         name: 'logging',
         beforeSet: (key, value, previousValue) => {
-            console.debug(`State set: ${key}`, { newValue: value, previousValue });
-            return value;
+            
+return value;
         },
         afterGet: (key, value) => {
-            console.debug(`State get: ${key}`, value);
-        }
+            
+}
     },
 
     persistence: {
@@ -746,8 +748,8 @@ export const StateMiddlewarePresets = {
         name: 'validation',
         beforeSet: (key, value) => {
             if (value === undefined || value === null) {
-                console.warn(`Invalid state value for key ${key}:`, value);
-            }
+                
+}
             return value;
         }
     },
@@ -756,8 +758,8 @@ export const StateMiddlewarePresets = {
         name: 'performance',
         beforeSet: (key, value, previousValue) => {
             if (JSON.stringify(value) === JSON.stringify(previousValue)) {
-                console.debug(`State unchanged for key ${key}, skipping update`);
-                return previousValue; // Return previous value to skip update
+                
+return previousValue; // Return previous value to skip update
             }
             return value;
         }

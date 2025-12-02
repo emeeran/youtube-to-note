@@ -1,5 +1,6 @@
 import { PerformanceMonitor } from './performance-monitor';
 
+
 export interface WorkerTask<T = any, R = any> {
     id: string;
     type: string;
@@ -382,8 +383,8 @@ export class WorkerPool {
 
             function handleCancel(message) {
                 // Cancel logic would go here
-                console.log('Task cancelled:', message.id);
-            }
+                
+}
 
             // AI Processing implementation
             async function processAIRequest(data) {
@@ -528,8 +529,8 @@ export class WorkerPool {
 
         // Check if we should restart the worker
         if (wrapper.getMetrics().errorCount >= this.config.restartThreshold) {
-            console.warn(`Worker ${workerId} has too many errors, restarting...`);
-            wrapper.restart();
+            
+wrapper.restart();
         }
 
         if (this.performanceMonitor) {
@@ -721,8 +722,8 @@ export class WorkerPool {
             if (worker) {
                 worker.terminate();
                 this.workers.delete(id);
-                console.warn(`Removed unresponsive worker: ${id}`);
-            }
+                
+}
         });
 
         // Scale workers if needed

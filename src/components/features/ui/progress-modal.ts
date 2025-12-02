@@ -1,9 +1,9 @@
+import { App, Modal } from 'obsidian';
+
 /**
  * Progressive analysis modal with real-time progress updates
  */
 
-import { App, Modal, Setting } from 'obsidian';
-import { OptimizedProcessingOptions } from './services/optimized-ai-service';
 
 export interface ProgressStep {
     id: string;

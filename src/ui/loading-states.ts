@@ -1,6 +1,6 @@
-import { AnimationManager } from './animations';
-import { StyleManager } from './styles';
 import { a11y } from './accessibility';
+import { StyleManager } from './constants';
+
 
 /**
  * Loading state types

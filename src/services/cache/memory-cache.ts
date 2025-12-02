@@ -1,8 +1,9 @@
+import { CacheService } from '../../types/types';
+
 /**
  * In-memory cache service implementation
  */
 
-import { CacheService } from '../../types/types';
 
 interface CacheItem<T> {
     data: T;

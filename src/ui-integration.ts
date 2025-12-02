@@ -1,26 +1,26 @@
+import { uiSystem } from './ui';
+
 /**
  * Simple UI Integration Layer
  * Provides basic enhanced UI functionality without requiring complex modal updates
  */
 
-import { uiSystem } from './ui';
 
 /**
  * Initialize enhanced UI for the plugin
  */
 export async function initializeEnhancedUI(): Promise<void> {
     try {
-        console.log('[YouTube Clipper] Initializing enhanced UI...');
-        await uiSystem.initialize();
-        console.log('[YouTube Clipper] Enhanced UI initialized successfully');
-
-        // Add enhanced UI class to body
+        
+await uiSystem.initialize();
+        
+// Add enhanced UI class to body
         document.body.classList.add('yt-enhanced-ui-active');
 
         return;
     } catch (error) {
-        console.warn('[YouTube Clipper] Enhanced UI initialization failed:', error);
-        // Continue without enhanced UI
+        
+// Continue without enhanced UI
     }
 }
 
@@ -274,8 +274,8 @@ export function cleanupEnhancedUI(): void {
             styles.remove();
         }
 
-        console.log('[YouTube Clipper] Enhanced UI cleaned up');
-    } catch (error) {
-        console.warn('[YouTube Clipper] Enhanced UI cleanup failed:', error);
-    }
+        
+} catch (error) {
+        
+}
 }

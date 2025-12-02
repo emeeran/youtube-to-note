@@ -1,3 +1,4 @@
+
 /**
  * Logger service for structured logging with different levels
  */
@@ -88,17 +89,17 @@ export class Logger {
 
             switch (level) {
                 case LogLevel.DEBUG:
-                    console.debug(formattedMessage);
-                    break;
+                    
+break;
                 case LogLevel.INFO:
-                    console.info(formattedMessage);
-                    break;
+                    
+break;
                 case LogLevel.WARN:
-                    console.warn(formattedMessage);
-                    break;
+                    
+break;
                 case LogLevel.ERROR:
-                    console.error(formattedMessage);
-                    break;
+                    
+break;
             }
         }
     }

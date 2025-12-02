@@ -1,9 +1,10 @@
+import { YouTubePluginSettings } from './types/types';
+
 /**
  * Secure configuration service for API key management
  * Supports both direct configuration and environment variables
  */
 
-import { YouTubePluginSettings } from './types/types';
 
 export class SecureConfigService {
     private settings: YouTubePluginSettings;

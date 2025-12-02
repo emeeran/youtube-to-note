@@ -1,13 +1,15 @@
+import { Agent, AgentContext, AgentExecutionResult, CodeChange, Artifact } from './types/agent-types';
+import * as crypto from 'crypto';
+import * as crypto from 'crypto';
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as path from 'path';
+
 /**
  * Security Hardening Agent
  * Specializes in identifying vulnerabilities, implementing security best practices, and ensuring data protection
  */
 
-import { Agent, AgentContext, AgentExecutionResult, CodeChange, Artifact } from './types/agent-types';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
-import * as crypto from 'crypto';
 
 export class SecurityHardenerAgent implements Agent {
     name = 'security-hardener';
@@ -41,9 +43,8 @@ export class SecurityHardenerAgent implements Agent {
     ];
 
     async execute(context: AgentContext): Promise<AgentExecutionResult> {
-        console.log('🔒 Security Hardener Agent starting security analysis...');
-
-        const changes: CodeChange[] = [];
+        
+const changes: CodeChange[] = [];
         const metrics: Record<string, number> = {};
         const artifacts: Artifact[] = [];
 
@@ -105,12 +106,12 @@ export class SecurityHardenerAgent implements Agent {
                 severity: metrics.criticalVulnerabilities > 0 ? 'warning' : 'info'
             };
 
-            console.log('✅ Security hardening completed:', result.message);
-            return result;
+            
+return result;
 
         } catch (error) {
-            console.error('❌ Security hardening failed:', error);
-            return {
+            
+return {
                 success: false,
                 changes,
                 metrics,
@@ -474,8 +475,8 @@ export class SecurityHardenerAgent implements Agent {
                     });
                 }
             } catch (error) {
-                console.warn(`Could not fix hardcoded secrets in ${vuln.location}:`, error);
-            }
+                
+}
         }
     }
 
@@ -489,7 +490,6 @@ export class SecurityHardenerAgent implements Agent {
  * Handles sensitive data with encryption and secure storage
  */
 
-import * as crypto from 'crypto';
 
 export class SecureConfigService {
     private readonly encryptionKey: string;
@@ -1067,9 +1067,8 @@ export class SecurityMonitor {
      * Handle detected threat
      */
     private handleThreat(pattern: ThreatPattern, event: SecurityEvent): void {
-        console.warn(\`🚨 Security threat detected: \${pattern.name}\`, event);
-
-        // In a real implementation, you might:
+        
+// In a real implementation, you might:
         // - Send alerts
         // - Block requests
         // - Log to external security service
@@ -1233,8 +1232,8 @@ export const securityMonitor = new SecurityMonitor();
         try {
             await scanDirectory(srcPath);
         } catch (error) {
-            console.warn('Could not scan source files:', error);
-        }
+            
+}
 
         return files;
     }

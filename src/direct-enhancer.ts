@@ -1,3 +1,4 @@
+
 /**
  * Direct UI Enhancer - Injects enhanced styles directly
  * Works immediately by adding CSS that targets existing elements
@@ -443,8 +444,8 @@ export class DirectEnhancer {
 
         document.head.appendChild(style);
         this.isInjected = true;
-        console.log('[Direct Enhanced UI] Enhanced CSS injected successfully');
-    }
+        
+}
 
     /**
      * Setup mutation observer to catch new elements
@@ -492,8 +493,8 @@ export class DirectEnhancer {
         const inputs = document.querySelectorAll('.direct-enhanced-input').length;
 
         if (modals > 0 || buttons > 0 || inputs > 0) {
-            console.log(`[Direct Enhanced UI] Enhanced: ${modals} modals, ${buttons} buttons, ${inputs} inputs`);
-        }
+            
+}
     }
 
     /**

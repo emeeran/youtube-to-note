@@ -1,11 +1,12 @@
+import { BaseModal } from './components/common';
+import { ErrorHandler } from './services/error-handler';
+import { MESSAGES } from './constants';
+import { App, Notice, TFile } from 'obsidian';
+
 /**
  * File opening confirmation modal component
  */
 
-import { App, Notice, TFile } from 'obsidian';
-import { BaseModal } from './base-modal';
-import { MESSAGES } from './messages';
-import { ErrorHandler } from './services/error-handler';
 
 export interface FileConfirmModalOptions {
     file: TFile;
@@ -25,10 +26,9 @@ export class FileConfirmModal extends BaseModal {
     }
 
     onOpen(): void {
-        console.log('FileConfirmModal opened for file:', this.options.file.name);
-        console.log('File path:', this.options.file.path);
         
-        this.createModalContent();
+
+this.createModalContent();
         this.setupEventHandlers();
         this.focusYesButton();
         this.forceVisible();
@@ -101,17 +101,16 @@ export class FileConfirmModal extends BaseModal {
     private focusYesButton(): void {
         if (this.yesButton) {
             this.focusElement(this.yesButton);
-            console.log('Yes button focused');
-        }
+            
+}
     }
 
     /**
      * Handle confirmation (Yes button)
      */
     private async handleConfirm(): Promise<void> {
-        console.log('User clicked Yes - attempting to open file');
         
-        try {
+try {
             await this.openFile();
             
             // Call external onConfirm callback if provided
@@ -132,15 +131,14 @@ export class FileConfirmModal extends BaseModal {
      * Handle cancellation (No button)
      */
     private handleCancel(): void {
-        console.log('User clicked No - closing modal');
         
-        try {
+try {
             if (this.options.onCancel) {
                 this.options.onCancel();
             }
         } catch (error) {
-            console.error('Error in onCancel callback:', error);
-        } finally {
+            
+} finally {
             // Always close the modal
             this.close();
         }
@@ -151,8 +149,8 @@ export class FileConfirmModal extends BaseModal {
      */
     private handleEscapeKey(): void {
         // Allow easier escape - don't require confirmation for better UX
-        console.log('User pressed Escape - closing modal');
-        this.handleCancel();
+        
+this.handleCancel();
     }
 
     /**
@@ -167,12 +165,10 @@ export class FileConfirmModal extends BaseModal {
 
         // Open the file
         const leaf = this.app.workspace.getLeaf(false);
-        console.log('Opening file in leaf:', leaf);
         
-        await leaf.openFile(currentFile);
-        console.log('File opened successfully');
+await leaf.openFile(currentFile);
         
-        new Notice(MESSAGES.OPENED_FILE(currentFile.name));
+new Notice(MESSAGES.OPENED_FILE(currentFile.name));
     }
 
     /**
@@ -186,14 +182,13 @@ export class FileConfirmModal extends BaseModal {
      * Clean up modal and ensure proper disposal
      */
     onClose(): void {
-        console.log('FileConfirmModal closing - cleaning up');
         
-        // Clear any button references
+// Clear any button references
         this.yesButton = undefined;
         
         // Call parent cleanup
         super.onClose();
         
-        console.log('FileConfirmModal cleanup complete');
-    }
+        
+}
 }

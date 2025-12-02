@@ -1,14 +1,14 @@
+import { ErrorHandler } from './services/error-handler';
+import { SecureConfigService } from './secure-config';
+import { ValidationUtils } from './lib/utils-consolidated';
+import { YouTubePluginSettings } from './types/types';
+import { App, PluginSettingTab, Setting } from 'obsidian';
+
 /**
  * Plugin settings tab component
  * Designed to prevent conflicts with other plugin settings
  */
 
-import { App, PluginSettingTab, Setting } from 'obsidian';
-import { YouTubePluginSettings, OutputFormat } from './types/types';
-import { MESSAGES } from './messages';
-import { ValidationUtils } from './validation';
-import { ErrorHandler } from './services/error-handler';
-import { SecureConfigService } from './secure-config';
 
 // Unique CSS classes to prevent conflicts
 const SETTINGS_CSS_CLASSES = {

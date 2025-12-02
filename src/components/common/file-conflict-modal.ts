@@ -1,9 +1,10 @@
+import { BaseModal } from './components/common';
+import { App, TFile } from 'obsidian';
+
 /**
  * Modal prompting user when a file conflict is detected.
  */
 
-import { App, TFile } from 'obsidian';
-import { BaseModal } from './base-modal';
 
 export type ConflictResolution = 'overwrite' | 'new-name' | 'cancel';
 

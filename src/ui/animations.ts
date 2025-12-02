@@ -1,4 +1,5 @@
-import { StyleManager } from './styles';
+import { StyleManager } from './constants';
+
 
 export interface AnimationConfig {
     duration?: number;

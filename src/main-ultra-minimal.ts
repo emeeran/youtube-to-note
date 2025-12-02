@@ -1,5 +1,6 @@
 import { Notice, Plugin, Modal } from 'obsidian';
 
+
 // Ultra-minimal YouTube Clipper Plugin
 export default class YoutubeClipperPlugin extends Plugin {
     settings = {
@@ -7,9 +8,8 @@ export default class YoutubeClipperPlugin extends Plugin {
     };
 
     async onload(): Promise<void> {
-        console.log('🎬 YouTube Clipper: Loading...');
-
-        try {
+        
+try {
             // Load settings with safety
             await this.safeLoadSettings();
 
@@ -22,18 +22,18 @@ export default class YoutubeClipperPlugin extends Plugin {
                 }
             });
 
-            console.log('✅ YouTube Clipper: Loaded successfully!');
-            new Notice('🎬 YouTube Clipper loaded!');
+            
+new Notice('🎬 YouTube Clipper loaded!');
 
         } catch (error) {
-            console.error('❌ YouTube Clipper: Failed to load:', error);
-            new Notice('❌ YouTube Clipper failed to load');
+            
+new Notice('❌ YouTube Clipper failed to load');
         }
     }
 
     onunload(): void {
-        console.log('🎬 YouTube Clipper: Unloaded');
-    }
+        
+}
 
     private async safeLoadSettings(): Promise<void> {
         try {
@@ -42,8 +42,8 @@ export default class YoutubeClipperPlugin extends Plugin {
                 this.settings = { ...this.settings, ...data };
             }
         } catch (error) {
-            console.warn('Settings load failed, using defaults:', error);
-        }
+            
+}
     }
 
     private openModal(): void {
@@ -51,8 +51,8 @@ export default class YoutubeClipperPlugin extends Plugin {
             const modal = new YouTubeModal(this.app);
             modal.open();
         } catch (error) {
-            console.error('Failed to open modal:', error);
-            new Notice('Failed to open modal');
+            
+new Notice('Failed to open modal');
         }
     }
 }
@@ -153,8 +153,8 @@ class YouTubeModal extends Modal {
             await leaf.openFile(file);
 
         } catch (error) {
-            console.error('Failed to create note:', error);
-            new Notice('❌ Failed to create note');
+            
+new Notice('❌ Failed to create note');
         }
     }
 

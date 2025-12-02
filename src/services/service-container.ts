@@ -1,9 +1,18 @@
+import { AIPromptService } from './prompt-service';
+import { AIService } from './ai-service';
+import { GeminiProvider } from './../gemini';
+import { GroqProvider } from './../groq';
+import { MemoryCacheService } from './cache/memory-cache';
+import { ObsidianFileService } from './../obsidian-file';
+import { OllamaProvider } from './../ollama';
+import { YouTubeVideoService } from './../video-data';
+import {
+import { App } from 'obsidian';
+
 /**
  * Service container for dependency injection
  */
 
-import { App } from 'obsidian';
-import {
     ServiceContainer as IServiceContainer,
     YouTubePluginSettings,
     AIService as IAIService,
@@ -14,14 +23,6 @@ import {
     PromptService
 } from '../types/types';
 
-import { AIService } from './ai-service';
-import { GeminiProvider } from './../gemini';
-import { GroqProvider } from './../groq';
-import { OllamaProvider } from './../ollama';
-import { YouTubeVideoService } from './../video-data';
-import { ObsidianFileService } from './../obsidian-file';
-import { AIPromptService } from './prompt-service';
-import { MemoryCacheService } from './cache/memory-cache';
 
 export class ServiceContainer implements IServiceContainer {
     private _aiService?: IAIService;

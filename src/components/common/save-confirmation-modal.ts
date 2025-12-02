@@ -1,9 +1,10 @@
+import { App, Modal, TFile, Setting } from 'obsidian';
+
 /**
  * Save Confirmation Modal
  * Shows a persistent confirmation dialog when a file has been saved
  */
 
-import { App, Modal, TFile, Setting } from 'obsidian';
 
 export class SaveConfirmationModal extends Modal {
     private file: TFile;
@@ -51,8 +52,8 @@ export class SaveConfirmationModal extends Modal {
             }, 100);
             
         } catch (error) {
-            console.error('[SaveConfirmationModal] Error in onOpen:', error);
-            // Fallback content
+            
+// Fallback content
             contentEl.createEl('h2', { text: 'File Saved' });
             contentEl.createEl('p', { text: `File "${this.file.name}" has been saved successfully.` });
             contentEl.createEl('button', { text: 'OK' }).onclick = () => this.close();

@@ -1,11 +1,11 @@
+import { YouTubeTranscriptService } from './transcript-service';
+import { AIService, AIResponse, YouTubePluginSettings } from '../types/types';
+import { VideoOptimizationEngine } from '../video-optimization';
+
 /**
  * Optimized AI service with video analysis strategies
  */
 
-import { AIService, AIResponse, YouTubePluginSettings } from '../types/types';
-import { VideoOptimizationEngine, VideoAnalysisStrategy } from '../video-optimization';
-import { YouTubeTranscriptService } from './transcript-service';
-import { ErrorHandler } from './error-handler';
 
 export interface OptimizedProcessingOptions {
     videoId: string;
@@ -38,9 +38,8 @@ export class OptimizedAIService {
             options.format
         );
 
-        console.log(`Using ${strategy.name} strategy for video analysis`);
-
-        // Process based on strategy
+        
+// Process based on strategy
         switch (strategy.name) {
             case 'Transcript Analysis':
                 return this.processWithTranscript(prompt, options);
@@ -192,8 +191,8 @@ Focus on these key segments to provide a comprehensive analysis of the video's m
             };
 
         } catch (error) {
-            console.warn('Chunked processing failed, falling back to standard processing:', error);
-            return this.baseAIService.process(basePrompt);
+            
+return this.baseAIService.process(basePrompt);
         }
     }
 
@@ -227,8 +226,8 @@ Focus on these key segments to provide a comprehensive analysis of the video's m
                 if (result.status === 'fulfilled') {
                     results.push(result.value);
                 } else {
-                    console.warn(`Chunk ${batch[index].description} failed:`, result.reason);
-                }
+                    
+}
             });
         }
 

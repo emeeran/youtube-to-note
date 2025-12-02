@@ -1,5 +1,5 @@
-import { StyleManager } from './styles';
-import { AnimationManager } from './animations';
+import { StyleManager } from './constants';
+
 
 /**
  * Breakpoint definitions for responsive design

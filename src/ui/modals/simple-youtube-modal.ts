@@ -1,9 +1,10 @@
+import { App, Modal, Notice } from 'obsidian';
+
 /**
  * Simple YouTube URL modal placeholder
  * Basic functionality without enhanced UI
  */
 
-import { App, Modal, Notice } from 'obsidian';
 
 export interface SimpleYouTubeModalOptions {
     onProcess: (url: string) => Promise<void>;

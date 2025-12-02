@@ -1,4 +1,5 @@
-import { StyleManager } from './styles';
+import { StyleManager } from './constants';
+
 
 /**
  * Theme configuration
@@ -732,8 +733,8 @@ export class ThemeOptimizationManager {
                 colorSchemePreference: this.colorSchemePreference
             }));
         } catch (error) {
-            console.warn('Failed to save theme preference:', error);
-        }
+            
+}
     }
 
     /**
@@ -756,8 +757,8 @@ export class ThemeOptimizationManager {
                 }
             }
         } catch (error) {
-            console.warn('Failed to load theme preference:', error);
-        }
+            
+}
     }
 
     /**

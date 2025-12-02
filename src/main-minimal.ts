@@ -1,7 +1,8 @@
-import { Notice, Plugin, TFile } from 'obsidian';
-import { ValidationUtils } from './validation';
 import { directEnhancer } from './direct-enhancer';
-import { SimpleYouTubeModal } from './simple-youtube-modal';
+import { SimpleYouTubeModal } from './components/features/youtube';
+import { ValidationUtils } from './lib/utils-consolidated';
+import { Notice, Plugin } from 'obsidian';
+
 
 const DEFAULT_SETTINGS = {
     geminiApiKey: '',
@@ -25,7 +26,8 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     async onload(): Promise<void> {
-        console.log('🎬 Loading YouTube Clipper Plugin (Minimal Version)...');
+        
+...');
 
         try {
             // Load settings with error handling
@@ -49,10 +51,10 @@ export default class YoutubeClipperPlugin extends Plugin {
             setTimeout(() => {
                 try {
                     directEnhancer.forceEnhancement();
-                    console.log('✅ Enhanced UI applied successfully');
-                } catch (error) {
-                    console.warn('⚠️ Enhanced UI failed:', error);
-                }
+                    
+} catch (error) {
+                    
+}
             }, 1000);
 
             // Add force enhance command
@@ -65,51 +67,51 @@ export default class YoutubeClipperPlugin extends Plugin {
                 }
             });
 
-            console.log('✅ YouTube Clipper Plugin loaded successfully!');
-            new Notice('🎬 YouTube Clipper Plugin loaded!');
+            
+new Notice('🎬 YouTube Clipper Plugin loaded!');
 
         } catch (error) {
-            console.error('❌ Failed to load YouTube Clipper Plugin:', error);
-            new Notice('❌ Failed to load YouTube Clipper Plugin');
+            
+new Notice('❌ Failed to load YouTube Clipper Plugin');
         }
     }
 
     onunload(): void {
-        console.log('🎬 Unloading YouTube Clipper Plugin...');
-        this.isUnloading = true;
+        
+this.isUnloading = true;
 
         try {
             directEnhancer.destroy();
-            console.log('✅ Plugin unloaded successfully');
-        } catch (error) {
-            console.warn('⚠️ Error during plugin unload:', error);
-        }
+            
+} catch (error) {
+            
+}
     }
 
     private async loadBasicSettings(): Promise<void> {
         try {
             const loadedData = await this.loadData();
             this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-            console.log('✅ Settings loaded successfully');
-        } catch (error) {
-            console.warn('⚠️ Failed to load settings, using defaults:', error);
-            this.settings = { ...DEFAULT_SETTINGS };
+            
+} catch (error) {
+            
+this.settings = { ...DEFAULT_SETTINGS };
         }
     }
 
     private async saveBasicSettings(): Promise<void> {
         try {
             await this.saveData(this.settings);
-            console.log('✅ Settings saved successfully');
-        } catch (error) {
-            console.error('❌ Failed to save settings:', error);
-        }
+            
+} catch (error) {
+            
+}
     }
 
     private openYouTubeModal(initialUrl?: string): void {
         if (this.isUnloading) {
-            console.log('Plugin is unloading, ignoring modal request');
-            return;
+            
+return;
         }
 
         try {
@@ -122,8 +124,8 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             modal.open();
         } catch (error) {
-            console.error('❌ Failed to open modal:', error);
-            new Notice('Failed to open YouTube Clipper modal');
+            
+new Notice('Failed to open YouTube Clipper modal');
         }
     }
 
@@ -165,8 +167,8 @@ This video was processed using the YouTube Clipper plugin.
             await this.app.workspace.getLeaf(true).openFile(file);
 
         } catch (error) {
-            console.error('❌ Failed to process video:', error);
-            new Notice('❌ Failed to process video. Please check console for details.');
+            
+new Notice('❌ Failed to process video. Please check console for details.');
         }
     }
 

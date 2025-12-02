@@ -1,5 +1,6 @@
 import { PerformanceMonitor } from './performance-monitor';
 
+
 export interface EventListener {
     element: EventTarget;
     event: string;
@@ -42,8 +43,8 @@ export class ComponentManager {
         options?: boolean | AddEventListenerOptions
     ): void {
         if (this.disposed) {
-            console.warn('ComponentManager: Attempting to add listener to disposed component');
-            return;
+            
+return;
         }
 
         element.addEventListener(event, handler, options);
@@ -87,8 +88,8 @@ export class ComponentManager {
      */
     setTimeout(callback: () => void, delay: number, description?: string): number {
         if (this.disposed) {
-            console.warn('ComponentManager: Attempting to set timeout on disposed component');
-            return -1;
+            
+return -1;
         }
 
         const id = window.setTimeout(() => {
@@ -96,8 +97,8 @@ export class ComponentManager {
             try {
                 callback();
             } catch (error) {
-                console.error('Error in timeout callback:', error);
-            }
+                
+}
         }, delay);
 
         const timerInfo: TimerInfo = {
@@ -116,16 +117,16 @@ export class ComponentManager {
      */
     setInterval(callback: () => void, delay: number, description?: string): number {
         if (this.disposed) {
-            console.warn('ComponentManager: Attempting to set interval on disposed component');
-            return -1;
+            
+return -1;
         }
 
         const id = window.setInterval(() => {
             try {
                 callback();
             } catch (error) {
-                console.error('Error in interval callback:', error);
-            }
+                
+}
         }, delay);
 
         const timerInfo: TimerInfo = {
@@ -162,8 +163,8 @@ export class ComponentManager {
      */
     addCleanupTask(cleanup: () => void, description?: string): string {
         if (this.disposed) {
-            console.warn('ComponentManager: Attempting to add cleanup task to disposed component');
-            return '';
+            
+return '';
         }
 
         const id = Math.random().toString(36).substr(2, 9);
@@ -225,8 +226,8 @@ export class ComponentManager {
             try {
                 listener.element.removeEventListener(listener.event, listener.handler, listener.options);
             } catch (error) {
-                console.error('Error removing event listener:', error);
-            }
+                
+}
         });
         this.eventListeners.clear();
 
@@ -239,8 +240,8 @@ export class ComponentManager {
                     window.clearInterval(timer.id);
                 }
             } catch (error) {
-                console.error('Error clearing timer:', error);
-            }
+                
+}
         });
         this.timers.clear();
 
@@ -249,8 +250,8 @@ export class ComponentManager {
             try {
                 task.cleanup();
             } catch (error) {
-                console.error('Error in cleanup task:', error);
-            }
+                
+}
         });
         this.cleanupTasks.clear();
 
@@ -262,7 +263,8 @@ export class ComponentManager {
             this.performanceMonitor.logMetric('component_cleanup_time', cleanupTime);
         }
 
-        console.debug(`ComponentManager: Cleanup completed in ${cleanupTime.toFixed(2)}ms`);
+        
+}ms`);
     }
 
     /**
@@ -303,16 +305,18 @@ export class ComponentManager {
 
             // Log warnings for potential memory leaks
             if (stats.eventListeners > 50) {
-                console.warn(`ComponentManager: High number of event listeners (${stats.eventListeners})`);
+                
+`);
             }
 
             if (stats.timers > 20) {
-                console.warn(`ComponentManager: High number of timers (${stats.timers})`);
+                
+`);
             }
 
             if (stats.oldestTimer && Date.now() - stats.oldestTimer > 300000) { // 5 minutes
-                console.warn('ComponentManager: Very old timer detected, potential memory leak');
-            }
+                
+}
 
             if (this.performanceMonitor) {
                 this.performanceMonitor.logMetric('memory_stats', stats);
@@ -361,13 +365,8 @@ export class GlobalComponentManager {
         });
 
         if (totalListeners > 200 || totalTimers > 100) {
-            console.warn('Global memory usage is high:', {
-                componentManagers: this.componentManagers.size,
-                totalListeners,
-                totalTimers,
-                totalCleanupTasks
-            });
-        }
+            
+}
     }
 
     cleanupAll(): void {

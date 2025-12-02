@@ -1,11 +1,12 @@
+import { EnhancedVideoData } from './video-data';
+import { OptimizedAIService } from './services/optimized-ai-service';
+import { VideoOptimizationEngine } from './constants';
+import { App, Modal } from 'obsidian';
+
 /**
  * Video preview modal with metadata display and quick analysis info
  */
 
-import { App, Modal, Notice, Setting } from 'obsidian';
-import { EnhancedVideoData } from './video-data';
-import { VideoOptimizationEngine } from './video-optimization';
-import { OptimizedAIService } from './services/optimized-ai-service';
 
 export interface VideoPreviewOptions {
     videoData: EnhancedVideoData;

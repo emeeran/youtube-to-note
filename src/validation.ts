@@ -1,8 +1,9 @@
+import { MESSAGES } from './constants';
+
 /**
  * Input validation utilities
  */
 
-import { MESSAGES } from './messages';
 
 export class ValidationUtils {
     /**
@@ -87,10 +88,6 @@ export class ValidationUtils {
             this.URL_CACHE.clear(); // Simple LRU by clearing when full
         }
         this.URL_CACHE.set(url, result);
-
-        if (!result) {
-            console.warn('Failed to extract video ID from URL:', url);
-        }
 
         return result;
     }

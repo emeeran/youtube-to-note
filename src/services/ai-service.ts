@@ -1,14 +1,14 @@
+import { logger } from './logger';
+import { RetryService, RetryService as Retry } from './retry-service';
+import { AIService, AIProvider, AIResponse, YouTubePluginSettings } from '../types/types';
+import { MESSAGES } from '../messages';
+import { PERFORMANCE_PRESETS } from '../performance';
+import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX } from '../api';
+
 /**
  * AI service that manages multiple providers with parallel processing support
  */
 
-import { AIService as IAIService, AIProvider, AIResponse, YouTubePluginSettings, PerformanceMode } from '../types/types';
-import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX } from '../api';
-import { ErrorHandler } from './error-handler';
-import { MESSAGES } from '../messages';
-import { PERFORMANCE_PRESETS, PerformanceOptimizer } from '../performance';
-import { RetryService, RetryService as Retry } from './retry-service';
-import { logger } from './logger';
 
 export class AIService implements IAIService {
     private providers: AIProvider[] = [];
@@ -294,9 +294,8 @@ export class AIService implements IAIService {
      * Process prompt with parallel provider racing for maximum speed
      */
     private async processParallel(prompt: string, images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
-        console.log('Starting parallel provider racing...');
-
-        const providerPromises = this.providers.map(async (provider) => {
+        
+const providerPromises = this.providers.map(async (provider) => {
             try {
                 let content: string;
                 // Use multimodal processing if images are provided and supported
@@ -320,8 +319,8 @@ export class AIService implements IAIService {
                     throw new Error('Empty response from AI provider');
                 }
             } catch (error) {
-                console.warn(`${provider.name} failed in parallel race:`, error);
-                return {
+                
+return {
                     error: (error as Error).message,
                     provider: provider.name,
                     model: provider.model,
@@ -337,7 +336,8 @@ export class AIService implements IAIService {
         // Find first successful response
         for (const result of results) {
             if (result.status === 'fulfilled' && result.value.success) {
-                console.log(`Parallel winner: ${result.value.provider} (${Date.now() - result.value.responseTime}ms)`);
+                
+- result.value.responseTime}ms)`);
                 return {
                     content: result.value.content,
                     provider: result.value.provider,

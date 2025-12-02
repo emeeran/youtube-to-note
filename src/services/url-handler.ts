@@ -1,11 +1,12 @@
+import { logger } from './logger';
+import { App, TFile } from 'obsidian';
+import { ValidationUtils } from '../validation';
+import { YouTubePluginSettings } from '../types/types';
+
 /**
  * URL handling service for detecting and processing YouTube URLs from various sources
  */
 
-import { App, TFile } from 'obsidian';
-import { logger } from './logger';
-import { ValidationUtils } from '../validation';
-import { YouTubePluginSettings } from '../types/types';
 
 export interface UrlDetectionResult {
     url: string;

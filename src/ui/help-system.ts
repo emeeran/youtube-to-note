@@ -1,7 +1,6 @@
-import { AnimationManager } from './animations';
-import { StyleManager } from './styles';
 import { a11y } from './accessibility';
-import { responsive } from './responsive';
+import { StyleManager } from './constants';
+
 
 /**
  * Help content types
@@ -1259,8 +1258,8 @@ export class HelpSystemManager {
         const element = document.querySelector(step.selector) as HTMLElement;
 
         if (!element) {
-            console.warn(`Tour step element not found: ${step.selector}`);
-            this.showTourStep(stepIndex + 1);
+            
+this.showTourStep(stepIndex + 1);
             return;
         }
 

@@ -1,13 +1,14 @@
+import { DOMUtils } from './dom';
+import { INPUT_STYLES } from './constants';
+import { ModalEvents } from './types/types';
+import { TIMEOUTS } from './constants';
+import { App, Modal } from 'obsidian';
+
 /**
  * Base modal class with shared functionality and consistent styling
  * Designed to prevent conflicts with other plugin modals
  */
 
-import { App, Modal } from 'obsidian';
-import { DOMUtils } from './dom';
-import { MODAL_STYLES, INPUT_STYLES } from './styles';
-import { TIMEOUTS } from './api';
-import { ModalEvents } from './types/types';
 
 // Unique CSS classes to prevent conflicts
 const MODAL_CSS_CLASSES = {
@@ -134,16 +135,16 @@ export abstract class BaseModal extends Modal {
             try {
                 await onEnter();
             } catch (error) {
-                console.error('Enter key handler error:', error);
-            }
+                
+}
         };
 
         const wrappedOnEscape = onEscape ? async () => {
             try {
                 await onEscape();
             } catch (error) {
-                console.error('Escape key handler error:', error);
-            }
+                
+}
         } : undefined;
 
         DOMUtils.setupModalKeyHandlers(this.contentEl, wrappedOnEnter, wrappedOnEscape);
@@ -220,9 +221,8 @@ export abstract class BaseModal extends Modal {
             return;
         }
         
-        console.log('[youtube-clipper] Cleaning up modal');
         
-        // Mark as disposed to prevent double cleanup
+// Mark as disposed to prevent double cleanup
         this.isDisposed = true;
         
         // Clear content
@@ -233,8 +233,8 @@ export abstract class BaseModal extends Modal {
         this.modalEl.removeClass(MODAL_CSS_CLASSES.modal);
         this.modalEl.removeAttribute('data-plugin');
         
-        console.log('[youtube-clipper] Modal cleanup complete');
-    }
+        
+}
 
     /**
      * Abstract method for modal content creation

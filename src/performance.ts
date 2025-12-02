@@ -1,8 +1,9 @@
+import { PerformancePreset, CustomTimeoutSettings } from './types/types';
+
 /**
  * Performance presets and speed/quality configurations
  */
 
-import { PerformancePreset, ModelStrategy, CustomTimeoutSettings } from './types/types';
 
 export const PERFORMANCE_PRESETS: Record<string, PerformancePreset> = {
     fast: {

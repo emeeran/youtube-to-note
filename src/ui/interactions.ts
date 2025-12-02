@@ -1,5 +1,6 @@
 import { AnimationManager } from './animations';
-import { StyleManager } from './styles';
+import { StyleManager } from './constants';
+
 
 /**
  * Interactive feedback and micro-interactions system

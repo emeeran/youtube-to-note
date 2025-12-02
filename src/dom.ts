@@ -1,9 +1,10 @@
+import { DOMUtilsInterface, StyleObject } from './types/types';
+import { MODAL_STYLES, INPUT_STYLES } from './constants';
+
 /**
  * DOM manipulation utilities to eliminate code duplication
  */
 
-import { MODAL_STYLES, INPUT_STYLES } from './styles';
-import { DOMUtilsInterface, StyleObject } from './types/types';
 
 export class DOMUtils implements DOMUtilsInterface {
     /**

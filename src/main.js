@@ -454,15 +454,15 @@ var init_base_modal = __esm({
           try {
             await onEnter();
           } catch (error) {
-            console.error("Enter key handler error:", error);
-          }
+            
+}
         };
         const wrappedOnEscape = onEscape ? async () => {
           try {
             await onEscape();
           } catch (error) {
-            console.error("Escape key handler error:", error);
-          }
+            
+}
         } : void 0;
         DOMUtils.setupModalKeyHandlers(this.contentEl, wrappedOnEnter, wrappedOnEscape);
       }
@@ -522,14 +522,14 @@ var init_base_modal = __esm({
         if (this.isDisposed) {
           return;
         }
-        console.log("[youtube-clipper] Cleaning up modal");
-        this.isDisposed = true;
+        
+this.isDisposed = true;
         const { contentEl } = this;
         contentEl.empty();
         this.modalEl.removeClass(MODAL_CSS_CLASSES.modal);
         this.modalEl.removeAttribute("data-plugin");
-        console.log("[youtube-clipper] Modal cleanup complete");
-      }
+        
+}
     };
   }
 });
@@ -618,14 +618,14 @@ var ConflictPrevention = class {
     const logMessage = `[${this.PLUGIN_ID}] ${timestamp} - ${message}`;
     switch (level) {
       case "warn":;
-        console.warn(logMessage);
-        break;
+        
+break;
       case "error":;
-        console.error(logMessage);
-        break;
+        
+break;
       default:;
-        console.log(logMessage);
-    }
+        
+}
   }
   /**
    * Check if plugin is safe to operate
@@ -749,8 +749,8 @@ var ValidationUtils = class {
     }
     this.URL_CACHE.set(url, result);
     if (!result) {
-      console.warn("Failed to extract video ID from URL:", url);
-    }
+      
+}
     return result;
   }
   /**
@@ -867,8 +867,8 @@ var ErrorHandler = class {
    */
   static handle(error, context, showNotice = true) {
     const errorMessage = `${context}: ${error.message}`;
-    console.error(errorMessage, error);
-    if (showNotice) {
+    
+if (showNotice) {
       new import_obsidian.Notice(`Error: ${error.message}`);
     }
   }
@@ -967,8 +967,8 @@ var SaveConfirmationModal = class extends import_obsidian2.Modal {
         }
       }, 100);
     } catch (error) {
-      console.error("[SaveConfirmationModal] Error in onOpen:", error);
-      contentEl.createEl("h2", { text: "File Saved" });
+      
+contentEl.createEl("h2", { text: "File Saved" });
       contentEl.createEl("p", { text: `File "${this.file.name}" has been saved successfully.` });
       contentEl.createEl("button", { text: "OK" }).onclick = () => this.close();
     }
@@ -1111,8 +1111,8 @@ var YouTubeUrlModal = class extends BaseModal {
     this.setupEventHandlers();
     if (this.options.initialUrl) {
       if (this.url.trim() === this.options.initialUrl.trim()) {
-        console.debug("YouTubeUrlModal: Same URL already set, preventing cycle");
-      } else {
+        
+} else {
         this.setUrl(this.options.initialUrl);
       }
       this.updateProcessButtonState();
@@ -1701,8 +1701,8 @@ Would you like to switch to a multimodal-capable model (${recommended}) for bett
             }
           }
         } catch (err) {
-          console.warn("[YouTubeUrlModal] model recommendation failed", err);
-        }
+          
+}
       }
       this.showProcessingState();
       this.setStepState(0, "active");
@@ -1845,8 +1845,8 @@ Would you like to switch to a multimodal-capable model (${recommended}) for bett
    */
   setUrl(url) {
     if (this.url.trim() === url.trim()) {
-      console.debug("YouTubeUrlModal: setUrl called with same URL, preventing cycle");
-      return;
+      
+return;
     }
     this.url = url;
     if (this.urlInput) {
@@ -2933,8 +2933,8 @@ var AIService = class {
     let lastError = null;
     for (const provider of this.providers) {
       try {
-        console.log(`Attempting to process with ${provider.name}...`);
-        const content = await provider.process(prompt);
+        
+const content = await provider.process(prompt);
         if (content && content.trim().length > 0) {
           return {
             content,
@@ -2946,8 +2946,8 @@ var AIService = class {
         }
       } catch (error) {
         lastError = error;
-        console.warn(`${provider.name} failed:`, error);
-        if (provider === this.providers[this.providers.length - 1]) {
+        
+if (provider === this.providers[this.providers.length - 1]) {
           break;
         }
       }
@@ -2959,8 +2959,8 @@ var AIService = class {
    * Process prompt with parallel provider racing for maximum speed
    */
   async processParallel(prompt) {
-    console.log("Starting parallel provider racing...");
-    const providerPromises = this.providers.map(async (provider) => {
+    
+const providerPromises = this.providers.map(async (provider) => {
       try {
         const content = await provider.processWithTimeout(prompt);
         if (content && content.trim().length > 0) {
@@ -2975,8 +2975,8 @@ var AIService = class {
           throw new Error("Empty response from AI provider");
         }
       } catch (error) {
-        console.warn(`${provider.name} failed in parallel race:`, error);
-        return {
+        
+return {
           error: error.message,
           provider: provider.name,
           model: provider.model,
@@ -2988,7 +2988,8 @@ var AIService = class {
     const results = await Promise.allSettled(providerPromises);
     for (const result of results) {
       if (result.status === "fulfilled" && result.value.success) {
-        console.log(`Parallel winner: ${result.value.provider} (${Date.now() - result.value.responseTime}ms)`);
+        
+- result.value.responseTime}ms)`);
         return {
           content: result.value.content,
           provider: result.value.provider,
@@ -3297,8 +3298,8 @@ var YouTubeTranscriptService = class {
       }
       return null;
     } catch (error) {
-      console.warn("Failed to fetch transcript:", error);
-      return null;
+      
+return null;
     }
   }
   /**
@@ -3310,22 +3311,22 @@ var YouTubeTranscriptService = class {
       if (transcript)
         return transcript;
     } catch (error) {
-      console.debug("YouTube API method failed:", error);
-    }
+      
+}
     try {
       const transcript = await this.scrapeTranscriptFromPage(videoId);
       if (transcript)
         return transcript;
     } catch (error) {
-      console.debug("Page scraping method failed:", error);
-    }
+      
+}
     try {
       const transcript = await this.fetchFromThirdParty(videoId);
       if (transcript)
         return transcript;
     } catch (error) {
-      console.debug("Third-party method failed:", error);
-    }
+      
+}
     return null;
   }
   /**
@@ -3415,12 +3416,12 @@ var YouTubeTranscriptService = class {
           throw new Error("Failed to fetch caption track");
         return resp.text();
       }).then((xmlText) => this.parseXMLTranscript(xmlText, "").segments).catch((err) => {
-        console.debug("Failed to fetch caption track:", err);
-        return null;
+        
+return null;
       });
     } catch (error) {
-      console.debug("Failed to parse transcript from HTML:", error);
-      return null;
+      
+return null;
     }
   }
   /**
@@ -3585,8 +3586,8 @@ var YouTubeVideoService = class {
         const pageData = await this.scrapeAdditionalMetadata(videoId);
         enhancedData = { ...enhancedData, ...pageData };
       } catch (error) {
-        console.debug("Could not scrape additional metadata:", error);
-      }
+        
+}
       const metadata = {
         title: enhancedData.title,
         description: enhancedData.description,
@@ -3648,8 +3649,8 @@ var YouTubeVideoService = class {
       (_b = this.cache) == null ? void 0 : _b.set(cacheKey, description, this.descriptionTTL);
       return description;
     } catch (error) {
-      console.warn("Failed to scrape video page:", error);
-      const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
+      
+const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
       (_c = this.cache) == null ? void 0 : _c.set(cacheKey, fallback, this.descriptionTTL);
       return fallback;
     }
@@ -4458,54 +4459,53 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
       };
       const handleUrlSafely = (url, source, filePath, file, content) => {
         var _a2;
-        console.log(`YouTubeClipper: ${source} - handleUrlSafely called for URL:`, url, "file:", filePath);
-        if (file && content && !isTempFile(file, content)) {
-          console.warn(`YouTubeClipper: ${source} - REJECTING URL in non-temp file: ${filePath}`);
-          const fileAge = Date.now() - file.stat.ctime;
+        
+if (file && content && !isTempFile(file, content)) {
+          
+const fileAge = Date.now() - file.stat.ctime;
           const isInOutputPath = filePath == null ? void 0 : filePath.includes(this.settings.outputPath);
           const hasMarker = content.includes(NOTE_MARKER);
           const hasClipPrefix = (_a2 = file.name) == null ? void 0 : _a2.startsWith("YouTube Clip -");
-          console.warn(`YouTubeClipper: ${source} - Rejection details: age=${fileAge}ms, inOutputPath=${isInOutputPath}, hasMarker=${hasMarker}, hasClipPrefix=${hasClipPrefix}`);
-          return;
+          
+return;
         }
         if (this.handledTempFiles.has(url)) {
-          console.log(`YouTubeClipper: ${source} - URL already handled: ${url}, skipping`);
-          return;
+          
+return;
         }
         if (pendingUrls.has(url)) {
-          console.log(`YouTubeClipper: ${source} - cancelling pending handler for URL:`, url);
-          clearTimeout(pendingUrls.get(url));
+          
+clearTimeout(pendingUrls.get(url));
         }
         this.handledTempFiles.add(url);
         if (filePath) {
           this.handledTempFiles.add(filePath);
         }
-        console.log(`YouTubeClipper: ${source} - marked URL as handled:`, url);
-        const timeout = setTimeout(() => {
-          console.log(`YouTubeClipper: ${source} - DEBOUNCED: opening modal for URL: ${url}`);
-          console.log(`YouTubeClipper: ${source} - pendingUrls size before:`, pendingUrls.size);
-          console.log(`YouTubeClipper: ${source} - handledTempFiles size:`, this.handledTempFiles.size);
-          void this.safeShowUrlModal(url);
+        
+const timeout = setTimeout(() => {
+          
+
+void this.safeShowUrlModal(url);
           pendingUrls.delete(url);
-          console.log(`YouTubeClipper: ${source} - pendingUrls size after:`, pendingUrls.size);
-          if (this.handledTempFiles.size > 100) {
+          
+if (this.handledTempFiles.size > 100) {
             const entries = Array.from(this.handledTempFiles);
             this.handledTempFiles.clear();
             entries.slice(-50).forEach((entry) => this.handledTempFiles.add(entry));
-            console.log(`YouTubeClipper: ${source} - cleaned up handledTempFiles, new size:`, this.handledTempFiles.size);
-          }
+            
+}
         }, URL_HANDLER_DELAY);
         pendingUrls.set(url, timeout);
-        console.log(`YouTubeClipper: ${source} - set timeout for URL:`, url, "delay:", URL_HANDLER_DELAY);
-      };
+        
+};
       this.registerEvent(this.app.vault.on("create", async (file) => {
         try {
           if (!(file instanceof import_obsidian7.TFile))
             return;
           const content = await this.app.vault.read(file);
           if (!isTempFile(file, content)) {
-            console.debug("YouTubeClipper: create handler - ignoring existing file:", file.path);
-            return;
+            
+return;
           }
           let url = null;
           if (content && content.includes(NOTE_MARKER)) {
@@ -4523,11 +4523,11 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
             }
           }
           if (!url) {
-            console.debug("YouTubeClipper: create handler - no url extracted for temp file:", file.path);
-            return;
+            
+return;
           }
-          console.log("YouTubeClipper: CREATE EVENT - detected temp note", { path: file.path, url });
-          handleUrlSafely(url, "create-handler", file.path, file, content);
+          
+handleUrlSafely(url, "create-handler", file.path, file, content);
         } catch (e) {
         }
       }));
@@ -4540,8 +4540,8 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
             return;
           const content = await this.app.vault.read(file);
           if (!isTempFile(file, content)) {
-            console.debug("YouTubeClipper: active-leaf-change - ignoring existing file:", file.path);
-            return;
+            
+return;
           }
           let url = null;
           if (content && content.includes(NOTE_MARKER)) {
@@ -4559,11 +4559,11 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
             }
           }
           if (!url) {
-            console.debug("YouTubeClipper: active-leaf-change - no url for temp file:", file.path);
-            return;
+            
+return;
           }
-          console.log("YouTubeClipper: ACTIVE-LEAF-CHANGE EVENT - detected temp note", { path: file.path, url });
-          handleUrlSafely(url, "active-leaf-handler", file.path, file, content);
+          
+handleUrlSafely(url, "active-leaf-handler", file.path, file, content);
         } catch (e) {
         }
       }));
@@ -4577,11 +4577,11 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
                 void this.safeShowUrlModal(url);
               }, 200);
             } else {
-              console.debug("YouTubeClipper: protocol handler received no valid url", params);
-            }
+              
+}
           } catch (e) {
-            console.warn("YouTubeClipper: protocol handler error", e);
-          }
+            
+}
         });
       } catch (e) {
       }
@@ -4613,8 +4613,8 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
     this.ribbonIcon = this.addRibbonIcon("film", "Process YouTube Video", () => {
       void this.safeShowUrlModal();
     });
-    console.log("YouTubeClipper: Ribbon icon set successfully");
-    this.addCommand({
+    
+this.addCommand({
       id: `${PLUGIN_PREFIX}-process-youtube-video`,
       name: "Process YouTube Video",
       callback: () => {
@@ -4662,28 +4662,28 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
   }
   async safeShowUrlModal(initialUrl) {
     const callId = Math.random().toString(36).substr(2, 9);
-    console.log(`YouTubeClipper [${callId}]: safeShowUrlModal called with URL:`, initialUrl);
-    console.log(`YouTubeClipper [${callId}]: Current modal state - isModalOpen:`, this.isModalOpen, "pendingModalUrl:", this.pendingModalUrl);
-    await this.safeOperation(async () => {
+    
+
+await this.safeOperation(async () => {
       if (this.isModalOpen) {
-        console.warn(`YouTubeClipper [${callId}]: MODAL ALREADY OPEN - IGNORING request for:`, initialUrl);
-        console.warn(`YouTubeClipper [${callId}]: Current pending URL:`, this.pendingModalUrl);
-        if (initialUrl && initialUrl !== this.pendingModalUrl) {
-          console.warn(`YouTubeClipper [${callId}]: Updating pending modal URL from:`, this.pendingModalUrl, "to:", initialUrl);
-          this.pendingModalUrl = initialUrl;
+        
+
+if (initialUrl && initialUrl !== this.pendingModalUrl) {
+          
+this.pendingModalUrl = initialUrl;
         } else {
-          console.warn(`YouTubeClipper [${callId}]: Same URL as pending, completely ignoring`);
-        }
+          
+}
         return;
       }
-      console.log(`YouTubeClipper [${callId}]: Setting isModalOpen = true for URL:`, initialUrl);
-      this.isModalOpen = true;
+      
+this.isModalOpen = true;
       this.pendingModalUrl = initialUrl;
-      console.log(`YouTubeClipper [${callId}]: About to open YouTubeUrlModal for URL:`, initialUrl);
-      this.openYouTubeUrlModal(initialUrl);
+      
+this.openYouTubeUrlModal(initialUrl);
       setTimeout(() => {
-        console.log(`YouTubeClipper [${callId}]: Modal state after 100ms - isModalOpen:`, this.isModalOpen);
-      }, 100);
+        
+}, 100);
     }, "Show URL Modal");
   }
   async safeOperation(operation, operationName) {
@@ -4737,25 +4737,25 @@ var YoutubeClipperPlugin = class extends import_obsidian7.Plugin {
       });
       modal.onClose = () => {
         try {
-          console.log(`YouTubeClipper: Modal onClose triggered for URL:`, initialUrl);
-          console.log(`YouTubeClipper: Modal state before close - isModalOpen:`, this.isModalOpen, "pendingModalUrl:", this.pendingModalUrl);
-          this.isModalOpen = false;
+          
+
+this.isModalOpen = false;
           this.pendingModalUrl = void 0;
-          console.log(`YouTubeClipper: Modal state after close - isModalOpen:`, this.isModalOpen, "pendingModalUrl:", this.pendingModalUrl);
-        } catch (error) {
-          console.warn("YouTubeClipper: Error resetting modal state:", error);
-          this.isModalOpen = false;
+          
+} catch (error) {
+          
+this.isModalOpen = false;
           this.pendingModalUrl = void 0;
-          console.log(`YouTubeClipper: Force reset modal state after error - isModalOpen:`, this.isModalOpen);
-        }
+          
+}
       };
       setTimeout(() => {
         if (this.isModalOpen && this.pendingModalUrl === initialUrl) {
-          console.warn("YouTubeClipper: Fallback modal state reset triggered for URL:", initialUrl);
-          this.isModalOpen = false;
+          
+this.isModalOpen = false;
           this.pendingModalUrl = void 0;
-          console.log("YouTubeClipper: Modal state after fallback reset - isModalOpen:", this.isModalOpen);
-        }
+          
+}
       }, 1e4);
       modal.open();
     }, "YouTube URL Modal").catch((error) => {

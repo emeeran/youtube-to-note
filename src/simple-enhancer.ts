@@ -1,3 +1,4 @@
+
 /**
  * Simple UI Enhancer - Minimal, working implementation
  */
@@ -113,8 +114,8 @@ export class SimpleEnhancer {
         `;
 
         document.head.appendChild(style);
-        console.log('[Simple Enhanced UI] Styles applied');
-    }
+        
+}
 
     private enhanceElements(): void {
         // Add enhanced class to modals
@@ -134,8 +135,8 @@ export class SimpleEnhancer {
     }
 
     forceEnhancement(): void {
-        console.log('[Simple Enhanced UI] Force enhancement applied');
-        this.enhanceElements();
+        
+this.enhanceElements();
     }
 
     destroy(): void {

@@ -1,10 +1,11 @@
+import { EncryptionService } from './encryption-service';
+import { logger } from './logger';
+import { YouTubePluginSettings } from '../types/types';
+
 /**
  * Secure settings service that handles encryption of sensitive data
  */
 
-import { YouTubePluginSettings } from '../types/types';
-import { EncryptionService } from './encryption-service';
-import { logger } from './logger';
 
 export interface SecureSettingsConfig {
     encryptApiKeys: boolean;

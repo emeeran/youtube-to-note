@@ -1,3 +1,4 @@
+
 /**
  * Modern Design System for YouTube Clipper Plugin
  * Comprehensive CSS variables, animations, and utility classes

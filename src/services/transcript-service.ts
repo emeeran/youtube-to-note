@@ -1,10 +1,10 @@
+import { API_ENDPOINTS } from '../api';
+import { CacheService } from '../types/types';
+
 /**
  * YouTube transcript extraction and processing service
  */
 
-import { CacheService } from '../types/types';
-import { API_ENDPOINTS } from '../api';
-import { ErrorHandler } from './error-handler';
 
 export interface TranscriptSegment {
     text: string;
@@ -49,8 +49,8 @@ export class YouTubeTranscriptService {
 
             return null;
         } catch (error) {
-            console.warn('Failed to fetch transcript:', error);
-            return null;
+            
+return null;
         }
     }
 
@@ -63,24 +63,24 @@ export class YouTubeTranscriptService {
             const transcript = await this.fetchFromYouTubeAPI(videoId);
             if (transcript) return transcript;
         } catch (error) {
-            console.debug('YouTube API method failed:', error);
-        }
+            
+}
 
         // Method 2: Try video page scraping
         try {
             const transcript = await this.scrapeTranscriptFromPage(videoId);
             if (transcript) return transcript;
         } catch (error) {
-            console.debug('Page scraping method failed:', error);
-        }
+            
+}
 
         // Method 3: Try third-party transcript service
         try {
             const transcript = await this.fetchFromThirdParty(videoId);
             if (transcript) return transcript;
         } catch (error) {
-            console.debug('Third-party method failed:', error);
-        }
+            
+}
 
         return null;
     }
@@ -203,12 +203,12 @@ export class YouTubeTranscriptService {
                 })
                 .then((xmlText) => this.parseXMLTranscript(xmlText, '').segments)
                 .catch((err) => {
-                    console.debug('Failed to fetch caption track:', err);
-                    return null;
+                    
+return null;
                 });
         } catch (error) {
-            console.debug('Failed to parse transcript from HTML:', error);
-            return null;
+            
+return null;
         }
     }
 

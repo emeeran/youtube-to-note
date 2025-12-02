@@ -1,10 +1,11 @@
+import { ErrorHandlerInterface } from '../types/types';
+import { MESSAGES } from '../messages';
+import { Notice } from 'obsidian';
+
 /**
  * Centralized error handling to eliminate code duplication
  */
 
-import { Notice } from 'obsidian';
-import { ErrorHandlerInterface } from '../types/types';
-import { MESSAGES } from '../messages';
 
 export class ErrorHandler implements ErrorHandlerInterface {
     /**
@@ -12,9 +13,8 @@ export class ErrorHandler implements ErrorHandlerInterface {
      */
     static handle(error: Error, context: string, showNotice = true): void {
         const errorMessage = `${context}: ${error.message}`;
-        console.error(errorMessage, error);
         
-        if (showNotice) {
+if (showNotice) {
             new Notice(`Error: ${error.message}`);
         }
     }
@@ -127,9 +127,8 @@ export class ErrorHandler implements ErrorHandlerInterface {
             userMessage = MESSAGES.ERRORS.QUOTA_EXCEEDED(provider);
         }
 
-        console.error(`Quota Error [${provider}]: ${error.message}`, error);
-
-        if (showRetryAction) {
+        
+if (showRetryAction) {
             const noticeWithAction = new Notice(userMessage, 0);
 
             // Add retry button to notice

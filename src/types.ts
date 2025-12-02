@@ -1,8 +1,9 @@
+import { TFile } from 'obsidian';
+
 /**
  * Core interfaces and types for the YoutubeClipper plugin
  */
 
-import { App, TFile } from 'obsidian';
 
 export interface YouTubePluginSettings {
     geminiApiKey: string;

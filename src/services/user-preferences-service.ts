@@ -1,8 +1,9 @@
+import { OutputFormat, PerformanceMode } from '../types/types';
+
 /**
  * User preferences service for storing and managing user-specific settings
  */
 
-import { OutputFormat, PerformanceMode } from '../types/types';
 
 export interface UserPreferences {
     // Last used settings
@@ -67,8 +68,8 @@ export class UserPreferencesService {
                 return { ...this.DEFAULT_PREFERENCES, ...parsed };
             }
         } catch (error) {
-            console.warn('Failed to load user preferences:', error);
-        }
+            
+}
         return { ...this.DEFAULT_PREFERENCES };
     }
 
@@ -79,8 +80,8 @@ export class UserPreferencesService {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(preferences));
         } catch (error) {
-            console.warn('Failed to save user preferences:', error);
-        }
+            
+}
     }
 
     /**
@@ -308,8 +309,8 @@ export class UserPreferencesService {
             this.savePreferences({ ...this.DEFAULT_PREFERENCES, ...preferences });
             return true;
         } catch (error) {
-            console.error('Failed to import preferences:', error);
-            return false;
+            
+return false;
         }
     }
 }

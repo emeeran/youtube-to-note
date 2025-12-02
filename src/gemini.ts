@@ -1,10 +1,11 @@
+import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from './constants';
+import { BaseAIProvider } from './base';
+import { MESSAGES } from './constants';
+
 /**
  * Google Gemini AI provider implementation
  */
 
-import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from './api';
-import { MESSAGES } from './messages';
-import { BaseAIProvider } from './base';
 
 export class GeminiProvider extends BaseAIProvider {
     readonly name = 'Google Gemini';

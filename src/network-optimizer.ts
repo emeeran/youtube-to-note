@@ -1,6 +1,7 @@
-import { PerformanceMonitor } from './performance-monitor';
-import { CircuitBreaker, CircuitBreakerRegistry } from './circuit-breaker';
 import { AdvancedCache } from './advanced-cache';
+import { CircuitBreakerRegistry } from './circuit-breaker';
+import { PerformanceMonitor } from './performance-monitor';
+
 
 export interface NetworkRequestConfig {
     timeout?: number;
@@ -369,8 +370,8 @@ export class NetworkOptimizer {
         }
 
         if (errors.length > 0 && !failFast) {
-            console.warn(`${errors.length} requests failed in parallel execution`, errors);
-        }
+            
+}
 
         return results;
     }
@@ -535,8 +536,8 @@ export class NetworkOptimizer {
                         cacheTtl: (config?.cacheTtl || 300000) * 2 // Longer TTL for warmup
                     });
                 } catch (error) {
-                    console.warn(`Cache warmup failed for ${url}:`, error);
-                }
+                    
+}
             }
         });
 

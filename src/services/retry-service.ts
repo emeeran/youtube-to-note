@@ -1,8 +1,9 @@
+import { logger } from './logger';
+
 /**
  * Retry service for handling transient failures with exponential backoff
  */
 
-import { logger } from './logger';
 
 export interface RetryConfig {
     maxAttempts: number;
