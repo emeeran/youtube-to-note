@@ -5,6 +5,8 @@ import { MESSAGES } from '../utils/messages';
 import { ValidationUtils } from '../utils/validation';
 import { VideoAnalysisStrategy } from '../video-optimization';
 import { VideoDataService, VideoData, CacheService } from '../types/types';
+import { OptimizedHttpClient } from '../utils/http-client';
+import { performanceMonitor } from '../utils/performance-monitor';
 
 /**
  * YouTube video data extraction service
@@ -24,9 +26,18 @@ export class YouTubeVideoService implements VideoDataService {
     private readonly metadataTTL = 1000 * 60 * 30; // 30 minutes
     private readonly descriptionTTL = 1000 * 60 * 30; // 30 minutes
     private transcriptService: YouTubeTranscriptService;
+    private httpClient: OptimizedHttpClient;
 
     constructor(private cache?: CacheService) {
         this.transcriptService = new YouTubeTranscriptService(cache);
+        this.httpClient = new OptimizedHttpClient({
+            timeout: 15000, // 15 second timeout for video metadata
+            retries: 3,
+            retryDelay: 1000,
+            maxConcurrent: 5,
+            keepAlive: true,
+            enableMetrics: true
+        });
     }
     /**
      * Extract video ID from YouTube URL
@@ -43,42 +54,47 @@ export class YouTubeVideoService implements VideoDataService {
             throw new Error('Video ID is required');
         }
 
-        const cacheKey = this.getCacheKey('video-data', videoId);
-        const cached = this.cache?.get<VideoData>(cacheKey);
-        if (cached) {
-            return cached;
-        }
-
-        try {
-            // Get basic metadata first
-            const metadata = await this.getVideoMetadata(videoId);
-
-            // Enhanced video data with optimization info
-            const result: EnhancedVideoData = {
-                title: metadata.title || 'Unknown Title',
-                description: metadata.description || 'No description available',
-                duration: metadata.duration,
-                thumbnail: metadata.thumbnail,
-                channelName: metadata.channelName
-            };
-
-            // Check for transcript availability in background
-            if (result.duration && result.duration < 1800) { // Only check for videos < 30 mins
-                this.checkTranscriptAvailability(videoId).then(hasTranscript => {
-                    result.hasTranscript = hasTranscript;
-                    // Cache the enhanced data
-                    this.cache?.set(cacheKey, result, this.metadataTTL);
-                });
+        return await performanceMonitor.measureOperation(`get-video-data-${videoId}`, async () => {
+            const cacheKey = this.getCacheKey('video-data', videoId);
+            const cached = this.cache?.get<VideoData>(cacheKey);
+            if (cached) {
+                return cached;
             }
 
-            this.cache?.set(cacheKey, result, this.metadataTTL);
-            return result;
-        } catch (error) {
-            throw ErrorHandler.createUserFriendlyError(
-                error as Error, 
-                'fetch video data'
-            );
-        }
+            try {
+                // Get basic metadata first
+                const metadata = await this.getVideoMetadata(videoId);
+
+                // Enhanced video data with optimization info
+                const result: EnhancedVideoData = {
+                    title: metadata.title || 'Unknown Title',
+                    description: metadata.description || 'No description available',
+                    duration: metadata.duration,
+                    thumbnail: metadata.thumbnail,
+                    channelName: metadata.channelName
+                };
+
+                // Check for transcript availability in background
+                if (result.duration && result.duration < 1800) { // Only check for videos < 30 mins
+                    this.checkTranscriptAvailability(videoId).then(hasTranscript => {
+                        result.hasTranscript = hasTranscript;
+                        // Cache the enhanced data
+                        this.cache?.set(cacheKey, result, this.metadataTTL);
+                    });
+                }
+
+                this.cache?.set(cacheKey, result, this.metadataTTL);
+                return result;
+            } catch (error) {
+                throw ErrorHandler.createUserFriendlyError(
+                    error as Error,
+                    'fetch video data'
+                );
+            }
+        }, {
+            videoId,
+            operation: 'getVideoData'
+        });
     }
 
     /**
@@ -91,80 +107,77 @@ export class YouTubeVideoService implements VideoDataService {
         thumbnail?: string;
         channelName?: string;
     }> {
-        const cacheKey = this.getCacheKey('metadata', videoId);
-        const cached = this.cache?.get<{ title: string }>(cacheKey);
-        if (cached) {
-            return cached;
-        }
-
-        const oembedUrl = `${API_ENDPOINTS.YOUTUBE_OEMBED}?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-        
-        try {
-            // Create timeout controller for the request
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-            
-            const response = await fetch(oembedUrl, {
-                headers: {
-                    'User-Agent': 'Obsidian YoutubeClipper Plugin'
-                },
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId); // Clear timeout if request completes
-            
-            if (!response.ok) {
-                if (response.status === 400) {
-                    throw new Error(`Invalid YouTube video ID: ${videoId}. Please check the URL and try again.`);
-                } else if (response.status === 404) {
-                    throw new Error(`YouTube video not found: ${videoId}. The video may be private, deleted, or the ID is incorrect.`);
-                } else if (response.status === 403) {
-                    throw new Error(`Access denied to YouTube video: ${videoId}. The video may be private or restricted.`);
-                } else {
-                    throw new Error(MESSAGES.ERRORS.FETCH_VIDEO_DATA(response.status));
-                }
+        return await performanceMonitor.measureOperation(`get-metadata-${videoId}`, async () => {
+            const cacheKey = this.getCacheKey('metadata', videoId);
+            const cached = this.cache?.get<{ title: string }>(cacheKey);
+            if (cached) {
+                return cached;
             }
 
-            const data = await response.json();
+            const oembedUrl = `${API_ENDPOINTS.YOUTUBE_OEMBED}?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
 
-            // Get additional metadata by scraping video page
-            let enhancedData: any = {
-                title: data.title || 'Unknown Title',
-                thumbnail: data.thumbnail_url,
-                author_name: data.author_name
-            };
-
-            // Try to get duration and description from page scraping
             try {
-                const pageData = await this.scrapeAdditionalMetadata(videoId);
-                enhancedData = { ...enhancedData, ...pageData };
+                const response = await this.httpClient.get(oembedUrl, {
+                    headers: {
+                        'User-Agent': 'Obsidian YoutubeClipper Plugin'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 400) {
+                        throw new Error(`Invalid YouTube video ID: ${videoId}. Please check the URL and try again.`);
+                    } else if (response.status === 404) {
+                        throw new Error(`YouTube video not found: ${videoId}. The video may be private, deleted, or the ID is incorrect.`);
+                    } else if (response.status === 403) {
+                        throw new Error(`Access denied to YouTube video: ${videoId}. The video may be private or restricted.`);
+                    } else {
+                        throw new Error(MESSAGES.ERRORS.FETCH_VIDEO_DATA(response.status));
+                    }
+                }
+
+                const data = await response.json();
+
+                // Get additional metadata by scraping video page
+                let enhancedData: any = {
+                    title: data.title || 'Unknown Title',
+                    thumbnail: data.thumbnail_url,
+                    author_name: data.author_name
+                };
+
+                // Try to get duration and description from page scraping
+                try {
+                    const pageData = await this.scrapeAdditionalMetadata(videoId);
+                    enhancedData = { ...enhancedData, ...pageData };
+                } catch (error) {
+                    // Ignore scraping errors, proceed with oEmbed data
+                }
+
+                const metadata = {
+                    title: enhancedData.title,
+                    description: enhancedData.description,
+                    duration: enhancedData.duration,
+                    thumbnail: enhancedData.thumbnail,
+                    channelName: enhancedData.author_name
+                };
+
+                this.cache?.set(cacheKey, metadata, this.metadataTTL);
+                return metadata;
             } catch (error) {
-                // Ignore scraping errors, proceed with oEmbed data
-                
-}
-
-            const metadata = {
-                title: enhancedData.title,
-                description: enhancedData.description,
-                duration: enhancedData.duration,
-                thumbnail: enhancedData.thumbnail,
-                channelName: enhancedData.author_name
-            };
-
-            this.cache?.set(cacheKey, metadata, this.metadataTTL);
-            return metadata;
-        } catch (error) {
-            // Handle different types of errors
-            if (error instanceof DOMException && error.name === 'AbortError') {
-                throw new Error('Request timed out. Please check your internet connection and try again.');
-            } else if (error instanceof TypeError) {
-                // Network error
-                throw new Error(MESSAGES.ERRORS.NETWORK_ERROR);
-            } else if (error instanceof Error && error.message.includes('JSON')) {
-                throw new Error('Failed to parse YouTube response. The service may be temporarily unavailable.');
+                // Handle different types of errors
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw new Error('Request timed out. Please check your internet connection and try again.');
+                } else if (error instanceof TypeError) {
+                    // Network error
+                    throw new Error(MESSAGES.ERRORS.NETWORK_ERROR);
+                } else if (error instanceof Error && error.message.includes('JSON')) {
+                    throw new Error('Failed to parse YouTube response. The service may be temporarily unavailable.');
+                }
+                throw error; // Re-throw other errors
             }
-            throw error; // Re-throw other errors
-        }
+        }, {
+            videoId,
+            operation: 'getMetadata'
+        });
     }
 
     /**
@@ -233,9 +246,9 @@ const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
     private async fetchVideoPageHTML(videoId: string): Promise<string> {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=${encodeURIComponent(videoUrl)}`;
-        
-        const response = await fetch(proxyUrl);
-        
+
+        const response = await this.httpClient.get(proxyUrl);
+
         if (!response.ok) {
             throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
         }
@@ -283,5 +296,27 @@ const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
 
     private getCacheKey(namespace: string, videoId: string): string {
         return `youtube-video-service:${namespace}:${videoId}`;
+    }
+
+    /**
+     * Get performance metrics for the video service
+     */
+    getPerformanceMetrics(): {
+        httpMetrics: any;
+        videoDataMetrics: any;
+        metadataMetrics: any;
+    } {
+        return {
+            httpMetrics: this.httpClient.getMetrics(),
+            videoDataMetrics: performanceMonitor.getMetricsSummary('get-video-data'),
+            metadataMetrics: performanceMonitor.getMetricsSummary('get-metadata')
+        };
+    }
+
+    /**
+     * Cleanup method to be called when service is destroyed
+     */
+    cleanup(): void {
+        this.httpClient?.cleanup();
     }
 }

@@ -4,6 +4,8 @@ import { AIService, AIProvider, AIResponse, YouTubePluginSettings } from '../typ
 import { MESSAGES } from '../messages';
 import { PERFORMANCE_PRESETS } from '../performance';
 import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX } from '../api';
+import { OptimizedHttpClient } from '../utils/http-client';
+import { performanceMonitor } from '../utils/performance-monitor';
 
 /**
  * AI service that manages multiple providers with parallel processing support
@@ -13,6 +15,7 @@ import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX 
 export class AIService implements IAIService {
     private providers: AIProvider[] = [];
     private settings: YouTubePluginSettings;
+    private httpClient: OptimizedHttpClient;
 
     constructor(providers: AIProvider[], settings: YouTubePluginSettings) {
         if (!providers || providers.length === 0) {
@@ -20,6 +23,18 @@ export class AIService implements IAIService {
         }
         this.providers = providers;
         this.settings = settings;
+
+        // Initialize optimized HTTP client with performance settings
+        const preset = PERFORMANCE_PRESETS[settings.performanceMode] || PERFORMANCE_PRESETS.balanced;
+        this.httpClient = new OptimizedHttpClient({
+            timeout: preset.timeouts.geminiTimeout,
+            retries: 2,
+            retryDelay: 1000,
+            maxConcurrent: settings.enableParallelProcessing ? 5 : 3,
+            keepAlive: true,
+            enableMetrics: true
+        });
+
         this.applyPerformanceSettings();
     }
 
@@ -89,122 +104,99 @@ export class AIService implements IAIService {
      * Special handling for Ollama to query the actual running instance.
      */
     async fetchLatestModelsForProvider(providerName: string): Promise<string[]> {
-        // Special handling for Ollama to query the actual running instance
-        if (providerName === 'Ollama') {
-            try {
-                // Instead of trying to access the internal provider, make direct API call to Ollama
-                // Assuming Ollama is running on default endpoint
-                const defaultOllamaEndpoint = 'http://localhost:11434';
+        return await performanceMonitor.measureOperation(`fetch-models-${providerName}`, async () => {
+            // Special handling for Ollama to query the actual running instance
+            if (providerName === 'Ollama') {
+                try {
+                    // Use optimized HTTP client for Ollama API call
+                    const defaultOllamaEndpoint = 'http://localhost:11434';
 
-                // Try to get available models from Ollama instance
-                const response = await fetch(`${defaultOllamaEndpoint}/api/tags`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-
-                    if (data && data.models && Array.isArray(data.models)) {
-                        // Extract model names from Ollama's response format
-                        const modelNames = data.models.map((model: any) => {
-                            if (model.name) {
-                                return model.name;
-                            } else if (model.id) {
-                                // Fallback to id if name is not available
-                                return model.id;
-                            }
-                            return '';
-                        }).filter((name: string) => name !== '');
-
-                        logger.debug(`Fetched ${modelNames.length} models from local Ollama instance`, 'AIService', {
-                            models: modelNames.slice(0, 10) // Log first 10 for debugging
-                        });
-
-                        return modelNames;
-                    }
-                } else {
-                    logger.warn(`Ollama instance not accessible at ${defaultOllamaEndpoint}, using static list`, 'AIService');
-                }
-            } catch (error) {
-                logger.warn('Ollama instance not accessible, using static model list', 'AIService', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-
-            // If Ollama is not available or fails to fetch, return static options as fallback
-            logger.debug('Using static Ollama models list', 'AIService');
-            const fallbackModels = PROVIDER_MODEL_OPTIONS[providerName] ?
-                (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) :
-                [];
-            return fallbackModels;
-        }
-
-        // For other providers, use the original web scraping approach
-        const url = PROVIDER_MODEL_LIST_URLS[providerName];
-        const regex = PROVIDER_MODEL_REGEX[providerName];
-        if (!url || !regex) {
-            return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
-        }
-
-        try {
-            logger.debug(`Fetching latest models for ${providerName}`, 'AIService', { url });
-
-            const result = await RetryService.executeWithRetry(
-                async () => {
-                    const resp = await RetryService.createRetryableFetch(url, {
-                        method: 'GET',
+                    const response = await this.httpClient.get(`${defaultOllamaEndpoint}/api/tags`, {
                         headers: {
-                            'User-Agent': 'Mozilla/5.0 (compatible; YT-Clipper/1.3.5)'
+                            'Content-Type': 'application/json'
                         }
-                    }, {
-                        maxAttempts: 2,
-                        baseDelayMs: 1000
                     });
 
-                    if (!resp.ok) {
-                        const error = new Error(`HTTP ${resp.status}: ${resp.statusText}`) as any;
-                        error.status = resp.status;
-                        throw error;
+                    if (response.ok) {
+                        const data = await response.json();
+
+                        if (data && data.models && Array.isArray(data.models)) {
+                            // Extract model names from Ollama's response format
+                            const modelNames = data.models.map((model: any) => {
+                                if (model.name) {
+                                    return model.name;
+                                } else if (model.id) {
+                                    // Fallback to id if name is not available
+                                    return model.id;
+                                }
+                                return '';
+                            }).filter((name: string) => name !== '');
+
+                            logger.debug(`Fetched ${modelNames.length} models from local Ollama instance`, 'AIService', {
+                                models: modelNames.slice(0, 10) // Log first 10 for debugging
+                            });
+
+                            return modelNames;
+                        }
+                    } else {
+                        logger.warn(`Ollama instance not accessible at ${defaultOllamaEndpoint}, using static list`, 'AIService');
                     }
-
-                    return resp;
-                },
-                `fetch-models-${providerName}`,
-                {
-                    maxAttempts: 2,
-                    baseDelayMs: 1000,
-                    retryableStatusCodes: [429, 500, 502, 503, 504]
+                } catch (error) {
+                    logger.warn('Ollama instance not accessible, using static model list', 'AIService', {
+                        error: error instanceof Error ? error.message : String(error)
+                    });
                 }
-            );
 
-            if (!result.success) {
-                logger.warn(`Failed to fetch models for ${providerName}, using fallback`, 'AIService', {
-                    error: result.error?.message
-                });
+                // If Ollama is not available or fails to fetch, return static options as fallback
+                logger.debug('Using static Ollama models list', 'AIService');
+                const fallbackModels = PROVIDER_MODEL_OPTIONS[providerName] ?
+                    (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) :
+                    [];
+                return fallbackModels;
+            }
+
+            // For other providers, use the optimized HTTP client
+            const url = PROVIDER_MODEL_LIST_URLS[providerName];
+            const regex = PROVIDER_MODEL_REGEX[providerName];
+            if (!url || !regex) {
                 return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
             }
 
-            const text = await result.result!.text();
-            const matches = text.match(regex) || [];
-            // Normalize and dedupe
-            const normalized = Array.from(new Set(matches.map(m => m.toLowerCase())));
+            try {
+                logger.debug(`Fetching latest models for ${providerName}`, 'AIService', { url });
 
-            logger.debug(`Found ${normalized.length} models for ${providerName}`, 'AIService', {
-                models: normalized.slice(0, 5) // Log first 5 for debugging
-            });
+                const response = await this.httpClient.get(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (compatible; YT-Clipper/1.3.5)'
+                    }
+                });
 
-            return normalized;
-        } catch (error) {
-            logger.error(`Error fetching models for ${providerName}`, 'AIService', {
-                error: error instanceof Error ? error.message : String(error),
-                providerName
-            });
-            // On any error, return static fallback
-            return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
-        }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const text = await response.text();
+                const matches = text.match(regex) || [];
+                // Normalize and dedupe
+                const normalized = Array.from(new Set(matches.map(m => m.toLowerCase())));
+
+                logger.debug(`Found ${normalized.length} models for ${providerName}`, 'AIService', {
+                    models: normalized.slice(0, 5) // Log first 5 for debugging
+                });
+
+                return normalized;
+            } catch (error) {
+                logger.error(`Error fetching models for ${providerName}`, 'AIService', {
+                    error: error instanceof Error ? error.message : String(error),
+                    providerName
+                });
+                // On any error, return static fallback
+                return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
+            }
+        }, {
+            provider: providerName,
+            operation: 'fetchLatestModelsForProvider'
+        });
     }
 
     /**
@@ -215,12 +207,18 @@ export class AIService implements IAIService {
             throw new Error('Valid prompt is required');
         }
 
-        // Use parallel processing if enabled
-        if (this.settings.enableParallelProcessing) {
-            return this.processParallel(prompt, images);
-        }
+        return await performanceMonitor.measureOperation('ai-process', async () => {
+            // Use parallel processing if enabled
+            if (this.settings.enableParallelProcessing) {
+                return this.processParallel(prompt, images);
+            }
 
-        return this.processSequential(prompt, images);
+            return this.processSequential(prompt, images);
+        }, {
+            promptLength: prompt.length,
+            hasImages: images && images.length > 0,
+            processingMode: this.settings.enableParallelProcessing ? 'parallel' : 'sequential'
+        });
     }
 
     /**
@@ -423,5 +421,32 @@ return {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Get performance metrics for the AI service
+     */
+    getPerformanceMetrics(): {
+        httpMetrics: any;
+        aiProcessingMetrics: any;
+        modelFetchMetrics: any;
+    } {
+        return {
+            httpMetrics: this.httpClient.getMetrics(),
+            aiProcessingMetrics: performanceMonitor.getMetricsSummary('ai-process'),
+            modelFetchMetrics: Object.fromEntries(
+                this.providers.map(provider => [
+                    `fetch-models-${provider.name}`,
+                    performanceMonitor.getMetricsSummary(`fetch-models-${provider.name}`)
+                ])
+            )
+        };
+    }
+
+    /**
+     * Cleanup method to be called when service is destroyed
+     */
+    cleanup(): void {
+        this.httpClient?.cleanup();
     }
 }
