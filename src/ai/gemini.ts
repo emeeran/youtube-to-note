@@ -1,4 +1,4 @@
-import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from './constants';
+import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from './constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../utils/messages';
 

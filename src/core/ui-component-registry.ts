@@ -5,7 +5,7 @@
 
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
 import { logger } from '../services/logger';
-import { MESSAGES } from '../constants';
+import { MESSAGES } from '../constants/index';
 
 export interface UIComponentConfig {
     addRibbonIcon?: boolean;

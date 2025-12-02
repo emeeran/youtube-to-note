@@ -1,8 +1,8 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { ErrorHandler } from '../../services/error-handler';
-import { SecureConfigService } from '../../services/secure-config';
+import { SecureConfigService } from '../../secure-config';
 import { ValidationUtils } from '../../utils/validation';
-import { YouTubePluginSettings } from '../../types/types';
+import { YouTubePluginSettings } from '../../types';
 
 /**
  * Plugin settings tab component

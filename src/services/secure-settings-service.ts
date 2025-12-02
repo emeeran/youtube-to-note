@@ -1,6 +1,6 @@
 import { EncryptionService } from './encryption-service';
 import { logger } from './logger';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 
 /**
  * Secure settings service that handles encryption of sensitive data

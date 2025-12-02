@@ -1,7 +1,8 @@
 import { PerformanceMonitor } from './performance-monitor';
-    import(stateJson: string): void {
 
-
+export function importState(stateJson: string): void {
+    try {
+        const state = JSON.parse(stateJson);
 export enum CircuitState {
     CLOSED = 'CLOSED',      // Normal operation
     OPEN = 'OPEN',          // Circuit is open, blocking calls

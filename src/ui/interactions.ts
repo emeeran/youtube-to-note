@@ -1,5 +1,5 @@
 import { AnimationManager } from './animations';
-import { StyleManager } from './constants';
+import { StyleManager } from './constants/index';
 
 
 /**

@@ -1,4 +1,4 @@
-import { OutputFormat, PerformanceMode } from '../types/types';
+import { OutputFormat, PerformanceMode } from '../types';
 
 /**
  * User preferences service for storing and managing user-specific settings

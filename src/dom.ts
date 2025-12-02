@@ -1,5 +1,5 @@
-import { DOMUtilsInterface, StyleObject } from './types/types';
-import { MODAL_STYLES, INPUT_STYLES } from './constants';
+import { DOMUtilsInterface, StyleObject } from './types';
+import { MODAL_STYLES, INPUT_STYLES } from './constants/index';
 
 /**
  * DOM manipulation utilities to eliminate code duplication

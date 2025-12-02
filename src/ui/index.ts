@@ -5,7 +5,7 @@ import { HelpSystemManager } from './help-system';
 import { InteractionManager } from './interactions';
 import { LoadingStateManager } from './loading-states';
 import { ResponsiveManager } from './responsive';
-import { StyleManager } from './constants';
+import { StyleManager } from './constants/index';
 import { ThemeOptimizationManager } from './theme-optimization';
 
 /**
@@ -501,7 +501,7 @@ export const uiSystem = UISystem.getInstance();
 
 // Export all UI utilities and managers for convenience
 export * from './components';
-export * from './constants';
+export * from './constants/index';
 export * from './animations';
 export * from './accessibility';
 export * from './responsive';

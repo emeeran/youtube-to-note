@@ -6,7 +6,7 @@
 import { App, Notice } from 'obsidian';
 import { logger } from '../services/logger';
 import { YouTubeUrlModal } from '../components/features/youtube';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 import { VideoProcessingOptions } from './video-processor';
 
 export interface ModalCoordinatorDependencies {

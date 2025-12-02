@@ -1,7 +1,7 @@
 import { EncryptionService } from './encryption-service';
 import { logger } from './logger';
 import { performanceMonitor } from './performance-monitor';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 
 /**
  * Simple optimization service for plugin performance and health checks

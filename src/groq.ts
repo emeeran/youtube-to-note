@@ -1,6 +1,6 @@
-import { API_ENDPOINTS, AI_MODELS } from './constants';
+import { API_ENDPOINTS, AI_MODELS } from './constants/index';
 import { BaseAIProvider } from './base';
-import { MESSAGES } from './constants';
+import { MESSAGES } from './constants/index';
 
 /**
  * Groq AI provider implementation

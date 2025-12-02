@@ -8,7 +8,7 @@ import { logger } from '../services/logger';
 import { ServiceContainer } from '../services/service-container';
 import { ModalManager } from '../services/modal-manager';
 import { UrlHandler, UrlDetectionResult } from '../services/url-handler';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 
 export interface ServiceDependencies {
     settings: YouTubePluginSettings;

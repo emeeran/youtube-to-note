@@ -1,6 +1,6 @@
-import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from './constants';
+import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from './constants/index';
 import { BaseAIProvider } from './base';
-import { MESSAGES } from './constants';
+import { MESSAGES } from './constants/index';
 
 /**
  * Google Gemini AI provider implementation

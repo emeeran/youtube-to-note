@@ -1,7 +1,7 @@
 import { logger } from './logger';
 import { App, TFile } from 'obsidian';
 import { ValidationUtils } from '../validation';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 
 /**
  * URL handling service for detecting and processing YouTube URLs from various sources

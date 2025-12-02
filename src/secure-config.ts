@@ -1,4 +1,4 @@
-import { YouTubePluginSettings } from './types/types';
+import { YouTubePluginSettings } from './types';
 
 /**
  * Secure configuration service for API key management

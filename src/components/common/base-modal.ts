@@ -1,7 +1,7 @@
 import { DOMUtils } from './dom';
-import { INPUT_STYLES } from './constants';
-import { ModalEvents } from './types/types';
-import { TIMEOUTS } from './constants';
+import { INPUT_STYLES } from './constants/index';
+import { ModalEvents } from './types';
+import { TIMEOUTS } from './constants/index';
 import { App, Modal } from 'obsidian';
 
 /**

@@ -1,5 +1,5 @@
 import { YouTubeTranscriptService } from './transcript-service';
-import { AIService, AIResponse, YouTubePluginSettings } from '../types/types';
+import { AIService, AIResponse, YouTubePluginSettings } from '../types';
 import { VideoOptimizationEngine } from '../video-optimization';
 
 /**

@@ -1,4 +1,4 @@
-import { PromptService, VideoData, OutputFormat, PerformanceMode } from '../types/types';
+import { PromptService, VideoData, OutputFormat, PerformanceMode } from '../types';
 import { ValidationUtils } from '../validation';
 
 /**

@@ -1,6 +1,6 @@
 import { EnhancedVideoData } from './video-data';
-import { OptimizedAIService } from './services/optimized-ai-service';
-import { VideoOptimizationEngine } from './constants';
+import { OptimizedAIService } from '../../../services/optimized-ai-service';
+import { VideoOptimizationEngine } from './constants/index';
 import { App, Modal } from 'obsidian';
 
 /**

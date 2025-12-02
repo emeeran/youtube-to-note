@@ -7,9 +7,9 @@ import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { ConflictPrevention } from './conflict-prevention';
 import { ErrorHandler } from './services/error-handler';
 import { logger } from './services/logger';
-import { MESSAGES } from './constants';
+import { MESSAGES } from './constants/index';
 import { YouTubeSettingsTab } from './settings-tab';
-import { YouTubePluginSettings, PerformanceMode, OutputFormat } from './types/types';
+import { YouTubePluginSettings, PerformanceMode, OutputFormat } from './types';
 
 // New SRP-compliant core components
 import { PluginLifecycleManager } from './core/plugin-lifecycle-manager';

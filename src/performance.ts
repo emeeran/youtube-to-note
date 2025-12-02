@@ -1,4 +1,4 @@
-import { PerformancePreset, CustomTimeoutSettings } from './types/types';
+import { PerformancePreset, CustomTimeoutSettings } from './types';
 
 /**
  * Performance presets and speed/quality configurations

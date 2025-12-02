@@ -1,7 +1,7 @@
 import { BaseModal } from '../../common/base-modal';
 import { ErrorHandler } from '../../../services/error-handler';
 import { MESSAGES } from '../../../constants/messages';
-import { OutputFormat, PerformanceMode } from '../../../types/types';
+import { OutputFormat, PerformanceMode } from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../utils/validation';
 import { App, Notice } from 'obsidian';

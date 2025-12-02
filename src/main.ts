@@ -1,9 +1,9 @@
 import { ConflictPrevention } from './conflict-prevention';
 import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
-import { MESSAGES } from './constants';
+import { MESSAGES } from './constants/index';
 import { ModalManager } from './services/modal-manager';
-import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types/types';
+import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types';
 import { SaveConfirmationModal } from './components/common';
 import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';

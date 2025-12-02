@@ -5,9 +5,9 @@
 
 import { Plugin } from 'obsidian';
 import { logger } from '../services/logger';
-import { MESSAGES } from '../constants';
+import { MESSAGES } from '../constants/index';
 import { ValidationUtils } from '../lib/utils-consolidated';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 
 export interface SettingsManagerConfig {
     pluginKey: string;

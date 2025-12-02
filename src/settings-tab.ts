@@ -1,7 +1,7 @@
 import { ErrorHandler } from './services/error-handler';
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './lib/utils-consolidated';
-import { YouTubePluginSettings } from './types/types';
+import { YouTubePluginSettings } from './types';
 import { App, PluginSettingTab, Setting } from 'obsidian';
 
 /**

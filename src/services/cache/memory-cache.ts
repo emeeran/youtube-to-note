@@ -1,4 +1,4 @@
-import { CacheService } from '../../types/types';
+import { CacheService } from '../../types';
 
 /**
  * Performance-optimized in-memory cache service with LRU eviction

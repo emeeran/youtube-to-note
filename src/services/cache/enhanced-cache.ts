@@ -1,4 +1,4 @@
-import { CacheService } from '../../types/types';
+import { CacheService } from '../../types';
 import { performanceMonitor } from '../../utils/performance-monitor';
 
 /**

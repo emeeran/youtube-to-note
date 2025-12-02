@@ -1,4 +1,4 @@
-import { ErrorHandlerInterface } from '../types/types';
+import { ErrorHandlerInterface } from '../types';
 import { MESSAGES } from '../messages';
 import { Notice } from 'obsidian';
 

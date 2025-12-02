@@ -9,7 +9,7 @@ import { getPerformanceMonitor } from '../performance/performance-monitor';
 import { getFileOperationsOptimizer } from '../performance/file-operations-optimizer';
 import { getIntelligentCache } from '../performance/intelligent-cache';
 import { AIProviderStrategy, AIProcessingOptions, AIProcessingResult } from '../strategies/ai-provider-strategy';
-import { YouTubePluginSettings } from '../types/types';
+import { YouTubePluginSettings } from '../types';
 
 export interface OptimizedAIServiceConfig {
     providers: Array<{

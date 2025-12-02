@@ -8,8 +8,8 @@ import { AIProviderStrategy, AIProcessingOptions, AIProcessingResult } from '../
 import { AIProviderFactory, ProviderType } from '../strategies/provider-factory';
 import { logger } from './logger';
 import { RetryService } from './retry-service';
-import { YouTubePluginSettings } from '../types/types';
-import { MESSAGES } from '../constants';
+import { YouTubePluginSettings } from '../types';
+import { MESSAGES } from '../constants/index';
 
 export interface AIServiceConfig {
     providers: Array<{

@@ -1,5 +1,5 @@
 import { a11y } from './accessibility';
-import { StyleManager } from './constants';
+import { StyleManager } from './constants/index';
 
 
 /**

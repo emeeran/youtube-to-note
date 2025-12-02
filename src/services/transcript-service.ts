@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '../api';
-import { CacheService } from '../types/types';
+import { CacheService } from '../types';
 
 /**
  * YouTube transcript extraction and processing service

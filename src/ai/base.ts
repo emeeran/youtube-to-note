@@ -1,4 +1,4 @@
-import { AIProvider } from '../types/types';
+import { AIProvider } from '../types';
 import { ErrorHandler } from '../services/error-handler';
 
 /**

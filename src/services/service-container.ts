@@ -4,7 +4,7 @@ import { AIService } from './ai-service';
 import { GeminiProvider } from '../ai/gemini';
 import { GroqProvider } from '../ai/groq';
 import { MemoryCacheService } from './cache/memory-cache';
-import { ObsidianFileService } from '../file/obsidian-file';
+import { ObsidianFileService } from '../obsidian-file';
 import { OllamaProvider } from '../ai/ollama';
 import { YouTubeVideoService } from '../video-data';
 import { performanceTracker } from './performance-tracker';
@@ -17,7 +17,7 @@ import {
     FileService,
     CacheService,
     PromptService
-} from '../types/types';
+} from '../types';
 
 /**
  * Performance-optimized service container with memory management

@@ -1,9 +1,9 @@
-import { API_ENDPOINTS, API_LIMITS } from './constants';
+import { API_ENDPOINTS, API_LIMITS } from './ai/api';
 import { ErrorHandler } from './services/error-handler';
-import { MESSAGES } from './constants';
+import { MESSAGES } from './utils/messages';
 import { ValidationUtils } from './lib/utils-consolidated';
-import { VideoAnalysisStrategy } from './constants';
-import { VideoDataService, VideoData, CacheService } from './types/types';
+import { VideoAnalysisStrategy } from './types';
+import { VideoDataService, VideoData, CacheService } from './types';
 import { YouTubeTranscriptService } from './services/transcript-service';
 
 /**

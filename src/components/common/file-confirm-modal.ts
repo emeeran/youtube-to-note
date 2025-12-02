@@ -1,6 +1,6 @@
 import { BaseModal } from './components/common';
 import { ErrorHandler } from './services/error-handler';
-import { MESSAGES } from './constants';
+import { MESSAGES } from './constants/index';
 import { App, Notice, TFile } from 'obsidian';
 
 /**

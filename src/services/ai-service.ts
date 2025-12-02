@@ -1,6 +1,6 @@
 import { logger } from './logger';
 import { RetryService, RetryService as Retry } from './retry-service';
-import { AIService, AIProvider, AIResponse, YouTubePluginSettings } from '../types/types';
+import { AIService as IAIService, AIProvider, AIResponse, YouTubePluginSettings } from '../types';
 import { MESSAGES } from '../messages';
 import { PERFORMANCE_PRESETS } from '../performance';
 import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX } from '../api';
