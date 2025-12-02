@@ -1,702 +1,922 @@
-# API Reference
+# YouTube Clipper API Documentation
 
-## Core Interfaces & Types
+> Complete API reference for the YouTube Clipper Obsidian plugin
 
-### YouTubePluginSettings
+## Table of Contents
+
+- [Overview](#overview)
+- [Core Classes](#core-classes)
+- [Types and Interfaces](#types-and-interfaces)
+- [AI Provider APIs](#ai-provider-apis)
+- [Security APIs](#security-apis)
+- [Performance APIs](#performance-apis)
+- [Events](#events)
+- [Usage Examples](#usage-examples)
+- [Error Handling](#error-handling)
+
+---
+
+## Overview
+
+The YouTube Clipper API provides programmatic access to all plugin functionality, including video processing, AI provider management, security features, and performance monitoring.
+
+### Basic Usage
 
 ```typescript
-interface YouTubePluginSettings {
-  // API Keys
-  geminiApiKey: string;           // Google Gemini API key
-  groqApiKey: string;             // Groq API key (optional)
+import { YouTubeClipperAPI } from 'youtube-clipper-api';
 
-  // Vault Configuration
-  outputPath: string;             // Path to save generated notes
-                                  // e.g., "📥 Inbox/Clippings/YouTube"
+// Initialize the API
+const api = new YouTubeClipperAPI();
 
-  // Environment Variables
-  useEnvironmentVariables: boolean; // Load API keys from env vars
-  environmentPrefix: string;       // Prefix for env var names
+// Process a video
+const result = await api.processVideo({
+  url: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+  format: 'executive-summary',
+  provider: 'gemini'
+});
 
-  // Caching & State
-  modelOptionsCache?: Record<string, string[]>; // Cached model lists
-  customPrompts?: Record<OutputFormat, string>; // Session-only custom prompts
+console.log('Generated note:', result.filePath);
+```
 
-  // Performance Configuration
-  performanceMode: PerformanceMode; // 'fast' | 'balanced' | 'quality'
-  enableParallelProcessing: boolean; // Enable parallel processing when available
-  preferMultimodal: boolean;        // Prefer multimodal models when available
+---
+
+## Core Classes
+
+### YouTubeClipperAPI
+
+The main API class that provides access to all plugin functionality.
+
+```typescript
+class YouTubeClipperAPI {
+  constructor(config?: APIConfig)
+
+  // Video processing
+  async processVideo(options: VideoProcessingOptions): Promise<ProcessingResult>
+  async processBatch(options: BatchProcessingOptions): Promise<ProcessingResult[]>
+  async processParallel(videos: VideoProcessingOptions[]): Promise<ProcessingResult[]>
+
+  // Configuration
+  async getConfiguration(): Promise<YouTubePluginSettings>
+  async updateConfiguration(settings: Partial<YouTubePluginSettings>): Promise<void>
+  validateConfiguration(): ValidationResult
+
+  // AI Providers
+  async getAvailableProviders(): Promise<string[]>
+  async getProviderModels(provider: string): Promise<string[]>
+  async testProvider(provider: string): Promise<ProviderTestResult>
+
+  // Utilities
+  async extractVideoId(url: string): Promise<string | null>
+  async getVideoMetadata(videoId: string): Promise<VideoData>
+
+  // Performance
+  getMetrics(): PerformanceMetrics
+  async exportMetrics(): Promise<string>
+  clearCache(): void
+
+  // Security
+  async setMasterPassword(password: string): Promise<void>
+  async changeMasterPassword(oldPassword: string, newPassword: string): Promise<void>
+  isSecureStorageEnabled(): boolean
 }
 ```
 
-### PerformanceMode
+#### Constructor
 
 ```typescript
-type PerformanceMode = 'fast' | 'balanced' | 'quality';
-
-// Descriptions:
-// - 'fast': Prioritize speed over quality (faster models, simpler processing)
-// - 'balanced': Optimal balance of speed and quality
-// - 'quality': Prioritize quality over speed (more advanced models, detailed processing)
-```
+constructor(config?: APIConfig)
 ```
 
-### OutputFormat
+**Parameters:**
+- `config` (optional): Configuration object for the API
 
+**APIConfig Interface:**
 ```typescript
-type OutputFormat = 'executive-summary' | 'detailed-guide' | 'brief' | 'custom';
-
-// Descriptions:
-// - 'executive-summary': Concise overview with key insights (≤250 words)
-// - 'detailed-guide': Step-by-step walkthrough for tutorials
-// - 'brief': Bullet-point format with key takeaways
-// - 'custom': User-provided prompt (session-only, not persisted)
-```
-
-### VideoData
-
-```typescript
-interface VideoData {
-  title: string;              // Video title from YouTube
-  description: string;        // Video description from YouTube
-  videoId: string;           // Extracted video ID
-  url: string;               // Full YouTube URL
-  duration?: number;         // Video duration in seconds
-  channelTitle?: string;     // Channel name
-  publishedAt?: string;      // Publication date (ISO 8601)
+interface APIConfig {
+  defaultProvider?: string
+  defaultFormat?: OutputFormat
+  enableCaching?: boolean
+  enableLogging?: boolean
+  timeout?: number
 }
 ```
 
-### AIResponse
+**Example:**
+```typescript
+const api = new YouTubeClipperAPI({
+  defaultProvider: 'gemini',
+  defaultFormat: 'executive-summary',
+  enableCaching: true,
+  timeout: 30000
+});
+```
+
+### VideoProcessingService
+
+Handles video processing operations with advanced features.
 
 ```typescript
-interface AIResponse {
-  content: string;           // Generated summary/guide text
-  provider: string;          // Provider name (e.g., 'Gemini', 'Groq')
-  model: string;            // Model used (e.g., 'gemini-2.0-pro')
+class VideoProcessingService {
+  async processVideo(options: VideoProcessingOptions): Promise<ProcessingResult>
+  async processBatch(options: BatchProcessingOptions): Promise<ProcessingResult[]>
+  async processParallel(videos: VideoProcessingOptions[]): Promise<ProcessingResult[]>
+  async retryFailedProcessing(failedResults: ProcessingResult[]): Promise<ProcessingResult[]>
+
+  // Queue management
+  addToQueue(options: VideoProcessingOptions): string
+  removeFromQueue(queueId: string): boolean
+  getQueueStatus(): QueueStatus
+
+  // Progress tracking
+  onProgress(callback: (progress: ProcessingProgress) => void): void
+  getProgress(videoId: string): ProcessingProgress | null
 }
+```
+
+### AIServiceManager
+
+Manages multiple AI providers and routing.
+
+```typescript
+class AIServiceManager {
+  async processWithProvider(provider: string, options: AIProcessingOptions): Promise<AIResponse>
+  async processWithFallback(providers: string[], options: AIProcessingOptions): Promise<AIResponse>
+  async processParallel(providers: string[], options: AIProcessingOptions): Promise<AIResponse[]>
+
+  // Provider management
+  addProvider(name: string, provider: AIProviderStrategy): void
+  removeProvider(name: string): void
+  getProvider(name: string): AIProviderStrategy | null
+  listProviders(): string[]
+
+  // Load balancing
+  setLoadBalancingStrategy(strategy: LoadBalancingStrategy): void
+  getProviderHealth(provider: string): Promise<ProviderHealthStatus>
+}
+```
+
+---
+
+## Types and Interfaces
+
+### VideoProcessingOptions
+
+Configuration for processing a single video.
+
+```typescript
+interface VideoProcessingOptions {
+  // Required
+  url: string                    // YouTube video URL
+  format: OutputFormat          // Analysis format
+
+  // Optional
+  customPrompt?: string         // Custom analysis prompt
+  provider?: string             // AI provider to use
+  model?: string               // Specific model to use
+  outputPath?: string           // Custom output path
+  maxTokens?: number           // Token limit for AI response
+  temperature?: number         // Creativity level (0.0-1.0)
+  timeout?: number             // Request timeout in milliseconds
+
+  // Advanced options
+  priority?: 'low' | 'normal' | 'high'
+  retryCount?: number
+  enableCache?: boolean
+  metadata?: Record<string, any>
+}
+```
+
+**OutputFormat Type:**
+```typescript
+type OutputFormat =
+  | 'executive-summary'    // ≤250 words
+  | 'detailed-guide'      // ≤8000 words
+  | 'brief'              // ≤100 words
+  | 'custom'             // Based on custom prompt
+  | 'transcript'         // Full transcript
+  | 'key-points'         // Bullet points
+  | 'action-items'       // Actionable steps
 ```
 
 ### ProcessingResult
 
+Result of video processing operation.
+
 ```typescript
 interface ProcessingResult {
-  success: boolean;
-  filePath?: string;         // Path to created note if successful
-  error?: string;           // Error message if failed
+  // Status
+  success: boolean
+  error?: string
+
+  // Output
+  filePath?: string           // Path to generated note
+  content?: string           // Generated content
+
+  // Video information
+  videoId?: string            // YouTube video ID
+  videoData?: VideoData       // Extracted metadata
+
+  // Processing information
+  processingTime?: number     // Time in milliseconds
+  provider?: string           // AI provider used
+  model?: string              // Model used
+  format?: OutputFormat       // Format used
+
+  // Caching
+  cacheHit?: boolean         // Was result served from cache
+
+  // Retry information
+  attemptCount?: number       // Number of attempts made
+
+  // Timestamps
+  startTime?: number         // Processing start time
+  endTime?: number           // Processing end time
 }
 ```
 
-## Service APIs
+### BatchProcessingOptions
 
-### ServiceContainer (Dependency Injection)
-
-```typescript
-// Get singleton instance
-const container = ServiceContainer.getInstance();
-
-// Access services
-const aiService = container.getAIService();
-const fileService = container.getFileService();
-const videoDataService = container.getVideoDataService();
-const promptService = container.getPromptService();
-
-// Update settings (resets all services)
-await container.updateSettings(newSettings);
-
-// Static factory method
-static create(app: App, settings: YouTubePluginSettings): ServiceContainer
-```
-
-### AIService
+Configuration for processing multiple videos.
 
 ```typescript
-class AIService {
-  // Process a prompt with provider fallback
-  async process(prompt: string): Promise<string>
-  
-  // Get available providers
-  getProviders(): AIProvider[]
-  
-  // Get fallback chain status
-  getProviderStatus(): ProviderStatus[]
+interface BatchProcessingOptions {
+  videos: VideoProcessingOptions[]
+
+  // Batch options
+  maxConcurrency?: number     // Maximum parallel processes (default: 3)
+  continueOnError?: boolean   // Continue processing if one fails
+  combineResults?: boolean    // Combine all results into single file
+
+  // Output options
+  outputDirectory?: string    // Directory for batch output
+  filenameTemplate?: string   // Template for filenames
+
+  // Progress
+  onProgress?: (progress: BatchProgress) => void
+  onComplete?: (results: ProcessingResult[]) => void
 }
-
-// Usage
-const aiService = ServiceContainer.getInstance().getAIService();
-const response = await aiService.process('Summarize the video...');
 ```
 
-### FileService (Obsidian Vault Operations)
+### VideoData
+
+Metadata extracted from YouTube video.
 
 ```typescript
-class FileService {
-  // Save generated note to vault
-  async saveNote(
-    content: string,
-    format: OutputFormat,
-    videoData: VideoData
-  ): Promise<string>  // Returns file path
-  
-  // Create dated folder structure
-  async ensurePath(basePath: string): Promise<TFolder>
-  
-  // Check for file conflicts
-  async checkFileExists(filePath: string): Promise<boolean>
-  
-  // Get vault base path
-  getVaultPath(): string
+interface VideoData {
+  // Basic information
+  videoId: string
+  title: string
+  description: string
+
+  // Video details
+  duration: number            // Duration in seconds
+  publishDate: string         // ISO 8601 date string
+  channelId: string          // Channel ID
+  channelTitle: string       // Channel name
+
+  // Media information
+  thumbnailUrl: string        // Thumbnail URL
+  tags: string[]             // Video tags
+  category: string           // Video category
+
+  // Engagement
+  viewCount: number          // View count
+  likeCount: number          // Like count
+  commentCount: number       // Comment count
+
+  // Language
+  language: string           // Video language
+  defaultLanguage: string    // Default audio language
+
+  // Availability
+  embeddable: boolean        // Can be embedded
+  publicStatsViewable: boolean // Statistics are public
+
+  // Content details
+  contentRating: string      // Content rating
+  definition: string         // Video definition (hd, sd)
+  caption: string           // Caption availability
+
+  // Custom data
+  customData?: Record<string, any>
 }
-
-// Usage
-const fileService = ServiceContainer.getInstance().getFileService();
-const filePath = await fileService.saveNote(
-  '# Generated Note\n\nContent...',
-  'executive-summary',
-  videoData
-);
 ```
 
-### PromptService
+### YouTubePluginSettings
+
+Main plugin configuration interface.
 
 ```typescript
-class PromptService {
-  // Get AI prompt for given format
-  getPrompt(
-    format: OutputFormat,
-    videoData: VideoData,
-    customPrompt?: string
-  ): string
-  
-  // Get all available format descriptions
-  getFormatDescriptions(): Record<OutputFormat, string>
+interface YouTubePluginSettings {
+  // AI Provider Configuration
+  geminiApiKey?: string
+  groqApiKey?: string
+  ollamaApiKey?: string
+  defaultProvider?: string
+
+  // Security
+  useSecureStorage?: boolean
+  masterPasswordHash?: string
+  useEnvironmentVariables?: boolean
+  environmentPrefix?: string
+
+  // Processing
+  outputPath?: string
+  defaultFormat?: OutputFormat
+  customPrompts?: Record<OutputFormat, string>
+
+  // Performance
+  performanceMode?: PerformanceMode
+  enableParallelProcessing?: boolean
+  enableCaching?: boolean
+  maxConcurrentProcesses?: number
+
+  // AI Parameters
+  defaultMaxTokens?: number
+  defaultTemperature?: number
+
+  // Timeouts
+  customTimeouts?: CustomTimeoutSettings
+
+  // UI Preferences
+  showProgressModal?: boolean
+  autoOpenGeneratedNotes?: boolean
+  confirmBeforeOverwrite?: boolean
 }
-
-// Usage
-const promptService = ServiceContainer.getInstance().getPromptService();
-const prompt = promptService.getPrompt('executive-summary', {
-  title: 'How to Learn TypeScript',
-  description: '...',
-  videoId: 'abc123',
-  url: 'https://youtube.com/watch?v=abc123'
-});
 ```
 
-### VideoDataService
+---
+
+## AI Provider APIs
+
+### AIProviderStrategy
+
+Base class for AI provider implementations.
 
 ```typescript
-class VideoDataService {
-  // Extract video ID from URL
-  extractVideoId(url: string): string | null
-  
-  // Validate YouTube URL format
-  isValidUrl(url: string): boolean
-  
-  // Fetch video metadata from YouTube
-  async extractMetadata(url: string): Promise<VideoData>
-  
-  // Get cached metadata (if available)
-  getCachedMetadata(videoId: string): VideoData | null
-}
+abstract class AIProviderStrategy {
+  abstract readonly name: string
+  abstract readonly model: string
+  abstract readonly capabilities: AIProviderCapabilities
 
-// Usage
-const videoService = ServiceContainer.getInstance().getVideoDataService();
-const metadata = await videoService.extractMetadata(
-  'https://youtube.com/watch?v=abc123'
-);
-```
+  // Core processing
+  abstract process(prompt: string): Promise<string>
+  abstract processMultimodal(content: MultimodalContent): Promise<string>
 
-### MemoryCache
+  // Configuration
+  abstract setModel(model: string): void
+  abstract setMaxTokens(tokens: number): void
+  abstract setTemperature(temperature: number): void
+  abstract setTimeout(timeout: number): void
 
-```typescript
-class MemoryCache {
-  // Store value with TTL (in seconds)
-  set<T>(key: string, value: T, ttlSeconds: number): void
-  
-  // Retrieve cached value
-  get<T>(key: string): T | null
-  
-  // Delete specific entry
-  delete(key: string): void
-  
-  // Clear all entries
-  clear(): void
-  
-  // Check if key exists and not expired
-  has(key: string): boolean
-}
+  // Capabilities
+  abstract getCapabilities(): AIProviderCapabilities
+  abstract getAvailableModels(): Promise<string[]>
+  abstract validateConfiguration(): boolean
 
-// Usage
-const cache = new MemoryCache();
-cache.set('url-validation:xyz', true, 3600); // 1 hour TTL
-const cached = cache.get('url-validation:xyz');
-```
-
-## AI Provider Interfaces
-
-### AIProvider (Abstract Base)
-
-```typescript
-abstract class BaseProvider implements AIProvider {
-  // Provider identifier
-  abstract readonly name: string;
-  
-  // Current model being used
-  abstract model: string;
-  
-  // Process prompt and return response
-  abstract async process(prompt: string): Promise<string>
-  
-  // Optionally set model
-  abstract setModel?(model: string): void
+  // Health
+  abstract healthCheck(): Promise<ProviderHealthStatus>
 }
 ```
 
 ### GeminiProvider
 
+Google Gemini AI provider implementation.
+
 ```typescript
-class GeminiProvider extends BaseProvider {
-  readonly name = 'Gemini';
-  model: string; // e.g., 'gemini-2.0-pro'
-  
-  constructor(apiKey: string);
-  
+class GeminiProvider extends AIProviderStrategy {
+  readonly name = 'Google Gemini'
+  readonly model = 'gemini-2.5-pro'
+
+  constructor(apiKey: string, model?: string, timeout?: number)
+
+  // Core functionality
   async process(prompt: string): Promise<string>
-  
-  // Supports multimodal video analysis
-  // Automatically uses audio/video tokens for video URLs
+  async processMultimodal(content: MultimodalContent): Promise<string>
+
+  // Gemini-specific features
+  async processVideo(videoData: VideoData, options?: VideoProcessingOptions): Promise<string>
+  async generateCode(prompt: string, language?: string): Promise<string>
+  async analyzeCode(code: string, language?: string): Promise<CodeAnalysis>
+
+  // Configuration
+  setSafetySettings(settings: SafetySettings): void
+  setGenerationConfig(config: GenerationConfig): void
 }
 
-// Usage
-const gemini = new GeminiProvider(apiKey);
-const response = await gemini.process(prompt);
+interface MultimodalContent {
+  text: string
+  images?: ImageContent[]
+  videos?: VideoContent[]
+  audio?: AudioContent[]
+}
+
+interface SafetySettings {
+  harassment: SafetyThreshold
+  hateSpeech: SafetyThreshold
+  sexuallyExplicit: SafetyThreshold
+  dangerousContent: SafetyThreshold
+}
+
+type SafetyThreshold = 'BLOCK_NONE' | 'BLOCK_ONLY_HIGH' | 'BLOCK_MEDIUM_AND_ABOVE' | 'BLOCK_LOW_AND_ABOVE'
 ```
 
 ### GroqProvider
 
+Groq AI provider implementation.
+
 ```typescript
-class GroqProvider extends BaseProvider {
-  readonly name = 'Groq';
-  model: string; // e.g., 'mixtral-8x7b'
-  
-  constructor(apiKey: string);
-  
+class GroqProvider extends AIProviderStrategy {
+  readonly name = 'Groq'
+  readonly model = 'llama-3.3-70b-versatile'
+
+  constructor(apiKey: string, model?: string, timeout?: number)
+
+  // Core functionality
   async process(prompt: string): Promise<string>
-  
-  // Fast LLM inference, text-only (no multimodal support)
+
+  // Groq-specific features
+  async processWithTools(prompt: string, tools: Tool[]): Promise<ToolCallResponse>
+  async streamProcess(prompt: string): Promise<AsyncIterable<string>>
+
+  // Model management
+  async getAvailableModels(): Promise<string[]>
+  async switchModel(model: string): Promise<void>
+
+  // Performance
+  async benchmarkModel(model: string): Promise<BenchmarkResult>
 }
 
-// Usage
-const groq = new GroqProvider(apiKey);
-const response = await groq.process(prompt);
-```
-
-## Utility Functions
-
-### ErrorHandler
-
-```typescript
-class ErrorHandler {
-  // Handle API errors with context
-  static handleAPIError(
-    response: Response,
-    provider: string,
-    fallbackMessage: string
-  ): Error
-  
-  // Handle general errors with logging
-  static handleError(
-    error: Error | unknown,
-    userMessage: string,
-    context?: Record<string, any>
-  ): void
-  
-  // Wrapper for async operations
-  static async withErrorHandling<T>(
-    operation: () => Promise<T>,
-    operationName: string
-  ): Promise<T | null>
+interface Tool {
+  name: string
+  description: string
+  parameters: ToolParameters
 }
 
-// Usage
-try {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw ErrorHandler.handleAPIError(response, 'Gemini', 'Failed to process');
-  }
-} catch (error) {
-  ErrorHandler.handleError(error, 'Processing failed');
+interface ToolCallResponse {
+  response: string
+  toolCalls: ToolCall[]
 }
 ```
 
-### ValidationUtils
+### OllamaProvider
+
+Local Ollama provider implementation.
 
 ```typescript
-class ValidationUtils {
-  // Check if string is valid YouTube URL
-  static isValidYouTubeUrl(url: string): boolean
-  
-  // Extract video ID from URL
-  static extractVideoId(url: string): string | null
-  
-  // Validate and throw on invalid URL
-  static validateYouTubeUrl(url: string): void
-  
-  // Validate API key format
-  static isValidApiKey(key: string): boolean
+class OllamaProvider extends AIProviderStrategy {
+  readonly name = 'Ollama'
+  readonly model = 'llama3.2'
+
+  constructor(endpoint?: string, model?: string, timeout?: number)
+
+  // Core functionality
+  async process(prompt: string): Promise<string>
+
+  // Ollama-specific features
+  async processChat(messages: ChatMessage[]): Promise<string>
+  async generateEmbedding(text: string): Promise<number[]>
+
+  // Model management
+  async listLocalModels(): Promise<LocalModel[]>
+  async pullModel(model: string): Promise<void>
+  async deleteModel(model: string): Promise<void>
+
+  // System management
+  async getSystemInfo(): Promise<SystemInfo>
+  async checkHealth(): Promise<OllamaHealthStatus>
 }
 
-// Usage
-if (ValidationUtils.isValidYouTubeUrl(url)) {
-  const videoId = ValidationUtils.extractVideoId(url);
-}
-```
-
-### DOMUtils
-
-```typescript
-class DOMUtils {
-  // Create styled container
-  static createStyledContainer(
-    parent: HTMLElement,
-    className: string,
-    styles?: Record<string, string>
-  ): HTMLElement
-  
-  // Create accessible button
-  static createAccessibleButton(
-    parent: HTMLElement,
-    label: string,
-    onclick: () => void
-  ): HTMLButtonElement
-  
-  // Show loading spinner
-  static showSpinner(container: HTMLElement): HTMLElement
-  
-  // Clear container
-  static clear(element: HTMLElement): void
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  images?: string[]
 }
 
-// Usage
-const container = DOMUtils.createStyledContainer(
-  parentEl,
-  'my-container',
-  { padding: '12px', borderRadius: '4px' }
-);
-```
-
-## Component APIs
-
-### YouTubeUrlModal
-
-```typescript
-interface YouTubeUrlModalOptions {
-  onProcess: (
-    url: string,
-    format: OutputFormat,
-    provider?: string,
-    model?: string,
-    customPrompt?: string,
-    performanceMode?: PerformanceMode,
-    enableParallel?: boolean,
-    preferMultimodal?: boolean
-  ) => Promise<string>;  // Return file path
-
-  onOpenFile?: (filePath: string) => Promise<void>;
-  initialUrl?: string;
-  providers?: string[];
-  modelOptions?: Record<string, string[]>;
-  defaultProvider?: string;
-  defaultModel?: string;
-  fetchModels?: () => Promise<Record<string, string[]>>;
-  performanceMode?: PerformanceMode;
-  enableParallelProcessing?: boolean;
-  preferMultimodal?: boolean;
-  onPerformanceSettingsChange?: (performanceMode: PerformanceMode, enableParallel: boolean, preferMultimodal: boolean) => Promise<void>;
-}
-
-class YouTubeUrlModal extends BaseModal {
-  constructor(app: App, options: YouTubeUrlModalOptions);
-  
-  onOpen(): void           // Called when modal opens
-  onClose(): void          // Called when modal closes
-  
-  // Set initial URL
-  setUrl(url: string): void
-}
-
-// Usage
-new YouTubeUrlModal(this.app, {
-  onProcess: async (url, format, provider, model, customPrompt, performanceMode, enableParallel, preferMultimodal) => {
-    // Process video and return file path
-    return '/path/to/created/note';
-  },
-  onOpenFile: async (filePath) => {
-    // Open file in editor
-  },
-  performanceMode: 'balanced',
-  enableParallelProcessing: true,
-  preferMultimodal: true,
-  onPerformanceSettingsChange: async (performanceMode, enableParallel, preferMultimodal) => {
-    // Update plugin settings when changed
-  }
-}).open();
-```
-
-### Core Plugin Functions
-
-```typescript
-// Main video processing function
-async function processYouTubeVideo(
-  url: string,
-  format: OutputFormat = 'detailed-guide',
-  providerName?: string,
-  model?: string,
-  customPrompt?: string,
-  performanceMode?: PerformanceMode,
-  enableParallel?: boolean,
-  preferMultimodal?: boolean
-): Promise<string>  // Returns file path of created note
-
-// Usage in plugin
-const filePath = await processYouTubeVideo(
-  'https://youtube.com/watch?v=abc123',
-  'executive-summary',
-  'Gemini',
-  'gemini-2.0-pro',
-  'Custom prompt here...',
-  'balanced',
-  true,
-  true
-);
-```
-
-### SettingsTab
-
-```typescript
-class SettingsTab extends PluginSettingTab {
-  constructor(app: App, plugin: Plugin);
-  
-  display(): void          // Render settings UI
-  
-  // Private methods for sections
-  private createApiKeySection(): void
-  private createFormatSection(): void
-  private createCustomPromptSection(): void
+interface LocalModel {
+  name: string
+  size: number
+  modifiedAt: string
+  digest: string
 }
 ```
 
-## Constants
+---
 
-### API Endpoints
+## Security APIs
+
+### SecureStorage
+
+Encrypted storage for sensitive data.
 
 ```typescript
-const API_ENDPOINTS = {
-  GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models',
-  GROQ: 'https://api.groq.com/openai/v1/chat/completions',
-  YOUTUBE_OEMBED: 'https://www.youtube.com/oembed',
-  CORS_PROXY: 'https://cors-proxy.fringe.zone'
-};
+class SecureStorage {
+  constructor(masterPassword: string)
+
+  // Encryption/Decryption
+  encrypt(data: string): string
+  decrypt(encryptedData: string): string
+
+  // Settings management
+  encryptSettings(settings: Partial<YouTubePluginSettings>): EncryptedSettings
+  decryptSettings(encryptedSettings: EncryptedSettings): Partial<YouTubePluginSettings>
+
+  // Validation
+  validateEncryptionKey(): boolean
+  static generateMasterPassword(): string
+  static validatePassword(password: string): ValidationResult
+}
+
+interface EncryptedSettings {
+  encryptedGeminiApiKey?: string
+  encryptedGroqApiKey?: string
+  encryptedOllamaApiKey?: string
+  encryptionVersion: number
+  useEnvironmentVariables: boolean
+  environmentPrefix: string
+}
 ```
 
-### Model Options
+### InputValidator
+
+Input validation and sanitization.
 
 ```typescript
-const PROVIDER_MODEL_OPTIONS = {
-  'Gemini': [
-    { name: 'gemini-2.0-pro', supportsAudioVideo: true },
-    { name: 'gemini-1.5-pro', supportsAudioVideo: true },
-    { name: 'gemini-pro', supportsAudioVideo: false }
-  ],
-  'Groq': [
-    'mixtral-8x7b',
-    'llama2-70b',
-    'neural-chat-7b'
-  ]
-};
+class InputValidator {
+  // URL validation
+  static validateYouTubeURL(url: string): ValidationResult
+
+  // Content validation
+  static sanitizeUserInput(input: string, maxLength?: number): ValidationResult
+  static sanitizeHTML(html: string): ValidationResult
+  static detectMaliciousContent(input: string): ValidationResult
+
+  // API key validation
+  static validateAPIKey(apiKey: string, provider: string): ValidationResult
+
+  // File validation
+  static validateFilePath(filePath: string): ValidationResult
+  static validateFileName(fileName: string, maxLength?: number): ValidationResult
+
+  // Prompt validation
+  static validatePrompt(prompt: string, maxLength?: number): ValidationResult
+
+  // Rate limiting
+  static validateRateLimit(
+    identifier: string,
+    maxRequests: number,
+    windowMs: number,
+    storage?: Map<string, number[]>
+  ): ValidationResult
+}
+
+interface ValidationResult {
+  isValid: boolean
+  sanitizedValue?: string
+  error?: string
+  severity: 'low' | 'medium' | 'high' | 'critical'
+}
 ```
 
-### UI Constants
+---
+
+## Performance APIs
+
+### PerformanceMonitor
+
+Performance monitoring and metrics.
 
 ```typescript
-const STYLES = {
-  CONTAINER: 'ytc-container',           // Main container class
-  MODAL: 'ytc-modal',                   // Modal dialog class
-  BUTTON: 'ytc-button',                 // Button class
-  INPUT: 'ytc-input',                   // Input field class
-  ERROR: 'ytc-error',                   // Error message class
-  SUCCESS: 'ytc-success'                // Success message class
-};
+class PerformanceMonitor {
+  // Timing
+  startTiming(operationName: string, category?: string): string
+  end(timerId: string, metadata?: any): void
 
-const MESSAGES = {
-  MODALS: {
-    PROCESS_VIDEO: 'Process YouTube Video',
-    INVALID_URL: 'Please enter a valid YouTube URL',
-    PROCESSING: 'Processing video...',
-    SUCCESS: 'Note created successfully!'
-  },
-  // ... more messages
-};
+  // Metrics
+  getMetrics(): PerformanceMetrics
+  getOperationMetrics(operationName: string): OperationMetrics[]
+  exportMetrics(): string
+
+  // Health checks
+  checkPerformanceHealth(): HealthCheckResult
+  getSlowOperations(threshold?: number): SlowOperation[]
+
+  // Monitoring
+  enableRealTimeMonitoring(): void
+  disableRealTimeMonitoring(): void
+  startProfiling(operationName: string): void
+  stopProfiling(): ProfileResult
+}
+
+interface PerformanceMetrics {
+  totalOperations: number
+  averageTime: number
+  slowOperations: number
+  errorRate: number
+  cacheHitRate: number
+  memoryUsage: number
+  uptime: number
+}
+
+interface OperationMetrics {
+  name: string
+  count: number
+  averageTime: number
+  minTime: number
+  maxTime: number
+  errorCount: number
+  lastExecuted: string
+}
 ```
 
-## Event Handling
+### IntelligentCache
 
-### Plugin Events
+Advanced caching system with LRU eviction and compression.
 
 ```typescript
-// Register command
-this.addCommand({
-  id: 'process-youtube-video',
-  name: 'Process YouTube Video',
-  callback: () => {
-    // Open modal
-    new YouTubeUrlModal(this.app, options).open();
-  }
+class IntelligentCache<T = any> {
+  constructor(config?: CacheConfig)
+
+  // Basic operations
+  get(key: string): T | null
+  set(key: string, value: T, ttl?: number): void
+  delete(key: string): boolean
+  has(key: string): boolean
+  clear(): void
+
+  // Advanced operations
+  getWithFallback(key: string, fallback: () => Promise<T>): Promise<T>
+  setWithCompression(key: string, value: T, ttl?: number): void
+
+  // Statistics
+  getStats(): CacheStats
+  exportCache(): string
+  importCache(data: string): void
+
+  // Memory management
+  setSizeLimit(size: number): void
+  setTTLLimit(ttl: number): void
+  forceCleanup(): void
+}
+
+interface CacheConfig {
+  maxSize?: number
+  defaultTTL?: number
+  compressionThreshold?: number
+  enableMetrics?: boolean
+  cleanupInterval?: number
+}
+
+interface CacheStats {
+  size: number
+  maxSize: number
+  hitRate: number
+  missCount: number
+  hitCount: number
+  memoryUsage: number
+  oldestEntry?: string
+  newestEntry?: string
+}
+```
+
+---
+
+## Events
+
+### Event System
+
+The plugin emits various events that you can listen to.
+
+```typescript
+// Get event emitter
+const eventEmitter = api.getEventEmitter();
+
+// Listen to events
+eventEmitter.on('video:process-start', (data) => {
+  console.log('Processing started:', data.videoId);
 });
 
-// Register settings change
-this.registerEvent(
-  this.app.vault.on('create', (file) => {
-    // Handle file creation
-  })
-);
+eventEmitter.on('video:process-complete', (result) => {
+  console.log('Processing complete:', result.filePath);
+});
 
-// Custom events
-this.on('video-processed', (data) => {
-  // Handle custom event
+eventEmitter.on('video:error', (error) => {
+  console.error('Processing error:', error);
 });
 ```
 
-## Error Types
+### Available Events
 
-### Common Errors
+#### Video Processing Events
 
 ```typescript
-// URL Validation
-class InvalidURLError extends Error {
-  constructor(url: string) {
-    super(`Invalid YouTube URL: ${url}`);
-  }
-}
+// Processing started
+eventEmitter.on('video:process-start', (data: {
+  videoId: string
+  url: string
+  format: OutputFormat
+  provider: string
+}) => void);
 
-// API Errors
-class APIError extends Error {
+// Progress update
+eventEmitter.on('video:progress', (progress: {
+  videoId: string
+  progress: number    // 0-100
+  stage: string       // Current processing stage
+  message?: string    // Status message
+}) => void);
+
+// Processing completed
+eventEmitter.on('video:process-complete', (result: ProcessingResult) => void);
+
+// Processing failed
+eventEmitter.on('video:error', (error: {
+  videoId: string
+  error: string
+  provider: string
+  retryable: boolean
+}) => void);
+```
+
+#### Configuration Events
+
+```typescript
+// Settings changed
+eventEmitter.on('settings:changed', (changes: {
+  oldSettings: YouTubePluginSettings
+  newSettings: YouTubePluginSettings
+  changedKeys: string[]
+}) => void);
+
+// Provider added/removed
+eventEmitter.on('provider:added', (provider: {
+  name: string
+  capabilities: AIProviderCapabilities
+}) => void);
+
+eventEmitter.on('provider:removed', (provider: {
+  name: string
+}) => void);
+```
+
+---
+
+## Usage Examples
+
+### Basic Video Processing
+
+```typescript
+import { YouTubeClipperAPI } from 'youtube-clipper-api';
+
+const api = new YouTubeClipperAPI();
+
+// Process a video with default settings
+const result = await api.processVideo({
+  url: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+  format: 'executive-summary'
+});
+
+if (result.success) {
+  console.log('Generated note:', result.filePath);
+  console.log('Processing time:', result.processingTime, 'ms');
+} else {
+  console.error('Processing failed:', result.error);
+}
+```
+
+### Custom Prompt Processing
+
+```typescript
+const customPrompt = `
+Analyze this YouTube video as if you're creating content for a technical blog:
+1. Extract key technical concepts
+2. Identify practical applications
+3. Note any tools or technologies mentioned
+4. Suggest related topics for readers
+
+Focus on making the content educational and actionable for developers.
+`;
+
+const result = await api.processVideo({
+  url: 'https://youtube.com/watch?v=tech-video-id',
+  format: 'custom',
+  customPrompt: customPrompt,
+  provider: 'gemini',
+  maxTokens: 4000
+});
+```
+
+### Batch Processing
+
+```typescript
+const videos = [
+  {
+    url: 'https://youtube.com/watch?v=video1',
+    format: 'executive-summary' as const,
+    provider: 'gemini'
+  },
+  {
+    url: 'https://youtube.com/watch?v=video2',
+    format: 'detailed-guide' as const,
+    provider: 'groq'
+  },
+  {
+    url: 'https://youtube.com/watch?v=video3',
+    format: 'brief' as const,
+    provider: 'gemini'
+  }
+];
+
+// Process with progress tracking
+const results = await api.processBatch({
+  videos: videos,
+  maxConcurrency: 2,
+  onProgress: (progress) => {
+    console.log(`Progress: ${progress.completed}/${progress.total}`);
+    console.log(`Current: ${progress.currentVideo}`);
+  },
+  onComplete: (results) => {
+    const successful = results.filter(r => r.success).length;
+    console.log(`Completed: ${successful}/${results.length} videos`);
+  }
+});
+```
+
+---
+
+## Error Handling
+
+### Error Types
+
+```typescript
+// Base error class
+class YouTubeClipperError extends Error {
   constructor(
-    provider: string,
-    statusCode: number,
-    message: string
+    message: string,
+    public code: string,
+    public severity: 'low' | 'medium' | 'high' | 'critical',
+    public retryable: boolean = false
   ) {
-    super(`${provider} API error (${statusCode}): ${message}`);
+    super(message);
+    this.name = 'YouTubeClipperError';
   }
 }
 
-// Authentication Errors
-class AuthenticationError extends Error {
-  constructor(provider: string) {
-    super(`Authentication failed for ${provider}. Check API key.`);
+// Specific error types
+class ValidationError extends YouTubeClipperError {
+  constructor(message: string, public field: string) {
+    super(message, 'VALIDATION_ERROR', 'medium');
+    this.name = 'ValidationError';
   }
 }
 
-// File I/O Errors
-class FileIOError extends Error {
-  constructor(operation: string, path: string) {
-    super(`File I/O error during ${operation}: ${path}`);
+class APIError extends YouTubeClipperError {
+  constructor(
+    message: string,
+    public provider: string,
+    public statusCode?: number
+  ) {
+    super(message, 'API_ERROR', 'high', statusCode !== 401);
+    this.name = 'APIError';
   }
 }
 ```
 
-## Response Formats
-
-### API Response Structure
+### Error Handling Patterns
 
 ```typescript
-// Gemini API Response
-interface GeminiResponse {
-  candidates: Array<{
-    content: {
-      parts: Array<{
-        text: string;
-      }>;
-    };
-  }>;
-}
-
-// Groq API Response
-interface GroqResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
-
-// YouTube oEmbed Response
-interface YouTubeOembedResponse {
-  title: string;
-  author_name: string;
-  author_url: string;
-  type: 'video';
-  height: number;
-  width: number;
-  version: '1.0';
-  provider_name: 'YouTube';
-  provider_url: 'https://www.youtube.com/';
-  thumbnail_height: number;
-  thumbnail_width: number;
-  thumbnail_url: string;
-  html: string;
+// Try-catch with specific error handling
+try {
+  const result = await api.processVideo(options);
+  return result;
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation failed for field:', error.field);
+  } else if (error instanceof APIError) {
+    console.error('API error with provider:', error.provider);
+    if (error.retryable) {
+      // Implement retry logic
+      return await retryProcessing(options);
+    }
+  } else {
+    console.error('Unexpected error:', error);
+  }
+  throw error;
 }
 ```
 
-## Configuration Examples
+---
 
-### Initialize ServiceContainer
+## Support
 
-```typescript
-import { ServiceContainer } from './services/service-container';
-import { YouTubePluginSettings } from './interfaces/types';
+For additional API documentation and support:
 
-const settings: YouTubePluginSettings = {
-  geminiApiKey: 'your-api-key',
-  groqApiKey: '',
-  outputPath: '📥 Inbox/Clippings/YouTube',
-  useEnvironmentVariables: false,
-  environmentPrefix: 'YT_PROCESSOR_'
-};
+- **GitHub Repository:** [youtube-clipper](https://github.com/meeransethi/youtube-clipper)
+- **Documentation:** [docs.youtube-clipper.com](https://docs.youtube-clipper.com)
+- **Issues:** [GitHub Issues](https://github.com/meeransethi/youtube-clipper/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/meeransethi/youtube-clipper/discussions)
 
-const container = ServiceContainer.create(this.app, settings);
-```
+---
 
-### Process Video End-to-End
-
-```typescript
-async function processVideo(
-  url: string,
-  format: 'executive-summary' | 'brief'
-): Promise<string> {
-  const container = ServiceContainer.getInstance();
-  
-  // 1. Extract metadata
-  const videoData = await container
-    .getVideoDataService()
-    .extractMetadata(url);
-  
-  // 2. Generate prompt
-  const prompt = container
-    .getPromptService()
-    .getPrompt(format, videoData);
-  
-  // 3. Get AI response
-  const content = await container
-    .getAIService()
-    .process(prompt);
-  
-  // 4. Save to vault
-  const filePath = await container
-    .getFileService()
-    .saveNote(content, format, videoData);
-  
-  return filePath;
-}
-```
-
+*API documentation version: 1.3.5*
+*Last updated: December 2024*

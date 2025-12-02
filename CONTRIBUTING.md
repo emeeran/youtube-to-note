@@ -1,320 +1,721 @@
-# Contributing to YT-Clipper
+# Contributing to YouTube Clipper
 
-Thank you for your interest in contributing to YT-Clipper! This document provides guidelines and information to help you contribute effectively.
+Thank you for your interest in contributing to the YouTube Clipper plugin! This guide will help you get started with contributing code, documentation, bug fixes, and new features.
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Development Setup](#development-setup)
+- [Code Structure](#code-structure)
+- [Development Workflow](#development-workflow)
+- [Testing](#testing)
+- [Code Standards](#code-standards)
+- [Submitting Changes](#submitting-changes)
+- [Bug Reports](#bug-reports)
+- [Feature Requests](#feature-requests)
+- [Documentation](#documentation)
+- [Community](#community)
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Node.js**: Version 18 or higher
-- **npm**: Version 8 or higher
+- **Node.js**: Version 16.0.0 or higher
+- **npm**: Version 7.0.0 or higher
 - **Git**: For version control
-- **Obsidian**: For testing the plugin
+- **Obsidian**: Latest version for testing
+- **TypeScript**: Knowledge of TypeScript is recommended
+- **AI API Keys**: At least one AI provider API key for testing
 
-### Development Setup
+### First-Time Setup
 
-1. **Fork and Clone**
+1. **Fork the Repository**:
    ```bash
-   git clone https://github.com/your-username/yt-clipper.git
-   cd yt-clipper
+   # Fork the repository on GitHub
+   # Then clone your fork
+   git clone https://github.com/your-username/youtube-clipper.git
+   cd youtube-clipper
    ```
 
-2. **Install Dependencies**
+2. **Install Dependencies**:
    ```bash
    npm install
    ```
 
-3. **Development Mode**
+3. **Set Up Environment Variables**:
+   ```bash
+   # Create .env file for development
+   cp .env.example .env
+
+   # Edit .env with your API keys
+   YTC_GEMINI_API_KEY="your-gemini-key"
+   YTC_GROQ_API_KEY="your-groq-key"
+   YTC_DEBUG_MODE="true"
+   ```
+
+4. **Start Development Server**:
    ```bash
    npm run dev
    ```
-   This will start the development build with watch mode.
 
-4. **Load Plugin in Obsidian**
-   - Go to Settings → Community Plugins → Browse
-   - Turn on "Safe mode" off
-   - Click "Install from disk" and select the plugin folder
+5. **Build for Testing**:
+   ```bash
+   npm run build
+   ```
+
+## Development Setup
 
 ### Project Structure
 
 ```
-yt-clipper/
-├── src/                    # Main source code
-│   ├── main.ts            # Plugin entry point
-│   ├── services/          # Core services
-│   │   ├── ai-service.ts
-│   │   ├── url-handler.ts
-│   │   ├── modal-manager.ts
-│   │   ├── encryption-service.ts
-│   │   ├── retry-service.ts
-│   │   ├── performance-monitor.ts
-│   │   └── logger.ts
-│   ├── types/             # TypeScript definitions
-│   ├── modals/            # UI components
-│   └── utils/             # Utility functions
-├── tests/                 # Test files
-│   ├── unit/             # Unit tests
-│   ├── integration/      # Integration tests
-│   └── fixtures/         # Test data
-├── docs/                 # Documentation
-├── assets/               # Static assets
-└── scripts/              # Build and utility scripts
+youtube-clipper/
+├── src/                          # Source code
+│   ├── main.ts                   # Plugin entry point
+│   ├── types.ts                  # TypeScript type definitions
+│   ├── constants/                # Constants and enums
+│   ├── services/                 # Core business logic
+│   │   ├── ai/                  # AI provider implementations
+│   │   ├── cache/               # Caching services
+│   │   ├── file/                # File operations
+│   │   ├── youtube/             # YouTube integration
+│   │   └── prompt-service.ts    # AI prompt generation
+│   ├── components/               # UI components
+│   │   ├── modals/              # Input dialogs
+│   │   └── settings/            # Settings tab
+│   ├── interfaces/              # TypeScript interfaces
+│   ├── security/                # Security implementations
+│   ├── utils/                   # Utility functions
+│   └── performance/             # Performance optimizations
+├── tests/                        # Test files
+├── docs/                         # Documentation
+├── examples/                     # Usage examples
+├── scripts/                      # Build and utility scripts
+├── esbuild.config.mjs            # Build configuration
+├── manifest.json                 # Plugin manifest
+├── package.json                  # Dependencies and scripts
+└── README.md                     # Project documentation
 ```
 
-## Development Guidelines
+### Development Scripts
 
-### Code Style
-
-We use automated tools to maintain code quality:
-
-- **ESLint**: Linting with TypeScript rules
-- **Prettier**: Code formatting
-- **Husky**: Pre-commit hooks for quality checks
-
-Before committing, ensure:
-```bash
-npm run lint:fix    # Fix linting issues
-npm run format      # Format code
-npm run type-check  # Check TypeScript types
-npm test            # Run tests
+```json
+{
+  "scripts": {
+    "dev": "npm run build -- --watch",
+    "build": "node esbuild.config.mjs",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write src",
+    "version": "node scripts/version.js"
+  }
+}
 ```
 
-### Code Standards
+### IDE Configuration
 
-1. **TypeScript**: Strict mode enabled
-   - No `any` types unless absolutely necessary
-   - Explicit return types for public methods
-   - Proper interface definitions
+**VS Code Recommended Extensions**:
+- TypeScript and JavaScript Language Features
+- ESLint
+- Prettier
+- Jest
+- Auto Rename Tag
+- Path Intellisense
 
-2. **Naming Conventions**
-   - Classes: PascalCase (`ServiceContainer`)
-   - Methods: camelCase (`processVideo`)
-   - Constants: UPPER_SNAKE_CASE (`DEFAULT_SETTINGS`)
-   - Files: kebab-case (`url-handler.ts`)
+**VS Code Settings** (.vscode/settings.json):
+```json
+{
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.git": true
+  }
+}
+```
 
-3. **Documentation**
-   - JSDoc comments for all public APIs
-   - Inline comments for complex logic
-   - README for each major service
+## Code Structure
 
-### Testing Guidelines
+### Service Architecture
 
-#### Unit Tests
-- Test all public methods
-- Mock external dependencies
-- Cover edge cases and error conditions
-- Aim for 80%+ coverage
+The plugin follows a service-oriented architecture with dependency injection:
 
-#### Integration Tests
-- Test service interactions
-- Test real API calls when possible
-- Use test fixtures for consistent data
-
-#### Test Structure
 ```typescript
-describe('ServiceName', () => {
-    beforeEach(() => {
-        // Setup
-    });
+// ServiceContainer - Central DI container
+class ServiceContainer {
+  private services = new Map<string, any>()
 
-    describe('methodName', () => {
-        it('should do expected behavior', async () => {
-            // Arrange
-            // Act
-            // Assert
-        });
-    });
-});
+  register<T>(name: string, factory: () => T): void
+  get<T>(name: string): T
+  createServices(settings: YouTubePluginSettings): void
+}
+
+// Example service usage
+const serviceContainer = ServiceContainer.getInstance()
+const aiService = serviceContainer.get<AIService>('aiService')
 ```
 
-### Commit Guidelines
+### Adding New Services
 
-#### Commit Message Format
+1. **Create Service Interface**:
+   ```typescript
+   // src/interfaces/new-service.ts
+   export interface INewService {
+     performAction(input: string): Promise<string>
+   }
+   ```
+
+2. **Implement Service**:
+   ```typescript
+   // src/services/new-service.ts
+   export class NewService implements INewService {
+     async performAction(input: string): Promise<string> {
+       // Implementation
+     }
+   }
+   ```
+
+3. **Register in ServiceContainer**:
+   ```typescript
+   // src/services/service-container.ts
+   private createNewService(settings: YouTubePluginSettings): NewService {
+     return new NewService()
+   }
+   ```
+
+### Adding New AI Providers
+
+1. **Extend Base Provider**:
+   ```typescript
+   // src/services/ai/new-provider.ts
+   export class NewProvider extends BaseAIProvider {
+     name = 'new-provider'
+     model = 'new-model'
+
+     async process(prompt: string): Promise<string> {
+       // API implementation
+     }
+   }
+   ```
+
+2. **Register Provider**:
+   ```typescript
+   // src/services/ai/ai-service.ts
+   private createProviders(): BaseAIProvider[] {
+     return [
+       new GeminiProvider(this.settings.geminiApiKey),
+       new GroqProvider(this.settings.groqApiKey),
+       new NewProvider(this.settings.newProviderApiKey),
+     ]
+   }
+   ```
+
+## Development Workflow
+
+### 1. Create a Feature Branch
+
+```bash
+# Create and switch to new branch
+git checkout -b feature/your-feature-name
+
+# Or for bug fixes
+git checkout -b fix/issue-number-description
 ```
-type(scope): description
+
+### 2. Make Changes
+
+- Follow the existing code style and patterns
+- Add TypeScript types for new code
+- Include comments for complex logic
+- Update relevant documentation
+
+### 3. Test Your Changes
+
+```bash
+# Run type checking
+npm run type-check
+
+# Run linting
+npm run lint
+
+# Run tests
+npm test
+
+# Build project
+npm run build
+```
+
+### 4. Commit Changes
+
+```bash
+# Stage changes
+git add .
+
+# Commit with conventional commit message
+git commit -m "feat: add new AI provider support"
+
+# For bug fixes
+git commit -m "fix: resolve URL validation issue for short links"
+
+# For documentation
+git commit -m "docs: update API documentation with new endpoints"
+```
+
+### 5. Push and Create Pull Request
+
+```bash
+# Push to your fork
+git push origin feature/your-feature-name
+
+# Create pull request on GitHub
+# Fill out PR template with details
+```
+
+## Testing
+
+### Unit Tests
+
+```typescript
+// tests/services/new-service.test.ts
+import { NewService } from '../../src/services/new-service'
+
+describe('NewService', () => {
+  let service: NewService
+
+  beforeEach(() => {
+    service = new NewService()
+  })
+
+  it('should perform action correctly', async () => {
+    const result = await service.performAction('test input')
+    expect(result).toBe('expected output')
+  })
+})
+```
+
+### Integration Tests
+
+```typescript
+// tests/integration/ai-service.test.ts
+import { AIService } from '../../src/services/ai/ai-service'
+
+describe('AIService Integration', () => {
+  it('should process with fallback providers', async () => {
+    const aiService = new AIService(mockSettings)
+    const result = await aiService.process('test prompt')
+    expect(result).toBeTruthy()
+  })
+})
+```
+
+### Testing AI Providers
+
+```typescript
+// tests/services/ai/providers.test.ts
+describe('AI Providers', () => {
+  describe('GeminiProvider', () => {
+    it('should handle API responses correctly', async () => {
+      const provider = new GeminiProvider('test-key')
+      // Mock API call
+      jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse)
+
+      const result = await provider.process('test prompt')
+      expect(result).toBe('processed response')
+    })
+  })
+})
+```
+
+### Manual Testing
+
+1. **Install Plugin in Obsidian**:
+   ```bash
+   npm run build
+   # Copy files to Obsidian plugins directory
+   cp -r dist/* ~/.obsidian/plugins/youtube-clipper/
+   cp manifest.json ~/.obsidian/plugins/youtube-clipper/
+   ```
+
+2. **Test Functionality**:
+   - Plugin loads without errors
+   - Settings panel opens correctly
+   - Video processing works
+   - Error handling functions
+
+### Test Checklist
+
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+- [ ] Plugin loads in Obsidian
+- [ ] Settings work correctly
+- [ ] Video processing functions
+- [ ] Error handling works
+- [ ] Performance acceptable
+
+## Code Standards
+
+### TypeScript Guidelines
+
+1. **Use Strict Types**:
+   ```typescript
+   // Good
+   function processVideo(url: string, options: VideoProcessingOptions): Promise<ProcessingResult>
+
+   // Bad
+   function processVideo(url, options) {
+   ```
+
+2. **Prefer Interfaces over Types for Objects**:
+   ```typescript
+   // Good
+   interface VideoData {
+     title: string
+     videoId: string
+     duration: number
+   }
+
+   // Avoid for object shapes
+   type VideoData = {
+     title: string
+     videoId: string
+     duration: number
+   }
+   ```
+
+3. **Use Enums for Constants**:
+   ```typescript
+   enum OutputFormat {
+     EXECUTIVE_SUMMARY = 'executive-summary',
+     TUTORIAL = 'tutorial',
+     BRIEF = 'brief'
+   }
+   ```
+
+### Naming Conventions
+
+- **Files**: kebab-case (`youtube-url-modal.ts`)
+- **Classes**: PascalCase (`VideoProcessingService`)
+- **Methods**: camelCase (`processVideo()`)
+- **Constants**: UPPER_SNAKE_CASE (`MAX_TOKENS_DEFAULT`)
+- **Interfaces**: Prefix with I (`IAIService`)
+
+### Error Handling
+
+```typescript
+// Use custom error classes
+export class VideoProcessingError extends Error {
+  constructor(message: string, public readonly code: string) {
+    super(message)
+    this.name = 'VideoProcessingError'
+  }
+}
+
+// Handle errors gracefully
+try {
+  const result = await processVideo(url, options)
+  return result
+} catch (error) {
+  if (error instanceof VideoProcessingError) {
+    logger.error('Processing failed', { code: error.code }, 'VideoProcessor')
+    throw new UserFriendlyError('Unable to process video. Please check the URL and try again.')
+  }
+  throw error
+}
+```
+
+### Logging
+
+```typescript
+// Use the secure logger
+import { logger } from '../utils/secure-logger'
+
+// Log with context
+logger.info('Processing video started', { videoId, format }, 'VideoProcessor')
+
+// Log errors with details
+logger.error('API request failed', {
+  provider: 'gemini',
+  statusCode: response.status,
+  error: error.message
+}, 'AIService')
+```
+
+## Submitting Changes
+
+### Pull Request Process
+
+1. **Create Pull Request**:
+   - Use descriptive title
+   - Fill out PR template
+   - Link relevant issues
+   - Add screenshots for UI changes
+
+2. **PR Template**:
+   ```markdown
+   ## Description
+   Brief description of changes
+
+   ## Type of Change
+   - [ ] Bug fix
+   - [ ] New feature
+   - [ ] Breaking change
+   - [ ] Documentation update
+
+   ## Testing
+   - [ ] Unit tests added/updated
+   - [ ] Integration tests pass
+   - [ ] Manual testing completed
+
+   ## Checklist
+   - [ ] Code follows style guidelines
+   - [ ] Self-review completed
+   - [ ] Documentation updated
+   - [ ] Build passes
+   ```
+
+3. **Code Review**:
+   - Address reviewer feedback
+   - Update tests as needed
+   - Keep PR up to date with main branch
+
+### Commit Message Guidelines
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>[optional scope]: <description>
 
 [optional body]
 
-[optional footer]
+[optional footer(s)]
 ```
 
 **Types**:
 - `feat`: New feature
 - `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
+- `docs`: Documentation
+- `style`: Code style (formatting, etc.)
 - `refactor`: Code refactoring
-- `test`: Adding or updating tests
+- `test`: Adding/updating tests
 - `chore`: Maintenance tasks
 
 **Examples**:
-```bash
-feat(ai-service): add support for new AI provider
-fix(url-handler): resolve temp file detection issue
-docs(readme): update installation instructions
-test(encryption): add comprehensive encryption tests
+```
+feat(ai): add support for Claude AI provider
+
+fix(youtube): handle age-restricted videos correctly
+
+docs(api): update provider interface documentation
+
+refactor(services): extract common validation logic
 ```
 
-### Pull Request Process
+## Bug Reports
 
-1. **Create Branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+### Before Reporting
 
-2. **Make Changes**
-   - Write code following the guidelines
-   - Add tests for new functionality
-   - Update documentation
+1. **Check Existing Issues**:
+   - Search open and closed issues
+   - Check if already fixed in latest version
 
-3. **Run Quality Checks**
-   ```bash
-   npm run lint
-   npm run test
-   npm run type-check
-   npm run build
-   ```
+2. **Reproduce Issue**:
+   - Clear steps to reproduce
+   - Consistent behavior
+   - Test with different configurations
 
-4. **Commit Changes**
-   ```bash
-   git add .
-   git commit -m "feat(service): add new feature"
-   git push origin feature/your-feature-name
-   ```
+3. **Gather Information**:
+   - Plugin version
+   - Obsidian version
+   - Operating system
+   - Browser/version (if applicable)
+   - Error messages
+   - Console logs
 
-5. **Create Pull Request**
-   - Use descriptive title and description
-   - Link to relevant issues
-   - Include screenshots for UI changes
-   - Request review from maintainers
+### Bug Report Template
 
-#### PR Checklist
-- [ ] Code follows style guidelines
-- [ ] Tests added and passing
-- [ ] Documentation updated
-- [ ] No console.log statements (use logger instead)
-- [ ] No TODO comments left
-- [ ] Breaking changes documented
+```markdown
+## Bug Description
+Clear and concise description of the bug
 
-## Architecture Guidelines
+## Steps to Reproduce
+1. Open Obsidian
+2. Go to YouTube Clipper settings
+3. Enter API key
+4. Try to process video
+5. Error occurs
 
-### Service Design
+## Expected Behavior
+What should happen
 
-1. **Single Responsibility**: Each service should have one clear purpose
-2. **Dependency Injection**: Use ServiceContainer for dependency management
-3. **Interface Segregation**: Define clear interfaces for services
-4. **Error Handling**: Use centralized error handling with proper logging
+## Actual Behavior
+What actually happens
 
-### Performance Considerations
+## Environment
+- Plugin Version: 1.3.5
+- Obsidian Version: 1.4.0
+- OS: Windows 11
+- Browser: Chrome 120
 
-1. **Async Operations**: Use async/await for all I/O operations
-2. **Caching**: Implement caching for expensive operations
-3. **Retry Logic**: Use RetryService for external API calls
-4. **Monitoring**: Add performance metrics for new operations
-
-### Security Guidelines
-
-1. **Input Validation**: Validate all external inputs
-2. **Sensitive Data**: Use EncryptionService for API keys
-3. **Error Messages**: Don't expose sensitive information in errors
-4. **Dependencies**: Keep dependencies updated and vetted
-
-## Adding New Features
-
-### New AI Provider
-
-1. Create provider class implementing `AIProvider` interface
-2. Add to ServiceContainer factory
-3. Update types and configuration
-4. Add tests
-5. Update documentation
-
-### New Output Format
-
-1. Add to `OutputFormat` type
-2. Update PromptService with new template
-3. Add UI elements in YouTubeUrlModal
-4. Add tests for new format
-5. Update documentation
-
-### New Service
-
-1. Create service interface
-2. Implement service class
-3. Add to ServiceContainer
-4. Add to main.ts initialization
-5. Add comprehensive tests
-6. Update architecture documentation
-
-## Debugging
-
-### Logging
-
-Use the structured logger:
-```typescript
-import { logger } from './services/logger';
-
-logger.info('Operation completed', 'ServiceName', { data: 'value' });
-logger.error('Operation failed', 'ServiceName', { error: error.message });
+## Error Messages
+```
+Paste full error message and stack trace here
 ```
 
-### Performance Monitoring
-
-Add performance metrics:
-```typescript
-import { performanceMonitor } from './services/performance-monitor';
-
-await performanceMonitor.measureOperation('operation-name', async () => {
-    // Your code here
-});
+## Additional Context
+- Configuration details
+- Related screenshots
+- Any other relevant information
 ```
 
-### Common Issues
+## Feature Requests
 
-1. **Build Errors**: Check TypeScript types and imports
-2. **Plugin Loading**: Verify manifest.json and main.js
-3. **API Issues**: Check API keys and rate limits
-4. **UI Issues**: Check Obsidian API compatibility
+### Proposing Features
+
+1. **Check Existing Requests**:
+   - Search for similar feature requests
+   - Check if already planned
+
+2. **Provide Detailed Description**:
+   - Problem you're trying to solve
+   - Proposed solution
+   - Alternative approaches considered
+
+3. **Consider Impact**:
+   - User value
+   - Implementation complexity
+   - Breaking changes
+
+### Feature Request Template
+
+```markdown
+## Feature Description
+Clear description of the proposed feature
+
+## Problem Statement
+What problem does this feature solve?
+
+## Proposed Solution
+How should the feature work?
+
+## Alternative Solutions
+Other approaches considered
+
+## Additional Context
+- Use cases
+- User stories
+- Implementation ideas
+- Mockups or screenshots
+```
+
+## Documentation
+
+### Documentation Types
+
+1. **API Documentation**:
+   - Method signatures
+   - Parameter descriptions
+   - Return types
+   - Usage examples
+
+2. **User Documentation**:
+   - Installation guides
+   - Configuration instructions
+   - Troubleshooting guides
+   - FAQ sections
+
+3. **Developer Documentation**:
+   - Architecture overview
+   - Development setup
+   - Contributing guidelines
+   - Code examples
+
+### Writing Documentation
+
+- Use clear, concise language
+- Include code examples
+- Add screenshots for UI elements
+- Keep documentation up to date
+- Use consistent formatting
+
+### Documentation Structure
+
+```
+docs/
+├── API.md                    # API reference
+├── ENVIRONMENT.md            # Environment variables
+├── TROUBLESHOOTING.md        # Troubleshooting guide
+├── ARCHITECTURE.md           # System architecture
+├── CONTRIBUTING.md           # Contributing guidelines
+└── examples/                 # Usage examples
+    ├── basic-usage.md
+    ├── custom-providers.md
+    └── advanced-configuration.md
+```
+
+## Community
+
+### Getting Help
+
+1. **GitHub Discussions**: For questions and ideas
+2. **GitHub Issues**: For bug reports and feature requests
+3. **Documentation**: Check existing documentation first
+
+### Code of Conduct
+
+We are committed to providing a welcoming and inclusive environment. Please:
+
+- Be respectful and considerate
+- Use inclusive language
+- Focus on constructive feedback
+- Help others learn and grow
+
+### Recognition
+
+Contributors are recognized in:
+- README.md contributors section
+- Release notes for significant contributions
+- Special thanks in documentation
 
 ## Release Process
 
 ### Version Management
 
-We use semantic versioning:
-- **Major**: Breaking changes
-- **Minor**: New features (backward compatible)
-- **Patch**: Bug fixes (backward compatible)
+- Follow Semantic Versioning (SemVer)
+- Update version in `manifest.json` and `package.json`
+- Use `npm run version` script for automated updates
 
 ### Release Checklist
 
-1. Update version in `package.json` and `manifest.json`
-2. Update changelog
-3. Run full test suite
-4. Create release tag
-5. Build production version
-6. Update documentation
+- [ ] All tests pass
+- [ ] Documentation updated
+- [ ] CHANGELOG.md updated
+- [ ] Version numbers updated
+- [ ] Build and test production bundle
+- [ ] Create GitHub release
+- [ ] Update documentation website
 
-## Getting Help
+### Publishing
 
-### Resources
+1. **Create Release**:
+   ```bash
+   npm run version patch  # or minor, major
+   git push origin main --tags
+   ```
 
-- **Obsidian Plugin API**: [Official Documentation](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **TypeScript Documentation**: [Official Guide](https://www.typescriptlang.org/docs/)
-- **Project Issues**: [GitHub Issues](https://github.com/your-username/yt-clipper/issues)
+2. **GitHub Release**:
+   - Go to releases page
+   - Create new release from tag
+   - Add release notes
+   - Attach build artifacts
 
-### Communication
+---
 
-- **Discussions**: Use GitHub Discussions for questions
-- **Issues**: Report bugs or request features
-- **Discord**: Join our community Discord (if available)
-
-## Code of Conduct
-
-We are committed to providing a welcoming and inclusive environment. Please:
-
-- Be respectful and constructive
-- Welcome newcomers and help them learn
-- Focus on what is best for the community
-- Show empathy towards other community members
-
-Thank you for contributing to YT-Clipper! 🎥📝
+Thank you for contributing to YouTube Clipper! Your contributions help make this plugin better for everyone. If you have any questions or need help getting started, please don't hesitate to reach out through GitHub Discussions.
