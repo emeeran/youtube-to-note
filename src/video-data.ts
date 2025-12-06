@@ -116,6 +116,32 @@ export class YouTubeVideoService implements VideoDataService {
             if (!response.ok) {
                 if (response.status === 400) {
                     throw new Error(`Invalid YouTube video ID: ${videoId}. Please check the URL and try again.`);
+                } else if (response.status === 401) {
+                    // 401 from oEmbed often means the video is age-restricted or requires sign-in
+                    // Try to get basic metadata from page scraping as fallback
+                    console.warn(`YouTube oEmbed returned 401 for ${videoId}, attempting fallback...`);
+                    try {
+                        const pageData = await this.scrapeAdditionalMetadata(videoId);
+                        if (pageData.description || pageData.duration) {
+                            return {
+                                title: `YouTube Video (${videoId})`,
+                                description: pageData.description,
+                                duration: pageData.duration,
+                                thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                                channelName: undefined
+                            };
+                        }
+                    } catch (scrapeError) {
+                        // Scraping also failed, continue with minimal fallback
+                    }
+                    // Return minimal metadata to allow AI processing to continue
+                    return {
+                        title: `YouTube Video (${videoId})`,
+                        description: `Video URL: https://www.youtube.com/watch?v=${videoId}`,
+                        duration: undefined,
+                        thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                        channelName: undefined
+                    };
                 } else if (response.status === 404) {
                     throw new Error(`YouTube video not found: ${videoId}. The video may be private, deleted, or the ID is incorrect.`);
                 } else if (response.status === 403) {

@@ -2,28 +2,18 @@ import { ErrorHandler } from './services/error-handler';
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, Notice } from 'obsidian';
 
 /**
  * Plugin settings tab component
- * Designed to prevent conflicts with other plugin settings
+ * Clean, readable design with clear labels
  */
 
-/**
- * Interface for plugin with settings
- * Provides type safety for accessing plugin settings
- */
 interface PluginWithSettings extends Plugin {
     settings: YouTubePluginSettings;
 }
 
-// Unique CSS classes to prevent conflicts
-const SETTINGS_CSS_CLASSES = {
-    container: 'ytc-settings-container',
-    section: 'ytc-settings-section',
-    header: 'ytc-settings-header',
-    validation: 'ytc-settings-validation'
-} as const;
+const CSS_PREFIX = 'ytc-settings';
 
 export interface SettingsTabOptions {
     plugin: PluginWithSettings;
@@ -47,612 +37,488 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
+        containerEl.addClass(`${CSS_PREFIX}-container`);
 
-        // Add unique CSS class for conflict prevention
-        containerEl.addClass(SETTINGS_CSS_CLASSES.container);
-        containerEl.setAttribute('data-plugin', 'youtube-clipper');
-
-        // Enhanced scrolling capability with better styling and visual indicators
-        containerEl.style.overflowY = 'auto';
-        containerEl.style.maxHeight = '80vh';
-        containerEl.style.height = 'fit-content';
-        containerEl.style.paddingRight = '8px';
-        containerEl.style.margin = '0';
-        containerEl.style.padding = '8px';
-
-        // Add custom scrollbar styling for better UX
-        this.addScrollbarStyling();
-
-        // Create improved compact layout
-        this.createImprovedCompactLayout();
+        this.injectStyles();
+        this.createHeader();
+        this.createAPISection();
+        this.createAISection();
+        this.createOutputSection();
+        this.createAdvancedSection();
+        this.createHelpSection();
     }
 
-    /**
-     * Add custom scrollbar styling for better UX
-     */
-    private addScrollbarStyling(): void {
-        if (document.getElementById('ytc-scrollbar-styles')) {
-            return; // Already added
-        }
+    private injectStyles(): void {
+        if (document.getElementById(`${CSS_PREFIX}-styles`)) return;
 
-        const scrollbarStyle = document.createElement('style');
-        scrollbarStyle.id = 'ytc-scrollbar-styles';
-        scrollbarStyle.textContent = `
-            .${SETTINGS_CSS_CLASSES.container}::-webkit-scrollbar {
-                width: 8px;
+        const style = document.createElement('style');
+        style.id = `${CSS_PREFIX}-styles`;
+        style.textContent = `
+            .${CSS_PREFIX}-container {
+                max-width: 700px;
+                margin: 0 auto;
             }
 
-            .${SETTINGS_CSS_CLASSES.container}::-webkit-scrollbar-track {
-                background: var(--background-primary);
-                border-radius: 4px;
+            .${CSS_PREFIX}-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                margin-bottom: 24px;
+                background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-secondary-alt) 100%);
+                border-radius: 12px;
+                border: 1px solid var(--background-modifier-border);
             }
 
-            .${SETTINGS_CSS_CLASSES.container}::-webkit-scrollbar-thumb {
-                background: var(--background-modifier-border);
-                border-radius: 4px;
+            .${CSS_PREFIX}-title {
+                margin: 0;
+                font-size: 1.5rem;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 10px;
             }
 
-            .${SETTINGS_CSS_CLASSES.container}::-webkit-scrollbar-thumb:hover {
+            .${CSS_PREFIX}-badge {
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                font-weight: 600;
+            }
+
+            .${CSS_PREFIX}-badge-ready {
                 background: var(--interactive-accent);
+                color: var(--text-on-accent);
+            }
+
+            .${CSS_PREFIX}-badge-setup {
+                background: #f59e0b;
+                color: white;
+            }
+
+            .${CSS_PREFIX}-section {
+                margin-bottom: 24px;
+                padding: 20px;
+                background: var(--background-secondary);
+                border-radius: 12px;
+                border: 1px solid var(--background-modifier-border);
+            }
+
+            .${CSS_PREFIX}-section-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 16px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--background-modifier-border);
+            }
+
+            .${CSS_PREFIX}-section-icon {
+                font-size: 1.3rem;
+            }
+
+            .${CSS_PREFIX}-section-title {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+            }
+
+            .${CSS_PREFIX}-slider-wrap {
+                margin: 16px 0;
+                padding: 12px;
+                background: var(--background-primary);
+                border-radius: 8px;
+            }
+
+            .${CSS_PREFIX}-slider-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+            .${CSS_PREFIX}-slider-label {
+                font-weight: 600;
+                font-size: 0.95rem;
+            }
+
+            .${CSS_PREFIX}-slider-value {
+                background: var(--interactive-accent);
+                color: var(--text-on-accent);
+                padding: 4px 12px;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 0.85rem;
+                min-width: 60px;
+                text-align: center;
+            }
+
+            .${CSS_PREFIX}-slider-desc {
+                font-size: 0.8rem;
+                color: var(--text-muted);
+                margin-top: 8px;
+            }
+
+            .${CSS_PREFIX}-slider {
+                width: 100%;
+                height: 8px;
+                border-radius: 4px;
+                background: var(--background-modifier-border);
+                -webkit-appearance: none;
+                appearance: none;
+                cursor: pointer;
+            }
+
+            .${CSS_PREFIX}-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 20px;
+                height: 20px;
+                background: var(--interactive-accent);
+                border-radius: 50%;
+                cursor: pointer;
+                border: 3px solid var(--background-primary);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            }
+
+            .${CSS_PREFIX}-slider::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                background: var(--interactive-accent);
+                border-radius: 50%;
+                cursor: pointer;
+                border: 3px solid var(--background-primary);
+            }
+
+            .${CSS_PREFIX}-slider-scale {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                margin-top: 6px;
+            }
+
+            .${CSS_PREFIX}-help-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .${CSS_PREFIX}-help-card {
+                padding: 14px;
+                background: var(--background-primary);
+                border-radius: 8px;
+                border: 1px solid var(--background-modifier-border);
+                transition: border-color 0.2s ease;
+            }
+
+            .${CSS_PREFIX}-help-card:hover {
+                border-color: var(--interactive-accent);
+            }
+
+            .${CSS_PREFIX}-help-card h4 {
+                margin: 0 0 6px 0;
+                font-size: 0.95rem;
+            }
+
+            .${CSS_PREFIX}-help-card p {
+                margin: 0;
+                font-size: 0.85rem;
+                color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-help-card a {
+                color: var(--link-color);
             }
         `;
-        document.head.appendChild(scrollbarStyle);
+        document.head.appendChild(style);
     }
 
-    /**
-     * Create improved compact and scollable layout
-     */
-    private createImprovedCompactLayout(): void {
-        // Add compact CSS styles to the document
-        this.addCompactStyles();
-
+    private createHeader(): void {
         const { containerEl } = this;
+        const header = containerEl.createDiv({ cls: `${CSS_PREFIX}-header` });
 
-        // Set container styles for compact layout
-        containerEl.style.display = 'flex';
-        containerEl.style.flexDirection = 'column';
-        containerEl.style.height = 'fit-content';
-        containerEl.style.gap = '8px';  // Reduced gap for compactness
-        containerEl.style.padding = '8px';  // Reduced padding
-        containerEl.style.overflow = 'visible';
-        containerEl.style.backgroundColor = 'var(--background-primary)';
+        const title = header.createEl('h2', { cls: `${CSS_PREFIX}-title` });
+        title.createSpan({ text: '🎬' });
+        title.createSpan({ text: 'YT Clipper' });
 
-        // Compact header
-        this.createCompactHeader();
-
-        // Single column layout for better compactness
-        const mainContent = containerEl.createDiv();
-        mainContent.style.display = 'flex';
-        mainContent.style.flexDirection = 'column';
-        mainContent.style.gap = '8px';  // More compact spacing
-        mainContent.style.width = '100%';
-
-        // Create compact sections (using existing methods which are now compact)
-        this.createAPISettingsSection(mainContent);
-        this.createAIParametersSection(mainContent);
-        this.createFileSettingsSection(mainContent);
-        this.createAdvancedSettingsSection(mainContent);
-        this.createQuickStartSection(mainContent);
-    }
-
-    /**
-     * Add compact styles to the document
-     */
-    private addCompactStyles(): void {
-        if (document.getElementById('ytc-compact-styles')) {
-            return; // Already added
-        }
-
-        const compactStyle = document.createElement('style');
-        compactStyle.id = 'ytc-compact-styles';
-        compactStyle.textContent = `
-            .${SETTINGS_CSS_CLASSES.container} .setting-item {
-                padding: 6px 4px !important;
-                margin: 2px 0 !important;
-            }
-            .${SETTINGS_CSS_CLASSES.container} .setting-item-name {
-                font-size: 0.85rem !important;
-                margin-bottom: 1px !important;
-            }
-            .${SETTINGS_CSS_CLASSES.container} .setting-item-description {
-                font-size: 0.75rem !important;
-                margin-bottom: 2px !important;
-            }
-            .${SETTINGS_CSS_CLASSES.container} input[type="text"] {
-                font-size: 0.8rem !important;
-                padding: 4px 6px !important;
-            }
-            .${SETTINGS_CSS_CLASSES.container} select {
-                font-size: 0.8rem !important;
-                padding: 4px 6px !important;
-            }
-            .${SETTINGS_CSS_CLASSES.container} button {
-                font-size: 0.75rem !important;
-                padding: 3px 8px !important;
-            }
-        `;
-        document.head.appendChild(compactStyle);
-    }
-
-    /**
-     * Create compact header
-     */
-    private createCompactHeader(): void {
-        const { containerEl } = this;
-
-        const header = containerEl.createDiv();
-        header.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 6px 10px;
-            background: var(--background-secondary);
-            border-radius: 5px;
-            border: 1px solid var(--background-modifier-border);
-            margin-bottom: 6px;
-        `;
-
-        // Title
-        const title = header.createEl('h2', {
-            text: 'YT Clipper Settings',
-            style: 'margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-normal);'
+        const isReady = this.validateConfiguration();
+        const badge = header.createDiv({
+            cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`
         });
-
-        // Status
-        const hasValidConfig = this.validateConfiguration();
-        const statusBadge = header.createDiv();
-        statusBadge.style.cssText = `
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        `;
-
-        if (hasValidConfig) {
-            statusBadge.style.background = 'var(--interactive-accent)';
-            statusBadge.style.color = 'var(--text-on-accent)';
-            statusBadge.textContent = '✓ Ready';
-        } else {
-            statusBadge.style.background = 'var(--text-warning)';
-            statusBadge.style.color = 'var(--text-on-accent)';
-            statusBadge.textContent = '⚠ Setup Needed';
-        }
+        badge.textContent = isReady ? '✓ Ready' : '⚠ Setup Required';
     }
 
-    /**
-     * Create API settings section
-     */
-    private createAPISettingsSection(mainContent: HTMLElement): void {
-        const section = mainContent.createDiv();
-        section.style.background = 'var(--background-secondary)';
-        section.style.border = '1px solid var(--background-modifier-border)';
-        section.style.borderRadius = '6px';
-        section.style.padding = '6px';  // More compact
-        section.style.display = 'flex';
-        section.style.flexDirection = 'column';
-        section.style.gap = '4px';     // Tighter spacing
+    private createAPISection(): void {
+        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
 
-        // Header
-        const header = section.createEl('h3', {
-            text: '🔑 API',
-            style: 'margin: 0 0 3px 0; font-size: 0.85rem; font-weight: 600; color: var(--text-normal);'  // Smaller font
-        });
+        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '🔑' });
+        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'API Keys' });
 
-        // Use Obsidian's Setting component for consistency
         new Setting(section)
-            .setName('Gemi')
-            .setDesc('Key')
+            .setName('Google Gemini API Key')
+            .setDesc('Primary AI provider for video analysis. Get free key from Google AI Studio.')
             .addText(text => text
-                .setPlaceholder('AIza...')
+                .setPlaceholder('Enter your Gemini API key (AIzaSy...)')
                 .setValue(this.settings.geminiApiKey || '')
                 .onChange(async (value) => {
-                    await this.updateSetting('geminiApiKey', value);
-                }))
-            .setClass('compact-setting');
+                    await this.updateSetting('geminiApiKey', value.trim());
+                }));
 
         new Setting(section)
-            .setName('Groq')
-            .setDesc('Key')
+            .setName('Groq API Key')
+            .setDesc('Fast alternative AI provider. Get free key from Groq Console.')
             .addText(text => text
-                .setPlaceholder('gsk_...')
+                .setPlaceholder('Enter your Groq API key (gsk_...)')
                 .setValue(this.settings.groqApiKey || '')
                 .onChange(async (value) => {
-                    await this.updateSetting('groqApiKey', value);
-                }))
-            .setClass('compact-setting');
+                    await this.updateSetting('groqApiKey', value.trim());
+                }));
 
         new Setting(section)
-            .setName('Ollm')
-            .setDesc('Key')
+            .setName('Ollama API Key')
+            .setDesc('Optional: For authenticated local Ollama instances.')
             .addText(text => text
-                .setPlaceholder('key')
+                .setPlaceholder('Optional - leave blank for default Ollama')
                 .setValue(this.settings.ollamaApiKey || '')
                 .onChange(async (value) => {
-                    await this.updateSetting('ollamaApiKey', value);
-                }))
-            .setClass('compact-setting');
+                    await this.updateSetting('ollamaApiKey', value.trim());
+                }));
 
-        // Test button
-        const testDiv = section.createDiv();
-        testDiv.style.marginTop = '2px';
-        new Setting(testDiv)
-            .setName('Test')
-            .setDesc('')
+        new Setting(section)
+            .setName('Test API Connection')
+            .setDesc('Verify your API keys are configured correctly.')
             .addButton(btn => btn
-                .setButtonText('✓')
+                .setButtonText('Test Connection')
+                .setCta()
                 .onClick(async () => {
                     btn.setDisabled(true);
-                    btn.setButtonText('...');
+                    btn.setButtonText('Testing...');
                     try {
                         await this.testAPIKeys();
-                        btn.setButtonText('✓');
-                        setTimeout(() => {
-                            btn.setButtonText('✓');
-                            btn.setDisabled(false);
-                        }, 1500);
-                    } catch (error) {
-                        btn.setButtonText('✗');
-                        ErrorHandler.handle(error as Error, 'API key test failed', true);
-                        setTimeout(() => {
-                            btn.setButtonText('✓');
-                            btn.setDisabled(false);
-                        }, 1500);
+                        btn.setButtonText('✓ Success!');
+                        new Notice('✓ API connection verified!');
+                    } catch (err) {
+                        btn.setButtonText('✗ Failed');
+                        new Notice(`Connection failed: ${(err as Error).message}`);
                     }
-                }))
-            .setClass('compact-setting');
+                    setTimeout(() => {
+                        btn.setButtonText('Test Connection');
+                        btn.setDisabled(false);
+                    }, 2500);
+                }));
     }
 
-    /**
-     * Create AI parameters section with model defaults
-     */
-    private createAIParametersSection(mainContent: HTMLElement): void {
-        const section = mainContent.createDiv();
-        section.style.background = 'var(--background-secondary)';
-        section.style.border = '1px solid var(--background-modifier-border)';
-        section.style.borderRadius = '6px';
-        section.style.padding = '6px';  // More compact
-        section.style.display = 'flex';
-        section.style.flexDirection = 'column';
-        section.style.gap = '4px';     // Tighter spacing
+    private createAISection(): void {
+        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
 
-        // Header
-        const header = section.createEl('h3', {
-            text: '⚙️ AI',
-            style: 'margin: 0 0 3px 0; font-size: 0.85rem; font-weight: 600; color: var(--text-normal);'  // Smaller font
-        });
-
-        // Add global slider styles
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = `
-            .ytc-slider {
-                width: 100% !important;
-                height: 5px !important; /* Even thinner for compactness */
-                border-radius: 2px !important;
-                background: var(--interactive-normal) !important;
-                outline: none !important;
-                -webkit-appearance: none !important;
-                appearance: none !important;
-                cursor: pointer !important;
-            }
-            .ytc-slider:hover {
-                background: var(--interactive-hover) !important;
-            }
-            .ytc-slider::-webkit-slider-thumb {
-                -webkit-appearance: none !important;
-                appearance: none !important;
-                width: 14px !important; /* Smaller thumb */
-                height: 14px !important;
-                background: var(--interactive-accent) !important;
-                border-radius: 50% !important;
-                cursor: pointer !important;
-                border: 1px solid var(--text-on-accent) !important;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-            }
-            .ytc-slider::-moz-range-thumb {
-                width: 14px !important;
-                height: 14px !important;
-                background: var(--interactive-accent) !important;
-                border-radius: 50% !important;
-                cursor: pointer !important;
-                border: 1px solid var(--text-on-accent) !important;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-            }
-        `;
-        document.head.appendChild(styleSheet);
-
-        // Compact slider container
-        const createCompactSlider = (label: string, min: number, max: number, step: number, value: number, settingKey: string): HTMLElement => {
-            const container = section.createDiv();
-            container.style.marginBottom = '4px';  // Tighter
-
-            const labelRow = container.createDiv();
-            labelRow.style.display = 'flex';
-            labelRow.style.justifyContent = 'space-between';
-            labelRow.style.alignItems = 'center';
-            labelRow.style.marginBottom = '2px';  // Tighter
-
-            const labelText = labelRow.createSpan();
-            labelText.textContent = label;
-            labelText.style.fontSize = '0.75rem';  // Smaller font
-            labelText.style.fontWeight = '500';
-            labelText.style.color = 'var(--text-normal)';
-
-            const valueText = labelRow.createSpan();
-            valueText.textContent = value.toString();
-            valueText.style.fontSize = '0.7rem';  // Smaller font
-            valueText.style.fontWeight = '600';
-            valueText.style.color = 'var(--interactive-accent)';
-            valueText.style.padding = '1px 3px';  // Smaller padding
-            valueText.style.background = 'var(--background-primary)';
-            valueText.style.borderRadius = '2px';  // Smaller radius
-            valueText.style.border = '1px solid var(--interactive-accent)';
-
-            const slider = container.createEl('input', { type: 'range' });
-            slider.className = 'ytc-slider';
-            slider.min = min.toString();
-            slider.max = max.toString();
-            slider.step = step.toString();
-            slider.value = value.toString();
-
-            slider.addEventListener('input', () => {
-                valueText.textContent = settingKey === 'defaultTemperature'
-                    ? parseFloat(slider.value).toFixed(1)
-                    : slider.value;
-            });
-
-            slider.addEventListener('change', async () => {
-                const finalValue = settingKey === 'defaultTemperature'
-                    ? parseFloat(slider.value)
-                    : parseInt(slider.value);
-                await this.updateSetting(settingKey, finalValue);
-            });
-
-            return container;
-        };
+        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '🤖' });
+        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'AI Configuration' });
 
         // Max Tokens slider
-        createCompactSlider(
-            'Tokens',
-            256,
-            8192,
-            256,
-            this.settings.defaultMaxTokens || 4096,
-            'defaultMaxTokens'
-        );
+        this.createSlider(section, {
+            label: 'Maximum Output Tokens',
+            desc: 'Controls the length of generated notes. Higher values produce more detailed output.',
+            min: 512,
+            max: 8192,
+            step: 256,
+            value: this.settings.defaultMaxTokens || 4096,
+            key: 'defaultMaxTokens',
+            format: (v) => v.toLocaleString(),
+            scale: ['Short (512)', 'Long (8192)']
+        });
 
         // Temperature slider
-        createCompactSlider(
-            'Temp',
-            0,
-            2,
-            0.1,
-            this.settings.defaultTemperature || 0.5,
-            'defaultTemperature'
-        );
+        this.createSlider(section, {
+            label: 'Temperature',
+            desc: 'Controls AI creativity. Lower = more focused/factual, Higher = more creative.',
+            min: 0,
+            max: 1,
+            step: 0.1,
+            value: this.settings.defaultTemperature ?? 0.5,
+            key: 'defaultTemperature',
+            format: (v) => v.toFixed(1),
+            scale: ['Precise (0)', 'Creative (1)']
+        });
 
-        // Scale labels
-        const scaleDiv = section.createDiv();
-        scaleDiv.style.display = 'flex';
-        scaleDiv.style.justifyContent = 'space-between';
-        scaleDiv.style.fontSize = '0.6rem';  // Smaller font
-        scaleDiv.style.color = 'var(--text-muted)';
-        scaleDiv.style.marginTop = '-4px';
-        scaleDiv.style.padding = '0 1px';   // Less padding
-        scaleDiv.createSpan({ text: 'P' });  // Abbreviated
-        scaleDiv.createSpan({ text: 'C' });  // Abbreviated
-
-        // Performance Mode
         new Setting(section)
-            .setName('Perf')
-            .setDesc('Mode')
-            .addDropdown(dropdown => dropdown
-                .addOption('fast', 'F')
-                .addOption('balanced', 'B')
-                .addOption('quality', 'Q')
+            .setName('Performance Mode')
+            .setDesc('Choose processing speed vs output quality tradeoff.')
+            .addDropdown(dd => dd
+                .addOption('fast', '⚡ Fast — Quick results, basic analysis')
+                .addOption('balanced', '⚖️ Balanced — Good speed & quality')
+                .addOption('quality', '✨ Quality — Best results, slower')
                 .setValue(this.settings.performanceMode || 'balanced')
                 .onChange(async (value) => {
                     await this.updateSetting('performanceMode', value as 'fast' | 'balanced' | 'quality');
-                }))
-            .setClass('compact-setting');
+                }));
     }
 
-    /**
-     * Create advanced settings section for moved options from modal
-     */
-    private createAdvancedSettingsSection(mainContent: HTMLElement): void {
-        const section = mainContent.createDiv();
-        section.style.background = 'var(--background-secondary)';
-        section.style.border = '1px solid var(--background-modifier-border)';
-        section.style.borderRadius = '6px';
-        section.style.padding = '6px';  // More compact
-        section.style.display = 'flex';
-        section.style.flexDirection = 'column';
-        section.style.gap = '3px';     // Tighter spacing
+    private createOutputSection(): void {
+        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
 
-        // Header
-        const header = section.createEl('h3', {
-            text: '⚙️ Adv',
-            style: 'margin: 0 0 2px 0; font-size: 0.85rem; font-weight: 600; color: var(--text-normal);'  // Smaller font
-        });
+        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '📁' });
+        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'Output Settings' });
 
-        // Enable Parallel Processing
         new Setting(section)
-            .setName('Parallel')
-            .setDesc('Multi')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.enableParallelProcessing || false)
-                .onChange(async (value) => {
-                    await this.updateSetting('enableParallelProcessing', value);
-                }))
-            .setClass('compact-setting');
-
-        // Prefer Multimodal Analysis
-        new Setting(section)
-            .setName('MM-Audio')
-            .setDesc('Vid')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.preferMultimodal || false)
-                .onChange(async (value) => {
-                    await this.updateSetting('preferMultimodal', value);
-                }))
-            .setClass('compact-setting');
-    }
-
-    /**
-     * Create file settings section
-     */
-    private createFileSettingsSection(mainContent: HTMLElement): void {
-        const section = mainContent.createDiv();
-        section.style.background = 'var(--background-secondary)';
-        section.style.border = '1px solid var(--background-modifier-border)';
-        section.style.borderRadius = '6px';
-        section.style.padding = '6px';  // More compact
-        section.style.display = 'flex';
-        section.style.flexDirection = 'column';
-        section.style.gap = '4px';     // Tighter spacing
-
-        // Header
-        const header = section.createEl('h3', {
-            text: '📁 Files',
-            style: 'margin: 0 0 2px 0; font-size: 0.85rem; font-weight: 600; color: var(--text-normal);'  // Smaller font
-        });
-
-        // Use Obsidian's Setting component
-        new Setting(section)
-            .setName('Path')
-            .setDesc('Out')
+            .setName('Output Folder')
+            .setDesc('Folder path where processed video notes will be saved.')
             .addText(text => text
-                .setPlaceholder('YT/Proc')
+                .setPlaceholder('YouTube/Processed Videos')
                 .setValue(this.settings.outputPath || 'YouTube/Processed Videos')
                 .onChange(async (value) => {
-                    await this.updateSetting('outputPath', value);
-                }))
-            .setClass('compact-setting');
+                    await this.updateSetting('outputPath', value.trim() || 'YouTube/Processed Videos');
+                }));
     }
 
-    /**
-     * Validate entire configuration
-     */
+    private createAdvancedSection(): void {
+        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
+
+        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '⚙️' });
+        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'Advanced Settings' });
+
+        new Setting(section)
+            .setName('Parallel Processing')
+            .setDesc('Query multiple AI providers simultaneously for faster results.')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.enableParallelProcessing ?? false)
+                .onChange(async (value) => {
+                    await this.updateSetting('enableParallelProcessing', value);
+                }));
+
+        new Setting(section)
+            .setName('Multimodal Video Analysis')
+            .setDesc('Enable audio + visual analysis for supported models (Gemini 2.5+).')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.preferMultimodal ?? false)
+                .onChange(async (value) => {
+                    await this.updateSetting('preferMultimodal', value);
+                }));
+
+        new Setting(section)
+            .setName('Use Environment Variables')
+            .setDesc('Load API keys from environment variables (YTC_GEMINI_API_KEY, etc.).')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.useEnvironmentVariables ?? false)
+                .onChange(async (value) => {
+                    await this.updateSetting('useEnvironmentVariables', value);
+                }));
+    }
+
+    private createHelpSection(): void {
+        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
+
+        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '❓' });
+        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'Help & Resources' });
+
+        const grid = section.createDiv({ cls: `${CSS_PREFIX}-help-grid` });
+
+        // Card 1: Get API Keys
+        const card1 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
+        card1.createEl('h4', { text: '🔑 Get API Keys' });
+        const p1 = card1.createEl('p');
+        p1.innerHTML = '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google Gemini</a> · <a href="https://console.groq.com/keys" target="_blank">Groq</a>';
+
+        // Card 2: Quick Start
+        const card2 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
+        card2.createEl('h4', { text: '🚀 Quick Start' });
+        card2.createEl('p', { text: '1. Add API key → 2. Click 🎬 icon → 3. Paste URL → 4. Process!' });
+
+        // Card 3: Documentation
+        const card3 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
+        card3.createEl('h4', { text: '📖 Documentation' });
+        const p3 = card3.createEl('p');
+        p3.innerHTML = '<a href="https://github.com/emeeran/yt-clipper#readme" target="_blank">View full docs on GitHub</a>';
+
+        // Card 4: Support
+        const card4 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
+        card4.createEl('h4', { text: '🐛 Report Issues' });
+        const p4 = card4.createEl('p');
+        p4.innerHTML = '<a href="https://github.com/emeeran/yt-clipper/issues" target="_blank">Submit bug reports or feature requests</a>';
+    }
+
+    private createSlider(container: HTMLElement, opts: {
+        label: string;
+        desc: string;
+        min: number;
+        max: number;
+        step: number;
+        value: number;
+        key: string;
+        format: (v: number) => string;
+        scale: [string, string];
+    }): void {
+        const wrap = container.createDiv({ cls: `${CSS_PREFIX}-slider-wrap` });
+
+        const top = wrap.createDiv({ cls: `${CSS_PREFIX}-slider-top` });
+        top.createSpan({ cls: `${CSS_PREFIX}-slider-label`, text: opts.label });
+        const valueEl = top.createSpan({ cls: `${CSS_PREFIX}-slider-value`, text: opts.format(opts.value) });
+
+        const slider = wrap.createEl('input', { type: 'range', cls: `${CSS_PREFIX}-slider` });
+        slider.min = String(opts.min);
+        slider.max = String(opts.max);
+        slider.step = String(opts.step);
+        slider.value = String(opts.value);
+
+        const scaleDiv = wrap.createDiv({ cls: `${CSS_PREFIX}-slider-scale` });
+        scaleDiv.createSpan({ text: opts.scale[0] });
+        scaleDiv.createSpan({ text: opts.scale[1] });
+
+        wrap.createDiv({ cls: `${CSS_PREFIX}-slider-desc`, text: opts.desc });
+
+        slider.addEventListener('input', () => {
+            valueEl.textContent = opts.format(parseFloat(slider.value));
+        });
+
+        slider.addEventListener('change', async () => {
+            const val = opts.step < 1 ? parseFloat(slider.value) : parseInt(slider.value);
+            await this.updateSetting(opts.key as keyof YouTubePluginSettings, val);
+        });
+    }
+
     private validateConfiguration(): boolean {
-        const hasApiKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
-        const hasValidPath = ValidationUtils.isValidPath(this.settings.outputPath);
-        return Boolean(hasApiKey && hasValidPath);
+        const hasKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
+        const hasPath = ValidationUtils.isValidPath(this.settings.outputPath);
+        return Boolean(hasKey && hasPath);
     }
 
-    /**
-     * Show inline documentation
-     */
-    private showDocumentation(): void {
-        window.open('https://github.com/youtube-clipper/obsidian-plugin#readme', '_blank');
-    }
-
-    /**
-     * Create quick start section
-     */
-    private createQuickStartSection(mainContent: HTMLElement): void {
-        const section = mainContent.createDiv();
-        section.style.background = 'var(--background-secondary)';
-        section.style.border = '1px solid var(--background-modifier-border)';
-        section.style.borderRadius = '6px';
-        section.style.padding = '6px';  // More compact
-        section.style.display = 'flex';
-        section.style.flexDirection = 'column';
-        section.style.gap = '3px';     // Tighter spacing
-
-        // Header
-        const header = section.createEl('h3', {
-            text: '🚀 Go',
-            style: 'margin: 0 0 2px 0; font-size: 0.8rem; font-weight: 600; color: var(--text-normal);'  // Smaller font
-        });
-
-        // Steps
-        const stepsDiv = section.createDiv();
-        stepsDiv.style.fontSize = '0.7rem';  // Smaller font
-        stepsDiv.style.lineHeight = '1.2';   // Tighter line spacing
-
-        const steps = [
-            'API (G/G)',
-            'Cfg',
-            'URL',
-            'Go',
-        ];
-
-        steps.forEach((step, index) => {
-            const stepDiv = stepsDiv.createDiv();
-            stepDiv.style.marginBottom = '2px';  // Smaller gap
-            stepDiv.style.display = 'flex';
-            stepDiv.style.alignItems = 'flex-start';
-            stepDiv.style.gap = '3px';  // Smaller gap
-
-            const stepNumber = stepDiv.createSpan();
-            stepNumber.textContent = (index + 1) + '.';
-            stepNumber.style.color = 'var(--interactive-accent)';
-            stepNumber.style.fontWeight = '600';
-            stepNumber.style.minWidth = '10px';  // Smaller width
-
-            const stepText = stepDiv.createSpan();
-            stepText.textContent = step;
-        });
-
-        // API links
-        const linksDiv = section.createDiv();
-        linksDiv.style.marginTop = '3px';
-        linksDiv.style.paddingTop = '3px';
-        linksDiv.style.borderTop = '1px solid var(--background-modifier-border)';
-        linksDiv.style.fontSize = '0.65rem';  // Smaller font
-        linksDiv.style.color = 'var(--text-muted)';
-
-        const linksLabel = linksDiv.createSpan();
-        linksLabel.textContent = 'Keys: ';
-        linksLabel.style.fontWeight = '500';
-
-        const geminiLink = linksDiv.createEl('a', {
-            text: 'G',
-            href: 'https://aistudio.google.com/app/apikey',
-            cls: 'external-link'
-        });
-        geminiLink.style.marginRight = '5px';
-        geminiLink.style.color = 'var(--link-color)';
-        geminiLink.style.fontSize = '0.65rem';  // Smaller font
-
-        const groqLink = linksDiv.createEl('a', {
-            text: 'Gr',
-            href: 'https://console.groq.com/keys',
-            cls: 'external-link'
-        });
-        groqLink.style.color = 'var(--link-color)';
-        groqLink.style.fontSize = '0.65rem';  // Smaller font
-    }
-
-    /**
-     * Test API keys for validity
-     */
     private async testAPIKeys(): Promise<void> {
-        const errors: string[] = [];
+        const results: { provider: string; ok: boolean; error?: string }[] = [];
 
-        if (this.settings.geminiApiKey) {
+        if (this.settings.geminiApiKey?.trim()) {
             try {
-                const response = await fetch(
-                    'https://generativelanguage.googleapis.com/v1beta/models?key=' + this.settings.geminiApiKey
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models?key=${this.settings.geminiApiKey}`
                 );
-                if (!response.ok) {
-                    errors.push(`Gemini API key invalid (${response.status})`);
-                }
-            } catch (error) {
-                errors.push('Gemini API key test failed (network error)');
+                results.push({ provider: 'Gemini', ok: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` });
+            } catch {
+                results.push({ provider: 'Gemini', ok: false, error: 'Network error' });
             }
-        } else {
-            errors.push('Gemini API key not configured');
         }
 
-        if (errors.length > 0) {
-            throw new Error(errors.join('\n'));
+        if (this.settings.groqApiKey?.trim()) {
+            try {
+                const res = await fetch('https://api.groq.com/openai/v1/models', {
+                    headers: { Authorization: `Bearer ${this.settings.groqApiKey}` }
+                });
+                results.push({ provider: 'Groq', ok: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` });
+            } catch {
+                results.push({ provider: 'Groq', ok: false, error: 'Network error' });
+            }
+        }
+
+        if (results.length === 0) throw new Error('No API keys configured');
+        
+        const passed = results.filter(r => r.ok).length;
+        if (passed === 0) {
+            throw new Error(results.map(r => `${r.provider}: ${r.error}`).join(', '));
         }
     }
 
-    /**
-     * Update a setting value
-     */
     private async updateSetting(
         key: keyof YouTubePluginSettings,
         value: string | boolean | number | 'fast' | 'balanced' | 'quality'
@@ -661,13 +527,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             (this.settings as any)[key] = value;
             await this.validateAndSaveSettings();
         } catch (error) {
-            ErrorHandler.handle(error as Error, `Settings update for ${key}`);
+            ErrorHandler.handle(error as Error, `Settings update: ${key}`);
         }
     }
 
-    /**
-     * Validate and save settings
-     */
     private async validateAndSaveSettings(): Promise<void> {
         const validation = ValidationUtils.validateSettings(this.settings);
         this.validationErrors = validation.errors;
@@ -676,20 +539,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             await this.options.onSettingsChange(this.settings);
         }
 
-        // Refresh display to show validation status
         this.display();
     }
 
-    /**
-     * Get current settings
-     */
     getSettings(): YouTubePluginSettings {
         return { ...this.settings };
     }
 
-    /**
-     * Update settings from external source
-     */
     updateSettings(newSettings: YouTubePluginSettings): void {
         this.settings = { ...newSettings };
         this.display();
