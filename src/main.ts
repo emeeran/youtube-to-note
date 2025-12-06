@@ -7,7 +7,7 @@ import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types';
 import { SaveConfirmationModal } from './components/common';
 import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
-import { ValidationUtils } from './lib/utils-consolidated';
+import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal } from './components/features/youtube';
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';

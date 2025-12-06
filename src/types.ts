@@ -375,8 +375,8 @@ export interface AIProvider {
      */
     setMaxTokens?(maxTokens: number): void;
 
-    /** Optional method to set temperature (creativity) */
-    * @param temperature - Temperature value between 0 and 1
+    /** Optional method to set temperature (creativity)
+     * @param temperature - Temperature value between 0 and 1
      */
     setTemperature?(temperature: number): void;
 

@@ -1,4 +1,4 @@
-import { BaseModal } from './components/common';
+import { BaseModal } from './base-modal';
 import { App } from 'obsidian';
 
 /**

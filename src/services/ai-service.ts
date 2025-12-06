@@ -1,9 +1,9 @@
 import { logger } from './logger';
 import { RetryService, RetryService as Retry } from './retry-service';
 import { AIService as IAIService, AIProvider, AIResponse, YouTubePluginSettings } from '../types';
-import { MESSAGES } from '../messages';
+import { MESSAGES } from '../constants/index';
 import { PERFORMANCE_PRESETS } from '../performance';
-import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX } from '../api';
+import { PROVIDER_MODEL_OPTIONS, PROVIDER_MODEL_LIST_URLS, PROVIDER_MODEL_REGEX } from '../ai/api';
 import { OptimizedHttpClient } from '../utils/http-client';
 import { performanceMonitor } from '../utils/performance-monitor';
 
@@ -334,8 +334,6 @@ return {
         // Find first successful response
         for (const result of results) {
             if (result.status === 'fulfilled' && result.value.success) {
-                
-- result.value.responseTime}ms)`);
                 return {
                     content: result.value.content,
                     provider: result.value.provider,

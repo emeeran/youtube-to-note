@@ -1,5 +1,5 @@
 import { ErrorHandlerInterface } from '../types';
-import { MESSAGES } from '../messages';
+import { MESSAGES } from '../constants/index';
 import { Notice } from 'obsidian';
 
 /**

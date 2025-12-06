@@ -1,4 +1,4 @@
-import { API_ENDPOINTS } from '../api';
+import { API_ENDPOINTS } from '../ai/api';
 import { CacheService } from '../types';
 
 /**

@@ -2,7 +2,7 @@ import { FileConflictModal } from './components/common';
 import { FileService } from './types';
 import { MESSAGES } from './constants/index';
 import { TIMEOUTS } from './constants/index';
-import { ValidationUtils } from './lib/utils-consolidated';
+import { ValidationUtils } from './validation';
 import { App, TFile } from 'obsidian';
 
 /**
