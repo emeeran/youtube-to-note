@@ -229,8 +229,128 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .${CSS_PREFIX}-help-card a {
                 color: var(--link-color);
             }
+
+            .${CSS_PREFIX}-drawer {
+                margin-bottom: 24px;
+                border-radius: 12px;
+                border: 1px solid var(--background-modifier-border);
+                overflow: hidden;
+            }
+
+            .${CSS_PREFIX}-drawer-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 16px 20px;
+                background: var(--background-secondary);
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.2s ease;
+            }
+
+            .${CSS_PREFIX}-drawer-header:hover {
+                background: var(--background-secondary-alt);
+            }
+
+            .${CSS_PREFIX}-drawer-icon {
+                font-size: 1.3rem;
+            }
+
+            .${CSS_PREFIX}-drawer-title {
+                margin: 0;
+                font-size: 1.1rem;
+                font-weight: 600;
+                flex: 1;
+            }
+
+            .${CSS_PREFIX}-drawer-arrow {
+                font-size: 0.9rem;
+                transition: transform 0.3s ease;
+                color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-arrow {
+                transform: rotate(180deg);
+            }
+
+            .${CSS_PREFIX}-drawer-content {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease;
+                background: var(--background-secondary);
+            }
+
+            .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-content {
+                max-height: 2000px;
+            }
+
+            .${CSS_PREFIX}-drawer-inner {
+                padding: 0 20px 20px 20px;
+            }
+
+            .${CSS_PREFIX}-api-key-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .${CSS_PREFIX}-api-key-row .setting-item-control {
+                flex-wrap: nowrap;
+            }
+
+            .${CSS_PREFIX}-validate-btn {
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 0.8rem;
+                cursor: pointer;
+                border: 1px solid var(--background-modifier-border);
+                background: var(--background-primary);
+                color: var(--text-normal);
+                transition: all 0.2s ease;
+                white-space: nowrap;
+            }
+
+            .${CSS_PREFIX}-validate-btn:hover {
+                background: var(--background-modifier-hover);
+                border-color: var(--interactive-accent);
+            }
+
+            .${CSS_PREFIX}-validate-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .${CSS_PREFIX}-validate-btn.is-success {
+                background: #22c55e;
+                color: white;
+                border-color: #22c55e;
+            }
+
+            .${CSS_PREFIX}-validate-btn.is-error {
+                background: #ef4444;
+                color: white;
+                border-color: #ef4444;
+            }
         `;
         document.head.appendChild(style);
+    }
+
+    private createDrawer(title: string, icon: string, isOpenByDefault = false): { drawer: HTMLElement; content: HTMLElement } {
+        const drawer = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-drawer${isOpenByDefault ? ' is-open' : ''}` });
+        
+        const header = drawer.createDiv({ cls: `${CSS_PREFIX}-drawer-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-drawer-icon`, text: icon });
+        header.createEl('h3', { cls: `${CSS_PREFIX}-drawer-title`, text: title });
+        header.createSpan({ cls: `${CSS_PREFIX}-drawer-arrow`, text: '▼' });
+
+        const contentWrapper = drawer.createDiv({ cls: `${CSS_PREFIX}-drawer-content` });
+        const content = contentWrapper.createDiv({ cls: `${CSS_PREFIX}-drawer-inner` });
+
+        header.addEventListener('click', () => {
+            drawer.classList.toggle('is-open');
+        });
+
+        return { drawer, content };
     }
 
     private createHeader(): void {
@@ -249,92 +369,129 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private createAPISection(): void {
-        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
+        const { content: section } = this.createDrawer('API Keys', '🔑', false);
 
-        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
-        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '🔑' });
-        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'API Keys' });
+        this.createAPIKeySetting(section, {
+            name: 'Google Gemini API Key',
+            desc: 'Primary AI provider for video analysis. Get free key from Google AI Studio.',
+            placeholder: 'Enter your Gemini API key (AIzaSy...)',
+            settingKey: 'geminiApiKey',
+            validateFn: async (key: string) => {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            }
+        });
 
-        new Setting(section)
-            .setName('Google Gemini API Key')
-            .setDesc('Primary AI provider for video analysis. Get free key from Google AI Studio.')
-            .addText(text => text
-                .setPlaceholder('Enter your Gemini API key (AIzaSy...)')
-                .setValue(this.settings.geminiApiKey || '')
-                .onChange(async (value) => {
-                    await this.updateSetting('geminiApiKey', value.trim());
-                }));
+        this.createAPIKeySetting(section, {
+            name: 'Groq API Key',
+            desc: 'Fast alternative AI provider. Get free key from Groq Console.',
+            placeholder: 'Enter your Groq API key (gsk_...)',
+            settingKey: 'groqApiKey',
+            validateFn: async (key: string) => {
+                const res = await fetch('https://api.groq.com/openai/v1/models', {
+                    headers: { Authorization: `Bearer ${key}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            }
+        });
 
-        new Setting(section)
-            .setName('Groq API Key')
-            .setDesc('Fast alternative AI provider. Get free key from Groq Console.')
-            .addText(text => text
-                .setPlaceholder('Enter your Groq API key (gsk_...)')
-                .setValue(this.settings.groqApiKey || '')
-                .onChange(async (value) => {
-                    await this.updateSetting('groqApiKey', value.trim());
-                }));
+        this.createAPIKeySetting(section, {
+            name: 'Hugging Face API Key',
+            desc: 'Get from huggingface.co/settings/tokens (free tier available)',
+            placeholder: 'hf_...',
+            settingKey: 'huggingFaceApiKey',
+            validateFn: async (key: string) => {
+                const res = await fetch('https://huggingface.co/api/whoami-v2', {
+                    headers: { Authorization: `Bearer ${key}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            }
+        });
 
-        new Setting(section)
-            .setName('Hugging Face API Key')
-            .setDesc('Get from huggingface.co/settings/tokens (free tier available)')
-            .addText(text => text
-                .setPlaceholder('hf_...')
-                .setValue(this.settings.huggingFaceApiKey || '')
-                .onChange(async (value) => {
-                    await this.updateSetting('huggingFaceApiKey', value.trim());
-                }));
+        this.createAPIKeySetting(section, {
+            name: 'OpenRouter API Key',
+            desc: 'Get from openrouter.ai/keys (free models available)',
+            placeholder: 'sk-or-...',
+            settingKey: 'openRouterApiKey',
+            validateFn: async (key: string) => {
+                const res = await fetch('https://openrouter.ai/api/v1/models', {
+                    headers: { Authorization: `Bearer ${key}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            }
+        });
 
-        new Setting(section)
-            .setName('OpenRouter API Key')
-            .setDesc('Get from openrouter.ai/keys (free models available)')
-            .addText(text => text
-                .setPlaceholder('sk-or-...')
-                .setValue(this.settings.openRouterApiKey || '')
-                .onChange(async (value) => {
-                    await this.updateSetting('openRouterApiKey', value.trim());
-                }));
+        this.createAPIKeySetting(section, {
+            name: 'Ollama API Key',
+            desc: 'Optional: For authenticated local Ollama instances.',
+            placeholder: 'Optional - leave blank for default Ollama',
+            settingKey: 'ollamaApiKey',
+            validateFn: async (_key: string) => {
+                const res = await fetch('http://localhost:11434/api/tags');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            }
+        });
+    }
 
-        new Setting(section)
-            .setName('Ollama API Key')
-            .setDesc('Optional: For authenticated local Ollama instances.')
-            .addText(text => text
-                .setPlaceholder('Optional - leave blank for default Ollama')
-                .setValue(this.settings.ollamaApiKey || '')
-                .onChange(async (value) => {
-                    await this.updateSetting('ollamaApiKey', value.trim());
-                }));
+    private createAPIKeySetting(container: HTMLElement, opts: {
+        name: string;
+        desc: string;
+        placeholder: string;
+        settingKey: keyof YouTubePluginSettings;
+        validateFn: (key: string) => Promise<void>;
+    }): void {
+        const setting = new Setting(container)
+            .setName(opts.name)
+            .setDesc(opts.desc)
+            .addText(text => {
+                text.inputEl.type = 'password';
+                text.inputEl.autocomplete = 'off';
+                text
+                    .setPlaceholder(opts.placeholder)
+                    .setValue((this.settings[opts.settingKey] as string) || '')
+                    .onChange(async (value) => {
+                        await this.updateSetting(opts.settingKey, value.trim());
+                    });
+            });
 
-        new Setting(section)
-            .setName('Test API Connection')
-            .setDesc('Verify your API keys are configured correctly.')
-            .addButton(btn => btn
-                .setButtonText('Test Connection')
-                .setCta()
-                .onClick(async () => {
-                    btn.setDisabled(true);
-                    btn.setButtonText('Testing...');
-                    try {
-                        await this.testAPIKeys();
-                        btn.setButtonText('✓ Success!');
-                        new Notice('✓ API connection verified!');
-                    } catch (err) {
-                        btn.setButtonText('✗ Failed');
-                        new Notice(`Connection failed: ${(err as Error).message}`);
-                    }
-                    setTimeout(() => {
-                        btn.setButtonText('Test Connection');
-                        btn.setDisabled(false);
-                    }, 2500);
-                }));
+        const controlEl = setting.controlEl;
+        const validateBtn = controlEl.createEl('button', {
+            cls: `${CSS_PREFIX}-validate-btn`,
+            text: '✓ Test'
+        });
+
+        validateBtn.addEventListener('click', async () => {
+            const key = (this.settings[opts.settingKey] as string)?.trim();
+            if (!key && opts.settingKey !== 'ollamaApiKey') {
+                new Notice(`No ${opts.name} configured`);
+                return;
+            }
+
+            validateBtn.disabled = true;
+            validateBtn.textContent = '...';
+            validateBtn.removeClass('is-success', 'is-error');
+
+            try {
+                await opts.validateFn(key);
+                validateBtn.textContent = '✓ Valid';
+                validateBtn.addClass('is-success');
+                new Notice(`✓ ${opts.name} is valid!`);
+            } catch (err) {
+                validateBtn.textContent = '✗ Invalid';
+                validateBtn.addClass('is-error');
+                new Notice(`✗ ${opts.name} failed: ${(err as Error).message}`);
+            }
+
+            setTimeout(() => {
+                validateBtn.textContent = '✓ Test';
+                validateBtn.removeClass('is-success', 'is-error');
+                validateBtn.disabled = false;
+            }, 3000);
+        });
     }
 
     private createAISection(): void {
-        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
-
-        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
-        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '🤖' });
-        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'AI Configuration' });
+        const { content: section } = this.createDrawer('AI Configuration', '🤖', false);
 
         // Max Tokens slider
         this.createSlider(section, {
@@ -504,39 +661,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const hasKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
         const hasPath = ValidationUtils.isValidPath(this.settings.outputPath);
         return Boolean(hasKey && hasPath);
-    }
-
-    private async testAPIKeys(): Promise<void> {
-        const results: { provider: string; ok: boolean; error?: string }[] = [];
-
-        if (this.settings.geminiApiKey?.trim()) {
-            try {
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models?key=${this.settings.geminiApiKey}`
-                );
-                results.push({ provider: 'Gemini', ok: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` });
-            } catch {
-                results.push({ provider: 'Gemini', ok: false, error: 'Network error' });
-            }
-        }
-
-        if (this.settings.groqApiKey?.trim()) {
-            try {
-                const res = await fetch('https://api.groq.com/openai/v1/models', {
-                    headers: { Authorization: `Bearer ${this.settings.groqApiKey}` }
-                });
-                results.push({ provider: 'Groq', ok: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` });
-            } catch {
-                results.push({ provider: 'Groq', ok: false, error: 'Network error' });
-            }
-        }
-
-        if (results.length === 0) throw new Error('No API keys configured');
-        
-        const passed = results.filter(r => r.ok).length;
-        if (passed === 0) {
-            throw new Error(results.map(r => `${r.provider}: ${r.error}`).join(', '));
-        }
     }
 
     private async updateSetting(
