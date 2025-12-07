@@ -5,6 +5,82 @@ All notable changes to the YouTubeClipper plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-07
+
+### 🚀 Major Optimization Release
+
+This release focuses on codebase optimization, reducing bundle size and improving maintainability.
+
+### ⚡ Performance Improvements
+
+- **Bundle Size Reduction**: 135.85 KB → 127.60 KB (-6%)
+- **Codebase Reduction**: ~17,000 lines → 9,002 lines (-47%)
+- **Aggressive Minification**: Added minifyIdentifiers and minifySyntax
+- **Tree Shaking**: Added pure function markers for better dead code elimination
+
+### 🧹 Code Cleanup
+
+- **Dead Code Elimination**
+  - Removed 20+ duplicate/unused files from src root
+  - Removed unused config/ folder and empty directories
+  - Removed unused services (performance.ts, conflict-prevention.ts, security/)
+  - Removed 3 unused modal components
+
+- **Service Consolidation**
+  - Merged PerformanceMonitor into PerformanceTracker (saved 423 lines)
+  - Removed duplicate encryption-service.ts (317 lines)
+  - Removed duplicate constants files (ai/constants.ts, constants/api.ts)
+  - Simplified retry-service.ts: 289 → 43 lines (-85%)
+
+- **Type Simplification**
+  - Simplified types.ts: 932 → 236 lines (-75%)
+  - Simplified performance.ts: 310 → 67 lines (-78%)
+  - Simplified video-optimization.ts: 298 → 43 lines (-86%)
+
+### 🐛 Bug Fixes
+
+- **Fixed Protocol Handler**: Chrome extension now properly triggers URL modal
+- **Fixed Ribbon Click**: Ribbon icon click now reliably opens the modal
+- **Fixed TypeScript Errors**: Resolved all 53 TypeScript errors → 0
+
+### 🧪 Testing Improvements
+
+- Fixed Jest configuration (moduleNameMapper, ts-jest)
+- Created proper Obsidian mock
+- Fixed logger tests (12/12 passing)
+- Fixed modal-manager tests (15/15 passing)
+- Tests passing: 27/44 → 32/44 (+18%)
+
+### 🎨 UI/UX Improvements
+
+- **Settings Tab Overhaul**
+  - Changed 'Gemi' to 'Google Gemini API Key'
+  - Changed 'Groq' to 'Groq API Key'
+  - Changed 'Ollm' to 'Ollama API Key'
+  - Changed 'Temp' to 'Temperature'
+  - Added proper labels and descriptions
+
+- **Chrome Extension**
+  - Updated manifest.json with better metadata
+  - Improved Clip button with gradient styling and hover effects
+  - Enhanced toast notifications with better visibility
+  - Added keyboard shortcut support (Ctrl+Shift+Y)
+
+### 📊 Final Metrics
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Bundle Size | 135.85 KB | 127.60 KB | **-6%** |
+| TypeScript Lines | ~17,000 | 9,002 | **-47%** |
+| TypeScript Errors | 53 | 0 | **-100%** |
+| Tests Passing | 27/44 | 32/44 | **+18%** |
+| types.ts | 932 lines | 236 lines | **-75%** |
+| performance.ts | 310 lines | 67 lines | **-78%** |
+| video-optimization.ts | 298 lines | 43 lines | **-86%** |
+| retry-service.ts | 289 lines | 43 lines | **-85%** |
+
+---
+
 ## [1.3.5] - 2025-12-02
 
 ### 🚀 Major Features

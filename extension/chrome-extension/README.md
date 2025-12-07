@@ -1,30 +1,114 @@
 # YouTube Clipper Chrome Extension
 
-This small extension injects a "Clip" button into YouTube's player controls and allows sending the current video URL to a configurable endpoint (for example a local webhook or an Obsidian deep-link).
+> 🎬 One-click YouTube clipping directly to Obsidian
 
-How it works
-- A content script adds a "Clip" button into the YouTube player.
-- Clicking the button POSTs `{ url: <video-url> }` to the configured endpoint (set in the extension Options).
-- If sending fails, the extension falls back to copying the URL to the clipboard.
-- A keyboard shortcut (Ctrl/Cmd+Shift+Y) will also trigger a send.
+## Features
 
-Installation (developer mode)
-1. Open Chrome -> Extensions -> Load unpacked.
-2. Select this folder: `extension/chrome-extension` inside the repo.
+- **Clip Button**: Injects a stylish "Clip" button into YouTube player controls
+- **Keyboard Shortcut**: Use `Ctrl+Shift+Y` (or `Cmd+Shift+Y` on Mac) to clip instantly
+- **Deep Link Integration**: Opens Obsidian directly with the video URL
+- **Fallback**: Copies URL to clipboard if Obsidian isn't available
+- **Toast Notifications**: Visual feedback for all actions
 
-Configuration
-1. Click the extension > Options or open the Options page from the extensions list.
-2. Set the endpoint. Examples:
-	- `http://localhost:3000/clip` — a local helper that accepts POST JSON { url }
-		- `obsidian://open?vault=VAULT&file=YouTube%20Clips` — an Obsidian deep-link (the extension will open the URI; POST bodies are not supported for obsidian:// schemes)
-		- Tip: If you set an Obsidian URI (obsidian://...), the extension will create a new note using the Obsidian URI scheme (obsidian://new) and populate it with the video URL. This also copies the URL to the clipboard so you can paste elsewhere if needed.
+## Installation
 
-Notes about testing and CORS
-- The Options "Test send" will try a normal POST first. If the browser blocks the response due to CORS, it will retry with a no-cors attempt so your server may still receive the request. If the request fails with a network error, ensure the URL is reachable from your browser (for example, check that a local server is running and not blocked by a firewall).
-- For Obsidian URIs the Test will open the URI (which should launch Obsidian). If you need a true POST receiver, run a small local helper server and point the extension to that URL.
+### Method 1: Developer Mode (Recommended)
 
-Integrating with the Obsidian plugin
-- If you want the Obsidian plugin to receive URL POSTs, you'll need a small local HTTP endpoint (e.g. an Express server) or a URL handler that Obsidian can accept. Another option is to use an Obsidian URI to open a note — the extension will attempt to POST; if the POST fails it copies the URL to clipboard for manual paste.
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top-right corner)
+3. Click **Load unpacked**
+4. Select the `extension/chrome-extension` folder from this repository
+5. The extension icon should appear in your toolbar
 
-Notes & next steps
-- You can extend this to support OAuth or direct WebSocket communication with a running helper app if you want real-time integration.
+### Method 2: Manual Installation
+
+1. Download the `extension/chrome-extension` folder
+2. Follow steps 1-4 above
+
+## Configuration
+
+1. Click the extension icon → **Options** (or right-click → **Options**)
+2. Set the endpoint URL:
+
+### Recommended: Obsidian Protocol Handler
+
+```
+obsidian://youtube-clipper?url=
+```
+
+This directly triggers the YT-Clipper plugin's URL modal.
+
+### Alternative: Custom Server
+
+```
+http://localhost:3000/clip
+```
+
+For advanced integrations with a custom webhook server.
+
+## Usage
+
+### On YouTube
+
+1. Navigate to any YouTube video
+2. Look for the **Clip** button in the player controls (bottom right)
+3. Click **Clip** or press `Ctrl+Shift+Y`
+4. Obsidian will open with the YT-Clipper modal pre-filled
+
+### What Happens
+
+1. Extension captures the current YouTube URL
+2. Opens `obsidian://youtube-clipper?url=<video-url>`
+3. Obsidian launches and the YT-Clipper plugin shows the URL modal
+4. You can select output format and process the video
+
+## Troubleshooting
+
+### Button Not Appearing
+
+- Refresh the YouTube page
+- Check if the extension is enabled in `chrome://extensions/`
+- Make sure you're on a YouTube video page (not homepage)
+
+### Obsidian Not Opening
+
+- Ensure Obsidian is installed
+- Check that the YT-Clipper plugin is enabled in Obsidian
+- Verify the endpoint in extension options is correct
+
+### Modal Not Showing in Obsidian
+
+- Open Obsidian Developer Tools (`Ctrl+Shift+I`)
+- Check console for `[YT-Clipper]` messages
+- Restart Obsidian and try again
+
+## Development
+
+### Files
+
+```
+chrome-extension/
+├── manifest.json      # Extension manifest (V3)
+├── content_script.js  # Injects Clip button into YouTube
+├── background.js      # Service worker for shortcuts
+├── options.html       # Settings page
+├── options.js         # Settings logic
+└── helper/            # Optional helper scripts
+```
+
+### Testing
+
+1. Make changes to the extension files
+2. Go to `chrome://extensions/`
+3. Click the refresh icon on the YT-Clipper extension
+4. Refresh YouTube to test
+
+## Browser Support
+
+- ✅ Chrome (Manifest V3)
+- ✅ Chromium-based browsers (Edge, Brave, etc.)
+- ⚠️ Firefox (requires manifest modification)
+
+---
+
+**Made with ❤️ for the YT-Clipper Obsidian Plugin**
