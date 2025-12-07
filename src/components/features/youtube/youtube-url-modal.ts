@@ -483,6 +483,7 @@ export class YouTubeUrlModal extends BaseModal {
         // Update format when changed
         this.formatSelect!.addEventListener('change', () => {
             this.format = this.formatSelect?.value as OutputFormat ?? 'executive-summary';
+            this.toggleCustomPromptVisibility();
         });
 
         // Provider dropdown
@@ -731,6 +732,133 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Auto Fallback toggle row
         this.createFallbackToggle(this.contentEl);
+
+        // Custom prompt input container (hidden by default)
+        this.createCustomPromptSection(this.contentEl);
+    }
+
+    /**
+     * Create custom prompt input section
+     */
+    private customPrompt = '';
+
+    private createCustomPromptSection(parent: HTMLElement): void {
+        this.customPromptContainer = parent.createDiv();
+        this.customPromptContainer.style.cssText = `
+            display: none;
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--background-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--background-modifier-border);
+            animation: ytc-slide-down 0.2s ease-out;
+        `;
+
+        // Add animation keyframes
+        if (!document.getElementById('ytc-custom-prompt-styles')) {
+            const styleEl = document.createElement('style');
+            styleEl.id = 'ytc-custom-prompt-styles';
+            styleEl.textContent = `
+                @keyframes ytc-slide-down {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+
+        const labelRow = this.customPromptContainer.createDiv();
+        labelRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        `;
+
+        const labelContainer = labelRow.createDiv();
+        labelContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+
+        labelContainer.createSpan({ text: '✏️' });
+        const label = labelContainer.createSpan({ text: 'Custom Prompt' });
+        label.style.cssText = `
+            font-weight: 600;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+
+        const hint = labelRow.createSpan({ text: 'Describe how you want the video summarized' });
+        hint.style.cssText = `
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        `;
+
+        this.customPromptInput = this.customPromptContainer.createEl('textarea');
+        this.customPromptInput.placeholder = 'e.g., "Summarize this video as a step-by-step tutorial with code examples" or "Extract all key quotes and insights"';
+        this.customPromptInput.style.cssText = `
+            width: 100%;
+            min-height: 80px;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            font-family: inherit;
+            line-height: 1.5;
+        `;
+
+        this.customPromptInput.addEventListener('focus', () => {
+            this.customPromptInput!.style.borderColor = 'var(--ytc-accent, #0d9488)';
+            this.customPromptInput!.style.boxShadow = '0 0 0 2px rgba(13, 148, 136, 0.1)';
+        });
+
+        this.customPromptInput.addEventListener('blur', () => {
+            this.customPromptInput!.style.borderColor = 'var(--background-modifier-border)';
+            this.customPromptInput!.style.boxShadow = 'none';
+        });
+
+        this.customPromptInput.addEventListener('input', () => {
+            this.customPrompt = this.customPromptInput?.value ?? '';
+        });
+
+        // Character count
+        const charCount = this.customPromptContainer.createDiv();
+        charCount.style.cssText = `
+            text-align: right;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        `;
+        charCount.textContent = '0 characters';
+
+        this.customPromptInput.addEventListener('input', () => {
+            const length = this.customPromptInput?.value.length ?? 0;
+            charCount.textContent = `${length} character${length !== 1 ? 's' : ''}`;
+        });
+    }
+
+    /**
+     * Toggle custom prompt visibility based on format selection
+     */
+    private toggleCustomPromptVisibility(): void {
+        if (this.customPromptContainer) {
+            if (this.format === 'custom') {
+                this.customPromptContainer.style.display = 'block';
+                // Focus the input after a brief delay for animation
+                setTimeout(() => {
+                    this.customPromptInput?.focus();
+                }, 100);
+            } else {
+                this.customPromptContainer.style.display = 'none';
+            }
+        }
     }
 
     /**
@@ -1437,7 +1565,7 @@ export class YouTubeUrlModal extends BaseModal {
                 this.format,
                 this.selectedProvider,
                 this.selectedModel,
-                this.format === 'custom' ? undefined : undefined,
+                this.format === 'custom' ? this.customPrompt : undefined,
                 this.options.performanceMode || 'balanced',
                 this.options.enableParallelProcessing || false,
                 this.options.preferMultimodal || false,
