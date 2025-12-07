@@ -1,8 +1,16 @@
 {
-    "name": "obsidian-youtube-clipper",
+    "name": "obsidian-yt-clipper",
     "version": "1.4.0",
-    "description": "YoutubeClipper - Clip YouTube videos and generate structured notes in Obsidian",
+    "description": "AI-powered YouTube video clipper that generates structured notes using multiple AI providers",
     "main": "main.js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/emeeran/yt-clipper.git"
+    },
+    "bugs": {
+        "url": "https://github.com/emeeran/yt-clipper/issues"
+    },
+    "homepage": "https://github.com/emeeran/yt-clipper#readme",
     "scripts": {
         "dev": "node esbuild.config.mjs",
         "build": "node esbuild.config.mjs production",

@@ -1,10 +1,11 @@
 {
     "id": "yt-clipper",
-    "name": "YT-Clipper",
+    "name": "YouTube Clipper",
     "version": "1.4.0",
     "minAppVersion": "0.15.0",
-    "description": "AI-powered YouTube clipper that extracts key insights and generates structured, actionable notes with conflict-free operation",
+    "description": "AI-powered YouTube video clipper that extracts key insights and generates structured notes using Google Gemini, Groq, HuggingFace, OpenRouter, or Ollama",
     "author": "Meeran E Mandhini",
-    "authorUrl": "https://github.com/emeeran/yt-clipper.git",
+    "authorUrl": "https://github.com/emeeran",
+    "fundingUrl": "https://github.com/sponsors/emeeran",
     "isDesktopOnly": false
 }
