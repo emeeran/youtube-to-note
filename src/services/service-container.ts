@@ -3,9 +3,11 @@ import { AIPromptService } from './prompt-service';
 import { AIService } from './ai-service';
 import { GeminiProvider } from '../ai/gemini';
 import { GroqProvider } from '../ai/groq';
+import { HuggingFaceProvider } from '../ai/huggingface';
 import { MemoryCacheService } from './cache/memory-cache';
 import { ObsidianFileService } from '../obsidian-file';
 import { OllamaProvider } from '../ai/ollama';
+import { OpenRouterProvider } from '../ai/openrouter';
 import { YouTubeVideoService } from '../video-data';
 import { performanceTracker } from './performance-tracker';
 import {
@@ -74,8 +76,17 @@ export class ServiceContainer implements IServiceContainer {
                 providers.push(new GroqProvider(this.settings.groqApiKey));
             }
 
-            // Add Ollama provider (doesn't require API key, but can use it if provided)
-            // We add it always so it appears in dropdowns, but processing will check availability
+            // Add Hugging Face provider if API key is available
+            if (this.settings.huggingFaceApiKey) {
+                providers.push(new HuggingFaceProvider(this.settings.huggingFaceApiKey));
+            }
+
+            // Add OpenRouter provider if API key is available
+            if (this.settings.openRouterApiKey) {
+                providers.push(new OpenRouterProvider(this.settings.openRouterApiKey));
+            }
+
+            // Add Ollama provider (doesn't require API key, runs locally)
             providers.push(new OllamaProvider(this.settings.ollamaApiKey || ''));
 
             const service = new AIService(providers, this.settings);

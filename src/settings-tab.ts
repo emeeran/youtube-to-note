@@ -276,6 +276,26 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 }));
 
         new Setting(section)
+            .setName('Hugging Face API Key')
+            .setDesc('Get from huggingface.co/settings/tokens (free tier available)')
+            .addText(text => text
+                .setPlaceholder('hf_...')
+                .setValue(this.settings.huggingFaceApiKey || '')
+                .onChange(async (value) => {
+                    await this.updateSetting('huggingFaceApiKey', value.trim());
+                }));
+
+        new Setting(section)
+            .setName('OpenRouter API Key')
+            .setDesc('Get from openrouter.ai/keys (free models available)')
+            .addText(text => text
+                .setPlaceholder('sk-or-...')
+                .setValue(this.settings.openRouterApiKey || '')
+                .onChange(async (value) => {
+                    await this.updateSetting('openRouterApiKey', value.trim());
+                }));
+
+        new Setting(section)
             .setName('Ollama API Key')
             .setDesc('Optional: For authenticated local Ollama instances.')
             .addText(text => text

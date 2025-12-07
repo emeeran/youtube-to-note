@@ -9,6 +9,8 @@ export interface YouTubePluginSettings {
     geminiApiKey: string;
     groqApiKey: string;
     ollamaApiKey: string;
+    huggingFaceApiKey: string;
+    openRouterApiKey: string;
     outputPath: string;
     useEnvironmentVariables: boolean;
     environmentPrefix: string;

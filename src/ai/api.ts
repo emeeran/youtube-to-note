@@ -6,13 +6,17 @@
 export const API_ENDPOINTS = {
     GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
     GROQ: 'https://api.groq.com/openai/v1/chat/completions',
+    HUGGINGFACE: 'https://api-inference.huggingface.co/models',
+    OPENROUTER: 'https://openrouter.ai/api/v1/chat/completions',
     YOUTUBE_OEMBED: 'https://www.youtube.com/oembed',
     CORS_PROXY: 'https://api.allorigins.win/raw'
 } as const;
 
 export const AI_MODELS = {
-    GEMINI: 'gemini-2.5-pro', // Set Gemini model to gemini-2.5-pro
-    GROQ: 'llama-3.3-70b-versatile'
+    GEMINI: 'gemini-2.5-pro',
+    GROQ: 'llama-3.3-70b-versatile',
+    HUGGINGFACE: 'Qwen/Qwen3-8B',
+    OPENROUTER: 'meta-llama/llama-3.1-8b-instruct:free'
 } as const;
 
 // Known model options per provider (used to populate model selector in UI)
@@ -26,25 +30,21 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'gemini-2.5-pro-tts', supportsAudioVideo: true },
         { name: 'gemini-2.5-flash', supportsAudioVideo: true },
         { name: 'gemini-2.5-flash-lite', supportsAudioVideo: true },
-        // Gemini 2.0 series (video support via native API, but no explicit multimodal flag)
+        // Gemini 2.0 series
         { name: 'gemini-2.0-pro', supportsAudioVideo: true },
         { name: 'gemini-2.0-flash' },
         { name: 'gemini-2.0-flash-lite' },
-        // Gemini 1.5 series (available, supports video via File API)
+        // Gemini 1.5 series
         { name: 'gemini-1.5-pro' },
         { name: 'gemini-1.5-flash' }
     ],
     'Groq': [
-        // Latest models (Nov 2024 - Nov 2025)
-        // Note: Groq models prioritize speed/text; for multimodal video, Gemini is recommended
         { name: 'llama-4-maverick-17b-128e-instruct' },
         { name: 'llama-4-scout-17b-16e-instruct' },
-        // Llama 3.x series
         { name: 'llama-3.3-70b-versatile' },
         { name: 'llama-3.1-8b-instant' }
     ],
     'Ollama': [
-        // Various Ollama models
         { name: 'qwen3-coder:480b-cloud' },
         { name: 'llama3.2' },
         { name: 'llama3.1' },
@@ -54,6 +54,29 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'phi3' },
         { name: 'qwen2' },
         { name: 'command-r' }
+    ],
+    'Hugging Face': [
+        // Models verified to work with HuggingFace Inference API (Dec 2025)
+        { name: 'Qwen/Qwen3-8B' },
+        { name: 'Qwen/Qwen2.5-7B-Instruct' },
+        { name: 'Qwen/Qwen3-4B-Instruct-2507' },
+        { name: 'meta-llama/Llama-3.2-3B-Instruct' },
+        { name: 'meta-llama/Llama-3.2-1B-Instruct' },
+        { name: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B' },
+        { name: 'mistralai/Mistral-7B-Instruct-v0.2' }
+    ],
+    'OpenRouter': [
+        // Free tier models
+        { name: 'meta-llama/llama-3.1-8b-instruct:free' },
+        { name: 'google/gemma-2-9b-it:free' },
+        { name: 'qwen/qwen-2-7b-instruct:free' },
+        // Paid but affordable
+        { name: 'anthropic/claude-3.5-sonnet' },
+        { name: 'openai/gpt-4o-mini' },
+        { name: 'openai/gpt-4o' },
+        { name: 'google/gemini-pro-1.5' },
+        { name: 'meta-llama/llama-3.1-70b-instruct' },
+        { name: 'mistralai/mistral-large' }
     ]
 };
 
@@ -61,14 +84,18 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
 export const PROVIDER_MODEL_LIST_URLS: Record<string, string> = {
     'Google Gemini': 'https://developers.generativeai.google/models',
     'Groq': 'https://groq.com',
-    'Ollama': 'http://localhost:11434'  // Local Ollama instance
+    'Ollama': 'http://localhost:11434',
+    'Hugging Face': 'https://huggingface.co/models',
+    'OpenRouter': 'https://openrouter.ai/models'
 };
 
 // Simple regex patterns to try to extract model-like tokens from provider pages
 export const PROVIDER_MODEL_REGEX: Record<string, RegExp> = {
     'Google Gemini': /gemini[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
     'Groq': /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
-    'Ollama': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g  // General pattern for Ollama models
+    'Ollama': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
+    'Hugging Face': /[\w-]+\/[\w\-\.]+/g,
+    'OpenRouter': /[\w-]+\/[\w\-\.:]+/g
 };
 
 export const API_LIMITS = {

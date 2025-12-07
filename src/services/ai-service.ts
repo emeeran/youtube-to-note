@@ -107,96 +107,119 @@ export class AIService implements IAIService {
         return await performanceTracker.measureOperation('ai-service', `fetch-models-${providerName}`, async () => {
             // Special handling for Ollama to query the actual running instance
             if (providerName === 'Ollama') {
-                try {
-                    // Use optimized HTTP client for Ollama API call
-                    const defaultOllamaEndpoint = 'http://localhost:11434';
-
-                    const response = await this.httpClient.get(`${defaultOllamaEndpoint}/api/tags`, {
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-
-                        if (data && data.models && Array.isArray(data.models)) {
-                            // Extract model names from Ollama's response format
-                            const modelNames = data.models.map((model: any) => {
-                                if (model.name) {
-                                    return model.name;
-                                } else if (model.id) {
-                                    // Fallback to id if name is not available
-                                    return model.id;
-                                }
-                                return '';
-                            }).filter((name: string) => name !== '');
-
-                            logger.debug(`Fetched ${modelNames.length} models from local Ollama instance`, 'AIService', {
-                                models: modelNames.slice(0, 10) // Log first 10 for debugging
-                            });
-
-                            return modelNames;
-                        }
-                    } else {
-                        logger.warn(`Ollama instance not accessible at ${defaultOllamaEndpoint}, using static list`, 'AIService');
-                    }
-                } catch (error) {
-                    logger.warn('Ollama instance not accessible, using static model list', 'AIService', {
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-                }
-
-                // If Ollama is not available or fails to fetch, return static options as fallback
-                logger.debug('Using static Ollama models list', 'AIService');
-                const fallbackModels = PROVIDER_MODEL_OPTIONS[providerName] ?
-                    (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) :
-                    [];
-                return fallbackModels;
+                return this.fetchOllamaModels();
             }
 
-            // For other providers, use the optimized HTTP client
-            const url = PROVIDER_MODEL_LIST_URLS[providerName];
-            const regex = PROVIDER_MODEL_REGEX[providerName];
-            if (!url || !regex) {
-                return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
+            // Special handling for OpenRouter - use their API
+            if (providerName === 'OpenRouter') {
+                return this.fetchOpenRouterModels();
             }
 
-            try {
-                logger.debug(`Fetching latest models for ${providerName}`, 'AIService', { url });
-
-                const response = await this.httpClient.get(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (compatible; YT-Clipper/1.3.5)'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const text = await response.text();
-                const matches = text.match(regex) || [];
-                // Normalize and dedupe
-                const normalized = Array.from(new Set(matches.map(m => m.toLowerCase())));
-
-                logger.debug(`Found ${normalized.length} models for ${providerName}`, 'AIService', {
-                    models: normalized.slice(0, 5) // Log first 5 for debugging
-                });
-
-                return normalized;
-            } catch (error) {
-                logger.error(`Error fetching models for ${providerName}`, 'AIService', {
-                    error: error instanceof Error ? error.message : String(error),
-                    providerName
-                });
-                // On any error, return static fallback
-                return PROVIDER_MODEL_OPTIONS[providerName] ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) : [];
+            // Special handling for Hugging Face - use inference API models
+            if (providerName === 'Hugging Face') {
+                return this.fetchHuggingFaceModels();
             }
+
+            // For Gemini and Groq, return static options (their APIs don't have a model list endpoint)
+            return PROVIDER_MODEL_OPTIONS[providerName] 
+                ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name) 
+                : [];
         }, {
             provider: providerName,
             operation: 'fetchLatestModelsForProvider'
         });
+    }
+
+    /**
+     * Fetch models from local Ollama instance
+     */
+    private async fetchOllamaModels(): Promise<string[]> {
+        try {
+            const defaultOllamaEndpoint = 'http://localhost:11434';
+            const response = await this.httpClient.get(`${defaultOllamaEndpoint}/api/tags`, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data?.models && Array.isArray(data.models)) {
+                    const modelNames = data.models
+                        .map((model: any) => model.name || model.id || '')
+                        .filter((name: string) => name !== '');
+                    logger.debug(`Fetched ${modelNames.length} models from Ollama`, 'AIService');
+                    return modelNames;
+                }
+            }
+        } catch (error) {
+            logger.warn('Ollama not accessible, using static list', 'AIService');
+        }
+        return (PROVIDER_MODEL_OPTIONS['Ollama'] as any[]).map(m => typeof m === 'string' ? m : m.name);
+    }
+
+    /**
+     * Fetch models from OpenRouter API
+     */
+    private async fetchOpenRouterModels(): Promise<string[]> {
+        try {
+            const response = await this.httpClient.get('https://openrouter.ai/api/v1/models', {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data?.data && Array.isArray(data.data)) {
+                    // Sort by popularity and get model IDs
+                    const models = data.data
+                        .sort((a: any, b: any) => (b.context_length || 0) - (a.context_length || 0))
+                        .slice(0, 50) // Top 50 models
+                        .map((m: any) => m.id)
+                        .filter((id: string) => id);
+                    logger.debug(`Fetched ${models.length} models from OpenRouter`, 'AIService');
+                    return models;
+                }
+            }
+        } catch (error) {
+            logger.warn('OpenRouter API error, using static list', 'AIService');
+        }
+        return (PROVIDER_MODEL_OPTIONS['OpenRouter'] as any[]).map(m => typeof m === 'string' ? m : m.name);
+    }
+
+    /**
+     * Fetch popular text generation models from Hugging Face
+     * Only returns models that work with the Inference API
+     */
+    private async fetchHuggingFaceModels(): Promise<string[]> {
+        try {
+            // Fetch text-generation models that are inference-enabled, sorted by downloads
+            const response = await this.httpClient.get(
+                'https://huggingface.co/api/models?pipeline_tag=text-generation&inference=warm&sort=downloads&limit=20',
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    const models = data
+                        .filter((m: any) => m.id && !m.private && m.id.includes('/'))
+                        .map((m: any) => m.id)
+                        .slice(0, 15);
+                    logger.debug(`Fetched ${models.length} HuggingFace models`, 'AIService');
+                    if (models.length > 0) return models;
+                }
+            }
+        } catch (error) {
+            logger.warn('Hugging Face API error, using static list', 'AIService');
+        }
+        // Return curated list of models known to work with inference API
+        return [
+            'Qwen/Qwen3-8B',
+            'Qwen/Qwen2.5-7B-Instruct',
+            'Qwen/Qwen3-4B-Instruct-2507',
+            'meta-llama/Llama-3.2-3B-Instruct',
+            'meta-llama/Llama-3.2-1B-Instruct',
+            'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
+            'mistralai/Mistral-7B-Instruct-v0.2'
+        ];
     }
 
     /**

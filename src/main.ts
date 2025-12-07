@@ -18,15 +18,17 @@ const PLUGIN_VERSION = '1.3.5';
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
     groqApiKey: '',
-    ollamaApiKey: '', // Add Ollama API key
+    ollamaApiKey: '',
+    huggingFaceApiKey: '',
+    openRouterApiKey: '',
     outputPath: 'YouTube/Processed Videos',
     useEnvironmentVariables: false,
     environmentPrefix: 'YTC',
     performanceMode: 'balanced',
     enableParallelProcessing: true,
     preferMultimodal: true,
-    defaultMaxTokens: 4096, // Good balance for Gemini video processing
-    defaultTemperature: 0.5  // Balanced creativity vs consistency
+    defaultMaxTokens: 4096,
+    defaultTemperature: 0.5
 };
 
 export default class YoutubeClipperPlugin extends Plugin {
@@ -266,6 +268,21 @@ export default class YoutubeClipperPlugin extends Plugin {
                         return map;
                     } catch (error) {
                         return modelOptionsMap;
+                    }
+                },
+                fetchModelsForProvider: async (provider: string) => {
+                    try {
+                        const models = await (this.serviceContainer!.aiService as any).fetchLatestModelsForProvider(provider);
+                        if (models && models.length > 0) {
+                            this._settings.modelOptionsCache = {
+                                ...this._settings.modelOptionsCache,
+                                [provider]: models
+                            };
+                            await this.saveSettings();
+                        }
+                        return models;
+                    } catch (error) {
+                        return [];
                     }
                 },
                 performanceMode: this._settings.performanceMode || 'balanced',

@@ -22,6 +22,7 @@ export interface YouTubeUrlModalOptions {
     defaultMaxTokens?: number;
     defaultTemperature?: number;
     fetchModels?: () => Promise<Record<string, string[]>>;
+    fetchModelsForProvider?: (provider: string) => Promise<string[]>;
     // Performance settings from plugin settings
     performanceMode?: PerformanceMode;
     enableParallelProcessing?: boolean;
@@ -322,6 +323,8 @@ export class YouTubeUrlModal extends BaseModal {
         const providerOptions = [
             { value: 'Google Gemini', text: 'Google' },
             { value: 'Groq', text: 'Groq' },
+            { value: 'Hugging Face', text: 'HuggingFace' },
+            { value: 'OpenRouter', text: 'OpenRouter' },
             { value: 'Ollama', text: 'Ollama' }
         ];
 
@@ -398,15 +401,27 @@ export class YouTubeUrlModal extends BaseModal {
             refreshBtn.style.cursor = 'wait';
 
             try {
-                // Call the fetchModels function passed from main.ts
-                if (this.options.fetchModels) {
+                const currentProvider = this.selectedProvider || 'Google Gemini';
+                
+                // Try provider-specific fetch first (faster)
+                if (this.options.fetchModelsForProvider) {
+                    const models = await this.options.fetchModelsForProvider(currentProvider);
+                    if (models && models.length > 0) {
+                        // Update just this provider's models
+                        const updatedOptions = { ...this.options.modelOptions, [currentProvider]: models };
+                        this.updateModelDropdown(updatedOptions);
+                        new Notice(`Updated ${models.length} models for ${currentProvider}`);
+                    } else {
+                        new Notice('No models found. Using defaults.');
+                    }
+                } else if (this.options.fetchModels) {
+                    // Fallback to fetching all providers
                     const modelOptionsMap = await this.options.fetchModels();
                     this.updateModelDropdown(modelOptionsMap);
                     new Notice('Model list updated!');
                 }
             } catch (error) {
-                
-new Notice('Failed to refresh models. Using cached options.');
+                new Notice('Failed to refresh models. Using cached options.');
             } finally {
                 refreshBtn.innerHTML = '🔄';
                 refreshBtn.style.opacity = '0.7';
