@@ -135,6 +135,9 @@ export class YouTubeUrlModal extends BaseModal {
         this.createDropDownRow();
         this.createProgressSection();
         this.createActionButtons();
+        
+        // Apply theme immediately on modal open
+        this.applyTheme(this.isLightTheme);
     }
 
     /**
@@ -226,9 +229,11 @@ export class YouTubeUrlModal extends BaseModal {
     private createDropDownRow(): void {
         const dropdownContainer = this.contentEl.createDiv();
         dropdownContainer.style.cssText = `
-            display: flex;
-            gap: 10px;
-            margin: 12px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin: 16px 0;
+            align-items: end;
         `;
 
         // Format dropdown
@@ -610,38 +615,121 @@ export class YouTubeUrlModal extends BaseModal {
             themeStyle.id = 'ytc-theme-styles';
             let css = '';
 
-            // Light theme colors
+            // Light theme colors - refined warm palette
             css += `.ytc-modal-light {`;
-            css += `--ytc-bg-primary: #ffffff;`;
-            css += `--ytc-bg-secondary: #f8f9fa;`;
-            css += `--ytc-bg-tertiary: #e9ecef;`;
-            css += `--ytc-text-primary: #212529;`;
-            css += `--ytc-text-secondary: #6c757d;`;
-            css += `--ytc-text-muted: #adb5bd;`;
-            css += `--ytc-border: #dee2e6;`;
-            css += `--ytc-accent: #0d6efd;`;
-            css += `--ytc-accent-hover: #0b5ed7;`;
-            css += `--ytc-success: #198754;`;
-            css += `--ytc-warning: #ffc107;`;
-            css += `--ytc-error: #dc3545;`;
-            css += `--ytc-shadow: rgba(0, 0, 0, 0.1);`;
+            css += `--ytc-bg-primary: #fafbfc;`;
+            css += `--ytc-bg-secondary: #f0f2f5;`;
+            css += `--ytc-bg-tertiary: #e4e7eb;`;
+            css += `--ytc-bg-input: #ffffff;`;
+            css += `--ytc-text-primary: #1a1d21;`;
+            css += `--ytc-text-secondary: #4a5568;`;
+            css += `--ytc-text-muted: #718096;`;
+            css += `--ytc-border: #d1d5db;`;
+            css += `--ytc-border-focus: #0d9488;`;
+            css += `--ytc-accent: #14b8a6;`;
+            css += `--ytc-accent-hover: #0d9488;`;
+            css += `--ytc-accent-gradient: linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%);`;
+            css += `--ytc-success: #10b981;`;
+            css += `--ytc-warning: #f59e0b;`;
+            css += `--ytc-error: #ef4444;`;
+            css += `--ytc-shadow: rgba(0, 0, 0, 0.08);`;
+            css += `--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);`;
+            css += `--ytc-glow: 0 0 20px rgba(20, 184, 166, 0.2);`;
             css += `}`;
 
-            // Dark theme colors (matching Obsidian dark theme)
+            // Dark theme colors - refined dark palette
             css += `.ytc-modal-dark {`;
-            css += `--ytc-bg-primary: #1e1e1e;`;
-            css += `--ytc-bg-secondary: #252526;`;
-            css += `--ytc-bg-tertiary: #3c3c3c;`;
-            css += `--ytc-text-primary: #ffffff;`;
-            css += `--ytc-text-secondary: #e0e0e0;`;
-            css += `--ytc-text-muted: #a0a0a0;`;
-            css += `--ytc-border: #3c3c3c;`;
-            css += `--ytc-accent: #4a9eff;`;
-            css += `--ytc-accent-hover: #3a8eef;`;
-            css += `--ytc-success: #4caf50;`;
-            css += `--ytc-warning: #ff9800;`;
-            css += `--ytc-error: #f44336;`;
-            css += `--ytc-shadow: rgba(0, 0, 0, 0.3);`;
+            css += `--ytc-bg-primary: #3f4042ff;`;
+            css += `--ytc-bg-secondary: #3f4042ff;`;
+            css += `--ytc-bg-tertiary: #3f4042ff;`;
+            css += `--ytc-bg-input: #16171a;`;
+            css += `--ytc-text-primary: #f4f4f5;`;
+            css += `--ytc-text-secondary: #a1a1aa;`;
+            css += `--ytc-text-muted: #71717a;`;
+            css += `--ytc-border: #3f3f46;`;
+            css += `--ytc-border-focus: #2dd4bf;`;
+            css += `--ytc-accent: #2dd4bf;`;
+            css += `--ytc-accent-hover: #14b8a6;`;
+            css += `--ytc-accent-gradient: linear-gradient(135deg, #2dd4bf 0%, #5eead4 100%);`;
+            css += `--ytc-success: #22c55e;`;
+            css += `--ytc-warning: #eab308;`;
+            css += `--ytc-error: #ef4444;`;
+            css += `--ytc-shadow: rgba(0, 0, 0, 0.4);`;
+            css += `--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);`;
+            css += `--ytc-glow: 0 0 30px rgba(45, 212, 191, 0.25);`;
+            css += `}`;
+
+            // Modal container styling
+            css += `.ytc-themed-modal .modal-content {`;
+            css += `background: var(--ytc-bg-secondary) !important;`;
+            css += `border-radius: 16px !important;`;
+            css += `border: 1px solid var(--ytc-border) !important;`;
+            css += `box-shadow: var(--ytc-shadow-lg), var(--ytc-glow) !important;`;
+            css += `padding: 24px !important;`;
+            css += `max-width: 520px !important;`;
+            css += `}`;
+
+            // Header styling
+            css += `.ytc-themed-modal .ytc-modal-header {`;
+            css += `background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;`;
+            css += `-webkit-background-clip: text !important;`;
+            css += `-webkit-text-fill-color: transparent !important;`;
+            css += `background-clip: text !important;`;
+            css += `font-size: 1.5rem !important;`;
+            css += `font-weight: 700 !important;`;
+            css += `margin-bottom: 20px !important;`;
+            css += `text-align: center !important;`;
+            css += `width: 100% !important;`;
+            css += `display: block !important;`;
+            css += `}`;
+
+            // Input field styling
+            css += `.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {`;
+            css += `background: var(--ytc-bg-input) !important;`;
+            css += `border: 2px solid var(--ytc-border) !important;`;
+            css += `border-radius: 10px !important;`;
+            css += `color: var(--ytc-text-primary) !important;`;
+            css += `transition: all 0.2s ease !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal input:focus {`;
+            css += `border-color: var(--ytc-border-focus) !important;`;
+            css += `box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.2) !important;`;
+            css += `}`;
+
+            // Select dropdown styling
+            css += `.ytc-themed-modal select {`;
+            css += `background: var(--ytc-bg-input) !important;`;
+            css += `border: 1px solid var(--ytc-border) !important;`;
+            css += `border-radius: 8px !important;`;
+            css += `color: var(--ytc-text-primary) !important;`;
+            css += `transition: all 0.2s ease !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal select:hover {`;
+            css += `border-color: var(--ytc-accent) !important;`;
+            css += `}`;
+
+            // Button styling
+            css += `.ytc-themed-modal button {`;
+            css += `border-radius: 8px !important;`;
+            css += `font-weight: 500 !important;`;
+            css += `transition: all 0.2s ease !important;`;
+            css += `}`;
+
+            // Primary button (Process)
+            css += `.ytc-themed-modal .mod-cta, .ytc-themed-modal button[style*="interactive-accent"] {`;
+            css += `background: var(--ytc-accent-gradient) !important;`;
+            css += `border: none !important;`;
+            css += `color: white !important;`;
+            css += `box-shadow: 0 4px 14px rgba(21, 196, 190, 0.35) !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal .mod-cta:hover {`;
+            css += `transform: translateY(-1px) !important;`;
+            css += `box-shadow: 0 6px 20px rgba(21, 196, 190, 0.45) !important;`;
+            css += `}`;
+
+            // Labels styling
+            css += `.ytc-themed-modal [style*="font-weight: 500"] {`;
+            css += `color: var(--ytc-text-secondary) !important;`;
             css += `}`;
 
             themeStyle.innerHTML = css;
@@ -653,23 +741,36 @@ export class YouTubeUrlModal extends BaseModal {
         this.modalEl?.classList.toggle('ytc-modal-light', isLight);
         this.modalEl?.classList.toggle('ytc-modal-dark', !isLight);
 
+        // Apply background to modal content
+        if (this.contentEl) {
+            this.contentEl.style.background = 'var(--ytc-bg-secondary)';
+            this.contentEl.style.borderRadius = '16px';
+        }
+
         // Update dropdown styles to match theme
         if (this.formatSelect) {
-            this.formatSelect.style.background = `var(--ytc-bg-primary)`;
+            this.formatSelect.style.background = `var(--ytc-bg-input)`;
             this.formatSelect.style.color = `var(--ytc-text-primary)`;
             this.formatSelect.style.borderColor = `var(--ytc-border)`;
         }
 
         if (this.providerSelect) {
-            this.providerSelect.style.background = `var(--ytc-bg-primary)`;
+            this.providerSelect.style.background = `var(--ytc-bg-input)`;
             this.providerSelect.style.color = `var(--ytc-text-primary)`;
             this.providerSelect.style.borderColor = `var(--ytc-border)`;
         }
 
         if (this.modelSelect) {
-            this.modelSelect.style.background = `var(--ytc-bg-primary)`;
+            this.modelSelect.style.background = `var(--ytc-bg-input)`;
             this.modelSelect.style.color = `var(--ytc-text-primary)`;
             this.modelSelect.style.borderColor = `var(--ytc-border)`;
+        }
+
+        // Update URL input
+        if (this.urlInput) {
+            this.urlInput.style.background = 'var(--ytc-bg-input)';
+            this.urlInput.style.color = 'var(--ytc-text-primary)';
+            this.urlInput.style.borderColor = 'var(--ytc-border)';
         }
 
         // Update other UI elements
