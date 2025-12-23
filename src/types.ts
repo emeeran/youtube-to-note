@@ -105,6 +105,7 @@ export interface AIProvider {
 export interface VideoDataService {
     extractVideoId(url: string): string | null;
     getVideoData(videoId: string): Promise<VideoData>;
+    getTranscript?(videoId: string): Promise<{ fullText: string } | null>;
     getPerformanceMetrics?(): Record<string, unknown>;
     cleanup?(): void;
 }
@@ -141,7 +142,8 @@ export interface PromptService {
         videoData: VideoData,
         videoUrl: string,
         format?: OutputFormat,
-        customPrompt?: string
+        customPrompt?: string,
+        transcript?: string
     ): string;
     processAIResponse(
         content: string,

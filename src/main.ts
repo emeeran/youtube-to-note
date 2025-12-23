@@ -389,7 +389,26 @@ export default class YoutubeClipperPlugin extends Plugin {
                 promptToUse = this._settings.customPrompts?.[format];
             }
 
-            const prompt = promptService.createAnalysisPrompt(videoData, url, format, promptToUse);
+            // Fetch transcript to provide actual video content to AI
+            let transcript: string | undefined;
+            try {
+                const transcriptData = await youtubeService.getTranscript(videoId);
+                if (transcriptData?.fullText) {
+                    transcript = transcriptData.fullText;
+                    logger.info('Transcript fetched successfully', 'Plugin', {
+                        videoId,
+                        transcriptLength: transcript.length
+                    });
+                } else {
+                    logger.debug('No transcript available for this video', 'Plugin', { videoId });
+                }
+            } catch (error) {
+                logger.debug('Could not fetch transcript, continuing without it', 'Plugin', {
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+
+            const prompt = promptService.createAnalysisPrompt(videoData, url, format, promptToUse, transcript);
 
             logger.aiService('Processing video', {
                 videoId,

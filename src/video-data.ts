@@ -23,10 +23,22 @@ export interface EnhancedVideoData extends VideoData {
 export class YouTubeVideoService implements VideoDataService {
     private readonly metadataTTL = 1000 * 60 * 30; // 30 minutes
     private readonly descriptionTTL = 1000 * 60 * 30; // 30 minutes
-    private transcriptService: YouTubeTranscriptService;
+    public transcriptService: YouTubeTranscriptService;
 
     constructor(private cache?: CacheService) {
         this.transcriptService = new YouTubeTranscriptService(cache);
+    }
+
+    /**
+     * Get transcript for a video (public method for external access)
+     */
+    async getTranscript(videoId: string): Promise<{ fullText: string } | null> {
+        try {
+            const transcript = await this.transcriptService.getTranscript(videoId);
+            return transcript ? { fullText: transcript.fullText } : null;
+        } catch (error) {
+            return null;
+        }
     }
     /**
      * Extract video ID from YouTube URL

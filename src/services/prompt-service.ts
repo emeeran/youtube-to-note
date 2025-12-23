@@ -12,27 +12,29 @@ export class AIPromptService implements PromptService {
 Title: {{TITLE}}
 URL: {{URL}}
 Description: {{DESCRIPTION}}
+{{TRANSCRIPT_SECTION}}
 
 Focus on extracting the key information and insights.`;
 
-    private static readonly BALANCED_BASE_TEMPLATE = `Analyze this YouTube video with multimodal analysis:
+    private static readonly BALANCED_BASE_TEMPLATE = `Analyze this YouTube video:
 Title: {{TITLE}}
 URL: {{URL}}
 Description: {{DESCRIPTION}}
+{{TRANSCRIPT_SECTION}}
 
-Extract insights from both spoken content and visual elements, focusing on practical information.`;
+Extract insights from the content, focusing on practical information.`;
 
-    private static readonly COMPREHENSIVE_BASE_TEMPLATE = `Analyze this YouTube video using comprehensive multimodal analysis:
+    private static readonly COMPREHENSIVE_BASE_TEMPLATE = `Analyze this YouTube video comprehensively:
 Title: {{TITLE}}
 URL: {{URL}}
 Description: {{DESCRIPTION}}
+{{TRANSCRIPT_SECTION}}
 
-MULTIMODAL ANALYSIS INSTRUCTIONS:
-1. Watch the complete video using both audio and visual analysis capabilities
-2. Extract insights from spoken content, music, sound effects, and ambient audio
-3. Analyze visual elements including slides, diagrams, charts, body language, and demonstrations
-4. Focus on practical, action-oriented information with specific examples
-5. Maintain accuracy and cite specific examples from the video when relevant`;
+ANALYSIS INSTRUCTIONS:
+1. Analyze the transcript content thoroughly
+2. Extract key insights, themes, and practical information
+3. Focus on action-oriented information with specific examples
+4. Maintain accuracy and cite specific examples from the content when relevant`;
 
     /**
      * Create analysis prompt for YouTube video content with performance optimization
@@ -42,6 +44,7 @@ MULTIMODAL ANALYSIS INSTRUCTIONS:
         videoUrl: string,
         format: OutputFormat = 'detailed-guide',
         customPrompt?: string,
+        transcript?: string,
         performanceMode: PerformanceMode = 'balanced'
     ): string {
         // Use custom prompt if provided
@@ -62,11 +65,23 @@ MULTIMODAL ANALYSIS INSTRUCTIONS:
                 baseTemplate = AIPromptService.BALANCED_BASE_TEMPLATE;
         }
 
+        // Build transcript section
+        let transcriptSection = '';
+        if (transcript && transcript.trim()) {
+            // Truncate very long transcripts to avoid token limits
+            const maxLength = 8000;
+            const truncatedTranscript = transcript.length > maxLength
+                ? transcript.substring(0, maxLength) + '... [transcript truncated]'
+                : transcript;
+            transcriptSection = `VIDEO CONTENT/TRANSCRIPT:\n${truncatedTranscript}`;
+        }
+
         // Fast string replacement
         const baseContent = baseTemplate
             .replace('{{TITLE}}', videoData.title)
             .replace('{{URL}}', videoUrl)
-            .replace('{{DESCRIPTION}}', videoData.description);
+            .replace('{{DESCRIPTION}}', videoData.description)
+            .replace('{{TRANSCRIPT_SECTION}}', transcriptSection);
 
         // Create format-specific prompt
         switch (format) {
@@ -164,43 +179,23 @@ MULTIMODAL ANALYSIS INSTRUCTIONS:
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        // Map performance modes to processing modes
-        const modeMap = {
-            'fast': 'Fast Mode: transcript only',
-            'balanced': 'Balanced Mode: transcript + primary visuals',
-            'quality': 'Quality Mode: full multimodal analysis (audio, visuals, diagrams, slides, demonstrations)'
-        };
+        return `${baseContent}
 
-        const processingMode = modeMap[performanceMode] || modeMap['balanced'];
+OUTPUT FORMAT - EXECUTIVE SUMMARY (≤250 words):
 
-        return `## 🎯 YouTube → Obsidian Executive Summary Prompt (Tech/Developer Focus)
-
-**ROLE:**
-You are an expert technical analyst and executive summarizer. Your task is to extract high-value strategic insights from a technology-focused YouTube video and produce a concise, structured note for Obsidian.
-
----
-
-Use this EXACT template:
+Create a concise executive summary following this EXACT template:
 
 ---
 title: {{TITLE}}
 source: ${videoUrl}
 created: "${new Date().toISOString().split('T')[0]}"
 modified: "${new Date().toISOString().split('T')[0]}"
-description: "Single sentence capturing the core insight"
 type: youtube-note
 format: executive-summary
 tags:
   - youtube
   - executive-summary
-  - technology
-  - strategy
-status: processed
-duration: "[Extract video duration]"
-channel: "[Extract channel name]"
 video_id: "${videoId || 'unknown'}"
-processing_date: "${new Date().toISOString()}"
-word_count: 250
 ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
 ---
@@ -209,90 +204,35 @@ ai_model: "__AI_MODEL__"
 <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </div>
 
----
+# Executive Summary
 
-# 📊 Executive Summary
+[Provide a 2-3 paragraph summary (max 250 words total) that captures the core message and key insights. Focus on the main value proposition and critical takeaways. Use clear, professional language.]
 
-The video discusses [explain the main problem/opportunity and the central argument of the video].
+# Key Points
 
-Key concepts include [summarize the most important concepts, frameworks, or differentiators that create impact].
+- **[Point 1]**: [Brief explanation]
+- **[Point 2]**: [Brief explanation]
+- **[Point 3]**: [Brief explanation]
+- **[Point 4]**: [Brief explanation]
+- **[Point 5]**: [Brief explanation]
 
-To implement these insights, [provide recommendations, risks, and priority actions based on the insights].
+# Action Items
 
-> **💡 Focus:** Strategic value over narrative recap - prioritize actionable insights.
+1. **[Immediate Action]**: [What can be applied right away]
+2. **[Strategic Initiative]**: [Longer-term implementation]
+3. **[Follow-up Required]**: [What needs further research]
 
----
+# Notes
 
-## 🎯 Key Strategic Insights
+[Additional context, technical considerations, or observations that add value to the summary]
 
-### 🔧 Technical Strategy
-**[Critical insight with specific business impact and example from video]**
-
-### 💡 Design Thinking
-**[Critical insight with specific business impact and example from video]**
-
-### 📚 Continuous Learning
-**[Critical insight with specific business impact and example from video]**
-
-> *Optional: Add 4–5 additional insights if they provide significant value.*
-
----
-
-## 🚀 Action Plan & Implementation
-
-### ⚡ Immediate (0-30 days)
-- **Action:** [Specific, measurable action]
-- **Success Metric:** [Clear success criteria]
-
-### 📈 Short-term (1-3 months)
-- **Action:** [Specific, measurable action]
-- **Success Metric:** [Clear success criteria]
-
-### 🎯 Mid-term (3-6 months)
-- **Action:** [Specific, measurable action]
-- **Success Metric:** [Clear success criteria]
-
-### 🔮 Long-term (6+ months)
-- **Action:** [Specific, measurable action]
-- **Success Metric:** [Clear success criteria]
-
-> **✅ Requirement:** Each action item must include clear, measurable success criteria.
-
----
-
-## 📚 Curated Resources & References
-
-### 🎥 Primary Sources
-- **Original Video:** [Watch on YouTube](${videoUrl})
-- **Channel:** [Creator's Channel](https://youtube.com/channel/[extract-channel-id])
-
-### 🛠️ Key Tools & Technologies
-- [List main tools, frameworks, or technologies mentioned]
-
-### 📖 Official Documentation
-- [Links to official documentation for mentioned technologies]
-
-### 🌟 Further Reading
-- [1-2 high-quality related articles or resources for deep dive]
-
----
-
-### Non-Negotiable Rules
-
-- Executive Summary ≤ 250 words
-- Insights & action items must reference the video
-- Focus on strategy and developer/business value
-- Avoid fluff and storytelling—prioritize usable analysis
-
----
-
-### Suggested Prompt Invocation
-
-Analyze this YouTube video in **${processingMode}**:
-Title: {{TITLE}}
-URL: ${videoUrl}
-Description: {{DESCRIPTION}}
-Return a structured Obsidian-ready note with strategic insights and developer-aligned action steps.`;
+IMPORTANT INSTRUCTIONS:
+- Keep the Executive Summary under 250 words total
+- Focus on actionable insights and practical value
+- Prioritize technical/developer perspectives when relevant
+- Use bullet points for readability
+- Be specific and concrete, not vague
+- Include timestamps for key insights when available`;
     }
 
     /**
