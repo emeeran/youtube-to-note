@@ -450,7 +450,7 @@ export class YouTubeUrlModal extends BaseModal {
     private updateProviderStatus(provider: string, status: string): void {
         if (this.providerStatusEl) {
             this.providerStatusEl.style.display = 'block';
-            this.providerStatusEl.innerHTML = `<span style="color: var(--text-accent);">🤖 ${provider}</span> — ${status}`;
+            this.providerStatusEl.innerHTML = `<span style="color: var(--ytc-accent);">🤖 ${provider}</span> — ${status}`;
         }
     }
 
@@ -1026,9 +1026,11 @@ export class YouTubeUrlModal extends BaseModal {
         // Toggle knob styling via pseudo-element simulation
         const updateToggleStyle = () => {
             if (this.fallbackToggle?.checked) {
-                this.fallbackToggle.style.background = 'var(--interactive-accent)';
+                this.fallbackToggle.style.background = 'var(--ytc-accent)';
+                this.fallbackToggle.style.boxShadow = '0 0 10px rgba(45, 212, 191, 0.4)';
             } else {
-                this.fallbackToggle!.style.background = 'var(--background-modifier-border)';
+                this.fallbackToggle!.style.background = 'var(--ytc-border)';
+                this.fallbackToggle!.style.boxShadow = 'none';
             }
         };
 
@@ -1302,35 +1304,35 @@ export class YouTubeUrlModal extends BaseModal {
             css += `--ytc-glow: 0 0 20px rgba(13, 148, 136, 0.25);`;
             css += `}`;
 
-            // Dark theme colors - refined dark palette
+            // Dark theme colors - premium dark palette with depth
             css += `.ytc-modal-dark {`;
-            css += `--ytc-bg-primary: #3f4042ff;`;
-            css += `--ytc-bg-secondary: #3f4042ff;`;
-            css += `--ytc-bg-tertiary: #3f4042ff;`;
-            css += `--ytc-bg-input: #16171a;`;
-            css += `--ytc-text-primary: #f4f4f5;`;
-            css += `--ytc-text-secondary: #a1a1aa;`;
-            css += `--ytc-text-muted: #71717a;`;
-            css += `--ytc-border: #3f3f46;`;
-            css += `--ytc-border-focus: #14b8a6;`;
-            css += `--ytc-accent: #14b8a6;`;
-            css += `--ytc-accent-hover: #0d9488;`;
-            css += `--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);`;
-            css += `--ytc-success: #22c55e;`;
-            css += `--ytc-warning: #eab308;`;
-            css += `--ytc-error: #ef4444;`;
-            css += `--ytc-shadow: rgba(0, 0, 0, 0.4);`;
-            css += `--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.5);`;
-            css += `--ytc-glow: 0 0 30px rgba(20, 184, 166, 0.25);`;
+            css += `--ytc-bg-primary: #1a1b1e;`;
+            css += `--ytc-bg-secondary: #25262b;`;
+            css += `--ytc-bg-tertiary: #2c2e33;`;
+            css += `--ytc-bg-input: #141517;`;
+            css += `--ytc-text-primary: #ebedf0;`;
+            css += `--ytc-text-secondary: #a8adb5;`;
+            css += `--ytc-text-muted: #6b7280;`;
+            css += `--ytc-border: #3f444e;`;
+            css += `--ytc-border-focus: #2dd4bf;`;
+            css += `--ytc-accent: #2dd4bf;`;
+            css += `--ytc-accent-hover: #14b8a6;`;
+            css += `--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);`;
+            css += `--ytc-success: #34d399;`;
+            css += `--ytc-warning: #fbbf24;`;
+            css += `--ytc-error: #fb7185;`;
+            css += `--ytc-shadow: rgba(0, 0, 0, 0.5);`;
+            css += `--ytc-shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.65);`;
+            css += `--ytc-glow: 0 0 40px rgba(45, 212, 191, 0.3);`;
             css += `}`;
 
             // Modal container styling
             css += `.ytc-themed-modal .modal-content {`;
             css += `background: var(--ytc-bg-secondary) !important;`;
-            css += `border-radius: 16px !important;`;
+            css += `border-radius: 12px !important;`;
             css += `border: 1px solid var(--ytc-border) !important;`;
-            css += `box-shadow: var(--ytc-shadow-lg), var(--ytc-glow) !important;`;
-            css += `padding: 24px !important;`;
+            css += `box-shadow: var(--ytc-shadow-lg), 0 0 0 1px rgba(255,255,255,0.05), var(--ytc-glow) !important;`;
+            css += `padding: 20px !important;`;
             css += `max-width: 520px !important;`;
             css += `}`;
 
@@ -1351,33 +1353,50 @@ export class YouTubeUrlModal extends BaseModal {
             // Input field styling
             css += `.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {`;
             css += `background: var(--ytc-bg-input) !important;`;
-            css += `border: 2px solid var(--ytc-border) !important;`;
-            css += `border-radius: 10px !important;`;
+            css += `border: 1px solid var(--ytc-border) !important;`;
+            css += `border-radius: 6px !important;`;
             css += `color: var(--ytc-text-primary) !important;`;
             css += `transition: all 0.2s ease !important;`;
             css += `}`;
+            css += `.ytc-themed-modal input:hover {`;
+            css += `border-color: #525863 !important;`;
+            css += `}`;
             css += `.ytc-themed-modal input:focus {`;
             css += `border-color: var(--ytc-border-focus) !important;`;
-            css += `box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.2) !important;`;
+            css += `box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 0 20px rgba(45, 212, 191, 0.1) !important;`;
+            css += `outline: none !important;`;
             css += `}`;
 
             // Select dropdown styling
             css += `.ytc-themed-modal select {`;
             css += `background: var(--ytc-bg-input) !important;`;
             css += `border: 1px solid var(--ytc-border) !important;`;
-            css += `border-radius: 8px !important;`;
+            css += `border-radius: 6px !important;`;
             css += `color: var(--ytc-text-primary) !important;`;
             css += `transition: all 0.2s ease !important;`;
             css += `}`;
             css += `.ytc-themed-modal select:hover {`;
-            css += `border-color: var(--ytc-accent) !important;`;
+            css += `border-color: #525863 !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal select:focus {`;
+            css += `border-color: var(--ytc-border-focus) !important;`;
+            css += `box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;`;
+            css += `outline: none !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal select option {`;
+            css += `background: var(--ytc-bg-secondary) !important;`;
+            css += `color: var(--ytc-text-primary) !important;`;
+            css += `padding: 4px 8px !important;`;
             css += `}`;
 
             // Button styling
             css += `.ytc-themed-modal button {`;
-            css += `border-radius: 8px !important;`;
+            css += `border-radius: 6px !important;`;
             css += `font-weight: 500 !important;`;
             css += `transition: all 0.2s ease !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal button:hover {`;
+            css += `transform: translateY(-1px) !important;`;
             css += `}`;
 
             // Primary button (Process)
@@ -1385,16 +1404,49 @@ export class YouTubeUrlModal extends BaseModal {
             css += `background: var(--ytc-accent-gradient) !important;`;
             css += `border: none !important;`;
             css += `color: white !important;`;
-            css += `box-shadow: 0 4px 14px rgba(21, 196, 190, 0.35) !important;`;
+            css += `box-shadow: 0 4px 15px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.15) !important;`;
             css += `}`;
             css += `.ytc-themed-modal .mod-cta:hover {`;
-            css += `transform: translateY(-1px) !important;`;
-            css += `box-shadow: 0 6px 20px rgba(21, 196, 190, 0.45) !important;`;
+            css += `transform: translateY(-2px) !important;`;
+            css += `box-shadow: 0 6px 25px rgba(45, 212, 191, 0.45), 0 0 30px rgba(45, 212, 191, 0.25) !important;`;
             css += `}`;
 
             // Labels styling
             css += `.ytc-themed-modal [style*="font-weight: 500"] {`;
             css += `color: var(--ytc-text-secondary) !important;`;
+            css += `}`;
+
+            // Textarea styling
+            css += `.ytc-themed-modal textarea {`;
+            css += `background: var(--ytc-bg-input) !important;`;
+            css += `border: 1px solid var(--ytc-border) !important;`;
+            css += `border-radius: 6px !important;`;
+            css += `color: var(--ytc-text-primary) !important;`;
+            css += `transition: all 0.2s ease !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal textarea:hover {`;
+            css += `border-color: #525863 !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal textarea:focus {`;
+            css += `border-color: var(--ytc-border-focus) !important;`;
+            css += `box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;`;
+            css += `outline: none !important;`;
+            css += `}`;
+
+            // Scrollbar styling
+            css += `.ytc-themed-modal ::-webkit-scrollbar {`;
+            css += `width: 8px !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal ::-webkit-scrollbar-track {`;
+            css += `background: var(--ytc-bg-primary) !important;`;
+            css += `border-radius: 4px !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal ::-webkit-scrollbar-thumb {`;
+            css += `background: var(--ytc-border) !important;`;
+            css += `border-radius: 4px !important;`;
+            css += `}`;
+            css += `.ytc-themed-modal ::-webkit-scrollbar-thumb:hover {`;
+            css += `background: #525863 !important;`;
             css += `}`;
 
             themeStyle.innerHTML = css;
@@ -1465,7 +1517,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.progressText.style.marginBottom = '3px';
         this.progressText.style.fontWeight = '500';
         this.progressText.style.fontSize = '0.75rem';
-        this.progressText.style.color = 'var(--text-accent)';
+        this.progressText.style.color = 'var(--ytc-accent)';
         this.progressText.textContent = 'Processing...';
 
         // Progress bar container (ultra compact)
@@ -1477,17 +1529,18 @@ export class YouTubeUrlModal extends BaseModal {
         progressBarContainer.setAttribute('aria-labelledby', 'progress-text');
         progressBarContainer.style.width = '100%';
         progressBarContainer.style.height = '4px';
-        progressBarContainer.style.backgroundColor = 'var(--background-modifier-border)';
+        progressBarContainer.style.backgroundColor = 'var(--ytc-bg-tertiary)';
         progressBarContainer.style.borderRadius = '2px';
         progressBarContainer.style.overflow = 'hidden';
 
         // Progress bar
         this.progressBar = progressBarContainer.createDiv();
         this.progressBar.style.height = '100%';
-        this.progressBar.style.backgroundColor = 'var(--interactive-accent)';
+        this.progressBar.style.backgroundColor = 'var(--ytc-accent)';
         this.progressBar.style.borderRadius = '2px';
         this.progressBar.style.width = '0%';
         this.progressBar.style.transition = 'width 0.3s ease';
+        this.progressBar.style.boxShadow = '0 0 10px var(--ytc-accent)';
     }
 
     /**
@@ -1685,11 +1738,11 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.validationMessage.textContent = message;
 
-        let color = 'var(--text-muted)';
+        let color = 'var(--ytc-text-muted)';
         if (type === 'error') {
-            color = 'var(--text-error)';
+            color = 'var(--ytc-error)';
         } else if (type === 'success') {
-            color = 'var(--text-accent)';
+            color = 'var(--ytc-success)';
         }
 
         this.validationMessage.style.color = color;

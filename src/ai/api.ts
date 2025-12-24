@@ -25,24 +25,54 @@ export const AI_MODELS = {
 export type ProviderModelEntry = { name: string; supportsAudioVideo?: boolean };
 export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
     'Google Gemini': [
-        // Gemini 2.5 series (latest, all support multimodal video analysis)
+        // Gemini 3 series (NEW - Latest from November/December 2025)
+        { name: 'gemini-3-pro-preview', supportsAudioVideo: true },
+        { name: 'gemini-3-pro-image-preview', supportsAudioVideo: false },
+        { name: 'gemini-3-flash-preview', supportsAudioVideo: true },
+
+        // Gemini 2.5 Pro series (state-of-the-art thinking model)
         { name: 'gemini-2.5-pro', supportsAudioVideo: true },
-        { name: 'gemini-2.5-pro-tts', supportsAudioVideo: true },
+        { name: 'gemini-2.5-pro-preview-tts', supportsAudioVideo: false },
+
+        // Gemini 2.5 Flash series (best price-performance)
         { name: 'gemini-2.5-flash', supportsAudioVideo: true },
+        { name: 'gemini-2.5-flash-preview-09-2025', supportsAudioVideo: true },
         { name: 'gemini-2.5-flash-lite', supportsAudioVideo: true },
-        { name: 'gemini-2.5-flash-thinking-exp:free', supportsAudioVideo: true },
-        // Gemini 2.0 series
-        { name: 'gemini-2.0-pro', supportsAudioVideo: true },
+        { name: 'gemini-2.5-flash-lite-preview-09-2025', supportsAudioVideo: true },
+        { name: 'gemini-2.5-flash-exp:free', supportsAudioVideo: true },
+
+        // Gemini 2.5 Flash specialized variants
+        { name: 'gemini-2.5-flash-image', supportsAudioVideo: false },
+        { name: 'gemini-2.5-flash-native-audio-preview-12-2025', supportsAudioVideo: true },
+        { name: 'gemini-2.5-flash-preview-tts', supportsAudioVideo: false },
+
+        // Gemini 2.0 Flash series (second generation)
         { name: 'gemini-2.0-flash', supportsAudioVideo: true },
+        { name: 'gemini-2.0-flash-001', supportsAudioVideo: true },
+        { name: 'gemini-2.0-flash-exp', supportsAudioVideo: true },
         { name: 'gemini-2.0-flash-lite', supportsAudioVideo: true },
-        // Gemini 1.5 series
-        { name: 'gemini-1.5-pro', supportsAudioVideo: true },
-        { name: 'gemini-1.5-flash', supportsAudioVideo: true },
-        { name: 'gemini-1.5-flash-8b', supportsAudioVideo: true },
-        // Gemini Exp models (experimental/preview)
-        { name: 'gemini-exp-1206', supportsAudioVideo: true },
+        { name: 'gemini-2.0-flash-lite-001', supportsAudioVideo: true },
         { name: 'gemini-2.0-flash-thinking-exp:free', supportsAudioVideo: true },
-        { name: 'gemini-2.0-flash-thinking-exp-01-21', supportsAudioVideo: true }
+        { name: 'gemini-2.0-flash-thinking-exp-01-21', supportsAudioVideo: true },
+        { name: 'gemini-2.0-flash-preview-image-generation', supportsAudioVideo: false },
+
+        // Gemini 2.0 Pro series
+        { name: 'gemini-2.0-pro', supportsAudioVideo: true },
+        { name: 'gemini-2.0-pro-exp', supportsAudioVideo: true },
+
+        // Gemini 1.5 series (stable workhorse)
+        { name: 'gemini-1.5-pro', supportsAudioVideo: true },
+        { name: 'gemini-1.5-pro-001', supportsAudioVideo: true },
+        { name: 'gemini-1.5-pro-002', supportsAudioVideo: true },
+        { name: 'gemini-1.5-flash', supportsAudioVideo: true },
+        { name: 'gemini-1.5-flash-001', supportsAudioVideo: true },
+        { name: 'gemini-1.5-flash-002', supportsAudioVideo: true },
+        { name: 'gemini-1.5-flash-8b', supportsAudioVideo: true },
+        { name: 'gemini-1.5-flash-exp:free', supportsAudioVideo: true },
+
+        // Experimental models
+        { name: 'gemini-exp-1206', supportsAudioVideo: true },
+        { name: 'gemini-exp-latest', supportsAudioVideo: true }
     ],
     'Groq': [
         // Llama 3.3 Series (latest)
