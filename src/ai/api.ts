@@ -14,7 +14,7 @@ export const API_ENDPOINTS = {
 
 export const AI_MODELS = {
     GEMINI: 'gemini-2.5-pro',
-    GROQ: 'llama-3.1-8b-instant',
+    GROQ: 'llama-3.3-70b-versatile',
     HUGGINGFACE: 'Qwen/Qwen3-8B',
     OPENROUTER: 'meta-llama/llama-3.1-8b-instruct:free'
 } as const;
@@ -40,27 +40,28 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'gemini-1.5-flash-8b', supportsAudioVideo: true }
     ],
     'Groq': [
-        // Official Groq Models (December 2024)
+        // Llama 3.3 Series (latest)
+        { name: 'llama-3.3-70b-versatile' },
+        { name: 'llama-3.3-8b-instant' },
+
+        // Llama 3.1 Series
         { name: 'llama-3.1-8b-instant' },
-        { name: 'llama-3.1-8b-instruct' },
-        { name: 'llama-3.1-70b-instruct' },
-        { name: 'llama-3.1-405b-instruct' },
+        { name: 'llama-3.1-70b-versatile' },
+
+        // DeepSeek R1 Series (latest reasoning models)
+        { name: 'deepseek-r1' },
+        { name: 'deepseek-r1-distill-llama-70b' },
+        { name: 'deepseek-r1-distill-qwen-32b' },
 
         // Mixtral Models
-        { name: 'mixtral-8x7b-instruct-v0.1' },
-        { name: 'mixtral-8x22b-instruct-v0.1' },
+        { name: 'mixtral-8x7b-32768' },
 
         // Gemma Models
         { name: 'gemma2-9b-it' },
-        { name: 'gemma-7b-it' },
 
-        // DeepSeek Models
-        { name: 'deepseek-r1-distill-llama-70b' },
-        { name: 'deepseek-coder-v2-lite-instruct' },
-
-        // Specialized Models
-        { name: 'llama-guard-3-8b' },
-        { name: 'code-llama-34b-instruct' }
+        // Qwen Models
+        { name: 'qwen-2.5-32b' },
+        { name: 'qwen-2.5-coder-32b' }
     ],
     'Ollama': [
         // Multimodal Vision Models
@@ -111,31 +112,36 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         // Free tier models
         { name: 'meta-llama/llama-3.1-8b-instruct:free' },
         { name: 'google/gemma-2-9b-it:free' },
-        { name: 'qwen/qwen-2-7b-instruct:free' },
+        { name: 'qwen/qwen-2.5-7b-instruct:free' },
 
         // Latest multimodal models (vision + text)
         { name: 'anthropic/claude-3.5-sonnet', supportsAudioVideo: true },
+        { name: 'anthropic/claude-3.5-sonnet:beta', supportsAudioVideo: true },
         { name: 'anthropic/claude-3.5-haiku', supportsAudioVideo: true },
+        { name: 'anthropic/claude-3.5-haiku:beta', supportsAudioVideo: true },
         { name: 'openai/gpt-4o', supportsAudioVideo: true },
         { name: 'openai/gpt-4o-mini', supportsAudioVideo: true },
-        { name: 'google/gemini-2.0-flash-exp', supportsAudioVideo: true },
-        { name: 'google/gemini-pro-1.5', supportsAudioVideo: true },
+        { name: 'openai/o1-mini' },
+        { name: 'openai/o1-preview' },
+        { name: 'google/gemini-2.5-pro-exp:free', supportsAudioVideo: true },
+        { name: 'google/gemini-2.5-flash-exp:free', supportsAudioVideo: true },
+        { name: 'google/gemini-2.0-flash-exp:free', supportsAudioVideo: true },
         { name: 'meta-llama/llama-3.2-11b-vision-instruct', supportsAudioVideo: true },
         { name: 'meta-llama/llama-3.2-90b-vision-instruct', supportsAudioVideo: true },
         { name: 'qwen/qwen-2-vl-7b-instruct', supportsAudioVideo: true },
         { name: 'qwen/qwen-2-vl-72b-instruct', supportsAudioVideo: true },
+        { name: 'qwen/qwen-2.5-72b-instruct' },
+        { name: 'qwen/qwq-32b-preview' },
 
         // High-performance text models
+        { name: 'meta-llama/llama-3.3-70b-instruct' },
         { name: 'meta-llama/llama-3.1-70b-instruct' },
         { name: 'meta-llama/llama-3.1-8b-instruct' },
         { name: 'mistralai/mistral-large' },
+        { name: 'deepseek/deepseek-r1' },
         { name: 'deepseek/deepseek-chat' },
         { name: 'cohere/command-r-plus' },
-
-        // Specialized multimodal models
-        { name: 'pixtral-12b', supportsAudioVideo: true },
-        { name: 'llava-1.5-7b', supportsAudioVideo: true },
-        { name: 'llava-1.5-13b', supportsAudioVideo: true }
+        { name: 'cohere/command-r-08-2024' }
     ]
 };
 

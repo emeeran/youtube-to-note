@@ -122,7 +122,12 @@ export class AIService implements IAIService {
                 return this.fetchHuggingFaceModels(bypassCache);
             }
 
-            // For Gemini and Groq, return static options (their APIs don't have a model list endpoint)
+            // Special handling for Groq - use their API
+            if (providerName === 'Groq') {
+                return this.fetchGroqModels(bypassCache);
+            }
+
+            // For Gemini, return static options (API doesn't have a public model list endpoint)
             return PROVIDER_MODEL_OPTIONS[providerName]
                 ? (PROVIDER_MODEL_OPTIONS[providerName] as any[]).map(m => typeof m === 'string' ? m : m.name)
                 : [];
@@ -220,6 +225,7 @@ export class AIService implements IAIService {
 
     /**
      * Fetch models from OpenRouter API with caching
+     * Filters out deprecated models and prioritizes latest models
      */
     private async fetchOpenRouterModels(bypassCache = false): Promise<string[]> {
         // Check if we have cached models that are still valid
@@ -244,49 +250,29 @@ export class AIService implements IAIService {
             if (response.ok) {
                 const data = await response.json();
                 if (data?.data && Array.isArray(data.data)) {
-                    // Prioritize multimodal models, then sort by context length
+                    // Filter out deprecated/inactive models and prioritize latest models
                     const models = data.data
-                        // Filter for models that support vision/multimodal (check for vision or image capabilities)
-                        .filter((m: any) =>
-                            m.id.includes('vision') ||
-                            m.id.includes('claude') ||
-                            m.id.includes('gpt-4') ||
-                            m.id.includes('gemini') ||
-                            m.id.includes('llava') ||
-                            m.id.includes('pixtral') ||
-                            m.capabilities?.vision ||
-                            m.capabilities?.image
-                        )
+                        .filter((m: any) => {
+                            const id = m.id || '';
+                            // Filter out deprecated models
+                            if (id.includes('-legacy') || id.includes('-old') || id.includes('-deprecated')) {
+                                return false;
+                            }
+                            // OpenRouter marks inactive models
+                            if (m.active === false) {
+                                return false;
+                            }
+                            return true;
+                        })
                         .sort((a: any, b: any) => {
-                            // First prioritize multimodal models
-                            const aIsMultimodal = a.id.includes('vision') ||
-                                              a.id.includes('claude') ||
-                                              a.id.includes('gpt-4') ||
-                                              a.id.includes('gemini') ||
-                                              a.id.includes('llava') ||
-                                              a.id.includes('pixtral') ||
-                                              a.capabilities?.vision ||
-                                              a.capabilities?.image;
-                            const bIsMultimodal = b.id.includes('vision') ||
-                                              b.id.includes('claude') ||
-                                              b.id.includes('gpt-4') ||
-                                              b.id.includes('gemini') ||
-                                              b.id.includes('llava') ||
-                                              b.id.includes('pixtral') ||
-                                              b.capabilities?.vision ||
-                                              b.capabilities?.image;
-
-                            if (aIsMultimodal && !bIsMultimodal) return -1;
-                            if (!aIsMultimodal && bIsMultimodal) return 1;
-
-                            // Then sort by context length
+                            // Sort by context length (higher is better)
                             return (b.context_length || 0) - (a.context_length || 0);
                         })
-                        .slice(0, 50) // Top 50 models
+                        .slice(0, 100) // Top 100 models by context length
                         .map((m: any) => m.id)
                         .filter((id: string) => id);
 
-                    logger.debug(`Fetched ${models.length} fresh models from OpenRouter (prioritizing multimodal)`, 'AIService');
+                    logger.debug(`Fetched ${models.length} fresh active models from OpenRouter`, 'AIService');
                     return models;
                 }
             }
@@ -305,7 +291,7 @@ export class AIService implements IAIService {
 
     /**
      * Fetch popular text generation models from Hugging Face with caching
-     * Only returns models that work with the Inference API
+     * Filters out deprecated/inactive models
      */
     private async fetchHuggingFaceModels(bypassCache = false): Promise<string[]> {
         // Check if we have cached models that are still valid
@@ -331,8 +317,17 @@ export class AIService implements IAIService {
             if (response.ok) {
                 const data = await response.json();
                 if (Array.isArray(data)) {
+                    // Filter out deprecated/inactive models first
+                    const activeModels = data.filter((m: any) => {
+                        const id = m.id || '';
+                        // Filter out deprecated/inactive models
+                        if (m.disabled === true || m.gated === true && !m.authorized) return false;
+                        if (id.includes('-legacy') || id.includes('-old') || id.includes('-deprecated')) return false;
+                        return true;
+                    });
+
                     // Filter and prioritize multimodal models
-                    const multimodalModels = data
+                    const multimodalModels = activeModels
                         .filter((m: any) => {
                             if (!m.id || m.private || !m.id.includes('/')) return false;
                             // Check for vision/multimodal capabilities
@@ -351,7 +346,7 @@ export class AIService implements IAIService {
                         .map((m: any) => m.id);
 
                     // Also include top text generation models
-                    const textModels = data
+                    const textModels = activeModels
                         .filter((m: any) => m.id && !m.private && m.id.includes('/') && !multimodalModels.includes(m.id))
                         .slice(0, 20)
                         .map((m: any) => m.id);
@@ -359,7 +354,7 @@ export class AIService implements IAIService {
                     // Combine multimodal and text models, prioritizing multimodal
                     const allModels = [...multimodalModels, ...textModels].slice(0, 30);
 
-                    logger.debug(`Fetched ${allModels.length} fresh HuggingFace models (${multimodalModels.length} multimodal)`, 'AIService');
+                    logger.debug(`Fetched ${allModels.length} fresh active HuggingFace models (${multimodalModels.length} multimodal)`, 'AIService');
                     if (allModels.length > 0) return allModels;
                 }
             }
@@ -392,6 +387,68 @@ export class AIService implements IAIService {
             'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B',
             'mistralai/Mistral-7B-Instruct-v0.2'
         ];
+    }
+
+    /**
+     * Fetch models from Groq API with caching
+     * Uses Groq's OpenAI-compatible models endpoint
+     * Filters out deprecated models to show only latest/active ones
+     */
+    private async fetchGroqModels(bypassCache = false): Promise<string[]> {
+        // Check if we have cached models that are still valid
+        const cacheKey = 'Groq';
+        const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
+        const cachedTimestamp = this.settings.modelCacheTimestamps?.[cacheKey];
+        const now = Date.now();
+
+        // If we have valid cached models and we're not bypassing cache, return them
+        if (!bypassCache && cachedModels && cachedTimestamp && (now - cachedTimestamp) < CACHE_DURATION) {
+            logger.debug(`Using ${cachedModels.length} cached Groq models (${Math.round((now - cachedTimestamp) / 1000 / 60)} minutes old)`, 'AIService');
+            return cachedModels;
+        }
+
+        // Otherwise, fetch fresh models from Groq API
+        try {
+            logger.debug('Fetching fresh Groq models from API', 'AIService');
+            const response = await this.httpClient.get('https://api.groq.com/openai/v1/models', {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data?.data && Array.isArray(data.data)) {
+                    // Filter to only active, non-deprecated models
+                    // Groq API returns models with structure: {id, owned_by, active, context_window, etc.}
+                    const models = data.data
+                        .filter((m: any) => {
+                            const id = m.id || m.name || '';
+                            // Filter out deprecated models
+                            if (id.includes('deprecated') || id.includes('-legacy') || id.includes('-old')) {
+                                return false;
+                            }
+                            // Groq marks inactive/deprecated models
+                            if (m.active === false || m.deprecated === true) {
+                                return false;
+                            }
+                            return true;
+                        })
+                        .map((m: any) => m.id || m.name)
+                        .filter((id: string) => id);
+                    logger.debug(`Fetched ${models.length} fresh active models from Groq`, 'AIService');
+                    return models;
+                }
+            }
+        } catch (error) {
+            logger.warn('Groq API error, using cached list or fallback', 'AIService');
+        }
+
+        // Fallback: return cached models if available (even if expired), or static list
+        if (cachedModels && cachedModels.length > 0) {
+            logger.debug(`Using expired cache of ${cachedModels.length} Groq models as fallback`, 'AIService');
+            return cachedModels;
+        }
+
+        return (PROVIDER_MODEL_OPTIONS['Groq'] as any[]).map(m => typeof m === 'string' ? m : m.name);
     }
 
     /**

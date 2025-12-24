@@ -173,7 +173,7 @@ ANALYSIS INSTRUCTIONS:
     }
 
     /**
-     * Create executive summary prompt (≤250 words, tech/developer focused)
+     * Create executive summary prompt (structured format with strategic insights)
      */
     private createExecutiveSummaryPrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
@@ -181,9 +181,9 @@ ANALYSIS INSTRUCTIONS:
 
         return `${baseContent}
 
-OUTPUT FORMAT - EXECUTIVE SUMMARY (≤250 words):
+OUTPUT FORMAT - EXECUTIVE SUMMARY:
 
-Create a concise executive summary following this EXACT template:
+Create a comprehensive executive summary following this EXACT template:
 
 ---
 title: {{TITLE}}
@@ -204,35 +204,92 @@ ai_model: "__AI_MODEL__"
 <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </div>
 
-# Executive Summary
+---
 
-[Provide a 2-3 paragraph summary (max 250 words total) that captures the core message and key insights. Focus on the main value proposition and critical takeaways. Use clear, professional language.]
+# 📊 Executive Summary
 
-# Key Points
+[2-3 paragraph summary capturing the core message and key insights. Focus on the main value proposition and critical takeaways.]
 
-- **[Point 1]**: [Brief explanation]
-- **[Point 2]**: [Brief explanation]
-- **[Point 3]**: [Brief explanation]
-- **[Point 4]**: [Brief explanation]
-- **[Point 5]**: [Brief explanation]
+Key concepts include:
 
-# Action Items
+- **[Concept 1]:** [Brief definition/explanation]
+- **[Concept 2]:** [Brief definition/explanation]
+- **[Concept 3]:** [Brief definition/explanation]
 
-1. **[Immediate Action]**: [What can be applied right away]
-2. **[Strategic Initiative]**: [Longer-term implementation]
-3. **[Follow-up Required]**: [What needs further research]
+To implement these insights, consider the following recommendations, risks, and priority actions:
 
-# Notes
+1. **[Action 1]:** [Description]
+2. **[Action 2]:** [Description]
+3. **[Action 3]:** [Description]
+4. **[Action 4]:** [Description]
 
-[Additional context, technical considerations, or observations that add value to the summary]
+> **💡 Focus:** Strategic value over narrative recap - prioritize actionable insights.
+
+---
+
+## 🎯 Key Strategic Insights
+
+### 🔧 Technical Strategy
+**[One sentence strategic technical insight]**
+
+### 💡 Design Thinking
+**[One sentence strategic design insight]**
+
+### 📚 Continuous Learning
+**[One sentence strategic learning insight]**
+
+---
+
+## 🚀 Action Plan & Implementation
+
+### ⚡ Immediate (0-30 days)
+- **Action:** [Specific immediate action]
+- **Success Metric:** [Measurable criteria]
+
+### 📈 Short-term (1-3 months)
+- **Action:** [Specific short-term action]
+- **Success Metric:** [Measurable criteria]
+
+### 🎯 Mid-term (3-6 months)
+- **Action:** [Specific mid-term action]
+- **Success Metric:** [Measurable criteria]
+
+### 🔮 Long-term (6+ months)
+- **Action:** [Specific long-term action]
+- **Success Metric:** [Measurable criteria]
+
+> **✅ Requirement:** Each action item must include clear, measurable success criteria.
+
+---
+
+## 📚 Curated Resources & References
+
+### 🎥 Primary Sources
+- **Original Video:** [Watch on YouTube](${videoUrl})
+- **Channel:** [Channel Name](https://youtube.com/channel/[channel-id])
+
+### 🛠️ Key Tools & Technologies
+- **[Tool/Technology 1]:** [Brief description]
+- **[Tool/Technology 2]:** [Brief description]
+- **[Tool/Technology 3]:** [Brief description]
+
+### 📖 Official Documentation
+- **[Resource 1]:** [Link]
+- **[Resource 2]:** [Link]
+
+### 🌟 Further Reading
+- **[Article 1]:** [Link]
+- **[Article 2]:** [Link]
 
 IMPORTANT INSTRUCTIONS:
-- Keep the Executive Summary under 250 words total
-- Focus on actionable insights and practical value
-- Prioritize technical/developer perspectives when relevant
-- Use bullet points for readability
-- Be specific and concrete, not vague
-- Include timestamps for key insights when available`;
+- Executive Summary should be 2-3 paragraphs (~250 words)
+- Extract 3 key concepts with clear definitions
+- Provide 4 prioritized action items
+- Create 3 strategic insights (Technical Strategy, Design Thinking, Continuous Learning)
+- Develop a 4-phase action plan with measurable success metrics for each phase
+- Include relevant resources (tools, documentation, further reading) with actual links when mentioned in the content
+- Use emojis to make sections visually distinct and scannable
+- Focus on strategic value and actionable insights over narrative recap`;
     }
 
     /**

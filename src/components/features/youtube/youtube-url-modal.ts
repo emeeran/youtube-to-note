@@ -1,6 +1,7 @@
 import { BaseModal } from '../../common/base-modal';
 import { ErrorHandler } from '../../../services/error-handler';
 import { MESSAGES } from '../../../constants/index';
+import { PROVIDER_MODEL_OPTIONS } from '../../../ai/api';
 import { OutputFormat, PerformanceMode } from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
@@ -125,6 +126,9 @@ export class YouTubeUrlModal extends BaseModal {
         this.setupEventHandlers();
         this.setupKeyboardShortcuts();
 
+        // Automatically fetch fresh models for the current provider on modal open
+        this.fetchModelsForCurrentProvider();
+
         // If an initial URL was provided, validate and focus the appropriate control
         if (this.options.initialUrl) {
             this.setUrl(this.options.initialUrl);
@@ -136,6 +140,27 @@ export class YouTubeUrlModal extends BaseModal {
             }
         }
         this.focusUrlInput();
+    }
+
+    /**
+     * Automatically fetch models for the current provider when modal opens
+     * Always bypasses cache to get fresh models from API
+     */
+    private async fetchModelsForCurrentProvider(): Promise<void> {
+        if (!this.options.fetchModelsForProvider || !this.selectedProvider) return;
+
+        try {
+            // Always bypass cache on modal open to get fresh models
+            const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
+            if (models && models.length > 0) {
+                const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider!]: models };
+                this.options.modelOptions = updatedOptions;
+                this.updateModelDropdown(updatedOptions);
+            }
+        } catch (error) {
+            // Silent fail - models will use fallback
+            console.debug('[YT-CLIPPER] Auto-fetch models failed, using fallback');
+        }
     }
 
     /**
@@ -546,12 +571,26 @@ export class YouTubeUrlModal extends BaseModal {
         this.selectedProvider = smartProvider;
 
         // Update provider when changed
-        this.providerSelect!.addEventListener('change', () => {
+        this.providerSelect!.addEventListener('change', async () => {
             this.selectedProvider = this.providerSelect?.value;
 
-            // Update the model dropdown to show models for the selected provider
-            // Use the cached model options if available
-            if (this.options.modelOptions) {
+            // Automatically fetch models for the new provider from the API
+            if (this.options.fetchModelsForProvider) {
+                try {
+                    const models = await this.options.fetchModelsForProvider(this.selectedProvider || '', false);
+                    if (models && models.length > 0) {
+                        const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider!]: models };
+                        this.options.modelOptions = updatedOptions;
+                        this.updateModelDropdown(updatedOptions);
+                    } else {
+                        // Fallback to cached options if fetch returns nothing
+                        this.updateModelDropdown(this.options.modelOptions);
+                    }
+                } catch {
+                    // On error, fallback to cached options
+                    this.updateModelDropdown(this.options.modelOptions);
+                }
+            } else if (this.options.modelOptions) {
                 this.updateModelDropdown(this.options.modelOptions);
             }
 
@@ -620,7 +659,7 @@ export class YouTubeUrlModal extends BaseModal {
                 const currentProvider = this.selectedProvider || 'Google Gemini';
 
                 // Determine if provider supports dynamic fetching
-                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama'];
+                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Groq'];
                 const isDynamicProvider = dynamicProviders.includes(currentProvider);
 
                 // Try provider-specific fetch first (faster)
@@ -741,34 +780,9 @@ export class YouTubeUrlModal extends BaseModal {
             min-height: 40px;
         `;
 
-        // Add model options
-        const modelOptions = [
-            { value: 'gemini-2.5-pro', text: 'Gemini Pro 2.5' },
-            { value: 'gemini-2.5-flash', text: 'Gemini Flash 2.5' },
-            { value: 'gemini-1.5-pro', text: 'Gemini Pro 1.5' },
-            { value: 'gemini-1.5-flash', text: 'Gemini Flash 1.5' },
-            { value: 'qwen3-coder:480b-cloud', text: 'Qwen3-Coder 480B Cloud' },
-            { value: 'llama3.2', text: 'Llama 3.2' },
-            { value: 'llama3.1', text: 'Llama 3.1' },
-            { value: 'mistral', text: 'Mistral' },
-            { value: 'gemma2', text: 'Gemma 2' },
-            { value: 'phi3', text: 'Phi 3' }
-        ];
-
-        modelOptions.forEach(option => {
-            const optionEl = this.modelSelect!.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
-        });
-
-        // Set default model selection - try provider-specific model first, then general preference
-        const providerSpecificModel = UserPreferencesService.getPreference(`lastModel_${this.selectedProvider}`) as string;
-        const smartModel = providerSpecificModel ||
-                           UserPreferencesService.getPreference('preferredModel') ||
-                           UserPreferencesService.getPreference('lastModel') ||
-                           'gemini-2.5-pro';
-        this.modelSelect!.value = smartModel;
-        this.selectedModel = smartModel;
+        // Initialize models using the updateModelDropdown function (dynamic)
+        // This will use cached models or fetch them from the provider API
+        this.updateModelDropdown(this.options.modelOptions || {});
 
         // Update model when changed
         this.modelSelect!.addEventListener('change', () => {
@@ -1045,52 +1059,12 @@ export class YouTubeUrlModal extends BaseModal {
         if (modelOptionsMap && modelOptionsMap[currentProvider]) {
             models = modelOptionsMap[currentProvider] ?? [];
         } else {
-            // Fallback to static options if not available in dynamic map
-            switch(currentProvider) {
-                case 'Google Gemini':
-                    models = [
-                        'gemini-2.5-pro', 'gemini-2.5-pro-tts', 'gemini-2.5-flash', 'gemini-2.5-flash-lite',
-                        'gemini-2.0-pro', 'gemini-2.0-flash', 'gemini-2.0-flash-lite',
-                        'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'
-                    ];
-                    break;
-                case 'Groq':
-                    models = [
-                        // Official Groq Models (December 2024)
-                        'llama-3.1-8b-instant',
-                        'llama-3.1-8b-instruct',
-                        'llama-3.1-70b-instruct',
-                        'llama-3.1-405b-instruct',
-
-                        // Mixtral Models
-                        'mixtral-8x7b-instruct-v0.1',
-                        'mixtral-8x22b-instruct-v0.1',
-
-                        // Gemma Models
-                        'gemma2-9b-it',
-                        'gemma-7b-it',
-
-                        // DeepSeek Models
-                        'deepseek-r1-distill-llama-70b',
-                        'deepseek-coder-v2-lite-instruct',
-
-                        // Specialized Models
-                        'llama-guard-3-8b',
-                        'code-llama-34b-instruct'
-                    ];
-                    break;
-                case 'Ollama':
-                    models = [
-                        // Multimodal Vision Models
-                        'llama3.2-vision', 'llava', 'llava-llama3', 'bakllava', 'moondream',
-                        'nvidia-llama3-1-vision', 'qwen2-vl', 'phi3-vision',
-
-                        // High-performance Text Models
-                        'qwen3-coder:480b-cloud', 'llama3.2', 'llama3.1', 'mistral', 'mixtral', 'gemma2', 'phi3', 'qwen2', 'command-r'
-                    ];
-                    break;
-                default:
-                    models = [];
+            // Fallback to PROVIDER_MODEL_OPTIONS (single source of truth)
+            const providerModels = PROVIDER_MODEL_OPTIONS[currentProvider];
+            if (providerModels) {
+                models = providerModels.map(m => typeof m === 'string' ? m : m.name);
+            } else {
+                models = [];
             }
         }
 
