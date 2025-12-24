@@ -150,16 +150,25 @@ export class YouTubeUrlModal extends BaseModal {
         if (!this.options.fetchModelsForProvider || !this.selectedProvider) return;
 
         try {
+            console.log('[YT-CLIPPER] Fetching models for provider:', this.selectedProvider);
             // Always bypass cache on modal open to get fresh models
             const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
+            console.log('[YT-CLIPPER] Fetched models:', models?.length || 0);
             if (models && models.length > 0) {
                 const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider!]: models };
                 this.options.modelOptions = updatedOptions;
                 this.updateModelDropdown(updatedOptions);
+                console.log('[YT-CLIPPER] Updated dropdown with', models.length, 'models');
+            } else {
+                console.warn('[YT-CLIPPER] No models returned from API, using fallback');
+                // Still update with whatever we got (empty array) to trigger fallback
+                this.updateModelDropdown(this.options.modelOptions);
             }
         } catch (error) {
-            // Silent fail - models will use fallback
-            console.debug('[YT-CLIPPER] Auto-fetch models failed, using fallback');
+            // Log error and still try to update dropdown
+            console.error('[YT-CLIPPER] Auto-fetch models failed:', error);
+            console.warn('[YT-CLIPPER] Falling back to cached or static models');
+            this.updateModelDropdown(this.options.modelOptions);
         }
     }
 
@@ -573,24 +582,33 @@ export class YouTubeUrlModal extends BaseModal {
         // Update provider when changed
         this.providerSelect!.addEventListener('change', async () => {
             this.selectedProvider = this.providerSelect?.value;
+            console.log('[YT-CLIPPER] Provider changed to:', this.selectedProvider);
 
             // Automatically fetch models for the new provider from the API
+            // Always bypass cache to get fresh models when switching providers
             if (this.options.fetchModelsForProvider) {
                 try {
-                    const models = await this.options.fetchModelsForProvider(this.selectedProvider || '', false);
+                    console.log('[YT-CLIPPER] Fetching models for provider:', this.selectedProvider);
+                    const models = await this.options.fetchModelsForProvider(this.selectedProvider || '', true); // bypassCache=true
+                    console.log('[YT-CLIPPER] Fetched models:', models?.length || 0);
                     if (models && models.length > 0) {
+                        console.log('[YT-CLIPPER] Models list:', JSON.stringify(models, null, 2));
                         const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider!]: models };
                         this.options.modelOptions = updatedOptions;
                         this.updateModelDropdown(updatedOptions);
+                        console.log('[YT-CLIPPER] Updated dropdown with', models.length, 'models');
                     } else {
+                        console.warn('[YT-CLIPPER] No models returned, using fallback');
                         // Fallback to cached options if fetch returns nothing
                         this.updateModelDropdown(this.options.modelOptions);
                     }
-                } catch {
+                } catch (error) {
+                    console.error('[YT-CLIPPER] Provider fetch failed:', error);
                     // On error, fallback to cached options
                     this.updateModelDropdown(this.options.modelOptions);
                 }
             } else if (this.options.modelOptions) {
+                console.warn('[YT-CLIPPER] No fetch function available, using cached models');
                 this.updateModelDropdown(this.options.modelOptions);
             }
 
@@ -780,9 +798,8 @@ export class YouTubeUrlModal extends BaseModal {
             min-height: 40px;
         `;
 
-        // Initialize models using the updateModelDropdown function (dynamic)
-        // This will use cached models or fetch them from the provider API
-        this.updateModelDropdown(this.options.modelOptions || {});
+        // Don't populate models yet - onOpen() will auto-fetch from API
+        // This ensures we get fresh models instead of hardcoded fallback
 
         // Update model when changed
         this.modelSelect!.addEventListener('change', () => {

@@ -243,13 +243,8 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             const aiService = this.serviceContainer.aiService;
             const providers = aiService ? aiService.getProviderNames() : [];
+            // Use cached models if available, modal will auto-fetch from API on open
             const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache || {};
-
-            if (aiService && (!this._settings.modelOptionsCache || Object.keys(this._settings.modelOptionsCache).length === 0)) {
-                for (const provider of providers) {
-                    modelOptionsMap[provider] = aiService.getProviderModels(provider) || [];
-                }
-            }
 
             const modal = new YouTubeUrlModal(this.app, {
                 onProcess: this.processYouTubeVideo.bind(this),

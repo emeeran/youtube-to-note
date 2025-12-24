@@ -224,8 +224,9 @@ export class AIService implements IAIService {
     }
 
     /**
-     * Fetch models from OpenRouter API with caching
-     * Filters out deprecated models and prioritizes latest models
+     * Fetch ALL models from OpenRouter API with caching
+     * Includes ALL models - preview, beta, and stable releases
+     * Only filters out truly deprecated models
      */
     private async fetchOpenRouterModels(bypassCache = false): Promise<string[]> {
         // Check if we have cached models that are still valid
@@ -240,9 +241,9 @@ export class AIService implements IAIService {
             return cachedModels;
         }
 
-        // Otherwise, fetch fresh models from API
+        // Otherwise, fetch ALL fresh models from API
         try {
-            logger.debug('Fetching fresh OpenRouter models from API', 'AIService');
+            logger.debug('Fetching ALL OpenRouter models from API', 'AIService');
             const response = await this.httpClient.get('https://openrouter.ai/api/v1/models', {
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -250,31 +251,32 @@ export class AIService implements IAIService {
             if (response.ok) {
                 const data = await response.json();
                 if (data?.data && Array.isArray(data.data)) {
-                    // Filter out deprecated/inactive models and prioritize latest models
+                    logger.debug(`OpenRouter API returned ${data.data.length} total models`, 'AIService');
+
+                    // Get ALL models, only filter out explicitly deprecated ones
                     const models = data.data
                         .filter((m: any) => {
                             const id = m.id || '';
-                            // Filter out deprecated models
-                            if (id.includes('-legacy') || id.includes('-old') || id.includes('-deprecated')) {
+                            // Only filter out models explicitly marked as deprecated
+                            if (id.includes('-deprecated') || id.includes('-legacy') || id.includes('-old')) {
                                 return false;
                             }
-                            // OpenRouter marks inactive models
-                            if (m.active === false) {
-                                return false;
-                            }
+                            // Keep models even if inactive (they might be temporarily unavailable)
+                            // This ensures preview/beta models are included
                             return true;
                         })
                         .sort((a: any, b: any) => {
                             // Sort by context length (higher is better)
                             return (b.context_length || 0) - (a.context_length || 0);
                         })
-                        .slice(0, 100) // Top 100 models by context length
                         .map((m: any) => m.id)
                         .filter((id: string) => id);
 
-                    logger.debug(`Fetched ${models.length} fresh active models from OpenRouter`, 'AIService');
+                    logger.debug(`After filtering: ${models.length} models from OpenRouter (including preview/beta)`, 'AIService');
                     return models;
                 }
+            } else {
+                logger.warn(`OpenRouter API returned status ${response.status}: ${response.statusText}`, 'AIService');
             }
         } catch (error) {
             logger.warn('OpenRouter API error, using cached list or fallback', 'AIService');
@@ -306,57 +308,38 @@ export class AIService implements IAIService {
             return cachedModels;
         }
 
-        // Otherwise, fetch fresh models from API
+        // Otherwise, fetch ALL fresh models from API
         try {
-            logger.debug('Fetching fresh HuggingFace models from API', 'AIService');
+            logger.debug('Fetching ALL HuggingFace models from API', 'AIService');
+            // Fetch more models to include all available models
             const response = await this.httpClient.get(
-                'https://huggingface.co/api/models?pipeline_tag=text-generation&inference=warm&sort=downloads&limit=50',
+                'https://huggingface.co/api/models?pipeline_tag=text-generation&inference=warm&sort=downloads&limit=500',
                 { headers: { 'Content-Type': 'application/json' } }
             );
 
             if (response.ok) {
                 const data = await response.json();
                 if (Array.isArray(data)) {
-                    // Filter out deprecated/inactive models first
-                    const activeModels = data.filter((m: any) => {
-                        const id = m.id || '';
-                        // Filter out deprecated/inactive models
-                        if (m.disabled === true || m.gated === true && !m.authorized) return false;
-                        if (id.includes('-legacy') || id.includes('-old') || id.includes('-deprecated')) return false;
-                        return true;
-                    });
+                    logger.debug(`HuggingFace API returned ${data.length} total models`, 'AIService');
 
-                    // Filter and prioritize multimodal models
-                    const multimodalModels = activeModels
+                    // Get ALL models, only filter out truly deprecated ones
+                    const models = data
                         .filter((m: any) => {
-                            if (!m.id || m.private || !m.id.includes('/')) return false;
-                            // Check for vision/multimodal capabilities
-                            const modelId = m.id.toLowerCase();
-                            const tags = (m.tags || []).map((t: string) => t.toLowerCase());
-                            return modelId.includes('vision') ||
-                                   modelId.includes('vl') ||
-                                   modelId.includes('multimodal') ||
-                                   tags.includes('image-text-to-text') ||
-                                   tags.includes('vision') ||
-                                   modelId.includes('qwen2-vl') ||
-                                   modelId.includes('llava') ||
-                                   modelId.includes('phi3-vision');
+                            const id = m.id || '';
+                            // Only filter out explicitly deprecated models
+                            if (m.disabled === true) return false;
+                            if (m.private) return false;
+                            if (id.includes('-legacy') || id.includes('-old') || id.includes('-deprecated')) return false;
+                            // Include gated models (user may have access)
+                            return true;
                         })
-                        .slice(0, 10)
                         .map((m: any) => m.id);
 
-                    // Also include top text generation models
-                    const textModels = activeModels
-                        .filter((m: any) => m.id && !m.private && m.id.includes('/') && !multimodalModels.includes(m.id))
-                        .slice(0, 20)
-                        .map((m: any) => m.id);
-
-                    // Combine multimodal and text models, prioritizing multimodal
-                    const allModels = [...multimodalModels, ...textModels].slice(0, 30);
-
-                    logger.debug(`Fetched ${allModels.length} fresh active HuggingFace models (${multimodalModels.length} multimodal)`, 'AIService');
-                    if (allModels.length > 0) return allModels;
+                    logger.debug(`After filtering: ${models.length} models from HuggingFace (including preview/beta)`, 'AIService');
+                    if (models.length > 0) return models;
                 }
+            } else {
+                logger.warn(`HuggingFace API returned status ${response.status}: ${response.statusText}`, 'AIService');
             }
         } catch (error) {
             logger.warn('HuggingFace API error, using cached list or fallback', 'AIService');
@@ -390,9 +373,8 @@ export class AIService implements IAIService {
     }
 
     /**
-     * Fetch models from Groq API with caching
-     * Uses Groq's OpenAI-compatible models endpoint
-     * Filters out deprecated models to show only latest/active ones
+     * Fetch ALL models from Groq API with caching
+     * Includes ALL models - preview, beta, and stable releases
      */
     private async fetchGroqModels(bypassCache = false): Promise<string[]> {
         // Check if we have cached models that are still valid
@@ -407,36 +389,50 @@ export class AIService implements IAIService {
             return cachedModels;
         }
 
-        // Otherwise, fetch fresh models from Groq API
+        // Otherwise, fetch ALL fresh models from Groq API
         try {
-            logger.debug('Fetching fresh Groq models from API', 'AIService');
+            logger.debug('Fetching ALL Groq models from API', 'AIService');
+
+            // Prepare headers with API key if available
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (this.settings.groqApiKey) {
+                headers['Authorization'] = `Bearer ${this.settings.groqApiKey}`;
+                logger.debug('Using Groq API key for authentication', 'AIService');
+            } else {
+                logger.warn('No Groq API key found - models fetch may fail', 'AIService');
+            }
+
             const response = await this.httpClient.get('https://api.groq.com/openai/v1/models', {
-                headers: { 'Content-Type': 'application/json' }
+                headers
             });
 
             if (response.ok) {
                 const data = await response.json();
                 if (data?.data && Array.isArray(data.data)) {
-                    // Filter to only active, non-deprecated models
-                    // Groq API returns models with structure: {id, owned_by, active, context_window, etc.}
+                    logger.debug(`Groq API returned ${data.data.length} total models`, 'AIService');
+
+                    // Get ALL models, only filter out explicitly deprecated ones
                     const models = data.data
                         .filter((m: any) => {
                             const id = m.id || m.name || '';
-                            // Filter out deprecated models
-                            if (id.includes('deprecated') || id.includes('-legacy') || id.includes('-old')) {
+                            // Only filter out models explicitly marked as deprecated
+                            if (id.includes('-deprecated') || id.includes('-legacy') || id.includes('-old')) {
+                                logger.debug(`Filtering out deprecated model: ${id}`, 'AIService');
                                 return false;
                             }
-                            // Groq marks inactive/deprecated models
-                            if (m.active === false || m.deprecated === true) {
-                                return false;
-                            }
+                            // Keep all other models including preview/beta
+                            // Groq may have models marked as inactive but they could be temporarily unavailable
                             return true;
                         })
                         .map((m: any) => m.id || m.name)
                         .filter((id: string) => id);
-                    logger.debug(`Fetched ${models.length} fresh active models from Groq`, 'AIService');
+
+                    logger.debug(`After filtering: ${models.length} models from Groq (including preview/beta)`, 'AIService');
+                    logger.debug(`Groq models: ${JSON.stringify(models)}`, 'AIService');
                     return models;
                 }
+            } else {
+                logger.warn(`Groq API returned status ${response.status}: ${response.statusText}`, 'AIService');
             }
         } catch (error) {
             logger.warn('Groq API error, using cached list or fallback', 'AIService');
