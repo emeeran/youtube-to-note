@@ -527,7 +527,15 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async loadSettings(): Promise<void> {
-        this._settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        const loadedData = await this.loadData();
+        console.log('[YT-CLIPPER] Settings loaded from data.json:', loadedData);
+        this._settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+        console.log('[YT-CLIPPER] Final settings after merge:', {
+            hasGeminiKey: !!this._settings.geminiApiKey,
+            geminiKeyLength: this._settings.geminiApiKey?.length,
+            hasGroqKey: !!this._settings.groqApiKey,
+            groqKeyLength: this._settings.groqApiKey?.length
+        });
     }
 
     private async saveSettings(): Promise<void> {

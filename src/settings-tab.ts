@@ -26,6 +26,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private secureConfig: SecureConfigService;
     private drawerStates: Map<string, boolean> = new Map();
     private readonly DRAWER_STATES_KEY = 'ytc-settings-drawer-states';
+    private searchInput?: HTMLInputElement;
+    private providerStatuses: Map<string, 'valid' | 'invalid' | 'testing' | 'untested'> = new Map();
 
     constructor(
         app: App,
@@ -42,13 +44,21 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.addClass(`${CSS_PREFIX}-container`);
 
+        // Refresh settings from plugin to ensure we have the latest data
+        this.settings = { ...this.options.plugin.settings };
+        this.secureConfig = new SecureConfigService(this.settings);
+
         this.injectStyles();
         this.createHeader();
+        this.createSearchBar();
+        this.createProviderStatusDashboard();
+        this.createQuickActions();
         this.createAPISection();
         this.createAISection();
         this.createOutputSection();
         this.createAdvancedSection();
         this.createHelpSection();
+        this.createKeyboardShortcutsInfo();
     }
 
     private injectStyles(): void {
@@ -334,6 +344,308 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 color: white;
                 border-color: #ef4444;
             }
+
+            .${CSS_PREFIX}-search-bar {
+                margin-bottom: 20px;
+                padding: 12px 16px;
+                background: var(--background-secondary);
+                border-radius: 8px;
+                border: 1px solid var(--background-modifier-border);
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .${CSS_PREFIX}-search-bar input {
+                flex: 1;
+                background: transparent;
+                border: none;
+                outline: none;
+                font-size: 0.95rem;
+                color: var(--text-normal);
+            }
+
+            .${CSS_PREFIX}-search-bar input::placeholder {
+                color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-search-icon {
+                font-size: 1.1rem;
+                color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-status-dashboard {
+                margin-bottom: 20px;
+                padding: 16px;
+                background: var(--background-secondary);
+                border-radius: 12px;
+                border: 1px solid var(--background-modifier-border);
+            }
+
+            .${CSS_PREFIX}-status-title {
+                font-size: 0.9rem;
+                font-weight: 600;
+                margin-bottom: 12px;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .${CSS_PREFIX}-status-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 10px;
+            }
+
+            .${CSS_PREFIX}-status-card {
+                padding: 12px;
+                background: var(--background-primary);
+                border-radius: 8px;
+                border: 1px solid var(--background-modifier-border);
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                transition: all 0.2s ease;
+            }
+
+            .${CSS_PREFIX}-status-card:hover {
+                border-color: var(--interactive-accent);
+                transform: translateY(-2px);
+            }
+
+            .${CSS_PREFIX}-status-card.valid {
+                border-color: #22c55e;
+                background: linear-gradient(135deg, var(--background-primary) 0%, rgba(34, 197, 94, 0.1) 100%);
+            }
+
+            .${CSS_PREFIX}-status-card.invalid {
+                border-color: #ef4444;
+                background: linear-gradient(135deg, var(--background-primary) 0%, rgba(239, 68, 68, 0.1) 100%);
+            }
+
+            .${CSS_PREFIX}-status-card.testing {
+                border-color: #f59e0b;
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+
+            .${CSS_PREFIX}-status-name {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--text-normal);
+            }
+
+            .${CSS_PREFIX}-status-indicator {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.8rem;
+            }
+
+            .${CSS_PREFIX}-status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+
+            .${CSS_PREFIX}-status-dot.valid {
+                background: #22c55e;
+                box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            }
+
+            .${CSS_PREFIX}-status-dot.invalid {
+                background: #ef4444;
+            }
+
+            .${CSS_PREFIX}-status-dot.testing {
+                background: #f59e0b;
+                animation: blink 1s infinite;
+            }
+
+            .${CSS_PREFIX}-status-dot.untested {
+                background: var(--text-muted);
+            }
+
+            @keyframes blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.3; }
+            }
+
+            .${CSS_PREFIX}-status-text {
+                color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-quick-actions {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+
+            .${CSS_PREFIX}-action-btn {
+                flex: 1;
+                min-width: 140px;
+                padding: 12px 16px;
+                background: var(--background-secondary);
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                color: var(--text-normal);
+            }
+
+            .${CSS_PREFIX}-action-btn:hover {
+                background: var(--background-modifier-hover);
+                border-color: var(--interactive-accent);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+
+            .${CSS_PREFIX}-action-btn:active {
+                transform: translateY(0);
+            }
+
+            .${CSS_PREFIX}-action-btn.primary {
+                background: var(--interactive-accent);
+                color: var(--text-on-accent);
+                border-color: var(--interactive-accent);
+            }
+
+            .${CSS_PREFIX}-action-btn.primary:hover {
+                background: var(--interactive-accent-hover);
+            }
+
+            .${CSS_PREFIX}-action-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none !important;
+            }
+
+            .${CSS_PREFIX}-password-toggle {
+                padding: 6px 10px;
+                background: var(--background-primary);
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 1.1rem;
+                transition: all 0.2s ease;
+                flex-shrink: 0;
+            }
+
+            .${CSS_PREFIX}-password-toggle:hover {
+                background: var(--background-modifier-hover);
+                border-color: var(--interactive-accent);
+            }
+
+            .${CSS_PREFIX}-shortcuts-info {
+                margin-bottom: 20px;
+                padding: 16px;
+                background: var(--background-secondary);
+                border-radius: 12px;
+                border: 1px solid var(--background-modifier-border);
+            }
+
+            .${CSS_PREFIX}-shortcuts-title {
+                font-size: 1rem;
+                font-weight: 600;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .${CSS_PREFIX}-shortcuts-list {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 8px;
+            }
+
+            .${CSS_PREFIX}-shortcut-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px 12px;
+                background: var(--background-primary);
+                border-radius: 6px;
+                font-size: 0.85rem;
+            }
+
+            .${CSS_PREFIX}-shortcut-key {
+                background: var(--background-modifier-border);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 0.8rem;
+                color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-hidden {
+                display: none !important;
+            }
+
+            .${CSS_PREFIX}-spinner {
+                display: inline-block;
+                width: 16px;
+                height: 16px;
+                border: 2px solid var(--background-modifier-border);
+                border-top-color: currentColor;
+                border-radius: 50%;
+                animation: spin 0.6s linear infinite;
+            }
+
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+
+            .${CSS_PREFIX}-toast {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 16px 20px;
+                background: var(--background-secondary);
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            }
+
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            .${CSS_PREFIX}-toast.success {
+                border-color: #22c55e;
+            }
+
+            .${CSS_PREFIX}-toast.error {
+                border-color: #ef4444;
+            }
+
+            .${CSS_PREFIX}-toast.info {
+                border-color: var(--interactive-accent);
+            }
         `;
         document.head.appendChild(style);
     }
@@ -362,6 +674,303 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private headerBadge?: HTMLDivElement;
+
+    private createSearchBar(): void {
+        const searchBar = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-search-bar` });
+        searchBar.createSpan({ cls: `${CSS_PREFIX}-search-icon`, text: '🔍' });
+
+        this.searchInput = searchBar.createEl('input', {
+            attr: { placeholder: 'Search settings... (Ctrl+K)' }
+        });
+
+        this.searchInput.addEventListener('input', () => {
+            this.filterSettings(this.searchInput!.value);
+        });
+
+        // Keyboard shortcut for search focus
+        this.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'k' && e.ctrlKey) {
+                e.preventDefault();
+                this.searchInput?.focus();
+            }
+        });
+    }
+
+    private filterSettings(query: string): void {
+        const drawers = this.containerEl.querySelectorAll(`.${CSS_PREFIX}-drawer`);
+        const lowerQuery = query.toLowerCase().trim();
+
+        drawers.forEach(drawer => {
+            if (!lowerQuery) {
+                drawer.removeClass(`${CSS_PREFIX}-hidden`);
+                return;
+            }
+
+            const title = drawer.querySelector(`.${CSS_PREFIX}-drawer-title`)?.textContent?.toLowerCase() || '';
+            const content = drawer.querySelector(`.${CSS_PREFIX}-drawer-inner}`)?.textContent?.toLowerCase() || '';
+
+            if (title.includes(lowerQuery) || content.includes(lowerQuery)) {
+                drawer.removeClass(`${CSS_PREFIX}-hidden`);
+                // Auto-expand matching drawer
+                drawer.addClass('is-open');
+            } else {
+                drawer.addClass(`${CSS_PREFIX}-hidden`);
+            }
+        });
+    }
+
+    private createProviderStatusDashboard(): void {
+        const dashboard = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-status-dashboard` });
+        dashboard.createDiv({ cls: `${CSS_PREFIX}-status-title`, text: 'Provider Status' });
+
+        const grid = dashboard.createDiv({ cls: `${CSS_PREFIX}-status-grid` });
+
+        const providers = [
+            { id: 'gemini', name: 'Google Gemini', key: 'geminiApiKey' },
+            { id: 'groq', name: 'Groq', key: 'groqApiKey' },
+            { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' },
+            { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' },
+            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' }
+        ];
+
+        providers.forEach(provider => {
+            const hasKey = Boolean((this.settings[provider.key as keyof YouTubePluginSettings] as string)?.trim());
+            const status = this.providerStatuses.get(provider.id) || (hasKey ? 'untested' : 'untested');
+
+            const card = grid.createDiv({ cls: `${CSS_PREFIX}-status-card ${status}` });
+            card.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
+
+            const indicator = card.createDiv({ cls: `${CSS_PREFIX}-status-indicator` });
+            indicator.createDiv({ cls: `${CSS_PREFIX}-status-dot ${status}` });
+
+            let statusText = 'Not configured';
+            if (hasKey) {
+                statusText = status === 'valid' ? 'Working' : status === 'invalid' ? 'Invalid' : 'Untested';
+            }
+            indicator.createSpan({ cls: `${CSS_PREFIX}-status-text`, text: statusText });
+
+            // Click to re-test
+            card.addEventListener('click', () => {
+                if (hasKey) {
+                    this.testProvider(provider.id, provider.name, provider.key);
+                }
+            });
+        });
+    }
+
+    private async testProvider(id: string, name: string, key: keyof YouTubePluginSettings): Promise<void> {
+        this.providerStatuses.set(id, 'testing');
+        this.display(); // Refresh to show testing state
+
+        const apiKey = (this.settings[key] as string)?.trim();
+        if (!apiKey) {
+            this.providerStatuses.set(id, 'invalid');
+            this.display();
+            return;
+        }
+
+        try {
+            // Validate based on provider
+            switch (id) {
+                case 'gemini':
+                    await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                    break;
+                case 'groq':
+                    await fetch('https://api.groq.com/openai/v1/models', {
+                        headers: { Authorization: `Bearer ${apiKey}` }
+                    });
+                    break;
+                case 'huggingface':
+                    await fetch('https://huggingface.co/api/whoami-v2', {
+                        headers: { Authorization: `Bearer ${apiKey}` }
+                    });
+                    break;
+                case 'openrouter':
+                    await fetch('https://openrouter.ai/api/v1/models', {
+                        headers: { Authorization: `Bearer ${apiKey}` }
+                    });
+                    break;
+                case 'ollama':
+                    const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
+                    await fetch(`${endpoint}/api/tags`);
+                    break;
+            }
+
+            this.providerStatuses.set(id, 'valid');
+            this.showToast(`${name} API key is valid!`, 'success');
+        } catch (error) {
+            this.providerStatuses.set(id, 'invalid');
+            this.showToast(`${name} API key validation failed`, 'error');
+        }
+
+        this.display();
+    }
+
+    private createQuickActions(): void {
+        const actions = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-quick-actions` });
+
+        // Test All Keys
+        const testAllBtn = actions.createEl('button', {
+            cls: `${CSS_PREFIX}-action-btn primary`,
+            text: '🧪 Test All Keys'
+        });
+        testAllBtn.addEventListener('click', () => this.testAllProviders());
+
+        // Export Settings
+        const exportBtn = actions.createEl('button', {
+            cls: `${CSS_PREFIX}-action-btn`,
+            text: '📤 Export Settings'
+        });
+        exportBtn.addEventListener('click', () => this.exportSettings());
+
+        // Import Settings
+        const importBtn = actions.createEl('button', {
+            cls: `${CSS_PREFIX}-action-btn`,
+            text: '📥 Import Settings'
+        });
+        importBtn.addEventListener('click', () => this.importSettings());
+
+        // Reset to Defaults
+        const resetBtn = actions.createEl('button', {
+            cls: `${CSS_PREFIX}-action-btn`,
+            text: '🔄 Reset Defaults'
+        });
+        resetBtn.addEventListener('click', () => this.resetToDefaults());
+    }
+
+    private async testAllProviders(): Promise<void> {
+        const providers = [
+            { id: 'gemini', name: 'Google Gemini', key: 'geminiApiKey' as keyof YouTubePluginSettings },
+            { id: 'groq', name: 'Groq', key: 'groqApiKey' as keyof YouTubePluginSettings },
+            { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' as keyof YouTubePluginSettings },
+            { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' as keyof YouTubePluginSettings },
+            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' as keyof YouTubePluginSettings }
+        ];
+
+        for (const provider of providers) {
+            if ((this.settings[provider.key] as string)?.trim()) {
+                await this.testProvider(provider.id, provider.name, provider.key);
+                // Small delay between tests
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+    }
+
+    private exportSettings(): void {
+        const settingsJson = JSON.stringify(this.settings, null, 2);
+        const blob = new Blob([settingsJson], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `yt-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.showToast('Settings exported successfully!', 'success');
+    }
+
+    private importSettings(): void {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.addEventListener('change', async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const imported = JSON.parse(text);
+
+                // Validate imported settings
+                const validation = ValidationUtils.validateSettings(imported);
+                if (!validation.isValid) {
+                    this.showToast(`Invalid settings file: ${validation.errors.join(', ')}`, 'error');
+                    return;
+                }
+
+                // Confirm import
+                if (confirm('Import settings? This will overwrite your current settings.')) {
+                    await this.options.onSettingsChange(imported);
+                    this.settings = { ...imported };
+                    this.display();
+                    this.showToast('Settings imported successfully!', 'success');
+                }
+            } catch (error) {
+                this.showToast('Failed to import settings. Check file format.', 'error');
+            }
+        });
+        input.click();
+    }
+
+    private resetToDefaults(): void {
+        if (confirm('Reset all settings to defaults? This action cannot be undone.')) {
+            // Keep API keys, reset everything else
+            const apiKeys = {
+                geminiApiKey: this.settings.geminiApiKey,
+                groqApiKey: this.settings.groqApiKey,
+                huggingFaceApiKey: this.settings.huggingFaceApiKey,
+                openRouterApiKey: this.settings.openRouterApiKey,
+                ollamaApiKey: this.settings.ollamaApiKey,
+                ollamaEndpoint: this.settings.ollamaEndpoint
+            };
+
+            // Define defaults inline
+            const defaults: YouTubePluginSettings = {
+                ...apiKeys,
+                outputPath: 'YouTube/Processed Videos',
+                useEnvironmentVariables: false,
+                environmentPrefix: 'YTC',
+                performanceMode: 'balanced',
+                enableParallelProcessing: true,
+                enableAutoFallback: true,
+                preferMultimodal: true,
+                defaultMaxTokens: 4096,
+                defaultTemperature: 0.5
+            };
+
+            this.settings = defaults;
+            this.options.onSettingsChange(defaults);
+            this.display();
+            this.showToast('Settings reset to defaults', 'info');
+        }
+    }
+
+    private showToast(message: string, type: 'success' | 'error' | 'info'): void {
+        const toast = document.createElement('div');
+        toast.className = `${CSS_PREFIX}-toast ${type}`;
+        toast.createSpan({ text: type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️' });
+        toast.createSpan({ text: message });
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'slideIn 0.3s ease reverse';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    private createKeyboardShortcutsInfo(): void {
+        const shortcuts = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-shortcuts-info` });
+
+        const title = shortcuts.createDiv({ cls: `${CSS_PREFIX}-shortcuts-title` });
+        title.createSpan({ text: '⌨️' });
+        title.createSpan({ text: 'Keyboard Shortcuts' });
+
+        const list = shortcuts.createDiv({ cls: `${CSS_PREFIX}-shortcuts-list` });
+
+        const shortcutsData = [
+            { action: 'Focus search', key: 'Ctrl+K' },
+            { action: 'Toggle settings', key: 'Ctrl+,' },
+            { action: 'Save settings', key: 'Ctrl+S' },
+            { action: 'Open command palette', key: 'Ctrl+P' }
+        ];
+
+        shortcutsData.forEach(({ action, key }) => {
+            const item = list.createDiv({ cls: `${CSS_PREFIX}-shortcut-item` });
+            item.createSpan({ text: action });
+            item.createSpan({ cls: `${CSS_PREFIX}-shortcut-key`, text: key });
+        });
+    }
 
     private createHeader(): void {
         const { containerEl } = this;
@@ -489,6 +1098,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .addText(text => {
                 text.inputEl.type = 'password';
                 text.inputEl.autocomplete = 'off';
+                text.inputEl.style.width = '300px';
                 text
                     .setPlaceholder(opts.placeholder)
                     .setValue((this.settings[opts.settingKey] as string) || '')
@@ -498,6 +1108,26 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             });
 
         const controlEl = setting.controlEl;
+
+        // Password visibility toggle
+        const toggleBtn = controlEl.createEl('button', {
+            cls: `${CSS_PREFIX}-password-toggle`,
+            text: '👁️'
+        });
+        toggleBtn.title = 'Toggle visibility';
+
+        let isVisible = false;
+        toggleBtn.addEventListener('click', () => {
+            isVisible = !isVisible;
+            const textInput = controlEl.querySelector('input[type="password"], input[type="text"]') as HTMLInputElement;
+            if (textInput) {
+                textInput.type = isVisible ? 'text' : 'password';
+                toggleBtn.textContent = isVisible ? '🙈' : '👁️';
+                toggleBtn.title = isVisible ? 'Hide key' : 'Show key';
+            }
+        });
+
+        // Validate button
         const validateBtn = controlEl.createEl('button', {
             cls: `${CSS_PREFIX}-validate-btn`,
             text: '✓ Test'
@@ -506,7 +1136,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         validateBtn.addEventListener('click', async () => {
             const key = (this.settings[opts.settingKey] as string)?.trim();
             if (!key && opts.settingKey !== 'ollamaApiKey') {
-                new Notice(`No ${opts.name} configured`);
+                this.showToast(`No ${opts.name} configured`, 'info');
                 return;
             }
 
@@ -514,15 +1144,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             validateBtn.textContent = '...';
             validateBtn.removeClass('is-success', 'is-error');
 
+            // Add spinner
+            const spinner = validateBtn.createEl('span', { cls: `${CSS_PREFIX}-spinner` });
+
             try {
                 await opts.validateFn(key);
+                spinner.remove();
                 validateBtn.textContent = '✓ Valid';
                 validateBtn.addClass('is-success');
-                new Notice(`✓ ${opts.name} is valid!`);
+                this.showToast(`${opts.name} is valid!`, 'success');
+
+                // Update provider status
+                const providerId = opts.settingKey.replace('ApiKey', '').toLowerCase();
+                this.providerStatuses.set(providerId, 'valid');
             } catch (err) {
+                spinner.remove();
                 validateBtn.textContent = '✗ Invalid';
                 validateBtn.addClass('is-error');
-                new Notice(`✗ ${opts.name} failed: ${(err as Error).message}`);
+                this.showToast(`${opts.name} failed: ${(err as Error).message}`, 'error');
+
+                // Update provider status
+                const providerId = opts.settingKey.replace('ApiKey', '').toLowerCase();
+                this.providerStatuses.set(providerId, 'invalid');
             }
 
             setTimeout(() => {

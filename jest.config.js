@@ -23,6 +23,8 @@ module.exports = {
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@tests/(.*)$': '<rootDir>/tests/$1',
-        '^obsidian$': '<rootDir>/tests/__mocks__/obsidian.ts'
-    }
+    },
+    transformIgnorePatterns: [
+        'node_modules/(?!(obsidian)/)'
+    ]
 };
