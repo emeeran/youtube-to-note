@@ -503,8 +503,9 @@ export class YouTubeUrlModal extends BaseModal {
         const formatOptions = [
             { value: 'executive-summary', text: '1. Executive' },
             { value: 'detailed-guide', text: '2. Comprehensive' },
-            { value: 'brief', text: '3. Brief' },
-            { value: 'custom', text: '4. Custom' }
+            { value: 'tutorial', text: '3. Tutorial' },
+            { value: 'brief', text: '4. Brief' },
+            { value: 'custom', text: '5. Custom' }
         ];
 
         formatOptions.forEach(option => {

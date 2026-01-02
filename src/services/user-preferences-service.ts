@@ -61,6 +61,7 @@ export class UserPreferencesService {
             brief: 0,
             'executive-summary': 0,
             'detailed-guide': 0,
+            tutorial: 0,
             custom: 0
         },
         providerUsage: {}
