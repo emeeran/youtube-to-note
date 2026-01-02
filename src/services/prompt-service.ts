@@ -3,13 +3,14 @@ import { ValidationUtils } from '../validation';
 
 /**
  * Optimized prompt generation service for AI processing
- * Focus: Conciseness, clarity, reduced token usage, better AI adherence
+ * Focus: Compact, structured, visually scannable output
  */
 
 export class AIPromptService implements PromptService {
-    // Shared frontmatter template (reduces duplication)
+    // Shared frontmatter template
     private static createFrontmatter(title: string, url: string, videoId: string, format: OutputFormat): string {
         const date = new Date().toISOString().split('T')[0];
+        const isoDate = new Date().toISOString();
         const type = format === 'tutorial' ? 'youtube-tutorial' : 'youtube-note';
         const tags = format === 'brief' ? ['youtube', 'brief']
             : format === 'tutorial' ? ['youtube', 'tutorial']
@@ -25,7 +26,11 @@ type: ${type}
 format: ${format}
 tags:
 ${tags.map(t => `  - ${t}`).join('\n')}
+status: processed
+duration: "[Extract video duration]"
+channel: "[Extract channel name]"
 video_id: "${videoId || 'unknown'}"
+processing_date: "${isoDate}"
 ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
 ---
@@ -33,15 +38,12 @@ ai_model: "__AI_MODEL__"
 `;
     }
 
-    // Shared video embed (reduces duplication)
+    // Shared video embed
     private static createVideoEmbed(url: string, videoId: string): string {
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : url;
         return `<iframe width="640" height="360" src="${embedUrl}" title="${url}" frameborder="0" allowfullscreen></iframe>`;
     }
 
-    /**
-     * Create analysis prompt - optimized for clarity and token efficiency
-     */
     createAnalysisPrompt(
         videoData: VideoData,
         videoUrl: string,
@@ -50,15 +52,12 @@ ai_model: "__AI_MODEL__"
         transcript?: string,
         performanceMode: PerformanceMode = 'balanced'
     ): string {
-        // Custom prompt handling
         if (customPrompt?.trim()) {
             return this.applyCustomPrompt(customPrompt, videoData, videoUrl);
         }
 
-        // Build base content based on performance mode
         const baseContent = this.buildBaseContent(videoData, videoUrl, transcript, performanceMode);
 
-        // Route to format-specific prompt
         switch (format) {
             case 'executive-summary':
                 return this.createExecutiveSummaryPrompt(baseContent, videoUrl);
@@ -72,11 +71,7 @@ ai_model: "__AI_MODEL__"
         }
     }
 
-    /**
-     * Build base content - performance-optimized
-     */
     private buildBaseContent(videoData: VideoData, videoUrl: string, transcript: string | undefined, mode: PerformanceMode): string {
-        // Truncate long transcripts
         let transcriptSection = '';
         if (transcript?.trim()) {
             const maxLength = mode === 'fast' ? 4000 : mode === 'quality' ? 12000 : 8000;
@@ -85,11 +80,7 @@ ai_model: "__AI_MODEL__"
                 : transcript;
         }
 
-        const modeSuffix = mode === 'fast' ? ' (fast mode)' : mode === 'quality' ? ' (deep analysis)' : '';
-
-        return `# YouTube Video Analysis${modeSuffix}
-
-**Title:** ${videoData.title}
+        return `**Title:** ${videoData.title}
 **URL:** ${videoUrl}
 
 **Description:**
@@ -103,201 +94,157 @@ ${transcriptSection ? `**Transcript:**\n${transcriptSection}` : ''}
     }
 
     /**
-     * Brief format - optimized for quick scanning
+     * BRIEF FORMAT - Ultra-compact, scannable
      */
     private createBriefPrompt(baseContent: string, videoUrl: string): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
 
         return `${baseContent}
-OUTPUT: Brief note format (3-4 sentences max)
+OUTPUT: Brief note (3-4 sentences, bullet points only)
 
 ${AIPromptService.createFrontmatter('{{TITLE}}', videoUrl, videoId || '', 'brief')}
 ${AIPromptService.createVideoEmbed(videoUrl, videoId || '')}
 
-## Brief Description
-[3-4 sentence summary]
+## Summary
+[3-4 sentence core message]
 
-## Key Takeaways
-- **[Main point]**
-- **[Main point]**
-- **[Main point]**
+## Key Points
+- **[Point 1]**
+- **[Point 2]**
+- **[Point 3]**
 
-## Quick Actions
-1. **[Action 1]**
-2. **[Action 2]**
+## Actions
+1. [Action 1]
+2. [Action 2]
 
 ## Resources
-- **Video:** [Watch](${videoUrl})
-- **Mentioned resources:**
-  - [Resource 1]
-  - [Resource 2]
-
-INSTRUCTIONS: Keep it brief. Focus on actionable insights.`;
+- [Watch](${videoUrl}) | [Channel](https://youtube.com/channel/[id])`;
     }
 
     /**
-     * Tutorial format - step-by-step guide
+     * TUTORIAL FORMAT - Actionable step-by-step
      */
     private createTutorialPrompt(baseContent: string, videoUrl: string): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
 
         return `${baseContent}
-OUTPUT: Step-by-step tutorial format
+OUTPUT: Step-by-step tutorial (imperative, visual descriptions)
 
 ${AIPromptService.createFrontmatter('{{TITLE}}', videoUrl, videoId || '', 'tutorial')}
 ${AIPromptService.createVideoEmbed(videoUrl, videoId || '')}
 
-## 📋 Executive Summary
-[2-3 paragraphs, ~250 words]
+# Tutorial
 
-### Key Concepts
-- **[Concept]:** [Definition]
-- **[Concept]:** [Definition]
-- **[Concept]:** [Definition]
+## Overview
+[Brief: What you'll build/learn]
 
-### Priority Actions
-1. **[Action 1]** - [description]
-2. **[Action 2]** - [description]
-3. **[Action 3]** - [description]
-4. **[Action 4]** - [description]
+**Prerequisites:** [List requirements]
 
 ---
 
-## 🎯 Step-by-Step Tutorial
+## Steps
 
-### Step 1: [Title]
-**Objective:** [Goal]
+### 1. [Step Title]
+**Goal:** [Objective]
+
+> **Visual:** [What you see on screen]
 
 1. [Action]
 2. [Action]
 3. [Action]
 
-**Expected Result:** [What you'll see]
+✓ **Result:** [Verification]
 
-### Step 2: [Title]
-**Objective:** [Goal]
+---
+
+### 2. [Step Title]
+**Goal:** [Objective]
+
+> **Visual:** [Description]
 
 1. [Action]
 2. [Action]
 3. [Action]
 
-**Expected Result:** [What you'll see]
-
-### Step 3: [Title]
-[Continue as needed...]
+✓ **Result:** [Verification]
 
 ---
 
-## 🎓 Learning Outcomes
+[Continue steps...]
+
+## Summary
+
+**You learned:**
 - [Skill 1]
 - [Skill 2]
-- [Skill 3]
 
-## 🛠️ Required Tools
-- **[Tool 1]:** [Where to get it]
-- **[Tool 2]:** [Where to get it]
+**Tools used:**
+- [Tool 1] - [Link/source]
+- [Tool 2] - [Link/source]
 
-## 📖 Further Reading
-- **[Resource 1]:** [Link]
-- **[Resource 2]:** [Link]
-
-## 💡 Pro Tips
-- **Tip:** [Insight]
-- **Avoid:** [Common mistake]
+**Tips:**
+- [Pro tip]
+- ⚠️ [Avoid this]
 
 ---
 
-INSTRUCTIONS:
-- Extract ALL steps needed to complete the task
-- Use imperative language ("Do X", not "The video shows X")
-- Convert visual demos to explicit text
-- Include actual links when mentioned
-- Format: clean, scannable, emoji section headers`;
+[Watch on YouTube](${videoUrl})`;
     }
 
     /**
-     * Executive Summary - strategic insights
+     * EXECUTIVE FORMAT - Strategic, insights-driven
      */
     private createExecutiveSummaryPrompt(baseContent: string, videoUrl: string): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
 
         return `${baseContent}
-OUTPUT: Executive summary with strategic insights
+OUTPUT: Executive summary (strategic insights, action plan)
 
 ${AIPromptService.createFrontmatter('{{TITLE}}', videoUrl, videoId || '', 'executive-summary')}
 ${AIPromptService.createVideoEmbed(videoUrl, videoId || '')}
 
-## 📊 Executive Summary
-[2-3 paragraphs, ~250 words, focus on value proposition]
+## Executive Summary
+[2-3 paragraphs, ~250 words]
 
-### Key Concepts
-- **[Concept]:** [Definition]
-- **[Concept]:** [Definition]
-- **[Concept]:** [Definition]
+**Key Concepts:**
+- **[Concept]** - [Definition]
+- **[Concept]** - [Definition]
+- **[Concept]** - [Definition]
 
-### Priority Actions
-1. **[Action 1]** - [description]
-2. **[Action 2]** - [description]
-3. **[Action 3]** - [description]
-4. **[Action 4]** - [description]
-
----
-
-## 🎯 Strategic Insights
-
-### 🔧 Technical
-**[One-sentence technical strategy insight]**
-
-### 💡 Design
-**[One-sentence design thinking insight]**
-
-### 📚 Learning
-**[One-sentence continuous learning insight]**
+**Priority Actions:**
+1. [Action 1]
+2. [Action 2]
+3. [Action 3]
 
 ---
 
-## 🚀 Action Plan
+## Strategic Insights
 
-### ⚡ Immediate
-- **Action:** [What to do now]
-- **Metric:** [Success criteria]
-
-### 📈 Short-term
-- **Action:** [Next steps]
-- **Metric:** [Success criteria]
-
-### 🎯 Mid-term
-- **Action:** [Future goals]
-- **Metric:** [Success criteria]
-
-### 🔮 Long-term
-- **Action:** [Vision]
-- **Metric:** [Success criteria]
+| Technical | Design | Learning |
+|-----------|--------|---------|
+| [Insight] | [Insight] | [Insight] |
 
 ---
 
-## 📚 Resources
+## Action Plan
 
-### Primary Sources
+| Phase | Action | Metric |
+|-------|--------|--------|
+| ⚡ Now | [Action] | [Success criteria] |
+| 📈 Soon | [Action] | [Success criteria] |
+| 🎯 Later | [Action] | [Success criteria] |
+
+---
+
+## Resources
 - **Video:** [Watch](${videoUrl})
-- **Channel:** [Channel Name](https://youtube.com/channel/[id])
-
-### Tools & Technologies
-- **[Tool 1]:** [Description]
-- **[Tool 2]:** [Description]
-
-### Documentation
-- **[Resource 1]:** [Link]
-- **[Resource 2]:** [Link]
-
-INSTRUCTIONS:
-- Focus on strategic value, not narrative
-- Each action needs measurable success criteria
-- Include actual links from content`;
+- **Channel:** [Name](https://youtube.com/channel/[id])
+- **Tools:** [Tool 1] • [Tool 2]
+- **Docs:** [Resource 1] • [Resource 2]`;
     }
 
     /**
-     * Detailed Guide - comprehensive format
+     * DETAILED FORMAT - Comprehensive guide
      */
     private createDetailedGuidePrompt(baseContent: string, videoUrl: string): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
@@ -308,80 +255,66 @@ OUTPUT: Comprehensive detailed guide
 ${AIPromptService.createFrontmatter('{{TITLE}}', videoUrl, videoId || '', 'detailed-guide')}
 ${AIPromptService.createVideoEmbed(videoUrl, videoId || '')}
 
-# Practical Guide
+# Guide
 
-## Overview
-**Goal:** [Main objective]
 **Level:** [Beginner/Intermediate/Advanced]
+**Time:** [Estimated duration]
 
-## Prerequisites
+**Prerequisites:**
 - [Requirement 1]
 - [Requirement 2]
 
 ---
 
-## Step-by-Step
+## Steps
 
-### Step 1: [Title]
-**Objective:** [Goal]
+### 1. [Title]
+**Goal:** [Objective]
 
-**Actions:**
-1. [Specific instruction]
-2. [Specific instruction]
-3. [Specific instruction]
+> **Visual cue:** [What to look for]
 
-✅ **Success:** [Verification]
+1. [Instruction]
+2. [Instruction]
+3. [Instruction]
 
-### Step 2: [Title]
-**Objective:** [Goal]
-
-[Continue steps...]
-
-### Step 3: [Title]
-**Objective:** [Goal]
+✓ **Check:** [How to verify]
 
 ---
 
-## Learning Outcomes
-Upon completion:
+### 2. [Title]
+**Goal:** [Objective]
+
+1. [Instruction]
+2. [Instruction]
+3. [Instruction]
+
+✓ **Check:** [How to verify]
+
+---
+
+### 3. [Title]
+[Continue as needed...]
+
+---
+
+## Outcomes
+
+**Skills gained:**
 - [Skill 1]
 - [Skill 2]
-- [Skill 3]
 
-## Required Tools
-- **[Tool 1]:** [Source]
-- **[Tool 2]:** [Source]
-
-## Tips
-💡 **Tip:** [Insight]
-⚠️ **Avoid:** [Mistake]
+**Tools required:**
+- [Tool] - [Source]
+- [Tool] - [Source]
 
 ---
 
-## 📚 Resources
-
-### Sources
+## Resources
 - **Video:** [Watch](${videoUrl})
 - **Channel:** [Name](https://youtube.com/channel/[id])
-
-### Tools
-- **[Tool 1]:** [Description]
-- **[Tool 2]:** [Description]
-
-### Documentation
-- **[Resource 1]:** [Link]
-- **[Resource 2]:** [Link]
-
-INSTRUCTIONS:
-- Clear, actionable steps
-- Include all prerequisites
-- Real links from content
-- Scannable format`;
+- **Related:** [Link 1] • [Link 2]`;
     }
 
-    /**
-     * Apply custom prompt template
-     */
     private applyCustomPrompt(customPrompt: string, videoData: VideoData, videoUrl: string): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
@@ -396,9 +329,6 @@ INSTRUCTIONS:
             .replace(/__TIMESTAMP__/g, new Date().toISOString());
     }
 
-    /**
-     * Process AI response - inject provider metadata
-     */
     processAIResponse(content: string, provider: string, model: string, format?: OutputFormat): string {
         if (!content) return content;
 
@@ -415,9 +345,6 @@ INSTRUCTIONS:
         return updatedContent;
     }
 
-    /**
-     * Ensure frontmatter value exists and is quoted
-     */
     private ensureFrontMatterValue(content: string, key: string, value: string): string {
         const pattern = new RegExp(`(${key}\\s*:\\s*)(["'])?([^"'\\n]*)(["'])?`, 'i');
         if (pattern.test(content)) {
@@ -434,9 +361,6 @@ INSTRUCTIONS:
         return content;
     }
 
-    /**
-     * Legacy methods for compatibility
-     */
     createSummaryPrompt(videoData: VideoData, videoUrl: string): string {
         return this.createBriefPrompt(
             this.buildBaseContent(videoData, videoUrl, undefined, 'balanced'),

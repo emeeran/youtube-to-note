@@ -177,12 +177,11 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private createModalContent(): void {
         this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
-        this.createThemeToggle(); // Add theme toggle at the top
         this.createCompactUrlSection();
         this.createDropDownRow();
         this.createProgressSection();
         this.createActionButtons();
-        
+
         // Apply theme immediately on modal open
         this.applyTheme(this.isLightTheme);
     }
@@ -644,153 +643,6 @@ export class YouTubeUrlModal extends BaseModal {
             letter-spacing: 0.3px;
         `;
 
-        // Action buttons container (ultra compact)
-        const actionButtons = modelLabelRow.createDiv();
-        actionButtons.style.cssText = `
-            display: flex;
-            gap: 2px;
-        `;
-
-        // Create refresh button (ultra compact)
-        const refreshBtn = actionButtons.createEl('button');
-        this.refreshButton = refreshBtn;
-        refreshBtn.innerHTML = '🔄';
-        refreshBtn.title = 'Refresh (Shift+click to force)';
-        refreshBtn.style.cssText = `
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.75rem;
-            padding: 1px;
-            border-radius: 3px;
-            opacity: 0.5;
-            transition: opacity 0.2s, background 0.2s;
-            line-height: 1;
-        `;
-
-        refreshBtn.addEventListener('mouseenter', () => {
-            refreshBtn.style.opacity = '1';
-            refreshBtn.style.background = 'var(--background-modifier-hover)';
-        });
-
-        refreshBtn.addEventListener('mouseleave', () => {
-            refreshBtn.style.opacity = '0.7';
-            refreshBtn.style.background = 'none';
-        });
-
-        refreshBtn.addEventListener('click', async (event) => {
-            const isForceRefresh = event.shiftKey; // Hold Shift for force refresh
-            refreshBtn.innerHTML = '⏳'; // Loading indicator
-            refreshBtn.style.opacity = '0.5';
-            refreshBtn.style.cursor = 'wait';
-
-            try {
-                const currentProvider = this.selectedProvider || 'Google Gemini';
-
-                // Determine if provider supports dynamic fetching
-                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Groq'];
-                const isDynamicProvider = dynamicProviders.includes(currentProvider);
-
-                // Try provider-specific fetch first (faster)
-                if (this.options.fetchModelsForProvider) {
-                    const models = await this.options.fetchModelsForProvider(currentProvider, isForceRefresh);
-                    if (models && models.length > 0) {
-                        // Update just this provider's models
-                        const updatedOptions = { ...this.options.modelOptions, [currentProvider]: models };
-                        this.updateModelDropdown(updatedOptions);
-
-                        // Provide appropriate feedback
-                        if (isDynamicProvider) {
-                            if (isForceRefresh) {
-                                new Notice(`🔄 Force fetched ${models.length} fresh models for ${currentProvider}`);
-                            } else {
-                                const cacheStatus = this.getCacheStatus(currentProvider);
-                                if (cacheStatus.isCached && cacheStatus.ageMinutes) {
-                                    new Notice(`📦 Updated ${models.length} models for ${currentProvider} (${cacheStatus.ageMinutes}m old cache)`);
-                                } else {
-                                    new Notice(`🌐 Fetched ${models.length} fresh models for ${currentProvider}`);
-                                }
-                            }
-                        } else {
-                            new Notice(`📋 Loaded ${models.length} available models for ${currentProvider} (static list)`);
-                        }
-                    } else {
-                        new Notice('No models found. Using defaults.');
-                    }
-                } else if (this.options.fetchModels) {
-                    // Fallback to fetching all providers
-                    const modelOptionsMap = await this.options.fetchModels();
-                    this.updateModelDropdown(modelOptionsMap);
-                    new Notice('Model list updated!');
-                }
-            } catch (error) {
-                new Notice('Failed to refresh models. Using cached options.');
-            } finally {
-                refreshBtn.innerHTML = '🔄';
-                refreshBtn.style.opacity = '0.7';
-                refreshBtn.style.cursor = 'pointer';
-            }
-        });
-
-        // Set initial tooltip
-        this.updateRefreshButtonTooltip();
-
-        // Create "Set Default" button (ultra compact)
-        const setDefaultBtn = actionButtons.createEl('button');
-        setDefaultBtn.innerHTML = '⭐';
-        setDefaultBtn.title = 'Set current selections as default';
-        setDefaultBtn.style.cssText = `
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.75rem;
-            padding: 1px;
-            border-radius: 3px;
-            opacity: 0.5;
-            transition: opacity 0.2s, background 0.2s;
-            line-height: 1;
-        `;
-
-        setDefaultBtn.addEventListener('mouseenter', () => {
-            setDefaultBtn.style.opacity = '1';
-            setDefaultBtn.style.background = 'var(--background-modifier-hover)';
-        });
-
-        setDefaultBtn.addEventListener('mouseleave', () => {
-            setDefaultBtn.style.opacity = '0.5';
-            setDefaultBtn.style.background = 'none';
-        });
-
-        setDefaultBtn.addEventListener('click', () => {
-            const currentFormat = this.formatSelect?.value as OutputFormat;
-            const currentProvider = this.providerSelect?.value;
-            const currentModel = this.modelSelect?.value;
-            const currentAutoFallback = this.fallbackToggle?.checked ?? true;
-
-            // Save as preferred defaults
-            UserPreferencesService.setPreference('preferredFormat', currentFormat);
-            UserPreferencesService.setPreference('preferredProvider', currentProvider);
-            UserPreferencesService.setPreference('preferredModel', currentModel);
-            UserPreferencesService.setPreference('preferredAutoFallback', currentAutoFallback);
-
-            // Also update last used
-            UserPreferencesService.updateLastUsed({
-                format: currentFormat,
-                provider: currentProvider,
-                model: currentModel,
-                autoFallback: currentAutoFallback,
-            });
-
-            // Visual feedback
-            const originalText = setDefaultBtn.innerHTML;
-            setDefaultBtn.innerHTML = '✅';
-            new Notice(`✅ Saved: ${currentModel?.split('/').pop()?.substring(0, 15) || currentModel}`);
-
-            setTimeout(() => {
-                setDefaultBtn.innerHTML = originalText;
-            }, 1000);
-        });
-
         this.modelSelect = modelContainer.createEl('select');
         this.modelSelect.style.cssText = `
             width: 100%;
@@ -970,7 +822,8 @@ export class YouTubeUrlModal extends BaseModal {
         toggleRow.style.cssText = `
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 8px;
             margin-top: 5px;
             padding: 4px 8px;
             background: var(--background-secondary);
@@ -978,25 +831,191 @@ export class YouTubeUrlModal extends BaseModal {
             font-size: 0.75rem;
         `;
 
-        const labelContainer = toggleRow.createDiv();
-        labelContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
+        // Create theme toggle button
+        const themeBtn = toggleRow.createEl('button');
+        themeBtn.innerHTML = this.isLightTheme ? '☀️' : '🌙';
+        themeBtn.title = this.isLightTheme ? 'Switch to dark mode' : 'Switch to light mode';
+        themeBtn.style.cssText = `
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+            opacity: 0.5;
+            transition: opacity 0.2s, background 0.2s;
+            line-height: 1;
         `;
 
-        labelContainer.createSpan({ text: '🔄' });
-        const label = labelContainer.createSpan({ text: 'Auto Fallback' });
-        label.style.cssText = `
-            color: var(--text-normal);
-            font-weight: 500;
-            font-size: 0.75rem;
-        `;
+        themeBtn.addEventListener('mouseenter', () => {
+            themeBtn.style.opacity = '1';
+            themeBtn.style.background = 'var(--background-modifier-hover)';
+        });
 
-        const hint = labelContainer.createSpan({ text: '(err)' });
-        hint.style.cssText = `
+        themeBtn.addEventListener('mouseleave', () => {
+            themeBtn.style.opacity = '0.6';
+            themeBtn.style.background = 'none';
+        });
+
+        themeBtn.addEventListener('click', () => {
+            const newTheme = !this.isLightTheme;
+            this.isLightTheme = newTheme;
+            themeBtn.innerHTML = newTheme ? '☀️' : '🌙';
+            themeBtn.title = newTheme ? 'Switch to dark mode' : 'Switch to light mode';
+            this.applyTheme(newTheme);
+            localStorage.setItem('ytc-theme-mode', newTheme ? 'light' : 'dark');
+        });
+
+        // Divider
+        const divider1 = toggleRow.createSpan();
+        divider1.innerHTML = '|';
+        divider1.style.cssText = `
             color: var(--text-muted);
-            font-size: 0.7rem;
+            opacity: 0.5;
+        `;
+
+        // Create refresh button with full logic
+        const refreshBtn = toggleRow.createEl('button');
+        this.refreshButton = refreshBtn;
+        refreshBtn.innerHTML = '🔄';
+        refreshBtn.title = 'Refresh models (Shift+click to force)';
+        refreshBtn.style.cssText = `
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+            opacity: 0.5;
+            transition: opacity 0.2s, background 0.2s;
+            line-height: 1;
+        `;
+
+        refreshBtn.addEventListener('mouseenter', () => {
+            refreshBtn.style.opacity = '1';
+            refreshBtn.style.background = 'var(--background-modifier-hover)';
+        });
+
+        refreshBtn.addEventListener('mouseleave', () => {
+            refreshBtn.style.opacity = '0.6';
+            refreshBtn.style.background = 'none';
+        });
+
+        refreshBtn.addEventListener('click', async (event) => {
+            const isForceRefresh = event.shiftKey;
+            refreshBtn.innerHTML = '⏳';
+            refreshBtn.style.opacity = '0.5';
+            refreshBtn.style.cursor = 'wait';
+
+            try {
+                const currentProvider = this.selectedProvider || 'Google Gemini';
+                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Groq'];
+                const isDynamicProvider = dynamicProviders.includes(currentProvider);
+
+                if (this.options.fetchModelsForProvider) {
+                    const models = await this.options.fetchModelsForProvider(currentProvider, isForceRefresh);
+                    if (models && models.length > 0) {
+                        const updatedOptions = { ...this.options.modelOptions, [currentProvider]: models };
+                        this.updateModelDropdown(updatedOptions);
+
+                        if (isDynamicProvider) {
+                            if (isForceRefresh) {
+                                new Notice(`🔄 Force fetched ${models.length} fresh models for ${currentProvider}`);
+                            } else {
+                                const cacheStatus = this.getCacheStatus(currentProvider);
+                                if (cacheStatus.isCached && cacheStatus.ageMinutes) {
+                                    new Notice(`📦 Updated ${models.length} models for ${currentProvider} (${cacheStatus.ageMinutes}m old cache)`);
+                                } else {
+                                    new Notice(`🌐 Fetched ${models.length} fresh models for ${currentProvider}`);
+                                }
+                            }
+                        } else {
+                            new Notice(`📋 Loaded ${models.length} available models for ${currentProvider} (static list)`);
+                        }
+                    } else {
+                        new Notice('No models found. Using defaults.');
+                    }
+                } else if (this.options.fetchModels) {
+                    const modelOptionsMap = await this.options.fetchModels();
+                    this.updateModelDropdown(modelOptionsMap);
+                    new Notice('Model list updated!');
+                }
+            } catch (error) {
+                new Notice('Failed to refresh models. Using cached options.');
+            } finally {
+                refreshBtn.innerHTML = '🔄';
+                refreshBtn.style.opacity = '0.7';
+                refreshBtn.style.cursor = 'pointer';
+            }
+        });
+
+        // Divider
+        const divider2 = toggleRow.createSpan();
+        divider2.innerHTML = '|';
+        divider2.style.cssText = `
+            color: var(--text-muted);
+            opacity: 0.5;
+        `;
+
+        // Create set default button
+        const setDefaultBtn = toggleRow.createEl('button');
+        setDefaultBtn.innerHTML = '⭐';
+        setDefaultBtn.title = 'Set current selections as default';
+        setDefaultBtn.style.cssText = `
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 2px 4px;
+            border-radius: 3px;
+            opacity: 0.5;
+            transition: opacity 0.2s, background 0.2s;
+            line-height: 1;
+        `;
+
+        setDefaultBtn.addEventListener('mouseenter', () => {
+            setDefaultBtn.style.opacity = '1';
+            setDefaultBtn.style.background = 'var(--background-modifier-hover)';
+        });
+
+        setDefaultBtn.addEventListener('mouseleave', () => {
+            setDefaultBtn.style.opacity = '0.6';
+            setDefaultBtn.style.background = 'none';
+        });
+
+        setDefaultBtn.addEventListener('click', () => {
+            const currentFormat = this.formatSelect?.value as OutputFormat;
+            const currentProvider = this.providerSelect?.value;
+            const currentModel = this.modelSelect?.value;
+            const currentAutoFallback = this.fallbackToggle?.checked ?? true;
+
+            UserPreferencesService.setPreference('preferredFormat', currentFormat);
+            UserPreferencesService.setPreference('preferredProvider', currentProvider);
+            UserPreferencesService.setPreference('preferredModel', currentModel);
+            UserPreferencesService.setPreference('preferredAutoFallback', currentAutoFallback);
+
+            UserPreferencesService.updateLastUsed({
+                format: currentFormat,
+                provider: currentProvider,
+                model: currentModel,
+                autoFallback: currentAutoFallback,
+            });
+
+            const originalText = setDefaultBtn.innerHTML;
+            setDefaultBtn.innerHTML = '✅';
+            new Notice(`✅ Saved: ${currentModel?.split('/').pop()?.substring(0, 15) || currentModel}`);
+
+            setTimeout(() => {
+                setDefaultBtn.innerHTML = originalText;
+            }, 1000);
+        });
+
+        // Divider
+        const divider3 = toggleRow.createSpan();
+        divider3.innerHTML = '|';
+        divider3.style.cssText = `
+            color: var(--text-muted);
+            opacity: 0.5;
         `;
 
         // Ultra-compact toggle switch container
@@ -1009,7 +1028,7 @@ export class YouTubeUrlModal extends BaseModal {
         `;
 
         this.fallbackToggle = toggleContainer.createEl('input', { type: 'checkbox' });
-        this.fallbackToggle.checked = this.options.enableAutoFallback ?? true;
+        this.fallbackToggle.checked = true;
         this.autoFallbackEnabled = this.fallbackToggle.checked;
         this.fallbackToggle.style.cssText = `
             position: absolute;
@@ -1217,60 +1236,6 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Default fallback: capitalize first letter and replace dashes/underscores with spaces
         return modelName.charAt(0).toUpperCase() + modelName.slice(1).replace(/[-_]/g, ' ');
-    }
-
-    /**
-     * Create theme toggle component (light/dark mode)
-     */
-    private createThemeToggle(): void {
-        const themeContainer = this.contentEl.createDiv();
-        themeContainer.style.cssText = `
-            display: flex;
-            justify-content: flex-end;
-            margin: 4px 0 8px 0;
-        `;
-
-        // Minimal theme toggle - just a clickable icon
-        const toggleBtn = themeContainer.createDiv();
-        toggleBtn.style.cssText = `
-            cursor: pointer;
-            font-size: 1rem;
-            opacity: 0.6;
-            transition: opacity 0.2s ease;
-            padding: 4px;
-        `;
-        toggleBtn.innerHTML = this.isLightTheme ? '☀️' : '🌙';
-        toggleBtn.title = this.isLightTheme ? 'Switch to dark mode' : 'Switch to light mode';
-
-        toggleBtn.addEventListener('mouseenter', () => {
-            toggleBtn.style.opacity = '1';
-        });
-        toggleBtn.addEventListener('mouseleave', () => {
-            toggleBtn.style.opacity = '0.6';
-        });
-
-        // Theme toggle functionality
-        const updateTheme = (isLight: boolean) => {
-            this.isLightTheme = isLight;
-            toggleBtn.innerHTML = isLight ? '☀️' : '🌙';
-            toggleBtn.title = isLight ? 'Switch to dark mode' : 'Switch to light mode';
-            this.applyTheme(isLight);
-            localStorage.setItem('ytc-theme-mode', isLight ? 'light' : 'dark');
-        };
-
-        // Click to toggle
-        toggleBtn.addEventListener('click', () => {
-            updateTheme(!this.isLightTheme);
-        });
-
-        // Store for cleanup
-        this.themeElements = {
-            slider: toggleBtn,
-            knob: toggleBtn,
-            sunIcon: toggleBtn,
-            moonIcon: toggleBtn,
-            updateTheme
-        };
     }
 
     /**
