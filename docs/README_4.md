@@ -1,6 +1,6 @@
 # YouTubeClipper for Obsidian
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/youtube-clipper/obsidian-plugin)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/youtube-to-note/obsidian-plugin)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
 
@@ -38,7 +38,7 @@ An AI-powered Obsidian plugin that transforms YouTube videos into structured, ac
 
 1. **Manual Installation** (recommended for now):
    - Download the latest release
-   - Extract to your vault's `.obsidian/plugins/youtube-clipper/` directory
+   - Extract to your vault's `.obsidian/plugins/youtube-to-note/` directory
    - Enable the plugin in Obsidian Settings → Community Plugins
 
 2. **From Obsidian Community Store** (coming soon):
@@ -217,7 +217,7 @@ The plugin leverages Google Gemini 2.5 Pro's multimodal capabilities:
 
 ```bash
 # Clone the repository
-git clone https://github.com/youtube-clipper/obsidian-plugin
+git clone https://github.com/youtube-to-note/obsidian-plugin
 cd obsidian-plugin
 
 # Install dependencies
@@ -262,7 +262,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 ### Common Issues
 
 **Plugin not appearing in settings**
-- Ensure the plugin folder is in `.obsidian/plugins/youtube-clipper/`
+- Ensure the plugin folder is in `.obsidian/plugins/youtube-to-note/`
 - Check that all required files (main.js, manifest.json) are present
 - Restart Obsidian
 
@@ -295,8 +295,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Documentation**: [User Manual](USER_MANUAL.md)
-- **Issues**: [GitHub Issues](https://github.com/youtube-clipper/obsidian-plugin/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/youtube-clipper/obsidian-plugin/discussions)
+- **Issues**: [GitHub Issues](https://github.com/youtube-to-note/obsidian-plugin/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/youtube-to-note/obsidian-plugin/discussions)
 - **Community**: [Obsidian Discord](https://discord.gg/obsidianmd)
 
 ---

@@ -121,8 +121,8 @@ docs/
 ## 🆘 Getting Help
 
 1. **Check the docs** - Most questions answered here
-2. **Search [GitHub Issues](https://github.com/youtube-clipper/obsidian-plugin/issues)** - Your issue may be known
-3. **Ask in [GitHub Discussions](https://github.com/youtube-clipper/obsidian-plugin/discussions)** - Community support
+2. **Search [GitHub Issues](https://github.com/youtube-to-note/obsidian-plugin/issues)** - Your issue may be known
+3. **Ask in [GitHub Discussions](https://github.com/youtube-to-note/obsidian-plugin/discussions)** - Community support
 4. **Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues
 
 ---
@@ -199,7 +199,7 @@ Documentation is actively maintained alongside code changes.
 **Documentation Version**: 1.0
 
 To suggest improvements:
-1. Open a [GitHub Discussion](https://github.com/youtube-clipper/obsidian-plugin/discussions)
+1. Open a [GitHub Discussion](https://github.com/youtube-to-note/obsidian-plugin/discussions)
 2. Submit a PR with improvements (see [CONTRIBUTING.md](CONTRIBUTING.md))
 
 ---
@@ -328,11 +328,11 @@ Easy navigation with:
 ## 📞 Support
 
 ### Documentation Questions
-- [GitHub Discussions](https://github.com/youtube-clipper/obsidian-plugin/discussions)
+- [GitHub Discussions](https://github.com/youtube-to-note/obsidian-plugin/discussions)
 - Check [INDEX.md](INDEX.md) for navigation
 
 ### Bugs & Issues  
-- [GitHub Issues](https://github.com/youtube-clipper/obsidian-plugin/issues)
+- [GitHub Issues](https://github.com/youtube-to-note/obsidian-plugin/issues)
 - Use [TROUBLESHOOTING.md](TROUBLESHOOTING.md) template
 
 ### General Help

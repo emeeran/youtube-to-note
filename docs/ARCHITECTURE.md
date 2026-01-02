@@ -1106,7 +1106,7 @@ onunload(): void {
 ### Settings Persistence
 
 Settings are stored in Obsidian's plugin data directory:
-- **Location**: `.obsidian/plugins/youtube-clipper/data.json`
+- **Location**: `.obsidian/plugins/youtube-to-note/data.json`
 - **Format**: JSON with encrypted API keys (Obsidian handles encryption)
 - **Accessibility**: Via `SecureConfigService`
 
@@ -1115,13 +1115,13 @@ Settings are stored in Obsidian's plugin data directory:
 The plugin supports integration with a Chrome extension for seamless YouTube video processing:
 
 **URI Protocol Handler**:
-- registers `obsidian://youtube-clipper` protocol
+- registers `obsidian://youtube-to-note` protocol
 - receives video URLs directly from Chrome extension
 - bypasses temporary note creation for faster processing
 
 **Temporary Note Detection**:
 - monitors vault for notes containing YouTube URLs
-- detects notes created by Chrome extension (marked with `<!-- ytc-extension:youtube-clipper -->`)
+- detects notes created by Chrome extension (marked with `<!-- ytc-extension:youtube-to-note -->`)
 - automatically processes detected video URLs
 - prevents duplicate processing with file tracking system
 

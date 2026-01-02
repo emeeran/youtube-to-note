@@ -12,8 +12,8 @@ import { YouTubeUrlModal, BatchVideoModal } from './components/features/youtube'
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 
 
-const PLUGIN_PREFIX = 'ytp';
-const PLUGIN_VERSION = '1.3.5';
+const PLUGIN_PREFIX = 'ytn';
+const PLUGIN_VERSION = '1.4.0';
 
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS: YouTubePluginSettings = {
     openRouterApiKey: '',
     outputPath: 'YouTube/Processed Videos',
     useEnvironmentVariables: false,
-    environmentPrefix: 'YTC',
+    environmentPrefix: 'YTN',
     performanceMode: 'balanced',
     enableParallelProcessing: true,
     enableAutoFallback: true,
@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS: YouTubePluginSettings = {
     defaultTemperature: 0.5
 };
 
-export default class YoutubeClipperPlugin extends Plugin {
+export default class YouTubeToNotePlugin extends Plugin {
     private _settings: YouTubePluginSettings = DEFAULT_SETTINGS;
     private serviceContainer?: ServiceContainer;
     private ribbonIcon?: HTMLElement | null;
@@ -45,7 +45,7 @@ export default class YoutubeClipperPlugin extends Plugin {
     async onload(): Promise<void> {
         // Set plugin version
         this.manifest.version = PLUGIN_VERSION;
-        logger.info(`Initializing YoutubeClipper Plugin v${PLUGIN_VERSION}...`);
+        logger.info(`Initializing YouTube to Note Plugin v${PLUGIN_VERSION}...`);
 
         try {
             await this.loadSettings();
@@ -61,12 +61,12 @@ export default class YoutubeClipperPlugin extends Plugin {
                 error: error instanceof Error ? error.message : String(error)
             });
             ErrorHandler.handle(error as Error, 'Plugin initialization');
-            new Notice('Failed to load YoutubeClipper Plugin. Check console for details.');
+            new Notice('Failed to load YouTube to Note Plugin. Check console for details.');
         }
     }
 
     onunload(): void {
-        logger.plugin('Unloading YoutubeClipper Plugin...');
+        logger.plugin('Unloading YouTube to Note Plugin...');
         this.isUnloading = true;
 
         try {
@@ -123,20 +123,20 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private setupProtocolHandler(): void {
         try {
-            this.registerObsidianProtocolHandler('youtube-clipper', (params) => {
-                console.log('[YT-Clipper] Protocol received:', params);
+            this.registerObsidianProtocolHandler('youtube-to-note', (params) => {
+                console.log('[YouTube-to-Note] Protocol received:', params);
                 this.urlHandler?.handleProtocol(params);
             });
-            console.log('[YT-Clipper] Protocol handler registered successfully');
+            console.log('[YouTube-to-Note] Protocol handler registered successfully');
         } catch (error) {
-            console.error('[YT-Clipper] Protocol handler registration failed:', error);
+            console.error('[YouTube-to-Note] Protocol handler registration failed:', error);
             logger.debug('Protocol handler not available', 'Plugin');
         }
     }
 
     private registerUIComponents(): void {
         this.ribbonIcon = this.addRibbonIcon('film', 'Process YouTube Video', () => {
-            console.log("[YT-CLIPPER] Ribbon icon clicked"); void this.safeShowUrlModal();
+            console.log("[YouTube-to-Note] Ribbon icon clicked"); void this.safeShowUrlModal();
         });
 
         // Add batch processing ribbon icon
@@ -150,7 +150,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             id: `${PLUGIN_PREFIX}-process-youtube-video`,
             name: 'Process YouTube Video',
             callback: () => {
-                console.log("[YT-CLIPPER] Ribbon icon clicked"); void this.safeShowUrlModal();
+                console.log("[YouTube-to-Note] Ribbon icon clicked"); void this.safeShowUrlModal();
             }
         });
 
@@ -161,7 +161,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
         this.addCommand({
             id: `${PLUGIN_PREFIX}-open-url-from-clipboard`,
-            name: 'YouTube Clipper: Open URL Modal (from clipboard)',
+            name: 'YouTube to Note: Open URL Modal (from clipboard)',
             callback: async () => {
                 await this.handleClipboardUrl();
             }
@@ -169,7 +169,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
         this.addCommand({
             id: `${PLUGIN_PREFIX}-batch-process`,
-            name: 'YouTube Clipper: Batch Process Videos',
+            name: 'YouTube to Note: Batch Process Videos',
             callback: () => {
                 void this.openBatchModal();
             }
@@ -200,7 +200,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             // If no URL found in clipboard, prompt user
             // eslint-disable-next-line no-alert
-            const manual = window.prompt('Paste YouTube URL to open in YouTube Clipper:');
+            const manual = window.prompt('Paste YouTube URL to open in YouTube to Note:');
             if (manual && ValidationUtils.isValidYouTubeUrl(manual.trim())) {
                 void this.safeShowUrlModal(manual.trim());
             } else {
@@ -212,15 +212,15 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async safeShowUrlModal(initialUrl?: string): Promise<void> {
-        console.log("[YT-CLIPPER] safeShowUrlModal called", { 
-            initialUrl, 
-            hasModalManager: !!this.modalManager, 
+        console.log("[YouTube-to-Note] safeShowUrlModal called", {
+            initialUrl,
+            hasModalManager: !!this.modalManager,
             hasServiceContainer: !!this.serviceContainer,
-            modalState: this.modalManager?.getState?.() 
+            modalState: this.modalManager?.getState?.()
         });
-        
+
         if (!this.modalManager || !this.serviceContainer) {
-            console.error("[YT-CLIPPER] Cannot show modal - missing services");
+            console.error("[YouTube-to-Note] Cannot show modal - missing services");
             return;
         }
 
@@ -228,12 +228,12 @@ export default class YoutubeClipperPlugin extends Plugin {
         try {
             await this.openYouTubeUrlModal(initialUrl);
         } catch (error) {
-            console.error("[YT-CLIPPER] Failed to open modal:", error);
+            console.error("[YouTube-to-Note] Failed to open modal:", error);
         }
     }
 
     private async openYouTubeUrlModal(initialUrl?: string): Promise<void> {
-        console.log("[YT-CLIPPER] openYouTubeUrlModal called", { initialUrl });
+        console.log("[YouTube-to-Note] openYouTubeUrlModal called", { initialUrl });
         if (this.isUnloading) {
             ConflictPrevention.log('Plugin is unloading, ignoring modal request');
             return;
@@ -528,9 +528,9 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private async loadSettings(): Promise<void> {
         const loadedData = await this.loadData();
-        console.log('[YT-CLIPPER] Settings loaded from data.json:', loadedData);
+        console.log('[YouTube-to-Note] Settings loaded from data.json:', loadedData);
         this._settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-        console.log('[YT-CLIPPER] Final settings after merge:', {
+        console.log('[YouTube-to-Note] Final settings after merge:', {
             hasGeminiKey: !!this._settings.geminiApiKey,
             geminiKeyLength: this._settings.geminiApiKey?.length,
             hasGroqKey: !!this._settings.groqApiKey,

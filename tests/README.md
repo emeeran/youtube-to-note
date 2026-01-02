@@ -231,5 +231,5 @@ Tests run automatically on:
 - Manual trigger via GitHub Actions
 
 Status badges:
-- ![Tests](https://github.com/emeeran/yt-clipper/actions/workflows/test.yml/badge.svg)
-- ![Coverage](https://codecov.io/gh/emeeran/yt-clipper/branch/main/graph/badge.svg)
+- ![Tests](https://github.com/emeeran/youtube-to-note/actions/workflows/test.yml/badge.svg)
+- ![Coverage](https://codecov.io/gh/emeeran/youtube-to-note/branch/main/graph/badge.svg)

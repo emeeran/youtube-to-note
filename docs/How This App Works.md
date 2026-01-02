@@ -1,8 +1,8 @@
-# 🎯 How the YoutubeClipper App Works - Complete Technical Architecture
+# 🎯 How the YouTubeToNote App Works - Complete Technical Architecture
 
 ## 🏗️ **High-Level Overview**
 
-YoutubeClipper is an **AI-powered Obsidian plugin** that transforms YouTube videos into structured notes using **multimodal analysis**. It analyzes both **audio and visual content** to extract key insights, summaries, and actionable information.
+YouTubeToNote is an **AI-powered Obsidian plugin** that transforms YouTube videos into structured notes using **multimodal analysis**. It analyzes both **audio and visual content** to extract key insights, summaries, and actionable information.
 
 ```
 YouTube URL → Metadata Extraction → AI Analysis → Structured Note → Obsidian Vault
@@ -19,7 +19,7 @@ YouTube URL → Metadata Extraction → AI Analysis → Structured Note → Obsi
 
 // UI Modal opens:
 ┌─────────────────────────────────────────┐
-│ 🎬 YoutubeClipper - Process Video       │
+│ 🎬 YouTubeToNote - Process Video       │
 ├─────────────────────────────────────────┤
 │ 📺 Video URL: [youtube.com/watch?v=...]│
 │                                      │
@@ -319,7 +319,7 @@ class SecureHttpClient {
                 ...options,
                 signal: controller.signal,
                 headers: {
-                    'User-Agent': 'YoutubeClipper/1.0',
+                    'User-Agent': 'YouTubeToNote/1.0',
                     ...options.headers
                 }
             });
@@ -382,7 +382,7 @@ class VideoPreviewModal {
 
 ### **Obsidian Plugin Integration**
 ```typescript
-class YoutubeClipperPlugin extends Plugin {
+class YouTubeToNotePlugin extends Plugin {
     async onload() {
         // 1. Register ribbon icon
         this.ribbonIcon = this.addRibbonIcon('video', () => {
@@ -523,7 +523,7 @@ Comprehensive:      30-60 seconds (baseline)
 ## 🎉 **User Experience Flow**
 
 1. **Discovery**: User finds a YouTube video they want to save
-2. **Trigger**: Opens YoutubeClipper via command/ribbon icon
+2. **Trigger**: Opens YouTubeToNote via command/ribbon icon
 3. **Input**: Pastes YouTube URL, selects format/mode
 4. **Preview**: Sees video metadata and estimated processing time
 5. **Processing**: Watches real-time progress updates

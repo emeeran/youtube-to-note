@@ -11,7 +11,7 @@ YT-Clipper is an Obsidian plugin that transforms YouTube videos into structured,
 The plugin uses a **Service Container** pattern that manages all core services through dependency injection:
 
 ```
-YoutubeClipperPlugin (Main)
+YouTubeToNotePlugin (Main)
 ├── ServiceContainer (DI Container)
 │   ├── AIService (AI Provider Management)
 │   ├── VideoDataService (YouTube Data Extraction)

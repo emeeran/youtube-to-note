@@ -6,9 +6,9 @@ This guide will walk you through submitting **YouTubeClipper** to the Obsidian C
 
 Before submitting, verify all the following are complete:
 
-- [x] Plugin ID is unique (`youtube-clipper`) — checked against [community-plugins](https://github.com/obsidianmd/obsidian-sample-plugin)
+- [x] Plugin ID is unique (`youtube-to-note`) — checked against [community-plugins](https://github.com/obsidianmd/obsidian-sample-plugin)
 - [x] `manifest.json` has all required fields:
-  - `id`: "youtube-clipper" (lowercase, no spaces)
+  - `id`: "youtube-to-note" (lowercase, no spaces)
   - `name`: "YouTubeClipper"
   - `version`: "1.3.0" (semver format)
   - `minAppVersion`: "0.15.0"
@@ -57,11 +57,11 @@ Add your plugin entry to `community-plugins.json`:
 
 ```json
 {
-  "id": "youtube-clipper",
+  "id": "youtube-to-note",
   "name": "YouTubeClipper",
   "author": "YouTubeClipper Team",
   "description": "AI-powered YouTube clipper that extracts key insights and generates structured, actionable notes with conflict-free operation",
-  "repo": "https://github.com/youtube-clipper/obsidian-plugin"
+  "repo": "https://github.com/youtube-to-note/obsidian-plugin"
 }
 ```
 
@@ -70,10 +70,10 @@ Add your plugin entry to `community-plugins.json`:
 #### 3. Commit and Create Pull Request
 
 ```bash
-git checkout -b add-youtube-clipper-plugin
+git checkout -b add-youtube-to-note-plugin
 git add community-plugins.json
 git commit -m "Add YouTubeClipper plugin to community registry"
-git push origin add-youtube-clipper-plugin
+git push origin add-youtube-to-note-plugin
 ```
 
 Then create a Pull Request on GitHub:
@@ -83,8 +83,8 @@ Then create a Pull Request on GitHub:
   This PR adds the YouTubeClipper plugin to the community registry.
   
   Plugin Details:
-  - **ID**: youtube-clipper
-  - **Repository**: https://github.com/youtube-clipper/obsidian-plugin
+  - **ID**: youtube-to-note
+  - **Repository**: https://github.com/youtube-to-note/obsidian-plugin
   - **Latest Version**: 1.3.0
   - **Description**: AI-powered YouTube clipper for generating structured notes
   
@@ -163,7 +163,7 @@ For future releases:
    ```
 
 4. **Create GitHub Release**:
-   - Go to your repo: https://github.com/youtube-clipper/obsidian-plugin/releases
+   - Go to your repo: https://github.com/youtube-to-note/obsidian-plugin/releases
    - Click "Create a new release"
    - Select your git tag (vX.Y.Z)
    - Add release notes from `CHANGELOG.md`
@@ -196,7 +196,7 @@ jq . manifest.json
 
 ### Plugin Naming
 
-- Plugin ID must be **lowercase, hyphenated** (e.g., `youtube-clipper`)
+- Plugin ID must be **lowercase, hyphenated** (e.g., `youtube-to-note`)
 - Plugin name can have **spaces and capitals** (e.g., `YouTubeClipper`)
 - Both should be unique in the Obsidian ecosystem
 

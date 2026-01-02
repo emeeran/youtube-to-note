@@ -100,10 +100,10 @@ export const keyboardManager = new KeyboardShortcutManager();
 // Default shortcuts
 export const DEFAULT_SHORTCUTS: Omit<Shortcut, 'action'>[] = [
     {
-        id: 'open-yt-clipper',
+        id: 'open-youtube-to-note',
         key: 'y',
         modifiers: ['ctrl', 'shift'],
-        description: 'Open YouTube Clipper',
+        description: 'Open YouTube to Note',
     },
     {
         id: 'process-video',

@@ -76,6 +76,7 @@ export const MESSAGES = {
         FORMAT_BRIEF: 'A concise summary with key points',
         FORMAT_EXECUTIVE: 'A comprehensive overview with main takeaways',
         FORMAT_DETAILED: 'An in-depth guide with full details and examples',
+        FORMAT_TUTORIAL: 'A standalone instructional guide with actionable steps',
         FORMAT_CUSTOM: 'Use your own custom prompt template'
     }
 } as const;

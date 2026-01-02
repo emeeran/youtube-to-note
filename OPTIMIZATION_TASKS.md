@@ -169,7 +169,7 @@ npm run type-check && npm run build
 
 ### 6.1 Improve Protocol Handler in Plugin
 - [ ] Enhance `setupProtocolHandler()` in `main.ts`
-- [ ] Add support for `obsidian://youtube-clipper?url=VIDEO_URL`
+- [ ] Add support for `obsidian://youtube-to-note?url=VIDEO_URL`
 - [ ] Auto-open modal with pre-filled URL
 - [ ] Add processing options via URL params
 

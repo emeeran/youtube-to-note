@@ -21,29 +21,34 @@
 
     const btn = document.createElement('button');
     btn.id = BUTTON_ID;
-    btn.title = 'Send to YouTube Clipper in Obsidian (Ctrl+Shift+Y)';
-    btn.textContent = '✂ Clip';
+    btn.title = 'Send to YouTube to Note in Obsidian (Ctrl+Shift+Y)';
+    btn.setAttribute('aria-label', 'YouTube to Note');
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <line x1="10" y1="9" x2="8" y2="9"/>
+    </svg>`;
     btn.style.cssText = `
       margin-left: 8px;
-      padding: 6px 12px;
-      background: linear-gradient(135deg, #7c3aed, #5b21b6);
-      color: white;
-      border-radius: 4px;
+      padding: 6px;
+      background: transparent;
+      color: #fff;
+      border-radius: 50%;
       border: none;
-      font-weight: 600;
-      font-size: 12px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     `.replace(/\s+/g, ' ');
 
     btn.addEventListener('mouseenter', () => {
-      btn.style.transform = 'scale(1.05)';
-      btn.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+      btn.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
     });
     btn.addEventListener('mouseleave', () => {
-      btn.style.transform = 'scale(1)';
-      btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+      btn.style.backgroundColor = 'transparent';
     });
     btn.addEventListener('click', onClick);
     
@@ -90,7 +95,7 @@
     // Open Obsidian protocol
     try {
       const params = new URLSearchParams({ url });
-      window.open('obsidian://youtube-clipper?' + params.toString());
+      window.open('obsidian://youtube-to-note?' + params.toString());
     } catch (e) {
       showToast('✗ Failed to open Obsidian', true);
       console.error('Clipper: failed to open obsidian', e);

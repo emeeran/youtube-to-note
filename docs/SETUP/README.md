@@ -9,7 +9,7 @@ This guide consolidates every environment required to run YouTubeClipper end-to-
 - Node.js 18+, npm 8+, git.
 
 **Development installation**
-1. `git clone https://github.com/emeeran/yt-clipper.git && cd yt-clipper`
+1. `git clone https://github.com/emeeran/youtube-to-note.git && cd yt-clipper`
 2. `npm install`
 3. `npm run dev` (esbuild + watch)
 4. In Obsidian: *Settings → Community Plugins → Install from disk → Select repo folder*

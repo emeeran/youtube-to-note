@@ -113,7 +113,7 @@ git push origin v1.4.0
 ## Next Steps for User
 
 ### Step 1: Create GitHub Release
-1. Go to: https://github.com/emeeran/yt-clipper/releases/new?tag=v1.4.0
+1. Go to: https://github.com/emeeran/youtube-to-note/releases/new?tag=v1.4.0
 2. Title: `v1.4.0`
 3. Upload: `main.js` and `manifest.json`
 4. Publish release
@@ -128,7 +128,7 @@ git push origin v1.4.0
     "name": "YouTube Clipper",
     "author": "Meeran E Mandhini",
     "description": "AI-powered YouTube video clipper that extracts key insights and generates structured notes using Google Gemini, Groq, HuggingFace, OpenRouter, or Ollama",
-    "repo": "emeeran/yt-clipper"
+    "repo": "emeeran/youtube-to-note"
 }
 ```
 

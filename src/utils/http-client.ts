@@ -75,7 +75,7 @@ export class OptimizedHttpClient {
                 headers: {
                     'Connection': this.config.keepAlive ? 'keep-alive' : 'close',
                     'Keep-Alive': `timeout=${this.config.timeout / 1000}`,
-                    'User-Agent': 'YouTube-Clipper/1.3.5',
+                    'User-Agent': 'YouTube-to-Note/1.4.0',
                     ...options.headers
                 }
             });

@@ -26,7 +26,7 @@ YouTubeClipper v1.3.0 is fully prepared for submission to the Obsidian Community
 All required files are present and ready for distribution:
 
 ```
-youtube-clipper/
+youtube-to-note/
 ├── main.js                  (126 KB, fully bundled)
 ├── manifest.json            (v1.3.0, complete metadata)
 ├── package.json             (v1.3.0, all dependencies)
@@ -56,13 +56,13 @@ youtube-clipper/
 ### manifest.json
 ```json
 {
-  "id": "youtube-clipper",
+  "id": "youtube-to-note",
   "name": "YouTubeClipper",
   "version": "1.3.0",
   "minAppVersion": "0.15.0",
   "description": "AI-powered YouTube clipper that extracts key insights and generates structured, actionable notes with conflict-free operation",
   "author": "YouTubeClipper Team",
-  "authorUrl": "https://github.com/youtube-clipper/obsidian-plugin",
+  "authorUrl": "https://github.com/youtube-to-note/obsidian-plugin",
   "isDesktopOnly": false
 }
 ```
@@ -129,11 +129,11 @@ youtube-clipper/
 2. **Edit community-plugins.json** and add:
    ```json
    {
-     "id": "youtube-clipper",
+     "id": "youtube-to-note",
      "name": "YouTubeClipper",
      "author": "YouTubeClipper Team",
      "description": "AI-powered YouTube clipper that extracts key insights and generates structured, actionable notes with conflict-free operation",
-     "repo": "https://github.com/youtube-clipper/obsidian-plugin"
+     "repo": "https://github.com/youtube-to-note/obsidian-plugin"
    }
    ```
 
@@ -211,7 +211,7 @@ Users can install directly from Obsidian:
 
 ### Manual Installation (for testing before submission)
 1. Download `main.js`, `manifest.json`, `icon.svg`
-2. Create folder: `.obsidian/plugins/youtube-clipper/`
+2. Create folder: `.obsidian/plugins/youtube-to-note/`
 3. Copy files into that folder
 4. Reload Obsidian
 5. Enable in Settings → Community Plugins
@@ -247,7 +247,7 @@ Before submitting, verify with:
 
 ```bash
 # Quick validation
-cd /path/to/youtube-clipper
+cd /path/to/youtube-to-note
 npm run build                    # Should complete without errors
 jq . manifest.json             # Should output valid JSON
 ls -la main.js manifest.json README.md LICENSE CHANGELOG.md icon.svg  # All should exist

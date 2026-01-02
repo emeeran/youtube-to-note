@@ -45,8 +45,8 @@ export abstract class BaseModal extends Modal {
      */
     private setupConflictPrevention(): void {
         // Add unique attribute for identification
-        this.modalEl.setAttribute('data-plugin', 'youtube-clipper');
-        
+        this.modalEl.setAttribute('data-plugin', 'youtube-to-note');
+
         // Ensure modal has high z-index but not conflicting
         this.modalEl.style.zIndex = '9999';
     }
@@ -87,8 +87,8 @@ export abstract class BaseModal extends Modal {
         button.addClass(MODAL_CSS_CLASSES.button);
         
         // Add unique data attribute
-        button.setAttribute('data-plugin', 'youtube-clipper');
-        
+        button.setAttribute('data-plugin', 'youtube-to-note');
+
         // Accessibility: add role and aria-label
         button.setAttribute('role', 'button');
         if (!button.getAttribute('aria-label')) {
@@ -114,7 +114,7 @@ export abstract class BaseModal extends Modal {
         // Apply styles and add unique class
         DOMUtils.applyStyles(input, INPUT_STYLES);
         input.addClass(MODAL_CSS_CLASSES.input);
-        input.setAttribute('data-plugin', 'youtube-clipper');
+        input.setAttribute('data-plugin', 'youtube-to-note');
         
         // Accessibility: add ARIA labels if placeholder exists
         if (placeholder) {

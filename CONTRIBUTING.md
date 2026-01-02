@@ -33,8 +33,8 @@ Thank you for your interest in contributing to the YouTube Clipper plugin! This 
    ```bash
    # Fork the repository on GitHub
    # Then clone your fork
-   git clone https://github.com/your-username/youtube-clipper.git
-   cd youtube-clipper
+   git clone https://github.com/your-username/youtube-to-note.git
+   cd youtube-to-note
    ```
 
 2. **Install Dependencies**:
@@ -68,7 +68,7 @@ Thank you for your interest in contributing to the YouTube Clipper plugin! This 
 ### Project Structure
 
 ```
-youtube-clipper/
+youtube-to-note/
 ├── src/                          # Source code
 │   ├── main.ts                   # Plugin entry point
 │   ├── types.ts                  # TypeScript type definitions
@@ -339,8 +339,8 @@ describe('AI Providers', () => {
    ```bash
    npm run build
    # Copy files to Obsidian plugins directory
-   cp -r dist/* ~/.obsidian/plugins/youtube-clipper/
-   cp manifest.json ~/.obsidian/plugins/youtube-clipper/
+   cp -r dist/* ~/.obsidian/plugins/youtube-to-note/
+   cp manifest.json ~/.obsidian/plugins/youtube-to-note/
    ```
 
 2. **Test Functionality**:

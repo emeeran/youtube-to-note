@@ -12,7 +12,7 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/youtube-clipper/obsidian-plugin.git
+git clone https://github.com/youtube-to-note/obsidian-plugin.git
 cd obsidian-plugin
 
 # 2. Install dependencies
@@ -31,7 +31,7 @@ npm run version
 ## Project Structure Explained
 
 ```
-youtube-clipper/
+youtube-to-note/
 ├── src/                          # TypeScript source code
 │   ├── main.ts                  # Plugin entry point
 │   ├── components/
@@ -301,8 +301,8 @@ describe('AIService', () => {
 
 1. **Copy built files** to test vault:
    ```bash
-   cp main.js .obsidian/plugins/youtube-clipper/
-   cp manifest.json .obsidian/plugins/youtube-clipper/
+   cp main.js .obsidian/plugins/youtube-to-note/
+   cp manifest.json .obsidian/plugins/youtube-to-note/
    ```
 
 2. **Reload plugin**: Settings → Community Plugins → Reload
@@ -467,7 +467,7 @@ console.error('[YouTubeClipper] Error:', error);
 
 ```javascript
 // In Obsidian console (DevTools):
-window.app.plugins.plugins['youtube-clipper']
+window.app.plugins.plugins['youtube-to-note']
   .app.vault.getFiles().length // See all files
 ```
 
@@ -544,7 +544,7 @@ git show
 git push origin main
 
 # 4. Create GitHub release
-# - Go to https://github.com/youtube-clipper/obsidian-plugin/releases
+# - Go to https://github.com/youtube-to-note/obsidian-plugin/releases
 # - Click "Draft a new release"
 # - Tag: v1.x.x (matching manifest.json version)
 # - Title: Version 1.x.x - Brief description
@@ -559,7 +559,7 @@ git push origin main
 |-------|----------|
 | **Build fails with "Cannot find module"** | Run `npm install` |
 | **Changes not appearing** | Check that dev watcher is running (`npm run dev`) |
-| **Plugin not visible in Obsidian** | Copy main.js and manifest.json to `.obsidian/plugins/youtube-clipper/` |
+| **Plugin not visible in Obsidian** | Copy main.js and manifest.json to `.obsidian/plugins/youtube-to-note/` |
 | **"Not authenticated" error** | Check API key in settings, verify key is valid |
 | **TypeScript errors** | Run `npm run build` to see full errors |
 | **Import errors** | Check file paths are correct, verify tsconfig.json includes src/ |

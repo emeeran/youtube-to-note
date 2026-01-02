@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This comprehensive guide helps you diagnose and resolve common issues with the YouTube Clipper plugin. If you encounter problems not covered here, please check the [GitHub Discussions](https://github.com/meeransethi/youtube-clipper/discussions) for community support.
+This comprehensive guide helps you diagnose and resolve common issues with the YouTube Clipper plugin. If you encounter problems not covered here, please check the [GitHub Discussions](https://github.com/meeransethi/youtube-to-note/discussions) for community support.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
 
 2. **Check Plugin Version**:
    - Look at the plugin version in settings
-   - Compare with [latest release](https://github.com/meeransethi/youtube-clipper/releases)
+   - Compare with [latest release](https://github.com/meeransethi/youtube-to-note/releases)
 
 3. **Open Developer Console**:
    - Press `F12` or `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Option+I` (Mac)
@@ -66,10 +66,10 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
 2. **Manual Installation**:
    ```bash
    # Download latest release
-   wget https://github.com/meeransethi/youtube-clipper/releases/latest/download/youtube-clipper.zip
+   wget https://github.com/meeransethi/youtube-to-note/releases/latest/download/youtube-to-note.zip
 
    # Extract to plugins folder
-   unzip youtube-clipper.zip -D ~/.obsidian/plugins/youtube-clipper/
+   unzip youtube-to-note.zip -D ~/.obsidian/plugins/youtube-to-note/
    ```
 
 3. **Check Third-Party Plugins**:
@@ -87,10 +87,10 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
 1. **Check File Permissions**:
    ```bash
    # Linux/macOS
-   chmod -R 755 ~/.obsidian/plugins/youtube-clipper/
+   chmod -R 755 ~/.obsidian/plugins/youtube-to-note/
 
    # Check ownership
-   ls -la ~/.obsidian/plugins/youtube-clipper/
+   ls -la ~/.obsidian/plugins/youtube-to-note/
    ```
 
 2. **Verify Files**:
@@ -115,7 +115,7 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
    - Note the version number
 
 2. **Download Latest Release**:
-   - Visit [GitHub Releases](https://github.com/meeransethi/youtube-clipper/releases)
+   - Visit [GitHub Releases](https://github.com/meeransethi/youtube-to-note/releases)
    - Download the latest version
 
 3. **Update Files**:
@@ -174,7 +174,7 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
 2. **Check File Permissions**:
    ```bash
    # Ensure Obsidian can write to data directory
-   ls -la ~/.obsidian/plugins/youtube-clipper/
+   ls -la ~/.obsidian/plugins/youtube-to-note/
    ```
 
 3. **Use Environment Variables**:
@@ -539,7 +539,7 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
 2. **Check Plugin Files**:
    ```bash
    # Verify file integrity
-   md5sum ~/.obsidian/plugins/youtube-clipper/main.js
+   md5sum ~/.obsidian/plugins/youtube-to-note/main.js
    # Compare with expected hash from release
    ```
 
@@ -565,7 +565,7 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
 2. **Manual Reset**:
    ```bash
    # Remove plugin data (CAUTION: This loses all settings)
-   rm -rf ~/.obsidian/plugins/youtube-clipper/data.json
+   rm -rf ~/.obsidian/plugins/youtube-to-note/data.json
    ```
 
 3. **Export/Import Settings**:
@@ -674,8 +674,8 @@ This comprehensive guide helps you diagnose and resolve common issues with the Y
    - [Environment Variables](ENVIRONMENT.md) - Configuration options
 
 2. **Community Support**:
-   - [GitHub Discussions](https://github.com/meeransethi/youtube-clipper/discussions)
-   - [GitHub Issues](https://github.com/meeransethi/youtube-clipper/issues)
+   - [GitHub Discussions](https://github.com/meeransethi/youtube-to-note/discussions)
+   - [GitHub Issues](https://github.com/meeransethi/youtube-to-note/issues)
 
 3. **FAQ Section**:
    - Check below for frequently asked questions

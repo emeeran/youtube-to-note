@@ -1,0 +1,156 @@
+/* YouTube Clipper Plugin Styles */
+
+/* YouTube Video Embed */
+.yt-clipper-video-container {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.yt-clipper-video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Note Header */
+.yt-clipper-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.yt-clipper-header-icon {
+    font-size: 24px;
+}
+
+/* Metadata Section */
+.yt-clipper-metadata {
+    background: var(--background-secondary);
+    padding: 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+}
+
+.yt-clipper-metadata-label {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-bottom: 4px;
+}
+
+/* Sections */
+.yt-clipper-section {
+    margin: 24px 0;
+}
+
+.yt-clipper-section-title {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-accent);
+}
+
+/* Key Insights */
+.yt-clipper-insights {
+    background: var(--background-secondary);
+    border-left: 4px solid var(--text-accent);
+    padding: 16px;
+    margin: 12px 0;
+    border-radius: 4px;
+}
+
+.yt-clipper-insight-item {
+    margin: 8px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.yt-clipper-insight-item:before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-accent);
+    font-weight: bold;
+}
+
+/* Action Items */
+.yt-clipper-actions {
+    background: var(--background-secondary);
+    padding: 16px;
+    margin: 12px 0;
+    border-radius: 8px;
+}
+
+.yt-clipper-action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.yt-clipper-action-checkbox {
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+/* Links Section */
+.yt-clipper-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.yt-clipper-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--background-secondary);
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-normal);
+    transition: background 0.2s;
+}
+
+.yt-clipper-link:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* Tags */
+.yt-clipper-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.yt-clipper-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--tag-background);
+    color: var(--tag-color);
+    border-radius: 12px;
+    font-size: 0.9em;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .yt-clipper-links {
+        flex-direction: column;
+    }
+
+    .yt-clipper-link {
+        width: 100%;
+    }
+}

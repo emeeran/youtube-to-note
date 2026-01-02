@@ -23,7 +23,7 @@ The YouTube Clipper API provides programmatic access to all plugin functionality
 ### Basic Usage
 
 ```typescript
-import { YouTubeClipperAPI } from 'youtube-clipper-api';
+import { YouTubeClipperAPI } from 'youtube-to-note-api';
 
 // Initialize the API
 const api = new YouTubeClipperAPI();
@@ -766,7 +766,7 @@ eventEmitter.on('provider:removed', (provider: {
 ### Basic Video Processing
 
 ```typescript
-import { YouTubeClipperAPI } from 'youtube-clipper-api';
+import { YouTubeClipperAPI } from 'youtube-to-note-api';
 
 const api = new YouTubeClipperAPI();
 
@@ -911,10 +911,10 @@ try {
 
 For additional API documentation and support:
 
-- **GitHub Repository:** [youtube-clipper](https://github.com/meeransethi/youtube-clipper)
-- **Documentation:** [docs.youtube-clipper.com](https://docs.youtube-clipper.com)
-- **Issues:** [GitHub Issues](https://github.com/meeransethi/youtube-clipper/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/meeransethi/youtube-clipper/discussions)
+- **GitHub Repository:** [youtube-to-note](https://github.com/meeransethi/youtube-to-note)
+- **Documentation:** [docs.youtube-to-note.com](https://docs.youtube-to-note.com)
+- **Issues:** [GitHub Issues](https://github.com/meeransethi/youtube-to-note/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/meeransethi/youtube-to-note/discussions)
 
 ---
 

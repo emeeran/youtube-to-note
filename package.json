@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-youtube-clipper",
+  "name": "obsidian-youtube-to-note",
   "version": "1.4.0",
-  "description": "YoutubeClipper - Clip YouTube videos and generate structured notes in Obsidian",
+  "description": "YouTube to Note - Transform YouTube videos into structured notes using AI",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -21,26 +21,23 @@
     "obsidian",
     "plugin",
     "youtube",
-    "clipper",
+    "video-to-note",
     "video",
     "transcript",
-    "ai"
+    "ai",
+    "gemini",
+    "groq",
+    "notes"
   ],
   "author": "Meeran E Mandhini",
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.24",
-    "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.1.1",
-    "@typescript-eslint/parser": "^7.1.1",
     "builtin-modules": "3.3.0",
     "esbuild": "0.20.2",
-    "eslint": "^8.57.0",
-    "husky": "^9.1.7",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",
-    "lint-staged": "^15.5.2",
     "obsidian": "latest",
     "prettier": "^3.2.5",
     "ts-jest": "^29.1.2",
@@ -59,8 +56,5 @@
     "*.{json,md,yml,yaml}": [
       "prettier --write"
     ]
-  },
-  "dependencies": {
-    "uuid": "^13.0.0"
   }
 }

@@ -1,6 +1,6 @@
-# YoutubeClipper for Obsidian
+# YouTubeToNote for Obsidian
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/youtube-clipper/obsidian-plugin)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/youtube-to-note/obsidian-plugin)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Plugin-purple.svg)](https://obsidian.md/)
 
@@ -42,10 +42,10 @@ An AI-powered Obsidian plugin that transforms YouTube videos into structured, ac
 
 #### Option 1: Manual Installation (Recommended for Testing)
 
-1. Download the latest release from [GitHub Releases](https://github.com/youtube-clipper/obsidian-plugin/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/youtube-to-note/obsidian-plugin/releases)
 2. Extract the files (`main.js`, `manifest.json`, `styles.css`) to your vault:
    ```
-   your-vault/.obsidian/plugins/youtube-clipper/
+   your-vault/.obsidian/plugins/youtube-to-note/
    ```
 3. Reload Obsidian (or restart the app)
 4. Go to Settings → Community Plugins → Installed Plugins
@@ -233,7 +233,7 @@ The plugin supports several runtime behaviors:
 
 ```bash
 # Clone the repository
-git clone https://github.com/youtube-clipper/obsidian-plugin
+git clone https://github.com/youtube-to-note/obsidian-plugin
 cd obsidian-plugin
 
 # Install dependencies
@@ -282,7 +282,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 ### Common Issues
 
 **Plugin not appearing after installation**
-- Check that files are in: `.obsidian/plugins/youtube-clipper/`
+- Check that files are in: `.obsidian/plugins/youtube-to-note/`
 - Verify you have `main.js`, `manifest.json`, and `styles.css`
 - Restart Obsidian completely
 
@@ -329,8 +329,8 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## 📞 Support & Community
 
-- **GitHub Issues**: [Report bugs](https://github.com/youtube-clipper/obsidian-plugin/issues)
-- **GitHub Discussions**: [Ask questions & share ideas](https://github.com/youtube-clipper/obsidian-plugin/discussions)
+- **GitHub Issues**: [Report bugs](https://github.com/youtube-to-note/obsidian-plugin/issues)
+- **GitHub Discussions**: [Ask questions & share ideas](https://github.com/youtube-to-note/obsidian-plugin/discussions)
 - **Obsidian Discord**: [Community chat](https://discord.gg/obsidianmd)
 - **Documentation**: Full user manual in `local/README.md`
 

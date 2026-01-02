@@ -33,7 +33,7 @@
 ### Recommended: Obsidian Protocol Handler
 
 ```
-obsidian://youtube-clipper?url=
+obsidian://youtube-to-note?url=
 ```
 
 This directly triggers the YT-Clipper plugin's URL modal.
@@ -58,7 +58,7 @@ For advanced integrations with a custom webhook server.
 ### What Happens
 
 1. Extension captures the current YouTube URL
-2. Opens `obsidian://youtube-clipper?url=<video-url>`
+2. Opens `obsidian://youtube-to-note?url=<video-url>`
 3. Obsidian launches and the YT-Clipper plugin shows the URL modal
 4. You can select output format and process the video
 

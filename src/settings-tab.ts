@@ -13,7 +13,7 @@ interface PluginWithSettings extends Plugin {
     settings: YouTubePluginSettings;
 }
 
-const CSS_PREFIX = 'ytc-settings';
+const CSS_PREFIX = 'ytn-settings';
 
 export interface SettingsTabOptions {
     plugin: PluginWithSettings;
@@ -25,7 +25,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private validationErrors: string[] = [];
     private secureConfig: SecureConfigService;
     private drawerStates: Map<string, boolean> = new Map();
-    private readonly DRAWER_STATES_KEY = 'ytc-settings-drawer-states';
+    private readonly DRAWER_STATES_KEY = 'ytn-settings-drawer-states';
     private searchInput?: HTMLInputElement;
     private providerStatuses: Map<string, 'valid' | 'invalid' | 'testing' | 'untested'> = new Map();
 
@@ -862,7 +862,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `yt-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `youtube-to-note-settings-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -978,7 +978,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         const title = header.createEl('h2', { cls: `${CSS_PREFIX}-title` });
         title.createSpan({ text: '🎬' });
-        title.createSpan({ text: 'YT Clipper' });
+        title.createSpan({ text: 'YouTube to Note' });
 
         const isReady = this.validateConfiguration();
         this.headerBadge = header.createDiv({
@@ -1255,7 +1255,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         new Setting(section)
             .setName('Use Environment Variables')
-            .setDesc('Load API keys from environment variables (YTC_GEMINI_API_KEY, etc.).')
+            .setDesc('Load API keys from environment variables (YTN_GEMINI_API_KEY, etc.).')
             .addToggle(toggle => toggle
                 .setValue(this.settings.useEnvironmentVariables ?? false)
                 .onChange(async (value) => {
@@ -1287,13 +1287,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const card3 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
         card3.createEl('h4', { text: '📖 Documentation' });
         const p3 = card3.createEl('p');
-        p3.innerHTML = '<a href="https://github.com/emeeran/yt-clipper#readme" target="_blank">View full docs on GitHub</a>';
+        p3.innerHTML = '<a href="https://github.com/emeeran/youtube-to-note#readme" target="_blank">View full docs on GitHub</a>';
 
         // Card 4: Support
         const card4 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
         card4.createEl('h4', { text: '🐛 Report Issues' });
         const p4 = card4.createEl('p');
-        p4.innerHTML = '<a href="https://github.com/emeeran/yt-clipper/issues" target="_blank">Submit bug reports or feature requests</a>';
+        p4.innerHTML = '<a href="https://github.com/emeeran/youtube-to-note/issues" target="_blank">Submit bug reports or feature requests</a>';
     }
 
     private createSlider(container: HTMLElement, opts: {

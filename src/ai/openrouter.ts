@@ -38,8 +38,8 @@ export class OpenRouterProvider extends BaseAIProvider {
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Default to a capable free/cheap model
         super(apiKey, model || 'meta-llama/llama-3.1-8b-instruct:free', timeout);
-        this.siteUrl = 'https://github.com/user/yt-clipper';
-        this.siteName = 'YouTube Clipper Obsidian Plugin';
+        this.siteUrl = 'https://github.com/user/youtube-to-note';
+        this.siteName = 'YouTube to Note Obsidian Plugin';
     }
 
     async process(prompt: string): Promise<string> {

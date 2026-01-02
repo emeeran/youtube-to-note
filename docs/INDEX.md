@@ -90,7 +90,7 @@ Welcome to the YouTubeClipper documentation! This is your central hub for all in
 
 #### Report an Issue
 1. Read [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - May already have solution
-2. Search [GitHub Issues](https://github.com/youtube-clipper/obsidian-plugin/issues)
+2. Search [GitHub Issues](https://github.com/youtube-to-note/obsidian-plugin/issues)
 3. Follow bug report template in [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ---
@@ -521,5 +521,5 @@ All documentation is licensed under [MIT License](../LICENSE).
 
 **Happy reading!** 📚✨
 
-If you can't find something, open a [GitHub Discussion](https://github.com/youtube-clipper/obsidian-plugin/discussions) and we'll help!
+If you can't find something, open a [GitHub Discussion](https://github.com/youtube-to-note/obsidian-plugin/discussions) and we'll help!
 

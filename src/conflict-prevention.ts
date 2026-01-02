@@ -1,11 +1,11 @@
 /**
- * Conflict prevention utilities for YoutubeClipper Plugin
+ * Conflict prevention utilities for YouTube to Note Plugin
  * Designed to prevent conflicts with other Obsidian plugins
  */
 
 export class ConflictPrevention {
-    private static readonly PLUGIN_ID = 'youtube-clipper';
-    private static readonly CSS_PREFIX = 'ytc';
+    private static readonly PLUGIN_ID = 'youtube-to-note';
+    private static readonly CSS_PREFIX = 'ytn';
     
     /**
      * Check if another plugin might be conflicting

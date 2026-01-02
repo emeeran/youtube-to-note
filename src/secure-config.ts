@@ -96,14 +96,14 @@ export class SecureConfigService {
      * Get configuration template for environment variables
      */
     getEnvironmentTemplate(): string {
-        const prefix = this.settings.environmentPrefix || 'YTC';
-        return `# YouTubeClipper Environment Variables
+        const prefix = this.settings.environmentPrefix || 'YTN';
+        return `# YouTube to Note Environment Variables
 # Set these in your environment for secure API key management
 
 # Google Gemini API Key
 ${prefix}_GEMINI_API_KEY=your_gemini_api_key_here
 
-# Groq API Key  
+# Groq API Key
 ${prefix}_GROQ_API_KEY=your_groq_api_key_here
 
 # Usage:

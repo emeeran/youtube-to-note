@@ -118,7 +118,7 @@ export class YouTubeVideoService implements VideoDataService {
             
             const response = await fetch(oembedUrl, {
                 headers: {
-                    'User-Agent': 'Obsidian YoutubeClipper Plugin'
+                    'User-Agent': 'Obsidian YouTube to Note Plugin'
                 },
                 signal: controller.signal
             });

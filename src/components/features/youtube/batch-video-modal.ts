@@ -229,7 +229,7 @@ export class BatchVideoModal extends Modal {
             .addDropdown(dropdown => {
                 dropdown
                     .addOption('executive-summary', 'Executive Summary')
-                    .addOption('step-by-step-tutorial', 'Step-by-Step Tutorial')
+                    .addOption('tutorial', 'Tutorial')
                     .addOption('brief', 'Brief Overview')
                     .setValue(this.selectedFormat)
                     .onChange((value: OutputFormat) => {

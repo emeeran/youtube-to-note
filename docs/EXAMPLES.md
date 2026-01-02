@@ -524,7 +524,7 @@ results.forEach((result, index) => {
 ### TypeScript Integration
 
 ```typescript
-import { YouTubeClipperAPI, VideoProcessingOptions } from 'youtube-clipper-api';
+import { YouTubeClipperAPI, VideoProcessingOptions } from 'youtube-to-note-api';
 
 class VideoProcessor {
   private clipper: YouTubeClipperAPI;
@@ -625,7 +625,7 @@ export YTC_DEFAULT_TAGS="team-knowledge,internal-use"
 
 ```typescript
 // Example: Adding a custom AI provider
-import { BaseAIProvider } from 'youtube-clipper-api';
+import { BaseAIProvider } from 'youtube-to-note-api';
 
 class CustomOpenAIProvider extends BaseAIProvider {
   name = 'custom-openai';
@@ -693,7 +693,7 @@ class YouTubeIntegrationPlugin extends Plugin {
 
   private async processYouTubeVideo(url: string) {
     // Integration with YouTube Clipper plugin
-    const clipper = this.app.plugins.plugins['youtube-clipper'];
+    const clipper = this.app.plugins.plugins['youtube-to-note'];
     if (clipper) {
       await clipper.processVideo({
         url,

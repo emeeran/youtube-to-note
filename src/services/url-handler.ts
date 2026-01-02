@@ -32,7 +32,7 @@ export class UrlHandler {
         private settings: YouTubePluginSettings,
         private onUrlDetected: (result: UrlDetectionResult) => void,
         private config: UrlHandlerConfig = {
-            noteMarker: '<!-- ytc-extension:youtube-clipper -->',
+            noteMarker: '<!-- ytn-extension:youtube-to-note -->',
             urlHandlerDelay: 500,
             maxHandledFiles: 100,
             tempFileAgeThreshold: 5000
@@ -54,7 +54,7 @@ export class UrlHandler {
             }
 
             // 2. File name matches the Chrome extension pattern
-            if (file.name && file.name.startsWith('YouTube Clip -')) {
+            if (file.name && file.name.startsWith('YouTube Note -')) {
                 logger.debug('File identified as temp file via name', 'UrlHandler', {
                     filePath: file.path,
                     fileName: file.name

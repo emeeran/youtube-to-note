@@ -262,7 +262,7 @@ if (showRetryAction) {
                 retryButton.onclick = () => {
                     noticeWithAction.hide();
                     // Trigger a retry by dispatching a custom event
-                    window.dispatchEvent(new CustomEvent('yt-clipper-retry-processing'));
+                    window.dispatchEvent(new CustomEvent('youtube-to-note-retry-processing'));
                 };
             }, 100);
         } else {
