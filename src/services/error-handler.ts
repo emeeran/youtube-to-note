@@ -29,16 +29,15 @@ export interface ErrorResult {
  * Centralized error handling to eliminate code duplication
  */
 
-
 export class ErrorHandler implements ErrorHandlerInterface {
     /**
      * Classify an error into categories for appropriate handling
      */
     static classifyError(error: Error): ErrorResult {
         const message = error.message.toLowerCase();
-        
+
         // Network errors
-        if (message.includes('network') || message.includes('fetch') || 
+        if (message.includes('network') || message.includes('fetch') ||
             message.includes('connection') || message.includes('timeout') ||
             message.includes('econnrefused') || message.includes('enotfound')) {
             return {
@@ -46,38 +45,38 @@ export class ErrorHandler implements ErrorHandlerInterface {
                 message: MESSAGES.ERRORS.NETWORK_ERROR,
                 retryable: true,
                 retryDelay: 2000,
-                userGuidance: 'Check your internet connection and try again.'
+                userGuidance: 'Check your internet connection and try again.',
             };
         }
-        
+
         // Quota/Rate limit errors
         if (this.isQuotaError(error)) {
             const provider = this.extractProviderName(error);
             return {
                 category: ErrorCategory.QUOTA,
-                message: message.includes('rate') 
+                message: message.includes('rate')
                     ? MESSAGES.ERRORS.RATE_LIMITED(provider)
                     : MESSAGES.ERRORS.QUOTA_EXCEEDED(provider),
                 retryable: message.includes('rate'),
                 retryDelay: message.includes('rate') ? 60000 : undefined,
-                userGuidance: message.includes('rate') 
+                userGuidance: message.includes('rate')
                     ? 'Wait a minute before trying again.'
-                    : 'Check your API plan or try a different provider.'
+                    : 'Check your API plan or try a different provider.',
             };
         }
-        
+
         // Authentication errors
-        if (message.includes('401') || message.includes('403') || 
+        if (message.includes('401') || message.includes('403') ||
             message.includes('unauthorized') || message.includes('invalid key') ||
             message.includes('invalid api key') || message.includes('authentication')) {
             return {
                 category: ErrorCategory.AUTH,
                 message: 'API key is invalid or expired. Please check your settings.',
                 retryable: false,
-                userGuidance: 'Verify your API key in the plugin settings.'
+                userGuidance: 'Verify your API key in the plugin settings.',
             };
         }
-        
+
         // Validation errors
         if (message.includes('invalid url') || message.includes('video id') ||
             message.includes('not found') || message.includes('unavailable')) {
@@ -85,10 +84,10 @@ export class ErrorHandler implements ErrorHandlerInterface {
                 category: ErrorCategory.VALIDATION,
                 message: error.message,
                 retryable: false,
-                userGuidance: 'Check the video URL and try again.'
+                userGuidance: 'Check the video URL and try again.',
             };
         }
-        
+
         // Provider-specific errors
         if (message.includes('model') || message.includes('context length') ||
             message.includes('too long') || message.includes('token')) {
@@ -96,17 +95,17 @@ export class ErrorHandler implements ErrorHandlerInterface {
                 category: ErrorCategory.PROVIDER,
                 message: error.message,
                 retryable: false,
-                userGuidance: 'Try a different model or shorter video.'
+                userGuidance: 'Try a different model or shorter video.',
             };
         }
-        
+
         // Unknown errors
         return {
             category: ErrorCategory.UNKNOWN,
             message: error.message,
             retryable: true,
             retryDelay: 3000,
-            userGuidance: 'An unexpected error occurred. Please try again.'
+            userGuidance: 'An unexpected error occurred. Please try again.',
         };
     }
 
@@ -115,7 +114,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
      */
     static handle(error: Error, context: string, showNotice = true): void {
         const errorMessage = `${context}: ${error.message}`;
-        
+
         if (showNotice) {
             new Notice(`Error: ${error.message}`);
         }
@@ -126,15 +125,15 @@ export class ErrorHandler implements ErrorHandlerInterface {
      */
     static handleWithGuidance(error: Error, context: string): ErrorResult {
         const result = this.classifyError(error);
-        
+
         // Create notice with guidance
-        const noticeMessage = result.userGuidance 
+        const noticeMessage = result.userGuidance
             ? `${result.message}\n\n💡 ${result.userGuidance}`
             : result.message;
-        
+
         const noticeDuration = result.retryable ? 5000 : 8000;
         new Notice(noticeMessage, noticeDuration);
-        
+
         return result;
     }
 
@@ -192,14 +191,14 @@ export class ErrorHandler implements ErrorHandlerInterface {
         fallbackMessage?: string
     ): Promise<never> {
         let errorDetails = fallbackMessage || '';
-        
+
         try {
             const errorData = await response.json();
             errorDetails = errorData.error?.message || errorData.message || fallbackMessage || '';
         } catch {
             // Ignore JSON parsing errors
         }
-        
+
         throw this.createAPIError(provider, response.status, response.statusText, errorDetails);
     }
 
@@ -208,7 +207,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
      */
     static validateConfiguration(config: Record<string, any>, requiredFields: string[]): void {
         const missing = requiredFields.filter(field => !config[field]);
-        
+
         if (missing.length > 0) {
             throw new Error(`Missing required configuration: ${missing.join(', ')}`);
         }
@@ -246,8 +245,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
             userMessage = MESSAGES.ERRORS.QUOTA_EXCEEDED(provider);
         }
 
-        
-if (showRetryAction) {
+        if (showRetryAction) {
             const noticeWithAction = new Notice(userMessage, 0);
 
             // Add retry button to notice
@@ -255,7 +253,7 @@ if (showRetryAction) {
                 const noticeEl = noticeWithAction.noticeEl;
                 const retryButton = noticeEl.createEl('button', {
                     text: 'Retry',
-                    cls: 'mod-cta'
+                    cls: 'mod-cta',
                 });
 
                 retryButton.style.marginLeft = '10px';
@@ -276,7 +274,7 @@ if (showRetryAction) {
      */
     static isQuotaError(error: Error): boolean {
         const errorMessage = error.message.toLowerCase();
-        
+
         // Specific rate limit/quota phrases (not just keywords)
         const quotaPhrases = [
             'quota exceeded',
@@ -292,7 +290,7 @@ if (showRetryAction) {
             'api limit exceeded',
             'requests per minute',
             'requests per second',
-            'resource_exhausted'
+            'resource_exhausted',
         ];
 
         // Check for HTTP 429 status code in message

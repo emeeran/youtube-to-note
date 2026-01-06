@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: CacheConfig = {
     maxSize: 200,
     defaultTTL: 300000, // 5 minutes
     cleanupInterval: 60000, // 1 minute
-    enableMetrics: true
+    enableMetrics: true,
 };
 
 export class MemoryCacheService implements CacheService {
@@ -35,7 +35,7 @@ export class MemoryCacheService implements CacheService {
         misses: 0,
         evictions: 0,
         size: 0,
-        hitRate: 0
+        hitRate: 0,
     };
     private lastCleanup: number = 0;
 
@@ -95,7 +95,7 @@ export class MemoryCacheService implements CacheService {
             timestamp: Date.now(),
             ttl: ttl || this.config.defaultTTL,
             hits: 0,
-            size: this.estimateSize(data)
+            size: this.estimateSize(data),
         };
 
         this.cache.set(key, item);
@@ -114,7 +114,7 @@ export class MemoryCacheService implements CacheService {
             misses: 0,
             evictions: 0,
             size: 0,
-            hitRate: 0
+            hitRate: 0,
         };
     }
 
@@ -274,7 +274,7 @@ export class MemoryCacheService implements CacheService {
         totalMisses: number;
         evictions: number;
         memoryUsage: number;
-    } {
+        } {
         const memoryUsage = Array.from(this.cache.values())
             .reduce((total, item) => total + item.size, 0);
 
@@ -285,7 +285,7 @@ export class MemoryCacheService implements CacheService {
             totalHits: this.metrics.hits,
             totalMisses: this.metrics.misses,
             evictions: this.metrics.evictions,
-            memoryUsage
+            memoryUsage,
         };
     }
 

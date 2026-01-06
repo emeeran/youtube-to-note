@@ -7,7 +7,6 @@ import { YouTubePluginSettings } from '../types';
  * URL handling service for detecting and processing YouTube URLs from various sources
  */
 
-
 export interface UrlDetectionResult {
     url: string;
     source: 'create' | 'active-leaf' | 'protocol' | 'clipboard';
@@ -35,7 +34,7 @@ export class UrlHandler {
             noteMarker: '<!-- ytc-extension:youtube-clipper -->',
             urlHandlerDelay: 500,
             maxHandledFiles: 100,
-            tempFileAgeThreshold: 5000
+            tempFileAgeThreshold: 5000,
         }
     ) {}
 
@@ -48,7 +47,7 @@ export class UrlHandler {
             if (content && content.includes(this.config.noteMarker)) {
                 logger.debug('File identified as temp file via marker', 'UrlHandler', {
                     filePath: file.path,
-                    hasMarker: true
+                    hasMarker: true,
                 });
                 return true;
             }
@@ -57,7 +56,7 @@ export class UrlHandler {
             if (file.name && file.name.startsWith('YouTube Clip -')) {
                 logger.debug('File identified as temp file via name', 'UrlHandler', {
                     filePath: file.path,
-                    fileName: file.name
+                    fileName: file.name,
                 });
                 return true;
             }
@@ -77,7 +76,7 @@ export class UrlHandler {
                         filePath: file.path,
                         fileAge,
                         isInOutputPath,
-                        contentLength: content.length
+                        contentLength: content.length,
                     });
                     return true;
                 }
@@ -87,7 +86,7 @@ export class UrlHandler {
         } catch (error) {
             logger.error('Error checking if file is temp file', 'UrlHandler', {
                 filePath: file.path,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
             return false;
         }
@@ -108,7 +107,7 @@ export class UrlHandler {
             const ytRegex = /(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}|https?:\/\/(?:www\.)?youtu\.be\/[A-Za-z0-9_-]{6,})/i;
             const match = trimmed.match(ytRegex);
 
-            if (match && match[1]) {
+            if (match?.[1]) {
                 const url = match[1].trim();
                 return ValidationUtils.isValidYouTubeUrl(url) ? url : null;
             }
@@ -117,7 +116,7 @@ export class UrlHandler {
         } catch (error) {
             logger.error('Error extracting URL from content', 'UrlHandler', {
                 error: error instanceof Error ? error.message : String(error),
-                contentLength: content.length
+                contentLength: content.length,
             });
             return null;
         }
@@ -130,14 +129,14 @@ export class UrlHandler {
         logger.info('URL detected, processing safely', 'UrlHandler', {
             url: result.url,
             source: result.source,
-            filePath: result.filePath
+            filePath: result.filePath,
         });
 
         // Additional safety check: only process if this appears to be a temp file
         if (result.file && result.content && !this.isTempFile(result.file, result.content)) {
             logger.warn('URL rejected - not in temp file', 'UrlHandler', {
                 url: result.url,
-                filePath: result.filePath
+                filePath: result.filePath,
             });
             return;
         }
@@ -151,7 +150,7 @@ export class UrlHandler {
         // Cancel any pending handler for this URL
         if (this.pendingUrls.has(result.url)) {
             logger.debug('Cancelling pending handler for URL', 'UrlHandler', { url: result.url });
-            clearTimeout(this.pendingUrls.get(result.url)!);
+            clearTimeout(this.pendingUrls.get(result.url));
         }
 
         // Mark as handled immediately to prevent duplicates
@@ -186,7 +185,7 @@ export class UrlHandler {
             });
             logger.debug('Cleaned up handled temp files', 'UrlHandler', {
                 oldSize: entries.length,
-                newSize: this.handledTempFiles.size
+                newSize: this.handledTempFiles.size,
             });
         }
     }
@@ -197,14 +196,14 @@ export class UrlHandler {
     public async handleFileCreate(file: TFile): Promise<void> {
         try {
             // Use duck typing instead of instanceof for better testability
-            if (!file || !file.path || !file.stat) return;
+            if (!file?.path || !file.stat) return;
 
             const content = await this.app.vault.read(file);
 
             // Check if this is a temporary file
             if (!this.isTempFile(file, content)) {
                 logger.debug('Ignoring non-temp file in create handler', 'UrlHandler', {
-                    filePath: file.path
+                    filePath: file.path,
                 });
                 return;
             }
@@ -213,7 +212,7 @@ export class UrlHandler {
             const url = this.extractUrl(content);
             if (!url) {
                 logger.debug('No URL extracted from temp file', 'UrlHandler', {
-                    filePath: file.path
+                    filePath: file.path,
                 });
                 return;
             }
@@ -223,7 +222,7 @@ export class UrlHandler {
                 source: 'create',
                 filePath: file.path,
                 file,
-                content
+                content,
             };
 
             logger.info('CREATE EVENT - detected temp note', 'UrlHandler', { ...result });
@@ -232,7 +231,7 @@ export class UrlHandler {
         } catch (error) {
             logger.error('Error handling file create', 'UrlHandler', {
                 filePath: file.path,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -252,12 +251,12 @@ export class UrlHandler {
 
             if (this.handledTempFiles.has(file.path)) return;
 
-            const content = await this.app.vault.read(file as TFile);
+            const content = await this.app.vault.read(file);
 
             // Check if this is a temporary file
-            if (!this.isTempFile(file as TFile, content)) {
+            if (!this.isTempFile(file, content)) {
                 logger.debug('Ignoring non-temp file in active leaf handler', 'UrlHandler', {
-                    filePath: file.path
+                    filePath: file.path,
                 });
                 return;
             }
@@ -266,7 +265,7 @@ export class UrlHandler {
             const url = this.extractUrl(content);
             if (!url) {
                 logger.debug('No URL extracted from temp file in active leaf', 'UrlHandler', {
-                    filePath: file.path
+                    filePath: file.path,
                 });
                 return;
             }
@@ -275,8 +274,8 @@ export class UrlHandler {
                 url,
                 source: 'active-leaf',
                 filePath: file.path,
-                file: file as TFile,
-                content
+                file,
+                content,
             };
 
             logger.info('ACTIVE-LEAF-CHANGE EVENT - detected temp note', 'UrlHandler', { ...result });
@@ -284,7 +283,7 @@ export class UrlHandler {
 
         } catch (error) {
             logger.error('Error handling active leaf change', 'UrlHandler', {
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -298,7 +297,7 @@ export class UrlHandler {
             if (url && ValidationUtils.isValidYouTubeUrl(url)) {
                 const result: UrlDetectionResult = {
                     url,
-                    source: 'protocol'
+                    source: 'protocol',
                 };
 
                 logger.info('Protocol handler received valid URL', 'UrlHandler', { ...result });
@@ -313,7 +312,7 @@ export class UrlHandler {
         } catch (error) {
             logger.error('Error in protocol handler', 'UrlHandler', {
                 params,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -335,7 +334,7 @@ export class UrlHandler {
                 }
             } catch (error) {
                 logger.debug('Could not read clipboard', 'UrlHandler', {
-                    error: error instanceof Error ? error.message : String(error)
+                    error: error instanceof Error ? error.message : String(error),
                 });
                 text = '';
             }
@@ -343,7 +342,7 @@ export class UrlHandler {
             if (text && ValidationUtils.isValidYouTubeUrl(text.trim())) {
                 const result: UrlDetectionResult = {
                     url: text.trim(),
-                    source: 'clipboard'
+                    source: 'clipboard',
                 };
 
                 logger.info('URL found in clipboard', 'UrlHandler', { ...result });
@@ -355,7 +354,7 @@ export class UrlHandler {
             logger.debug('No valid YouTube URL in clipboard', 'UrlHandler');
         } catch (error) {
             logger.error('Error handling clipboard URL', 'UrlHandler', {
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }

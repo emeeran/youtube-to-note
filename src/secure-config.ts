@@ -5,7 +5,6 @@ import { YouTubePluginSettings } from './types';
  * Supports both direct configuration and environment variables
  */
 
-
 export class SecureConfigService {
     private settings: YouTubePluginSettings;
 
@@ -20,7 +19,7 @@ export class SecureConfigService {
         if (this.settings.useEnvironmentVariables) {
             return this.getFromEnvironment(keyType);
         }
-        
+
         return keyType === 'gemini' ? this.settings.geminiApiKey : this.settings.groqApiKey;
     }
 
@@ -30,7 +29,7 @@ export class SecureConfigService {
     private getFromEnvironment(keyType: 'gemini' | 'groq'): string {
         const prefix = this.settings.environmentPrefix || 'YTC';
         const envVarName = `${prefix}_${keyType.toUpperCase()}_API_KEY`;
-        
+
         // In browser environment, we can only access environment variables
         // that were set during build time or through a secure configuration service
         return this.getSecureEnvVar(envVarName) || '';
@@ -47,7 +46,7 @@ export class SecureConfigService {
         if (typeof process !== 'undefined' && process.env) {
             return process.env[varName];
         }
-        
+
         // For browser/Obsidian environment, implement secure storage access
         return this.getFromSecureStorage(varName);
     }

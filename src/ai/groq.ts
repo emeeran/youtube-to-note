@@ -13,19 +13,19 @@ function formatGroqError(rawMessage: string): string {
     // Extract retry time if present
     const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) || rawMessage.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
-    
+
     if (rawMessage.toLowerCase().includes('tokens per minute')) {
         return `Groq token limit reached.${retryInfo} Try a shorter video or wait.`;
     }
-    
+
     if (rawMessage.toLowerCase().includes('requests per')) {
         return `Groq request limit reached.${retryInfo}`;
     }
-    
+
     if (rawMessage.toLowerCase().includes('quota')) {
         return `Groq quota exceeded.${retryInfo} Check your plan at console.groq.com`;
     }
-    
+
     return `Groq API limit reached.${retryInfo}`;
 }
 
@@ -40,7 +40,7 @@ export class GroqProvider extends BaseAIProvider {
         const response = await fetch(API_ENDPOINTS.GROQ, {
             method: 'POST',
             headers: this.createHeaders(),
-            body: JSON.stringify(this.createRequestBody(prompt))
+            body: JSON.stringify(this.createRequestBody(prompt)),
         });
 
         // Handle specific Groq errors
@@ -72,7 +72,7 @@ export class GroqProvider extends BaseAIProvider {
         }
 
         const data = await response.json();
-        
+
         if (!this.validateResponse(data, ['choices', '0', 'message'])) {
             throw new Error('Invalid response format from Groq API');
         }
@@ -83,7 +83,7 @@ export class GroqProvider extends BaseAIProvider {
     protected createHeaders(): Record<string, string> {
         return {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
+            'Authorization': `Bearer ${this.apiKey}`,
         };
     }
 
@@ -93,15 +93,15 @@ export class GroqProvider extends BaseAIProvider {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability. Even with limited information, provide maximum value through structured analysis and practical recommendations.'
+                    content: 'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability. Even with limited information, provide maximum value through structured analysis and practical recommendations.',
                 },
                 {
                     role: 'user',
-                    content: prompt
-                }
+                    content: prompt,
+                },
             ],
             max_tokens: this._maxTokens,
-            temperature: this._temperature
+            temperature: this._temperature,
         };
     }
 

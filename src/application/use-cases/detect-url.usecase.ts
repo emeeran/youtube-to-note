@@ -26,47 +26,47 @@ export interface UrlDetectionResponse {
  * Use case for detecting URLs from various sources
  */
 export class DetectUrlUseCase {
-  private ingestionStage: IngestionStage;
+    private ingestionStage: IngestionStage;
 
-  constructor() {
-    this.ingestionStage = new IngestionStage();
-  }
+    constructor() {
+        this.ingestionStage = new IngestionStage();
+    }
 
-  /**
+    /**
    * Execute URL detection
    */
-  async execute(request: UrlDetectionRequest): Promise<UrlDetectionResponse> {
-    try {
-      const result = await this.ingestionStage.execute({
-        input: request,
-        currentStage: 'ingestion',
-        stageHistory: [],
-        metadata: {
-          pipelineId: 'detection',
-          timestamp: Date.now(),
-          source: request.source,
-          startTime: performance.now()
-        }
-      });
+    async execute(request: UrlDetectionRequest): Promise<UrlDetectionResponse> {
+        try {
+            const result = await this.ingestionStage.execute({
+                input: request,
+                currentStage: 'ingestion',
+                stageHistory: [],
+                metadata: {
+                    pipelineId: 'detection',
+                    timestamp: Date.now(),
+                    source: request.source,
+                    startTime: performance.now(),
+                },
+            });
 
-      if (result.url) {
-        return {
-          detected: true,
-          url: result.url,
-          source: result.source,
-          metadata: result.metadata
-        };
-      } else {
-        return {
-          detected: false,
-          error: 'No valid URL detected'
-        };
-      }
-    } catch (error) {
-      return {
-        detected: false,
-        error: (error as Error).message
-      };
+            if (result.url) {
+                return {
+                    detected: true,
+                    url: result.url,
+                    source: result.source,
+                    metadata: result.metadata,
+                };
+            } else {
+                return {
+                    detected: false,
+                    error: 'No valid URL detected',
+                };
+            }
+        } catch (error) {
+            return {
+                detected: false,
+                error: (error as Error).message,
+            };
+        }
     }
-  }
 }

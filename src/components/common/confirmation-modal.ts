@@ -6,7 +6,6 @@ import { App } from 'obsidian';
  * Replaces native browser confirm() with a fully accessible modal dialog
  */
 
-
 export interface ConfirmationModalOptions {
     title: string;
     message: string;

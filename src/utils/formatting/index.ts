@@ -13,7 +13,7 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
@@ -105,5 +105,5 @@ export function formatPercentage(value: number, decimals: number = 1): string {
  * Pluralize word based on count
  */
 export function pluralize(count: number, singular: string, plural?: string): string {
-    return count === 1 ? singular : (plural || singular + 's');
+    return count === 1 ? singular : (plural || `${singular}s`);
 }

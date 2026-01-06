@@ -57,7 +57,7 @@ export function extractYouTubeVideoId(url: string): string | null {
 
     for (const pattern of patterns) {
         const match = url.match(pattern);
-        if (match && match[2]) {
+        if (match?.[2]) {
             return match[2];
         }
     }

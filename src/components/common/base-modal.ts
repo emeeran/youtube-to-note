@@ -9,14 +9,13 @@ import { App, Modal } from 'obsidian';
  * Designed to prevent conflicts with other plugin modals
  */
 
-
 // Unique CSS classes to prevent conflicts
 const MODAL_CSS_CLASSES = {
     modal: 'ytc-modal',
     header: 'ytc-modal-header',
     content: 'ytc-modal-content',
     button: 'ytc-modal-button',
-    input: 'ytc-modal-input'
+    input: 'ytc-modal-input',
 } as const;
 
 export abstract class BaseModal extends Modal {
@@ -34,7 +33,7 @@ export abstract class BaseModal extends Modal {
      */
     private setupModalStyling(): void {
         DOMUtils.setupModalStyling(this.modalEl);
-        
+
         // Add unique CSS class to prevent conflicts
         this.modalEl.addClass(MODAL_CSS_CLASSES.modal);
         this.contentEl.addClass(MODAL_CSS_CLASSES.content);
@@ -46,7 +45,7 @@ export abstract class BaseModal extends Modal {
     private setupConflictPrevention(): void {
         // Add unique attribute for identification
         this.modalEl.setAttribute('data-plugin', 'youtube-clipper');
-        
+
         // Ensure modal has high z-index but not conflicting
         this.modalEl.style.zIndex = '9999';
     }
@@ -74,7 +73,7 @@ export abstract class BaseModal extends Modal {
         return DOMUtils.createButtonContainer(this.contentEl);
     }
 
-        /**
+    /**
      * Create standardized button with conflict prevention and accessibility
      */
     protected createButton(
@@ -85,16 +84,16 @@ export abstract class BaseModal extends Modal {
     ): HTMLButtonElement {
         const button = DOMUtils.createStyledButton(container, text, isPrimary, onClick);
         button.addClass(MODAL_CSS_CLASSES.button);
-        
+
         // Add unique data attribute
         button.setAttribute('data-plugin', 'youtube-clipper');
-        
+
         // Accessibility: add role and aria-label
         button.setAttribute('role', 'button');
         if (!button.getAttribute('aria-label')) {
             button.setAttribute('aria-label', text);
         }
-        
+
         return button;
     }
 
@@ -108,19 +107,19 @@ export abstract class BaseModal extends Modal {
     ): HTMLInputElement {
         const input = container.createEl('input', {
             type,
-            placeholder
+            placeholder,
         });
-        
+
         // Apply styles and add unique class
         DOMUtils.applyStyles(input, INPUT_STYLES);
         input.addClass(MODAL_CSS_CLASSES.input);
         input.setAttribute('data-plugin', 'youtube-clipper');
-        
+
         // Accessibility: add ARIA labels if placeholder exists
         if (placeholder) {
             input.setAttribute('aria-label', placeholder);
         }
-        
+
         return input;
     }
 
@@ -135,16 +134,16 @@ export abstract class BaseModal extends Modal {
             try {
                 await onEnter();
             } catch (error) {
-                
-}
+
+            }
         };
 
         const wrappedOnEscape = onEscape ? async () => {
             try {
                 await onEscape();
             } catch (error) {
-                
-}
+
+            }
         } : undefined;
 
         DOMUtils.setupModalKeyHandlers(this.contentEl, wrappedOnEnter, wrappedOnEscape);
@@ -170,7 +169,7 @@ export abstract class BaseModal extends Modal {
      * Show custom styled confirmation dialog before closing
      * This uses our custom ConfirmationModal instead of the native browser confirm()
      * for better accessibility and UX.
-     * 
+     *
      * Note: This is now synchronous for backwards compatibility with existing callers,
      * but returns a boolean immediately. For async confirmation with proper modal,
      * use showConfirmationModal() instead.
@@ -199,7 +198,7 @@ export abstract class BaseModal extends Modal {
             message,
             confirmText,
             cancelText,
-            isDangerous
+            isDangerous,
         });
         return modal.openAndWait();
     }
@@ -220,21 +219,19 @@ export abstract class BaseModal extends Modal {
         if (this.isDisposed) {
             return;
         }
-        
-        
-// Mark as disposed to prevent double cleanup
+
+        // Mark as disposed to prevent double cleanup
         this.isDisposed = true;
-        
+
         // Clear content
         const { contentEl } = this;
         contentEl.empty();
-        
+
         // Remove unique classes and attributes
         this.modalEl.removeClass(MODAL_CSS_CLASSES.modal);
         this.modalEl.removeAttribute('data-plugin');
-        
-        
-}
+
+    }
 
     /**
      * Abstract method for modal content creation

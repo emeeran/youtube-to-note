@@ -63,7 +63,7 @@ export async function parallel<T>(
 /**
  * Create a debounced function
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends(...args: any[]) => any>(
     fn: T,
     delay: number
 ): (...args: Parameters<T>) => void {
@@ -78,7 +78,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Create a throttled function
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends(...args: any[]) => any>(
     fn: T,
     limit: number
 ): (...args: Parameters<T>) => void {

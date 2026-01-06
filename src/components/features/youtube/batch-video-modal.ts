@@ -51,15 +51,15 @@ export class BatchVideoModal extends Modal {
         this.addStyles();
 
         // Title
-        contentEl.createEl('h2', { 
+        contentEl.createEl('h2', {
             text: '📦 Batch Video Processing',
-            cls: 'ytc-batch-title'
+            cls: 'ytc-batch-title',
         });
 
         // Description
         contentEl.createEl('p', {
             text: 'Enter YouTube URLs (one per line) to process multiple videos at once.',
-            cls: 'ytc-batch-description'
+            cls: 'ytc-batch-description',
         });
 
         // URL Input Area
@@ -206,12 +206,12 @@ export class BatchVideoModal extends Modal {
 
     private createUrlInput(): void {
         const container = this.contentEl.createDiv({ cls: 'ytc-batch-input-container' });
-        
+
         this.urlInput = container.createEl('textarea', {
             cls: 'ytc-batch-textarea',
             attr: {
-                placeholder: 'https://youtube.com/watch?v=video1\nhttps://youtube.com/watch?v=video2\nhttps://youtu.be/video3'
-            }
+                placeholder: 'https://youtube.com/watch?v=video1\nhttps://youtube.com/watch?v=video2\nhttps://youtu.be/video3',
+            },
         });
 
         this.urlInput.addEventListener('input', () => this.parseUrls());
@@ -259,10 +259,10 @@ export class BatchVideoModal extends Modal {
 
     private createProgressSection(): void {
         this.progressContainer = this.contentEl.createDiv({ cls: 'ytc-batch-progress' });
-        
+
         const progressBar = this.progressContainer.createDiv({ cls: 'ytc-batch-progress-bar' });
         progressBar.createDiv({ cls: 'ytc-batch-progress-fill' });
-        
+
         this.progressContainer.createDiv({ cls: 'ytc-batch-progress-text' });
     }
 
@@ -272,14 +272,14 @@ export class BatchVideoModal extends Modal {
         // Cancel button
         const cancelBtn = container.createEl('button', {
             text: 'Cancel',
-            cls: 'ytc-batch-btn ytc-batch-btn-secondary'
+            cls: 'ytc-batch-btn ytc-batch-btn-secondary',
         });
         cancelBtn.addEventListener('click', () => this.close());
 
         // Process button
         this.processButton = container.createEl('button', {
             text: 'Process All',
-            cls: 'ytc-batch-btn ytc-batch-btn-primary'
+            cls: 'ytc-batch-btn ytc-batch-btn-primary',
         });
         this.processButton.disabled = true;
         this.processButton.addEventListener('click', () => this.processVideos());
@@ -288,15 +288,15 @@ export class BatchVideoModal extends Modal {
     private parseUrls(): void {
         const text = this.urlInput.value;
         const lines = text.split('\n').filter(line => line.trim());
-        
+
         this.urls = [];
-        
+
         for (const line of lines) {
             const url = line.trim();
             if (ValidationUtils.isValidYouTubeUrl(url)) {
                 this.urls.push({
                     url,
-                    status: 'pending'
+                    status: 'pending',
                 });
             }
         }
@@ -330,9 +330,9 @@ export class BatchVideoModal extends Modal {
 
             // Remove button (only if not processing)
             if (!this.isProcessing) {
-                const removeEl = itemEl.createSpan({ 
+                const removeEl = itemEl.createSpan({
                     cls: 'ytc-batch-item-remove',
-                    text: '✕'
+                    text: '✕',
                 });
                 removeEl.addEventListener('click', () => this.removeItem(i));
             }
@@ -356,8 +356,8 @@ export class BatchVideoModal extends Modal {
 
     private updateProcessButton(): void {
         this.processButton.disabled = this.urls.length === 0 || this.isProcessing;
-        this.processButton.textContent = this.isProcessing 
-            ? 'Processing...' 
+        this.processButton.textContent = this.isProcessing
+            ? 'Processing...'
             : `Process ${this.urls.length} Video${this.urls.length !== 1 ? 's' : ''}`;
     }
 
@@ -376,7 +376,7 @@ export class BatchVideoModal extends Modal {
 
         try {
             const urlStrings = this.urls.map(u => u.url);
-            
+
             // Process one by one to show progress
             for (let i = 0; i < this.urls.length; i++) {
                 this.urls[i].status = 'processing';

@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: PersistentCacheConfig = {
     namespace: 'ytc',
     maxItems: 100,
     defaultTTL: 86400000, // 24 hours
-    version: 1
+    version: 1,
 };
 
 export class PersistentCacheService implements CacheService {
@@ -34,7 +34,7 @@ export class PersistentCacheService implements CacheService {
         misses: 0,
         evictions: 0,
         size: 0,
-        hitRate: 0
+        hitRate: 0,
     };
 
     constructor(config: Partial<PersistentCacheConfig> = {}) {
@@ -97,7 +97,7 @@ export class PersistentCacheService implements CacheService {
         try {
             const storageKey = this.getStorageKey(key);
             const stored = localStorage.getItem(storageKey);
-            
+
             if (!stored) {
                 this.metrics.misses++;
                 this.updateHitRate();
@@ -153,7 +153,7 @@ export class PersistentCacheService implements CacheService {
                 data,
                 timestamp: Date.now(),
                 ttl: ttl ?? this.config.defaultTTL,
-                version: this.config.version
+                version: this.config.version,
             };
 
             localStorage.setItem(storageKey, JSON.stringify(item));
@@ -184,13 +184,13 @@ export class PersistentCacheService implements CacheService {
         try {
             const storageKey = this.getStorageKey(key);
             const exists = localStorage.getItem(storageKey) !== null;
-            
+
             if (exists) {
                 localStorage.removeItem(storageKey);
                 const index = this.getIndex().filter(k => k !== key);
                 this.updateIndex(index);
             }
-            
+
             return exists;
         } catch {
             return false;
@@ -219,7 +219,7 @@ export class PersistentCacheService implements CacheService {
                 misses: 0,
                 evictions: 0,
                 size: 0,
-                hitRate: 0
+                hitRate: 0,
             };
         } catch {
             // Ignore errors
@@ -246,12 +246,12 @@ export class PersistentCacheService implements CacheService {
     private evictOldest(count: number): void {
         const index = this.getIndex();
         const toRemove = index.slice(0, count);
-        
+
         toRemove.forEach(key => {
             localStorage.removeItem(this.getStorageKey(key));
             this.metrics.evictions++;
         });
-        
+
         this.updateIndex(index.slice(count));
     }
 
@@ -267,11 +267,11 @@ export class PersistentCacheService implements CacheService {
             index.forEach(key => {
                 const storageKey = this.getStorageKey(key);
                 const stored = localStorage.getItem(storageKey);
-                
+
                 if (stored) {
                     try {
                         const item = JSON.parse(stored);
-                        if (now - item.timestamp <= item.ttl && 
+                        if (now - item.timestamp <= item.ttl &&
                             item.version === this.config.version) {
                             validKeys.push(key);
                         } else {
@@ -304,7 +304,7 @@ export class PersistentCacheService implements CacheService {
         itemCount: number;
         estimatedBytes: number;
         maxItems: number;
-    } {
+        } {
         const index = this.getIndex();
         let estimatedBytes = 0;
 
@@ -322,7 +322,7 @@ export class PersistentCacheService implements CacheService {
         return {
             itemCount: index.length,
             estimatedBytes,
-            maxItems: this.config.maxItems
+            maxItems: this.config.maxItems,
         };
     }
 

@@ -9,7 +9,6 @@ import { App, TFile } from 'obsidian';
  * File management service for Obsidian vault operations
  */
 
-
 export class ObsidianFileService implements FileService {
     constructor(private app: App) {}
 
@@ -28,7 +27,7 @@ export class ObsidianFileService implements FileService {
 
             const filePath = `${dailyFolder}/${filename}`;
             const finalPath = await this.handleFileConflicts(filePath, content);
-            
+
             return finalPath;
         } catch (error) {
             throw new Error(MESSAGES.ERRORS.SAVE_FILE((error as Error).message));
@@ -41,18 +40,18 @@ export class ObsidianFileService implements FileService {
     async openFileWithConfirmation(file: TFile): Promise<void> {
         // Wait for file to be fully created
         await this.waitForFileCreation();
-        
+
         try {
             // Verify file still exists
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
             if (!(currentFile instanceof TFile)) {
                 throw new Error(MESSAGES.ERRORS.FILE_NOT_EXISTS);
             }
-            
+
             // Open the file
             const leaf = this.app.workspace.getLeaf(false);
             await leaf.openFile(currentFile);
-            
+
         } catch (error) {
             throw new Error(MESSAGES.ERRORS.COULD_NOT_OPEN((error as Error).message));
         }
@@ -111,7 +110,7 @@ export class ObsidianFileService implements FileService {
      * Wait for file creation to complete
      */
     private async waitForFileCreation(): Promise<void> {
-        return new Promise(resolve => 
+        return new Promise(resolve =>
             setTimeout(resolve, TIMEOUTS.FILE_CREATION_WAIT)
         );
     }
@@ -137,7 +136,7 @@ export class ObsidianFileService implements FileService {
     async createUniqueFile(basePath: string, content: string): Promise<string> {
         let counter = 1;
         let filePath = basePath;
-        
+
         while (this.fileExists(filePath)) {
             const pathParts = basePath.split('/');
             const filename = pathParts.pop()!;
@@ -146,7 +145,7 @@ export class ObsidianFileService implements FileService {
             filePath = [...pathParts, newFilename].join('/');
             counter++;
         }
-        
+
         await this.app.vault.create(filePath, content);
         return filePath;
     }
@@ -187,7 +186,7 @@ export class ObsidianFileService implements FileService {
             normalized = normalized.slice(1);
         }
 
-            normalized = normalized.replace(/\/+/g, '/');
+        normalized = normalized.replace(/\/+/g, '/');
         return normalized;
     }
 }

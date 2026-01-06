@@ -5,7 +5,6 @@ import { ValidationUtils } from '../validation';
  * Prompt generation service for AI processing
  */
 
-
 export class AIPromptService implements PromptService {
     // Optimized prompt templates for different performance modes
     private static readonly COMPACT_BASE_TEMPLATE = `Analyze this YouTube video:
@@ -48,7 +47,7 @@ ANALYSIS INSTRUCTIONS:
         performanceMode: PerformanceMode = 'balanced'
     ): string {
         // Use custom prompt if provided
-        if (customPrompt && customPrompt.trim()) {
+        if (customPrompt?.trim()) {
             return this.applyCustomPrompt(customPrompt, videoData, videoUrl);
         }
 
@@ -67,11 +66,11 @@ ANALYSIS INSTRUCTIONS:
 
         // Build transcript section
         let transcriptSection = '';
-        if (transcript && transcript.trim()) {
+        if (transcript?.trim()) {
             // Truncate very long transcripts to avoid token limits
             const maxLength = 8000;
             const truncatedTranscript = transcript.length > maxLength
-                ? transcript.substring(0, maxLength) + '... [transcript truncated]'
+                ? `${transcript.substring(0, maxLength)}... [transcript truncated]`
                 : transcript;
             transcriptSection = `VIDEO CONTENT/TRANSCRIPT:\n${truncatedTranscript}`;
         }
@@ -101,7 +100,7 @@ ANALYSIS INSTRUCTIONS:
     private applyCustomPrompt(customPrompt: string, videoData: VideoData, videoUrl: string): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
-        
+
         return customPrompt
             .replace(/__VIDEO_TITLE__/g, videoData.title || 'Unknown Video')
             .replace(/__VIDEO_DESCRIPTION__/g, videoData.description || 'No description available')
@@ -298,7 +297,7 @@ IMPORTANT INSTRUCTIONS:
     private createDetailedGuidePrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
-        
+
         return `${baseContent}
 
         OUTPUT FORMAT - EFFICIENT STEP-BY-STEP TUTORIAL:
@@ -440,9 +439,9 @@ IMPORTANT INSTRUCTIONS:
      * Validate prompt length and content
      */
     validatePrompt(prompt: string): boolean {
-        return Boolean(prompt) && 
-               typeof prompt === 'string' && 
-               prompt.trim().length > 10 && 
+        return Boolean(prompt) &&
+               typeof prompt === 'string' &&
+               prompt.trim().length > 10 &&
                prompt.length < 50000; // Reasonable upper limit
     }
 }

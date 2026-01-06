@@ -43,7 +43,7 @@ export class CrossReferenceService {
      * Extract keywords from title and transcript
      */
     private extractKeywords(title: string, transcript: string): Set<string> {
-        const text = (title + ' ' + transcript).toLowerCase();
+        const text = (`${title} ${transcript}`).toLowerCase();
         const words = text.split(/\W+/);
         const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once']);
 

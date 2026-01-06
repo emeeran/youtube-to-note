@@ -393,24 +393,25 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
             .${CSS_PREFIX}-status-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-                gap: 10px;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 8px;
             }
 
             .${CSS_PREFIX}-status-card {
-                padding: 12px;
+                padding: 8px 10px;
                 background: var(--background-primary);
-                border-radius: 8px;
+                border-radius: 6px;
                 border: 1px solid var(--background-modifier-border);
                 display: flex;
                 flex-direction: column;
-                gap: 6px;
+                gap: 4px;
                 transition: all 0.2s ease;
+                cursor: pointer;
             }
 
             .${CSS_PREFIX}-status-card:hover {
                 border-color: var(--interactive-accent);
-                transform: translateY(-2px);
+                transform: translateY(-1px);
             }
 
             .${CSS_PREFIX}-status-card.valid {
@@ -434,7 +435,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
 
             .${CSS_PREFIX}-status-name {
-                font-size: 0.85rem;
+                font-size: 0.75rem;
                 font-weight: 600;
                 color: var(--text-normal);
             }
@@ -524,6 +525,17 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
             .${CSS_PREFIX}-action-btn.primary:hover {
                 background: var(--interactive-accent-hover);
+            }
+
+            .${CSS_PREFIX}-action-btn.danger {
+                background: #dc2626;
+                color: white;
+                border-color: #dc2626;
+            }
+
+            .${CSS_PREFIX}-action-btn.danger:hover {
+                background: #b91c1c;
+                border-color: #b91c1c;
             }
 
             .${CSS_PREFIX}-action-btn:disabled {
@@ -680,7 +692,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         searchBar.createSpan({ cls: `${CSS_PREFIX}-search-icon`, text: '🔍' });
 
         this.searchInput = searchBar.createEl('input', {
-            attr: { placeholder: 'Search settings... (Ctrl+K)' }
+            attr: { placeholder: 'Search settings... (Ctrl+K)' },
         });
 
         this.searchInput.addEventListener('input', () => {
@@ -730,7 +742,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             { id: 'groq', name: 'Groq', key: 'groqApiKey' },
             { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' },
             { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' },
-            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' }
+            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' },
+            { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' },
         ];
 
         providers.forEach(provider => {
@@ -777,22 +790,30 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     break;
                 case 'groq':
                     await fetch('https://api.groq.com/openai/v1/models', {
-                        headers: { Authorization: `Bearer ${apiKey}` }
+                        headers: { Authorization: `Bearer ${apiKey}` },
                     });
                     break;
                 case 'huggingface':
                     await fetch('https://huggingface.co/api/whoami-v2', {
-                        headers: { Authorization: `Bearer ${apiKey}` }
+                        headers: { Authorization: `Bearer ${apiKey}` },
                     });
                     break;
                 case 'openrouter':
                     await fetch('https://openrouter.ai/api/v1/models', {
-                        headers: { Authorization: `Bearer ${apiKey}` }
+                        headers: { Authorization: `Bearer ${apiKey}` },
                     });
                     break;
                 case 'ollama':
                     const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
                     await fetch(`${endpoint}/api/tags`);
+                    break;
+                case 'ollama-cloud':
+                    if (!this.settings.ollamaApiKey) {
+                        throw new Error('Ollama Cloud requires API key');
+                    }
+                    await fetch('https://ollama.com/api/tags', {
+                        headers: { Authorization: `Bearer ${this.settings.ollamaApiKey}` },
+                    });
                     break;
             }
 
@@ -812,28 +833,66 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Test All Keys
         const testAllBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn primary`,
-            text: '🧪 Test All Keys'
+            text: '🧪 Test All',
         });
         testAllBtn.addEventListener('click', () => this.testAllProviders());
 
-        // Export Settings
-        const exportBtn = actions.createEl('button', {
+        // Export/Import dropdown combo
+        const settingsBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn`,
-            text: '📤 Export Settings'
+            text: '⚙️ Settings',
         });
-        exportBtn.addEventListener('click', () => this.exportSettings());
+        settingsBtn.addEventListener('click', () => {
+            const exportBtn = document.createElement('button');
+            exportBtn.textContent = '📤 Export';
+            exportBtn.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 8px;';
+            exportBtn.onclick = () => {
+                this.exportSettings();
+                (document.querySelector('.ytc-settings-popup') as HTMLElement)?.remove();
+            };
 
-        // Import Settings
-        const importBtn = actions.createEl('button', {
-            cls: `${CSS_PREFIX}-action-btn`,
-            text: '📥 Import Settings'
+            const importBtn = document.createElement('button');
+            importBtn.textContent = '📥 Import';
+            importBtn.style.cssText = 'width: 100%; padding: 8px;';
+            importBtn.onclick = () => {
+                this.importSettings();
+                (document.querySelector('.ytc-settings-popup') as HTMLElement)?.remove();
+            };
+
+            const popup = document.createElement('div');
+            popup.className = 'ytc-settings-popup';
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--background-secondary);
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 8px;
+                padding: 16px;
+                z-index: 1000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                min-width: 200px;
+            `;
+            popup.appendChild(exportBtn);
+            popup.appendChild(importBtn);
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            `;
+            overlay.onclick = () => popup.remove();
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
         });
-        importBtn.addEventListener('click', () => this.importSettings());
 
         // Reset to Defaults
         const resetBtn = actions.createEl('button', {
-            cls: `${CSS_PREFIX}-action-btn`,
-            text: '🔄 Reset Defaults'
+            cls: `${CSS_PREFIX}-action-btn danger`,
+            text: '🔄 Reset',
         });
         resetBtn.addEventListener('click', () => this.resetToDefaults());
     }
@@ -844,7 +903,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             { id: 'groq', name: 'Groq', key: 'groqApiKey' as keyof YouTubePluginSettings },
             { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' as keyof YouTubePluginSettings },
             { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' as keyof YouTubePluginSettings },
-            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' as keyof YouTubePluginSettings }
+            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' as keyof YouTubePluginSettings },
+            { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' as keyof YouTubePluginSettings },
         ];
 
         for (const provider of providers) {
@@ -912,7 +972,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 huggingFaceApiKey: this.settings.huggingFaceApiKey,
                 openRouterApiKey: this.settings.openRouterApiKey,
                 ollamaApiKey: this.settings.ollamaApiKey,
-                ollamaEndpoint: this.settings.ollamaEndpoint
+                ollamaEndpoint: this.settings.ollamaEndpoint,
             };
 
             // Define defaults inline
@@ -926,7 +986,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 enableAutoFallback: true,
                 preferMultimodal: true,
                 defaultMaxTokens: 4096,
-                defaultTemperature: 0.5
+                defaultTemperature: 0.5,
             };
 
             this.settings = defaults;
@@ -962,7 +1022,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             { action: 'Focus search', key: 'Ctrl+K' },
             { action: 'Toggle settings', key: 'Ctrl+,' },
             { action: 'Save settings', key: 'Ctrl+S' },
-            { action: 'Open command palette', key: 'Ctrl+P' }
+            { action: 'Open command palette', key: 'Ctrl+P' },
         ];
 
         shortcutsData.forEach(({ action, key }) => {
@@ -982,7 +1042,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         const isReady = this.validateConfiguration();
         this.headerBadge = header.createDiv({
-            cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`
+            cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`,
         });
         this.headerBadge.textContent = isReady ? '✓ Ready' : '⚠ Setup Required';
     }
@@ -1005,7 +1065,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             validateFn: async (key: string) => {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            }
+            },
         });
 
         this.createAPIKeySetting(section, {
@@ -1015,10 +1075,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             settingKey: 'groqApiKey',
             validateFn: async (key: string) => {
                 const res = await fetch('https://api.groq.com/openai/v1/models', {
-                    headers: { Authorization: `Bearer ${key}` }
+                    headers: { Authorization: `Bearer ${key}` },
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            }
+            },
         });
 
         this.createAPIKeySetting(section, {
@@ -1028,10 +1088,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             settingKey: 'huggingFaceApiKey',
             validateFn: async (key: string) => {
                 const res = await fetch('https://huggingface.co/api/whoami-v2', {
-                    headers: { Authorization: `Bearer ${key}` }
+                    headers: { Authorization: `Bearer ${key}` },
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            }
+            },
         });
 
         this.createAPIKeySetting(section, {
@@ -1041,10 +1101,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             settingKey: 'openRouterApiKey',
             validateFn: async (key: string) => {
                 const res = await fetch('https://openrouter.ai/api/v1/models', {
-                    headers: { Authorization: `Bearer ${key}` }
+                    headers: { Authorization: `Bearer ${key}` },
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            }
+            },
         });
 
         this.createAPIKeySetting(section, {
@@ -1068,7 +1128,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     const errorText = await res.text().catch(() => 'Unknown error');
                     throw new Error(`HTTP ${res.status}: ${errorText}`);
                 }
-            }
+            },
         });
 
         // Ollama Endpoint setting
@@ -1112,7 +1172,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Password visibility toggle
         const toggleBtn = controlEl.createEl('button', {
             cls: `${CSS_PREFIX}-password-toggle`,
-            text: '👁️'
+            text: '👁️',
         });
         toggleBtn.title = 'Toggle visibility';
 
@@ -1130,7 +1190,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Validate button
         const validateBtn = controlEl.createEl('button', {
             cls: `${CSS_PREFIX}-validate-btn`,
-            text: '✓ Test'
+            text: '✓ Test',
         });
 
         validateBtn.addEventListener('click', async () => {
@@ -1189,7 +1249,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             value: this.settings.defaultMaxTokens || 4096,
             key: 'defaultMaxTokens',
             format: (v) => v.toLocaleString(),
-            scale: ['Short (512)', 'Long (8192)']
+            scale: ['Short (512)', 'Long (8192)'],
         });
 
         // Temperature slider
@@ -1202,7 +1262,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             value: this.settings.defaultTemperature ?? 0.5,
             key: 'defaultTemperature',
             format: (v) => v.toFixed(1),
-            scale: ['Precise (0)', 'Creative (1)']
+            scale: ['Precise (0)', 'Creative (1)'],
         });
 
         new Setting(section)

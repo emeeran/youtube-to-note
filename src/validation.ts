@@ -4,7 +4,6 @@ import { MESSAGES } from './constants/index';
  * Input validation utilities
  */
 
-
 export class ValidationUtils {
     /**
      * YouTube URL patterns for validation (ordered by frequency for performance)
@@ -20,7 +19,7 @@ export class ValidationUtils {
         // youtube.com/v format
         /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})(?:\?.*)?$/,
         // Mobile youtube.com format
-        /(?:https?:\/\/)?(?:m\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&.*)?$/
+        /(?:https?:\/\/)?(?:m\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&.*)?$/,
     ];
 
     // Memoized regex for video ID validation (hot path optimization)
@@ -37,13 +36,13 @@ export class ValidationUtils {
 
         // Remove extra whitespace and normalize
         let cleanUrl = url.trim();
-        
+
         // Handle URLs that might have been copy-pasted with extra characters
         cleanUrl = cleanUrl.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Remove zero-width characters
-        
+
         // Add https:// if missing protocol
         if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-            cleanUrl = 'https://' + cleanUrl;
+            cleanUrl = `https://${cleanUrl}`;
         }
 
         // Convert http to https for YouTube
@@ -60,7 +59,7 @@ export class ValidationUtils {
      */
     static extractVideoId(url: string): string | null {
         if (!url || typeof url !== 'string') return null;
-        
+
         // Check cache first (O(1) for repeated URLs)
         if (this.URL_CACHE.has(url)) {
             return this.URL_CACHE.get(url)!;
@@ -161,7 +160,7 @@ export class ValidationUtils {
 
         return {
             isValid: errors.length === 0,
-            errors
+            errors,
         };
     }
 
@@ -186,7 +185,7 @@ export class ValidationUtils {
         if (text.length <= maxLength) {
             return text;
         }
-        return text.substring(0, maxLength - 3) + '...';
+        return `${text.substring(0, maxLength - 3)}...`;
     }
 
     /**
@@ -197,7 +196,7 @@ export class ValidationUtils {
             .replace(/\\n/g, '\n')
             .replace(/\\"/g, '"')
             .replace(/\\'/g, "'")
-            .replace(/\\u([0-9a-fA-F]{4})/g, (match, code) => 
+            .replace(/\\u([0-9a-fA-F]{4})/g, (match, code) =>
                 String.fromCharCode(parseInt(code, 16))
             );
     }

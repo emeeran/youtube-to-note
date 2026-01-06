@@ -13,17 +13,17 @@ function formatQuotaError(rawMessage: string, provider: string): string {
     // Extract retry time if present
     const retryMatch = rawMessage.match(/retry in ([\d.]+)s/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
-    
+
     // Check for free tier exhaustion
     if (rawMessage.includes('limit: 0') || rawMessage.includes('free_tier')) {
         return `${provider} free tier quota exhausted.${retryInfo} Upgrade your plan or wait for quota reset.`;
     }
-    
+
     // Generic quota exceeded
     if (rawMessage.toLowerCase().includes('quota exceeded')) {
         return `${provider} API quota exceeded.${retryInfo} Check your usage at https://ai.google.dev/usage`;
     }
-    
+
     return `${provider} API limit reached.${retryInfo}`;
 }
 
@@ -44,7 +44,7 @@ export class GeminiProvider extends BaseAIProvider {
             const response = await fetch(`${API_ENDPOINTS.GEMINI}?key=${this.apiKey}`, {
                 method: 'POST',
                 headers: this.createHeaders(),
-                body: JSON.stringify(this.createRequestBody(prompt))
+                body: JSON.stringify(this.createRequestBody(prompt)),
             });
 
             // Handle specific Gemini errors with better messages
@@ -64,7 +64,7 @@ export class GeminiProvider extends BaseAIProvider {
                 if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('billing')) {
                     throw new Error(formatQuotaError(errorMessage, 'Gemini'));
                 }
-                throw new Error(`Gemini API access denied. Please verify your API key has access to this model.`);
+                throw new Error('Gemini API access denied. Please verify your API key has access to this model.');
             }
 
             if (response.status === 429) {
@@ -80,7 +80,7 @@ export class GeminiProvider extends BaseAIProvider {
             const data = await response.json();
 
             // Enhanced response validation
-            if (!data.candidates || !data.candidates.length) {
+            if (!data.candidates?.length) {
                 throw new Error('No response candidates returned from Gemini API');
             }
 
@@ -103,7 +103,7 @@ export class GeminiProvider extends BaseAIProvider {
 
     protected createHeaders(): Record<string, string> {
         return {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         };
     }
 
@@ -114,15 +114,15 @@ export class GeminiProvider extends BaseAIProvider {
             normalizedPrompt.includes('youtube video') ||
             normalizedPrompt.includes('youtu.be/') ||
             normalizedPrompt.includes('youtube.com/');
-        
+
         const baseConfig = {
             contents: [{
-                parts: [{ text: prompt }]
+                parts: [{ text: prompt }],
             }],
             generationConfig: {
                 temperature: this._temperature,
                 maxOutputTokens: this._maxTokens,
-                candidateCount: 1
+                candidateCount: 1,
             },
             // safetySettings: [
             //     {
@@ -130,7 +130,7 @@ export class GeminiProvider extends BaseAIProvider {
             //         threshold: "BLOCK_MEDIUM_AND_ABOVE"
             //     },
             //     {
-            //         category: "HARM_CATEGORY_HATE_SPEECH", 
+            //         category: "HARM_CATEGORY_HATE_SPEECH",
             //         threshold: "BLOCK_MEDIUM_AND_ABOVE"
             //     }
             // ]
@@ -146,9 +146,9 @@ export class GeminiProvider extends BaseAIProvider {
             const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] || [] as any[];
             const currentModelName = String(this.model || '').toLowerCase();
             const matched = providerModels.find(m => {
-                const name = (typeof m === 'string') ? m : (m && m.name ? m.name : '');
+                const name = (typeof m === 'string') ? m : (m?.name ? m.name : '');
                 return String(name).toLowerCase() === currentModelName;
-            }) as any | undefined;
+            });
 
             const supportsAudioVideo = matched && matched.supportsAudioVideo === true;
 
@@ -170,20 +170,20 @@ For best results:
 - Prioritize accuracy in transcription and speaker identification
 - Extract and explain key concepts shown visually
 - Note timing relationships between audio and visual elements
-- Identify visual cues that reinforce or clarify spoken content`
-                    }]
-                }
+- Identify visual cues that reinforce or clarify spoken content`,
+                    }],
+                },
             };
 
             // If the prompt contains a Google Cloud Storage URI (gs://...), attach it
             // as a FileData part for additional video analysis capability.
             const gcsMatch = prompt.match(/(gs:\/\/[\w\-\.\/]+\.(?:mp4|mov|mkv|webm))/i);
-            if (gcsMatch && gcsMatch[1]) {
+            if (gcsMatch?.[1]) {
                 const gcsUri = gcsMatch[1];
                 // Append a FileData part to contents so Gemini can process the video file
                 videoConfig.contents = videoConfig.contents || [];
                 videoConfig.contents.push({
-                    parts: [{ fileData: { fileUri: gcsUri, mimeType: 'video/mp4' } }]
+                    parts: [{ fileData: { fileUri: gcsUri, mimeType: 'video/mp4' } }],
                 });
             }
 

@@ -10,7 +10,6 @@ import { YouTubeTranscriptService } from './services/transcript-service';
  * YouTube video data extraction service
  */
 
-
 export interface EnhancedVideoData extends VideoData {
     duration?: number;
     hasTranscript?: boolean;
@@ -71,7 +70,7 @@ export class YouTubeVideoService implements VideoDataService {
                 description: metadata.description || 'No description available',
                 duration: metadata.duration,
                 thumbnail: metadata.thumbnail,
-                channelName: metadata.channelName
+                channelName: metadata.channelName,
             };
 
             // Check for transcript availability in background
@@ -87,7 +86,7 @@ export class YouTubeVideoService implements VideoDataService {
             return result;
         } catch (error) {
             throw ErrorHandler.createUserFriendlyError(
-                error as Error, 
+                error as Error,
                 'fetch video data'
             );
         }
@@ -110,21 +109,21 @@ export class YouTubeVideoService implements VideoDataService {
         }
 
         const oembedUrl = `${API_ENDPOINTS.YOUTUBE_OEMBED}?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-        
+
         try {
             // Create timeout controller for the request
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-            
+
             const response = await fetch(oembedUrl, {
                 headers: {
-                    'User-Agent': 'Obsidian YoutubeClipper Plugin'
+                    'User-Agent': 'Obsidian YoutubeClipper Plugin',
                 },
-                signal: controller.signal
+                signal: controller.signal,
             });
-            
+
             clearTimeout(timeoutId); // Clear timeout if request completes
-            
+
             if (!response.ok) {
                 if (response.status === 400) {
                     throw new Error(`Invalid YouTube video ID: ${videoId}. Please check the URL and try again.`);
@@ -140,7 +139,7 @@ export class YouTubeVideoService implements VideoDataService {
                                 description: pageData.description,
                                 duration: pageData.duration,
                                 thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-                                channelName: undefined
+                                channelName: undefined,
                             };
                         }
                     } catch (scrapeError) {
@@ -152,7 +151,7 @@ export class YouTubeVideoService implements VideoDataService {
                         description: `Video URL: https://www.youtube.com/watch?v=${videoId}`,
                         duration: undefined,
                         thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-                        channelName: undefined
+                        channelName: undefined,
                     };
                 } else if (response.status === 404) {
                     throw new Error(`YouTube video not found: ${videoId}. The video may be private, deleted, or the ID is incorrect.`);
@@ -169,7 +168,7 @@ export class YouTubeVideoService implements VideoDataService {
             let enhancedData: any = {
                 title: data.title || 'Unknown Title',
                 thumbnail: data.thumbnail_url,
-                author_name: data.author_name
+                author_name: data.author_name,
             };
 
             // Try to get duration and description from page scraping
@@ -178,15 +177,15 @@ export class YouTubeVideoService implements VideoDataService {
                 enhancedData = { ...enhancedData, ...pageData };
             } catch (error) {
                 // Ignore scraping errors, proceed with oEmbed data
-                
-}
+
+            }
 
             const metadata = {
                 title: enhancedData.title,
                 description: enhancedData.description,
                 duration: enhancedData.duration,
                 thumbnail: enhancedData.thumbnail,
-                channelName: enhancedData.author_name
+                channelName: enhancedData.author_name,
             };
 
             this.cache?.set(cacheKey, metadata, this.metadataTTL);
@@ -258,8 +257,8 @@ export class YouTubeVideoService implements VideoDataService {
             this.cache?.set(cacheKey, description, this.descriptionTTL);
             return description;
         } catch (error) {
-            
-const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
+
+            const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
             this.cache?.set(cacheKey, fallback, this.descriptionTTL);
             return fallback;
         }
@@ -271,9 +270,9 @@ const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
     private async fetchVideoPageHTML(videoId: string): Promise<string> {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=${encodeURIComponent(videoUrl)}`;
-        
+
         const response = await fetch(proxyUrl);
-        
+
         if (!response.ok) {
             throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
         }
@@ -289,12 +288,12 @@ const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
             /"shortDescription":"([^"]*?)"/,
             /"description":{"simpleText":"([^"]*?)"}/,
             /<meta name="description" content="([^"]*?)">/,
-            /<meta property="og:description" content="([^"]*?)">/
+            /<meta property="og:description" content="([^"]*?)">/,
         ];
 
         for (const pattern of patterns) {
             const match = html.match(pattern);
-            if (match && match[1]) {
+            if (match?.[1]) {
                 const cleanedText = ValidationUtils.cleanText(match[1]);
                 return ValidationUtils.truncateText(cleanedText, API_LIMITS.DESCRIPTION_MAX_LENGTH);
             }

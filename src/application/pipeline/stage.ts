@@ -41,51 +41,51 @@ export abstract class BaseStage implements PipelineStage {
   abstract execute(context: PipelineContext): Promise<StageOutput>;
 
   canExecute(context: PipelineContext): boolean {
-    return true;
+      return true;
   }
 
   getTimeout(): number {
-    return 30000; // Default 30 second timeout
+      return 30000; // Default 30 second timeout
   }
 
   async cleanup(): Promise<void> {
-    // Default no-op cleanup
+      // Default no-op cleanup
   }
 
   /**
    * Execute stage with timeout and error handling
    */
   async executeSafe(context: PipelineContext): Promise<StageOutput> {
-    const timeout = this.getTimeout();
-    const startTime = performance.now();
+      const timeout = this.getTimeout();
+      const startTime = performance.now();
 
-    try {
+      try {
       // Create timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Stage '${this.name}' exceeded timeout of ${timeout}ms`));
-        }, timeout);
-      });
+          const timeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(() => {
+                  reject(new Error(`Stage '${this.name}' exceeded timeout of ${timeout}ms`));
+              }, timeout);
+          });
 
-      // Race between execution and timeout
-      const result = await Promise.race([
-        this.execute(context),
-        timeoutPromise
-      ]);
+          // Race between execution and timeout
+          const result = await Promise.race([
+              this.execute(context),
+              timeoutPromise,
+          ]);
 
-      const duration = performance.now() - startTime;
+          const duration = performance.now() - startTime;
 
-      return {
-        ...result,
-        _stageMetadata: {
-          stage: this.name,
-          duration,
-          timestamp: Date.now()
-        }
-      };
-    } catch (error) {
-      const duration = performance.now() - startTime;
-      throw new Error(`Stage '${this.name}' failed after ${duration.toFixed(2)}ms: ${(error as Error).message}`);
-    }
+          return {
+              ...result,
+              _stageMetadata: {
+                  stage: this.name,
+                  duration,
+                  timestamp: Date.now(),
+              },
+          };
+      } catch (error) {
+          const duration = performance.now() - startTime;
+          throw new Error(`Stage '${this.name}' failed after ${duration.toFixed(2)}ms: ${(error as Error).message}`);
+      }
   }
 }

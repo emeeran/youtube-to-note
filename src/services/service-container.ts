@@ -7,6 +7,7 @@ import { HuggingFaceProvider } from '../ai/huggingface';
 import { MemoryCacheService } from './cache/memory-cache';
 import { ObsidianFileService } from '../obsidian-file';
 import { OllamaProvider } from '../ai/ollama';
+import { OllamaCloudProvider } from '../ai/ollama-cloud';
 import { OpenRouterProvider } from '../ai/openrouter';
 import { YouTubeVideoService } from '../video-data';
 import { performanceTracker } from './performance-tracker';
@@ -18,7 +19,7 @@ import {
     VideoDataService,
     FileService,
     CacheService,
-    PromptService
+    PromptService,
 } from '../types';
 
 // Chrome-specific memory API type extension
@@ -86,13 +87,21 @@ export class ServiceContainer implements IServiceContainer {
                 providers.push(new OpenRouterProvider(this.settings.openRouterApiKey));
             }
 
-            // Add Ollama provider (supports both local and cloud instances)
+            // Add Ollama provider (local instances)
             providers.push(new OllamaProvider(
                 this.settings.ollamaApiKey || '',
                 undefined,
                 undefined,
                 this.settings.ollamaEndpoint || 'http://localhost:11434'
             ));
+
+            // Add Ollama Cloud provider (requires API key)
+            if (this.settings.ollamaApiKey) {
+                providers.push(new OllamaCloudProvider(
+                    this.settings.ollamaApiKey,
+                    'deepseek-r1:32b' // Default model for Ollama Cloud
+                ));
+            }
 
             const service = new AIService(providers, this.settings);
             this.recordServiceMetrics('aiService', performance.now() - startTime);
@@ -160,7 +169,7 @@ export class ServiceContainer implements IServiceContainer {
         const startTime = performance.now();
         const newService = factory();
         (this as any)[serviceProperty] = newService;
-        
+
         // Track metrics asynchronously (non-blocking)
         performanceTracker.trackOperation(
             'ServiceContainer',
@@ -169,7 +178,7 @@ export class ServiceContainer implements IServiceContainer {
             true,
             { serviceName }
         );
-        
+
         return newService;
     }
 
@@ -180,7 +189,7 @@ export class ServiceContainer implements IServiceContainer {
         this.serviceMetrics.set(serviceName, {
             creationTime,
             lastUsed: Date.now(),
-            usageCount: 0
+            usageCount: 0,
         });
     }
 
@@ -227,9 +236,9 @@ export class ServiceContainer implements IServiceContainer {
         const service = (this as any)[serviceProperty];
 
         // Call cleanup method if it exists
-        if (service && typeof (service as any).cleanup === 'function') {
+        if (service && typeof (service).cleanup === 'function') {
             try {
-                (service as any).cleanup();
+                (service).cleanup();
             } catch (error) {
                 console.warn(`Error during cleanup of ${serviceName}:`, error);
             }
@@ -358,7 +367,7 @@ export class ServiceContainer implements IServiceContainer {
         if (aiService && typeof aiService.getPerformanceMetrics === 'function') {
             performanceReport.services.aiService = {
                 ...performanceReport.services.aiService,
-                ...aiService.getPerformanceMetrics()
+                ...aiService.getPerformanceMetrics(),
             };
         }
 
@@ -366,7 +375,7 @@ export class ServiceContainer implements IServiceContainer {
         if (videoService && typeof videoService.getPerformanceMetrics === 'function') {
             performanceReport.services.videoService = {
                 ...performanceReport.services.videoService,
-                ...videoService.getPerformanceMetrics()
+                ...videoService.getPerformanceMetrics(),
             };
         }
 
@@ -380,8 +389,8 @@ export class ServiceContainer implements IServiceContainer {
             containerMetrics: {
                 uptime: performanceTracker.getUptime(),
                 services: Object.keys(serviceMetrics),
-                memoryUsage: this.isMemoryUsageHigh()
-            }
+                memoryUsage: this.isMemoryUsageHigh(),
+            },
         };
     }
 

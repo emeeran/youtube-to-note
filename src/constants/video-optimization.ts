@@ -20,7 +20,7 @@ export const ANALYSIS_STRATEGIES: Record<string, VideoAnalysisStrategy> = {
         requiresTranscript: true,
         chunkProcessing: false,
         priorityLevel: 1,
-        estimatedTimeReduction: 70
+        estimatedTimeReduction: 70,
     },
     'metadata-first': {
         name: 'Metadata-First',
@@ -29,7 +29,7 @@ export const ANALYSIS_STRATEGIES: Record<string, VideoAnalysisStrategy> = {
         requiresTranscript: false,
         chunkProcessing: false,
         priorityLevel: 1,
-        estimatedTimeReduction: 80
+        estimatedTimeReduction: 80,
     },
     'comprehensive': {
         name: 'Comprehensive Analysis',
@@ -38,6 +38,6 @@ export const ANALYSIS_STRATEGIES: Record<string, VideoAnalysisStrategy> = {
         requiresTranscript: false,
         chunkProcessing: false,
         priorityLevel: 3,
-        estimatedTimeReduction: 0
-    }
+        estimatedTimeReduction: 0,
+    },
 };

@@ -7,7 +7,7 @@ export const MESSAGES = {
     PROCESSING: 'Processing YouTube video...',
     SUCCESS: (title: string) => `Successfully processed: ${title}`,
     OPENED_FILE: (filename: string) => `Opened: ${filename}`,
-    
+
     ERRORS: {
         INVALID_URL: 'Invalid YouTube URL. Please provide a valid YouTube video URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID)',
         MISSING_API_KEYS: 'No valid Gemini or Groq API key configured. Please set one in plugin settings.',
@@ -35,24 +35,24 @@ export const MESSAGES = {
         // Provider-specific guidance
         PROVIDER_UNAVAILABLE: (provider: string) => `${provider} is currently unavailable. Try a different provider.`,
         MODEL_ACCESS_DENIED: (model: string, provider: string) => `Access denied to model "${model}" on ${provider}. Check your API tier.`,
-        CONTEXT_TOO_LONG: (provider: string) => `Content too long for ${provider}. Try a shorter video or use a different format.`
+        CONTEXT_TOO_LONG: (provider: string) => `Content too long for ${provider}. Try a shorter video or use a different format.`,
     },
-    
+
     WARNINGS: {
         CORS_RESTRICTIONS: 'Description not available due to CORS restrictions',
         EXTRACTION_FAILED: 'Description extraction failed',
         AUTO_EXTRACTION: 'Video description could not be extracted automatically.',
         SLOW_PROCESSING: 'Processing is taking longer than expected. Please wait...',
-        LARGE_TRANSCRIPT: 'This video has a long transcript. Processing may take a while.'
+        LARGE_TRANSCRIPT: 'This video has a long transcript. Processing may take a while.',
     },
-    
+
     SUCCESS_MESSAGES: {
         NOTE_CREATED: 'Note created successfully!',
         PROCESSING_COMPLETE: 'Video processed successfully!',
         CLIPBOARD_COPIED: 'Path copied to clipboard',
-        SETTINGS_SAVED: 'Settings saved'
+        SETTINGS_SAVED: 'Settings saved',
     },
-    
+
     MODALS: {
         YOUTUBE_PROCESSED: 'YouTube Video Processed',
         CONFIRM_OPEN: (filename: string) => `Successfully processed YouTube video and saved as "${filename}". Would you like to open the note now?`,
@@ -61,21 +61,21 @@ export const MESSAGES = {
         YES_OPEN: 'Yes, open note',
         NO_THANKS: 'No, thanks',
         CANCEL: 'Cancel',
-        PROCESS: 'Process'
+        PROCESS: 'Process',
     },
-    
+
     PLACEHOLDERS: {
         YOUTUBE_URL: 'https://www.youtube.com/watch?v=...',
         GEMINI_KEY: 'AIza...',
         GROQ_KEY: 'gsk_...',
-        OUTPUT_PATH: 'YouTube/Processed Videos'
+        OUTPUT_PATH: 'YouTube/Processed Videos',
     },
-    
+
     HELP: {
         API_KEY_HELP: 'Get your API key from the provider\'s developer console',
         FORMAT_BRIEF: 'A concise summary with key points',
         FORMAT_EXECUTIVE: 'A comprehensive overview with main takeaways',
         FORMAT_DETAILED: 'An in-depth guide with full details and examples',
-        FORMAT_CUSTOM: 'Use your own custom prompt template'
-    }
+        FORMAT_CUSTOM: 'Use your own custom prompt template',
+    },
 } as const;

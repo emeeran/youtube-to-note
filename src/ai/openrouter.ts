@@ -14,19 +14,19 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 function formatOpenRouterError(rawMessage: string): string {
     const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) || rawMessage.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
-    
+
     if (rawMessage.toLowerCase().includes('rate limit')) {
         return `OpenRouter rate limit reached.${retryInfo}`;
     }
-    
+
     if (rawMessage.toLowerCase().includes('insufficient') || rawMessage.toLowerCase().includes('credits')) {
-        return `OpenRouter credits exhausted. Add credits at openrouter.ai/credits`;
+        return 'OpenRouter credits exhausted. Add credits at openrouter.ai/credits';
     }
-    
+
     if (rawMessage.toLowerCase().includes('quota')) {
         return `OpenRouter quota exceeded.${retryInfo}`;
     }
-    
+
     return `OpenRouter API error.${retryInfo}`;
 }
 
@@ -51,7 +51,7 @@ export class OpenRouterProvider extends BaseAIProvider {
             const response = await fetch(OPENROUTER_API_URL, {
                 method: 'POST',
                 headers: this.createHeaders(),
-                body: JSON.stringify(this.createRequestBody(prompt))
+                body: JSON.stringify(this.createRequestBody(prompt)),
             });
 
             if (response.status === 401) {
@@ -77,7 +77,7 @@ export class OpenRouterProvider extends BaseAIProvider {
             }
 
             const data = await response.json();
-            
+
             if (!this.validateResponse(data, ['choices', '0', 'message', 'content'])) {
                 throw new Error('Invalid response format from OpenRouter API');
             }
@@ -96,7 +96,7 @@ export class OpenRouterProvider extends BaseAIProvider {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
             'HTTP-Referer': this.siteUrl,
-            'X-Title': this.siteName
+            'X-Title': this.siteName,
         };
     }
 
@@ -106,15 +106,15 @@ export class OpenRouterProvider extends BaseAIProvider {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability.'
+                    content: 'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability.',
                 },
                 {
                     role: 'user',
-                    content: prompt
-                }
+                    content: prompt,
+                },
             ],
             max_tokens: this._maxTokens,
-            temperature: this._temperature
+            temperature: this._temperature,
         };
     }
 

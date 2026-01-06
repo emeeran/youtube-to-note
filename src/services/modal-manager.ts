@@ -4,7 +4,6 @@ import { logger } from './logger';
  * Modal management service to prevent duplicate modal openings
  */
 
-
 export interface ModalState {
     isModalOpen: boolean;
     pendingModalUrl?: string;
@@ -13,7 +12,7 @@ export interface ModalState {
 
 export class ModalManager {
     private state: ModalState = {
-        isModalOpen: false
+        isModalOpen: false,
     };
 
     /**
@@ -24,12 +23,12 @@ export class ModalManager {
             if (url && url !== this.state.pendingModalUrl) {
                 return {
                     canOpen: false,
-                    reason: 'Modal already open with different URL'
+                    reason: 'Modal already open with different URL',
                 };
             }
             return {
                 canOpen: false,
-                reason: 'Modal already open with same URL'
+                reason: 'Modal already open with same URL',
             };
         }
         return { canOpen: true };
@@ -46,10 +45,10 @@ export class ModalManager {
         const callId = Math.random().toString(36).substring(2, 9);
         this.state.lastCallId = callId;
 
-        logger.info(`Modal opening requested`, 'ModalManager', {
+        logger.info('Modal opening requested', 'ModalManager', {
             callId,
             url,
-            currentState: { ...this.state }
+            currentState: { ...this.state },
         });
 
         const { canOpen, reason } = this.canOpenModal(url);
@@ -59,14 +58,14 @@ export class ModalManager {
                 callId,
                 url,
                 reason,
-                pendingUrl: this.state.pendingModalUrl
+                pendingUrl: this.state.pendingModalUrl,
             });
 
             // If this is a different URL than the pending one, update it
             if (url && url !== this.state.pendingModalUrl) {
-                logger.info(`Updating pending modal URL`, 'ModalManager', {
+                logger.info('Updating pending modal URL', 'ModalManager', {
                     oldUrl: this.state.pendingModalUrl,
-                    newUrl: url
+                    newUrl: url,
                 });
                 this.state.pendingModalUrl = url;
             }
@@ -78,18 +77,18 @@ export class ModalManager {
         this.state.isModalOpen = true;
         this.state.pendingModalUrl = url;
 
-        logger.info(`Modal state set to open`, 'ModalManager', {
+        logger.info('Modal state set to open', 'ModalManager', {
             callId,
-            url
+            url,
         });
 
         try {
             // Create enhanced onClose handler
             const enhancedOnClose = () => {
                 try {
-                    logger.info(`Modal onClose triggered`, 'ModalManager', {
+                    logger.info('Modal onClose triggered', 'ModalManager', {
                         callId,
-                        url
+                        url,
                     });
 
                     this.resetModalState();
@@ -98,9 +97,9 @@ export class ModalManager {
                         onClose();
                     }
                 } catch (error) {
-                    logger.error(`Error in modal onClose handler`, 'ModalManager', {
+                    logger.error('Error in modal onClose handler', 'ModalManager', {
                         callId,
-                        error: error instanceof Error ? error.message : String(error)
+                        error: error instanceof Error ? error.message : String(error),
                     });
                     // Force reset even if there's an error
                     this.resetModalState();
@@ -108,9 +107,9 @@ export class ModalManager {
             };
 
             // Open the modal
-            logger.info(`About to open modal`, 'ModalManager', {
+            logger.info('About to open modal', 'ModalManager', {
                 callId,
-                url
+                url,
             });
 
             const result = await openModalFn();
@@ -120,7 +119,7 @@ export class ModalManager {
                 if (this.state.isModalOpen && this.state.pendingModalUrl === url) {
                     logger.warn('Fallback modal state reset triggered', 'ModalManager', {
                         callId,
-                        url
+                        url,
                     });
                     this.resetModalState();
                 }
@@ -134,26 +133,26 @@ export class ModalManager {
                 logger.debug('Modal result is not an object, clearing fallback timeout', 'ModalManager', {
                     callId,
                     url,
-                    resultType: typeof result
+                    resultType: typeof result,
                 });
                 clearTimeout(fallbackTimeout);
             }
 
             // Add check to see if modal state changes immediately
             setTimeout(() => {
-                logger.debug(`Modal state after 100ms`, 'ModalManager', {
+                logger.debug('Modal state after 100ms', 'ModalManager', {
                     callId,
-                    isModalOpen: this.state.isModalOpen
+                    isModalOpen: this.state.isModalOpen,
                 });
             }, 100);
 
             return result;
 
         } catch (error) {
-            logger.error(`Error opening modal`, 'ModalManager', {
+            logger.error('Error opening modal', 'ModalManager', {
                 callId,
                 url,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
 
             this.resetModalState();
@@ -165,8 +164,8 @@ export class ModalManager {
      * Reset modal state
      */
     public resetModalState(): void {
-        logger.debug(`Resetting modal state`, 'ModalManager', {
-            previousState: { ...this.state }
+        logger.debug('Resetting modal state', 'ModalManager', {
+            previousState: { ...this.state },
         });
 
         this.state.isModalOpen = false;
@@ -177,12 +176,12 @@ export class ModalManager {
      * Force reset modal state (for cleanup)
      */
     public forceResetModalState(): void {
-        logger.warn(`Force resetting modal state`, 'ModalManager', {
-            previousState: { ...this.state }
+        logger.warn('Force resetting modal state', 'ModalManager', {
+            previousState: { ...this.state },
         });
 
         this.state = {
-            isModalOpen: false
+            isModalOpen: false,
         };
     }
 
@@ -212,6 +211,6 @@ export class ModalManager {
      */
     public clear(): void {
         this.forceResetModalState();
-        logger.info(`Modal manager cleared`, 'ModalManager');
+        logger.info('Modal manager cleared', 'ModalManager');
     }
 }

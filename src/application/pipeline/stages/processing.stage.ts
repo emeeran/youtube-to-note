@@ -30,102 +30,102 @@ export interface ProcessingOutput extends StageOutput {
 }
 
 export class ProcessingStage extends BaseStage {
-  readonly name = 'processing';
+    readonly name = 'processing';
 
-  constructor(
+    constructor(
     private aiService?: any,
     private promptService?: any
-  ) {
-    super();
-  }
-
-  async execute(context: PipelineContext): Promise<ProcessingOutput> {
-    const startTime = performance.now();
-    const input = context.input as ProcessingInput;
-
-    if (!this.aiService) {
-      throw new Error('AI service not available');
+    ) {
+        super();
     }
 
-    // Create prompt
-    const prompt = await this.createPrompt(input);
+    async execute(context: PipelineContext): Promise<ProcessingOutput> {
+        const startTime = performance.now();
+        const input = context.input as ProcessingInput;
 
-    // Set model parameters if provided
-    if (input.maxTokens || input.temperature !== undefined) {
-      this.setModelParameters(input.maxTokens, input.temperature);
+        if (!this.aiService) {
+            throw new Error('AI service not available');
+        }
+
+        // Create prompt
+        const prompt = await this.createPrompt(input);
+
+        // Set model parameters if provided
+        if (input.maxTokens || input.temperature !== undefined) {
+            this.setModelParameters(input.maxTokens, input.temperature);
+        }
+
+        // Process with AI
+        let aiResponse;
+        try {
+            if (input.providerName) {
+                // Use specific provider
+                aiResponse = await this.aiService.processWith(
+                    input.providerName,
+                    prompt,
+                    input.model,
+                    undefined,
+                    true // enable fallback
+                );
+            } else {
+                // Use auto-selection
+                aiResponse = await this.aiService.process(prompt);
+            }
+        } catch (error) {
+            throw new Error(`AI processing failed: ${(error as Error).message}`);
+        }
+
+        const responseTime = performance.now() - startTime;
+
+        return {
+            generatedContent: aiResponse.content,
+            provider: aiResponse.provider,
+            model: aiResponse.model,
+            metrics: {
+                responseTime,
+                tokenCount: aiResponse.content?.length || 0,
+            },
+            fallbackChain: aiResponse.fallbackChain || [],
+        };
     }
 
-    // Process with AI
-    let aiResponse;
-    try {
-      if (input.providerName) {
-        // Use specific provider
-        aiResponse = await this.aiService.processWith(
-          input.providerName,
-          prompt,
-          input.model,
-          undefined,
-          true // enable fallback
+    private async createPrompt(input: ProcessingInput): Promise<string> {
+        if (!this.promptService) {
+            throw new Error('Prompt service not available');
+        }
+
+        const format = input.format || 'detailed-guide';
+
+        return this.promptService.createAnalysisPrompt(
+            input.videoData,
+            input.url,
+            format,
+            input.customPrompt,
+            input.transcript
         );
-      } else {
-        // Use auto-selection
-        aiResponse = await this.aiService.process(prompt);
-      }
-    } catch (error) {
-      throw new Error(`AI processing failed: ${(error as Error).message}`);
     }
 
-    const responseTime = performance.now() - startTime;
+    private setModelParameters(maxTokens?: number, temperature?: number): void {
+        if (!this.aiService) return;
 
-    return {
-      generatedContent: aiResponse.content,
-      provider: aiResponse.provider,
-      model: aiResponse.model,
-      metrics: {
-        responseTime,
-        tokenCount: aiResponse.content?.length || 0
-      },
-      fallbackChain: aiResponse.fallbackChain || []
-    };
-  }
-
-  private async createPrompt(input: ProcessingInput): Promise<string> {
-    if (!this.promptService) {
-      throw new Error('Prompt service not available');
+        // Set model parameters on providers if available
+        const providers = (this.aiService).providers || [];
+        for (const provider of providers) {
+            if (maxTokens && provider.setMaxTokens) {
+                provider.setMaxTokens(maxTokens);
+            }
+            if (temperature !== undefined && provider.setTemperature) {
+                provider.setTemperature(temperature);
+            }
+        }
     }
 
-    const format = input.format || 'detailed-guide';
-
-    return this.promptService.createAnalysisPrompt(
-      input.videoData,
-      input.url,
-      format,
-      input.customPrompt,
-      input.transcript
-    );
-  }
-
-  private setModelParameters(maxTokens?: number, temperature?: number): void {
-    if (!this.aiService) return;
-
-    // Set model parameters on providers if available
-    const providers = (this.aiService as any).providers || [];
-    for (const provider of providers) {
-      if (maxTokens && provider.setMaxTokens) {
-        provider.setMaxTokens(maxTokens);
-      }
-      if (temperature !== undefined && provider.setTemperature) {
-        provider.setTemperature(temperature);
-      }
+    canExecute(context: PipelineContext): boolean {
+        const input = context.input as ProcessingInput;
+        return !!(input?.videoData && input.url);
     }
-  }
 
-  canExecute(context: PipelineContext): boolean {
-    const input = context.input as ProcessingInput;
-    return !!(input && input.videoData && input.url);
-  }
-
-  getTimeout(): number {
-    return 120000; // 2 minutes for AI processing
-  }
+    getTimeout(): number {
+        return 120000; // 2 minutes for AI processing
+    }
 }

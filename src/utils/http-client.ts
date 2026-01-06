@@ -44,7 +44,7 @@ export class OptimizedHttpClient {
             maxConcurrent: 10,
             keepAlive: true,
             enableMetrics: true,
-            ...config
+            ...config,
         };
         this.maxConcurrent = this.config.maxConcurrent;
     }
@@ -63,7 +63,7 @@ export class OptimizedHttpClient {
             controller,
             startTime: performance.now(),
             url,
-            method: options.method || 'GET'
+            method: options.method || 'GET',
         };
 
         this.activeRequests.add(request);
@@ -76,8 +76,8 @@ export class OptimizedHttpClient {
                     'Connection': this.config.keepAlive ? 'keep-alive' : 'close',
                     'Keep-Alive': `timeout=${this.config.timeout / 1000}`,
                     'User-Agent': 'YouTube-Clipper/1.3.5',
-                    ...options.headers
-                }
+                    ...options.headers,
+                },
             });
 
             // Remove timeout if request completed
@@ -91,7 +91,7 @@ export class OptimizedHttpClient {
                     duration: performance.now() - request.startTime,
                     success: response.ok,
                     statusCode: response.status,
-                    retryCount: 0
+                    retryCount: 0,
                 });
             }
 
@@ -143,10 +143,10 @@ export class OptimizedHttpClient {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...options.headers
+                ...options.headers,
             },
             body: JSON.stringify(data),
-            ...options
+            ...options,
         });
     }
 
@@ -156,7 +156,7 @@ export class OptimizedHttpClient {
     async get(url: string, options: RequestInit = {}): Promise<Response> {
         return this.request(url, {
             method: 'GET',
-            ...options
+            ...options,
         });
     }
 
@@ -168,10 +168,10 @@ export class OptimizedHttpClient {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                ...options.headers
+                ...options.headers,
             },
             body: JSON.stringify(data),
-            ...options
+            ...options,
         });
     }
 
@@ -181,7 +181,7 @@ export class OptimizedHttpClient {
     async delete(url: string, options: RequestInit = {}): Promise<Response> {
         return this.request(url, {
             method: 'DELETE',
-            ...options
+            ...options,
         });
     }
 
@@ -222,7 +222,7 @@ export class OptimizedHttpClient {
         const metric: RequestMetrics = {
             retryCount: 0,
             timestamp: Date.now(),
-            ...metrics
+            ...metrics,
         };
 
         this.requestMetrics.push(metric);
@@ -245,7 +245,7 @@ export class OptimizedHttpClient {
         successRate: number;
         errorRate: number;
         timeouts: number;
-    } {
+        } {
         const totalRequests = this.requestMetrics.length;
         const activeRequests = this.activeRequests.size;
         const successfulRequests = this.requestMetrics.filter(m => m.success).length;
@@ -266,7 +266,7 @@ export class OptimizedHttpClient {
                 durations.reduce((a, b) => a + b, 0) / durations.length : 0,
             successRate: totalRequests > 0 ? successfulRequests / totalRequests : 0,
             errorRate: totalRequests > 0 ? (totalRequests - successfulRequests) / totalRequests : 0,
-            timeouts: timeoutRequests
+            timeouts: timeoutRequests,
         };
     }
 
@@ -280,7 +280,7 @@ export class OptimizedHttpClient {
             byMethod: Record<string, { count: number; averageTime: number; successRate: number }>;
             byTimeRange: Record<string, number>;
         };
-    } {
+        } {
         // Analyze metrics by status code
         const byStatus: Record<number, number> = {};
         this.requestMetrics.forEach(metric => {
@@ -307,9 +307,9 @@ export class OptimizedHttpClient {
                 byTimeRange: {
                     lastHour: this.getMetricsByTimeRange(Date.now() - 3600000),
                     lastDay: this.getMetricsByTimeRange(Date.now() - 86400000),
-                    lastWeek: this.getMetricsByTimeRange(Date.now() - 604800000)
-                }
-            }
+                    lastWeek: this.getMetricsByTimeRange(Date.now() - 604800000),
+                },
+            },
         };
     }
 
@@ -341,7 +341,7 @@ export class OptimizedHttpClient {
         return {
             count,
             averageTime: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0,
-            successRate: count > 0 ? successfulRequests.length / count : 0
+            successRate: count > 0 ? successfulRequests.length / count : 0,
         };
     }
 

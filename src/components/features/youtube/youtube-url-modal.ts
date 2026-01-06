@@ -11,10 +11,10 @@ import { App, Notice } from 'obsidian';
  * YouTube URL input modal component
  */
 
-
 export interface YouTubeUrlModalOptions {
     onProcess: (url: string, format: OutputFormat, provider?: string, model?: string, customPrompt?: string, performanceMode?: PerformanceMode, enableParallel?: boolean, preferMultimodal?: boolean, maxTokens?: number, temperature?: number, enableAutoFallback?: boolean) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
+    onOpenBatchModal?: () => void;
     initialUrl?: string;
     providers?: string[]; // available provider names
     modelOptions?: Record<string, string[]>; // mapping providerName -> models
@@ -69,6 +69,7 @@ export class YouTubeUrlModal extends BaseModal {
 
     // Theme state
     private isLightTheme = false;
+    private autoFallbackEnabled = true;
     private themeElements?: {
         slider: HTMLDivElement;
         knob: HTMLDivElement;
@@ -116,30 +117,38 @@ export class YouTubeUrlModal extends BaseModal {
             temperature: options.defaultTemperature || 0.5,
             performanceMode: smartDefaults.mode,
             parallelProcessing: smartDefaults.parallel,
-            multimodal: smartDefaults.multimodal
+            multimodal: smartDefaults.multimodal,
         });
     }
 
     onOpen(): void {
-        console.log("[YT-CLIPPER] YouTubeUrlModal.onOpen called");
-        this.createModalContent();
-        this.setupEventHandlers();
-        this.setupKeyboardShortcuts();
+        console.log('[YT-CLIPPER] YouTubeUrlModal.onOpen called');
+        try {
+            this.createModalContent();
+            console.log('[YT-CLIPPER] Modal content created');
+            this.setupEventHandlers();
+            console.log('[YT-CLIPPER] Event handlers set up');
+            this.setupKeyboardShortcuts();
+            console.log('[YT-CLIPPER] Keyboard shortcuts set up');
 
-        // Automatically fetch fresh models for the current provider on modal open
-        this.fetchModelsForCurrentProvider();
+            // Automatically fetch fresh models for the current provider on modal open
+            this.fetchModelsForCurrentProvider();
 
-        // If an initial URL was provided, validate and focus the appropriate control
-        if (this.options.initialUrl) {
-            this.setUrl(this.options.initialUrl);
-            this.updateProcessButtonState();
-            const isValid = ValidationUtils.isValidYouTubeUrl((this.options.initialUrl || '').trim());
-            if (isValid && this.processButton) {
-                this.processButton.focus();
-                return;
+            // If an initial URL was provided, validate and focus the appropriate control
+            if (this.options.initialUrl) {
+                this.setUrl(this.options.initialUrl);
+                this.updateProcessButtonState();
+                const isValid = ValidationUtils.isValidYouTubeUrl((this.options.initialUrl || '').trim());
+                if (isValid && this.processButton) {
+                    this.processButton.focus();
+                    return;
+                }
             }
+            this.focusUrlInput();
+        } catch (error) {
+            console.error('[YT-CLIPPER] Error in onOpen:', error);
+            throw error;
         }
-        this.focusUrlInput();
     }
 
     /**
@@ -155,7 +164,7 @@ export class YouTubeUrlModal extends BaseModal {
             const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
             console.log('[YT-CLIPPER] Fetched models:', models?.length || 0);
             if (models && models.length > 0) {
-                const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider!]: models };
+                const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
                 this.options.modelOptions = updatedOptions;
                 this.updateModelDropdown(updatedOptions);
                 console.log('[YT-CLIPPER] Updated dropdown with', models.length, 'models');
@@ -176,15 +185,31 @@ export class YouTubeUrlModal extends BaseModal {
      * Create modal content
      */
     private createModalContent(): void {
-        this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
-        this.createUrlSection();
-        this.createDropdownRow();
-        this.createIconsRow();
-        this.createProgressSection();
-        this.createActionButtons();
+        console.log('[YT-CLIPPER] createModalContent starting');
+        try {
+            this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
+            console.log('[YT-CLIPPER] Header created');
+            this.createUrlSection();
+            console.log('[YT-CLIPPER] URL section created');
+            this.createDropdownRow();
+            console.log('[YT-CLIPPER] Dropdown row created');
+            // Initialize dropdowns with current values
+            this.updateModelDropdown(this.options.modelOptions);
+            console.log('[YT-CLIPPER] Model dropdown initialized');
+            this.createIconsRow();
+            console.log('[YT-CLIPPER] Icons row created');
+            this.createProgressSection();
+            console.log('[YT-CLIPPER] Progress section created');
+            this.createActionButtons();
+            console.log('[YT-CLIPPER] Action buttons created');
 
-        // Apply theme immediately on modal open
-        this.applyTheme(this.isLightTheme);
+            // Apply theme immediately on modal open
+            this.applyTheme(this.isLightTheme);
+            console.log('[YT-CLIPPER] Theme applied');
+        } catch (error) {
+            console.error('[YT-CLIPPER] Error in createModalContent:', error);
+            throw error;
+        }
     }
 
     /**
@@ -312,13 +337,17 @@ export class YouTubeUrlModal extends BaseModal {
             { value: 'Hugging Face', text: 'HuggingFace' },
             { value: 'OpenRouter', text: 'OpenRouter' },
             { value: 'Ollama', text: 'Ollama' },
-            { value: 'Ollama Cloud', text: 'OllamaCloud' }
+            { value: 'Ollama Cloud', text: 'OllamaCloud' },
         ];
 
         providerOptions.forEach(option => {
             const optionEl = this.providerSelect!.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
+            optionEl.style.cssText = `
+                color: #000000;
+                background: #ffffff;
+            `;
         });
 
         this.providerSelect.addEventListener('change', () => {
@@ -378,7 +407,7 @@ export class YouTubeUrlModal extends BaseModal {
 
             try {
                 const currentProvider = this.selectedProvider || 'Google Gemini';
-                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud', 'Groq'];
+                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud', 'Groq', 'OllamaCloud'];
                 const isDynamicProvider = dynamicProviders.includes(currentProvider);
 
                 if (this.options.fetchModelsForProvider) {
@@ -470,13 +499,17 @@ export class YouTubeUrlModal extends BaseModal {
             { value: 'executive-summary', text: '📊 Executive Summary' },
             { value: 'detailed-guide', text: '📖 Comprehensive Guide' },
             { value: 'brief', text: '⚡ Brief Summary' },
-            { value: 'custom', text: '✏️ Custom Format' }
+            { value: 'custom', text: '✏️ Custom Format' },
         ];
 
         formatOptions.forEach(option => {
             const optionEl = this.formatSelect!.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
+            optionEl.style.cssText = `
+                color: #000000;
+                background: #ffffff;
+            `;
         });
 
         this.formatSelect.value = this.format;
@@ -498,6 +531,10 @@ export class YouTubeUrlModal extends BaseModal {
             grid-template-columns: 1fr 1fr 1.2fr;
             gap: 12px;
             margin: 20px 0;
+            padding: 15px;
+            background: var(--background-secondary);
+            border-radius: 10px;
+            border: 1px solid var(--background-modifier-border);
         `;
 
         // Format dropdown
@@ -521,7 +558,7 @@ export class YouTubeUrlModal extends BaseModal {
             border-radius: 8px;
             font-size: 16px;
             background: #ffffff;
-            color: #333;
+            color: #000000;
             cursor: pointer;
             outline: none;
             transition: all 0.2s ease;
@@ -531,13 +568,17 @@ export class YouTubeUrlModal extends BaseModal {
             { value: 'executive-summary', text: '1. Executive' },
             { value: 'detailed-guide', text: '2. Detailed' },
             { value: 'brief', text: '3. Brief' },
-            { value: 'custom', text: '4. Custom' }
+            { value: 'custom', text: '4. Custom' },
         ];
 
         formatOptions.forEach(option => {
             const optionEl = this.formatSelect.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
+            optionEl.style.cssText = `
+                color: #000000;
+                background: #ffffff;
+            `;
         });
 
         this.formatSelect.value = this.format;
@@ -568,7 +609,7 @@ export class YouTubeUrlModal extends BaseModal {
             border-radius: 8px;
             font-size: 16px;
             background: #ffffff;
-            color: #333;
+            color: #000000;
             cursor: pointer;
             outline: none;
             transition: all 0.2s ease;
@@ -580,14 +621,21 @@ export class YouTubeUrlModal extends BaseModal {
             { value: 'Hugging Face', text: 'HuggingFace' },
             { value: 'OpenRouter', text: 'OpenRouter' },
             { value: 'Ollama', text: 'Ollama' },
-            { value: 'Ollama Cloud', text: 'OllamaCloud' }
+            { value: 'Ollama Cloud', text: 'OllamaCloud' },
         ];
 
         providerOptions.forEach(option => {
             const optionEl = this.providerSelect.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
+            optionEl.style.cssText = `
+                color: #000000;
+                background: #ffffff;
+            `;
         });
+
+        // Set the initial provider value
+        this.providerSelect.value = this.selectedProvider;
 
         this.providerSelect.addEventListener('change', () => {
             this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
@@ -631,7 +679,7 @@ export class YouTubeUrlModal extends BaseModal {
             border-radius: 8px;
             font-size: 16px;
             background: #ffffff;
-            color: #333;
+            color: #000000;
             cursor: pointer;
             outline: none;
             transition: all 0.2s ease;
@@ -643,28 +691,32 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create icons row with sun, refresh, star and toggle switch
+     * Create icons row with sun, refresh, star, batch button and toggle switch
      */
     private createIconsRow(): void {
         const iconsRow = this.contentEl.createDiv();
         iconsRow.style.cssText = `
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
+            gap: 12px;
             margin: 15px 0;
             padding: 10px 0;
         `;
 
-        // Left side icons
-        const leftIcons = iconsRow.createDiv();
-        leftIcons.style.cssText = `
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        `;
+        const createSeparator = () => {
+            const sep = iconsRow.createSpan();
+            sep.textContent = '|';
+            sep.style.cssText = `
+                color: #ccc;
+                font-size: 14px;
+                opacity: 0.5;
+            `;
+            return sep;
+        };
 
         // Sun icon (theme toggle placeholder)
-        const sunIcon = leftIcons.createSpan();
+        const sunIcon = iconsRow.createSpan();
         sunIcon.innerHTML = '☀️';
         sunIcon.style.cssText = `
             font-size: 18px;
@@ -685,8 +737,10 @@ export class YouTubeUrlModal extends BaseModal {
             localStorage.setItem('ytc-theme-mode', this.isLightTheme ? 'light' : 'dark');
         });
 
+        createSeparator();
+
         // Refresh icon
-        const refreshIcon = leftIcons.createSpan();
+        const refreshIcon = iconsRow.createSpan();
         refreshIcon.innerHTML = '🔄';
         refreshIcon.style.cssText = `
             font-size: 18px;
@@ -711,8 +765,10 @@ export class YouTubeUrlModal extends BaseModal {
             }, 500);
         });
 
+        createSeparator();
+
         // Star icon
-        const starIcon = leftIcons.createSpan();
+        const starIcon = iconsRow.createSpan();
         starIcon.innerHTML = '⭐';
         starIcon.style.cssText = `
             font-size: 18px;
@@ -734,14 +790,69 @@ export class YouTubeUrlModal extends BaseModal {
             }
         });
 
-        // Right side toggle switch (no label)
-        const toggleSwitch = iconsRow.createDiv();
+        createSeparator();
+
+        // Batch Process button
+        const batchButton = iconsRow.createEl('button');
+        batchButton.innerHTML = '📦 Batch';
+        batchButton.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            opacity: 0.9;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        `;
+        batchButton.title = 'Process multiple videos at once';
+        batchButton.addEventListener('mouseenter', () => {
+            batchButton.style.opacity = '1';
+            batchButton.style.transform = 'translateY(-1px)';
+            batchButton.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+        });
+        batchButton.addEventListener('mouseleave', () => {
+            batchButton.style.opacity = '0.9';
+            batchButton.style.transform = 'translateY(0)';
+            batchButton.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+        });
+        batchButton.addEventListener('click', () => {
+            if (this.options.onOpenBatchModal) {
+                this.options.onOpenBatchModal();
+            }
+        });
+
+        createSeparator();
+
+        // Auto-fallback toggle switch
+        const toggleWrapper = iconsRow.createDiv();
+        toggleWrapper.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+
+        const toggleLabel = toggleWrapper.createSpan();
+        toggleLabel.textContent = 'Auto';
+        toggleLabel.style.cssText = `
+            font-size: 11px;
+            color: #666;
+            font-weight: 500;
+        `;
+
+        const toggleSwitch = toggleWrapper.createDiv();
         toggleSwitch.style.cssText = `
             position: relative;
-            width: 44px;
-            height: 24px;
+            width: 40px;
+            height: 22px;
             background: #00b894;
-            border-radius: 12px;
+            border-radius: 11px;
             cursor: pointer;
             transition: background 0.2s ease;
             flex-shrink: 0;
@@ -751,9 +862,9 @@ export class YouTubeUrlModal extends BaseModal {
         toggleKnob.style.cssText = `
             position: absolute;
             top: 2px;
-            left: 22px;
-            width: 20px;
-            height: 20px;
+            left: 20px;
+            width: 18px;
+            height: 18px;
             background: white;
             border-radius: 50%;
             transition: transform 0.2s ease;
@@ -769,11 +880,11 @@ export class YouTubeUrlModal extends BaseModal {
                 this.autoFallbackEnabled = true;
             } else {
                 toggleSwitch.style.background = '#ccc';
-                toggleKnob.style.transform = 'translateX(-20px)';
+                toggleKnob.style.transform = 'translateX(-18px)';
                 this.autoFallbackEnabled = false;
             }
             UserPreferencesService.updateLastUsed({
-                autoFallback: this.autoFallbackEnabled
+                autoFallback: this.autoFallbackEnabled,
             });
         });
     }
@@ -864,7 +975,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Show container with loading skeleton animation
         this.videoPreviewContainer.style.display = 'block';
-        
+
         // Add skeleton loading styles
         const skeletonAnim = `
             @keyframes ytc-skeleton-pulse {
@@ -883,7 +994,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.thumbnailEl.style.background = 'var(--background-modifier-border)';
         this.thumbnailEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
         this.thumbnailEl.src = '';
-        
+
         if (this.videoTitleEl) {
             this.videoTitleEl.textContent = '████████████████';
             this.videoTitleEl.style.color = 'var(--background-modifier-border)';
@@ -1082,7 +1193,6 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Create ultra-compact auto fallback toggle
      */
-    private autoFallbackEnabled = true;
     private fallbackToggle?: HTMLInputElement;
 
     private createFallbackToggle(parent: HTMLElement): void {
@@ -1186,7 +1296,7 @@ export class YouTubeUrlModal extends BaseModal {
 
             // Save auto-fallback preference to last used
             UserPreferencesService.updateLastUsed({
-                autoFallback: this.autoFallbackEnabled
+                autoFallback: this.autoFallbackEnabled,
             });
 
             updateToggleStyle();
@@ -1209,7 +1319,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Get available models for the current provider
         let models: string[] = [];
-        if (modelOptionsMap && modelOptionsMap[currentProvider]) {
+        if (modelOptionsMap?.[currentProvider]) {
             models = modelOptionsMap[currentProvider] ?? [];
         } else {
             // Fallback to PROVIDER_MODEL_OPTIONS (single source of truth)
@@ -1237,6 +1347,12 @@ export class YouTubeUrlModal extends BaseModal {
             if (isMultimodal) {
                 option.title = `${formattedName} - Supports vision and multimodal analysis`;
             }
+
+            // Ensure black text on white background for all options
+            option.style.cssText = `
+                color: #000000;
+                background: #ffffff;
+            `;
         });
 
         // Try to find the best model to select:
@@ -1272,6 +1388,14 @@ export class YouTubeUrlModal extends BaseModal {
         if (modelName === 'gemini-1.5-pro') return 'Gemini Pro 1.5';
         if (modelName === 'gemini-1.5-flash') return 'Gemini Flash 1.5';
         if (modelName === 'qwen3-coder:480b-cloud') return 'Qwen3-Coder 480B Cloud';
+
+        // DeepSeek v3.2 Models (NEW)
+        if (modelName === 'deepseek-v3.2') return 'DeepSeek v3.2';
+        if (modelName === 'deepseek-v3.2:latest') return 'DeepSeek v3.2 (Latest)';
+        if (modelName === 'deepseek-v3.2:32b') return 'DeepSeek v3.2 32B';
+        if (modelName === 'deepseek-v3.2:70b') return 'DeepSeek v3.2 70B';
+        if (modelName === 'deepseek-v3.2:instruct') return 'DeepSeek v3.2 Instruct';
+        if (modelName === 'deepseek-v3.2:coder') return 'DeepSeek v3.2 Coder';
 
         // Official Groq Models (December 2024)
         if (modelName === 'llama-3.1-8b-instant') return 'Llama 3.1 8B Instant ⚡';
@@ -1389,7 +1513,7 @@ export class YouTubeUrlModal extends BaseModal {
             knob: toggleBtn,
             sunIcon: toggleBtn,
             moonIcon: toggleBtn,
-            updateTheme
+            updateTheme,
         };
     }
 
@@ -1404,171 +1528,171 @@ export class YouTubeUrlModal extends BaseModal {
             let css = '';
 
             // Light theme colors - refined warm palette
-            css += `.ytc-modal-light {`;
-            css += `--ytc-bg-primary: #fafbfc;`;
-            css += `--ytc-bg-secondary: #f0f2f5;`;
-            css += `--ytc-bg-tertiary: #e4e7eb;`;
-            css += `--ytc-bg-input: #ffffff;`;
-            css += `--ytc-text-primary: #1a1d21;`;
-            css += `--ytc-text-secondary: #4a5568;`;
-            css += `--ytc-text-muted: #718096;`;
-            css += `--ytc-border: #d1d5db;`;
-            css += `--ytc-border-focus: #0f766e;`;
-            css += `--ytc-accent: #0d9488;`;
-            css += `--ytc-accent-hover: #0f766e;`;
-            css += `--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);`;
-            css += `--ytc-success: #10b981;`;
-            css += `--ytc-warning: #f59e0b;`;
-            css += `--ytc-error: #ef4444;`;
-            css += `--ytc-shadow: rgba(0, 0, 0, 0.08);`;
-            css += `--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);`;
-            css += `--ytc-glow: 0 0 20px rgba(13, 148, 136, 0.25);`;
-            css += `}`;
+            css += '.ytc-modal-light {';
+            css += '--ytc-bg-primary: #fafbfc;';
+            css += '--ytc-bg-secondary: #f0f2f5;';
+            css += '--ytc-bg-tertiary: #e4e7eb;';
+            css += '--ytc-bg-input: #ffffff;';
+            css += '--ytc-text-primary: #1a1d21;';
+            css += '--ytc-text-secondary: #4a5568;';
+            css += '--ytc-text-muted: #718096;';
+            css += '--ytc-border: #d1d5db;';
+            css += '--ytc-border-focus: #0f766e;';
+            css += '--ytc-accent: #0d9488;';
+            css += '--ytc-accent-hover: #0f766e;';
+            css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);';
+            css += '--ytc-success: #10b981;';
+            css += '--ytc-warning: #f59e0b;';
+            css += '--ytc-error: #ef4444;';
+            css += '--ytc-shadow: rgba(0, 0, 0, 0.08);';
+            css += '--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);';
+            css += '--ytc-glow: 0 0 20px rgba(13, 148, 136, 0.25);';
+            css += '}';
 
             // Dark theme colors - premium dark palette with depth
-            css += `.ytc-modal-dark {`;
-            css += `--ytc-bg-primary: #1a1b1e;`;
-            css += `--ytc-bg-secondary: #25262b;`;
-            css += `--ytc-bg-tertiary: #2c2e33;`;
-            css += `--ytc-bg-input: #141517;`;
-            css += `--ytc-text-primary: #ebedf0;`;
-            css += `--ytc-text-secondary: #a8adb5;`;
-            css += `--ytc-text-muted: #6b7280;`;
-            css += `--ytc-border: #3f444e;`;
-            css += `--ytc-border-focus: #2dd4bf;`;
-            css += `--ytc-accent: #2dd4bf;`;
-            css += `--ytc-accent-hover: #14b8a6;`;
-            css += `--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);`;
-            css += `--ytc-success: #34d399;`;
-            css += `--ytc-warning: #fbbf24;`;
-            css += `--ytc-error: #fb7185;`;
-            css += `--ytc-shadow: rgba(0, 0, 0, 0.5);`;
-            css += `--ytc-shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.65);`;
-            css += `--ytc-glow: 0 0 40px rgba(45, 212, 191, 0.3);`;
-            css += `}`;
+            css += '.ytc-modal-dark {';
+            css += '--ytc-bg-primary: #1a1b1e;';
+            css += '--ytc-bg-secondary: #25262b;';
+            css += '--ytc-bg-tertiary: #2c2e33;';
+            css += '--ytc-bg-input: #141517;';
+            css += '--ytc-text-primary: #ebedf0;';
+            css += '--ytc-text-secondary: #a8adb5;';
+            css += '--ytc-text-muted: #6b7280;';
+            css += '--ytc-border: #3f444e;';
+            css += '--ytc-border-focus: #2dd4bf;';
+            css += '--ytc-accent: #2dd4bf;';
+            css += '--ytc-accent-hover: #14b8a6;';
+            css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);';
+            css += '--ytc-success: #34d399;';
+            css += '--ytc-warning: #fbbf24;';
+            css += '--ytc-error: #fb7185;';
+            css += '--ytc-shadow: rgba(0, 0, 0, 0.5);';
+            css += '--ytc-shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.65);';
+            css += '--ytc-glow: 0 0 40px rgba(45, 212, 191, 0.3);';
+            css += '}';
 
             // Modal container styling
-            css += `.ytc-themed-modal .modal-content {`;
-            css += `background: var(--ytc-bg-secondary) !important;`;
-            css += `border-radius: 12px !important;`;
-            css += `border: 1px solid var(--ytc-border) !important;`;
-            css += `box-shadow: var(--ytc-shadow-lg), 0 0 0 1px rgba(255,255,255,0.05), var(--ytc-glow) !important;`;
-            css += `padding: 20px !important;`;
-            css += `max-width: 520px !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal .modal-content {';
+            css += 'background: var(--ytc-bg-secondary) !important;';
+            css += 'border-radius: 12px !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'box-shadow: var(--ytc-shadow-lg), 0 0 0 1px rgba(255,255,255,0.05), var(--ytc-glow) !important;';
+            css += 'padding: 20px !important;';
+            css += 'max-width: 520px !important;';
+            css += '}';
 
             // Header styling
-            css += `.ytc-themed-modal .ytc-modal-header {`;
-            css += `background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;`;
-            css += `-webkit-background-clip: text !important;`;
-            css += `-webkit-text-fill-color: transparent !important;`;
-            css += `background-clip: text !important;`;
-            css += `font-size: 1.5rem !important;`;
-            css += `font-weight: 700 !important;`;
-            css += `margin-bottom: 20px !important;`;
-            css += `text-align: center !important;`;
-            css += `width: 100% !important;`;
-            css += `display: block !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal .ytc-modal-header {';
+            css += 'background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;';
+            css += '-webkit-background-clip: text !important;';
+            css += '-webkit-text-fill-color: transparent !important;';
+            css += 'background-clip: text !important;';
+            css += 'font-size: 1.5rem !important;';
+            css += 'font-weight: 700 !important;';
+            css += 'margin-bottom: 20px !important;';
+            css += 'text-align: center !important;';
+            css += 'width: 100% !important;';
+            css += 'display: block !important;';
+            css += '}';
 
             // Input field styling
-            css += `.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {`;
-            css += `background: var(--ytc-bg-input) !important;`;
-            css += `border: 1px solid var(--ytc-border) !important;`;
-            css += `border-radius: 6px !important;`;
-            css += `color: var(--ytc-text-primary) !important;`;
-            css += `transition: all 0.2s ease !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal input:hover {`;
-            css += `border-color: #525863 !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal input:focus {`;
-            css += `border-color: var(--ytc-border-focus) !important;`;
-            css += `box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 0 20px rgba(45, 212, 191, 0.1) !important;`;
-            css += `outline: none !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {';
+            css += 'background: var(--ytc-bg-input) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'border-radius: 6px !important;';
+            css += 'color: var(--ytc-text-primary) !important;';
+            css += 'transition: all 0.2s ease !important;';
+            css += '}';
+            css += '.ytc-themed-modal input:hover {';
+            css += 'border-color: #525863 !important;';
+            css += '}';
+            css += '.ytc-themed-modal input:focus {';
+            css += 'border-color: var(--ytc-border-focus) !important;';
+            css += 'box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 0 20px rgba(45, 212, 191, 0.1) !important;';
+            css += 'outline: none !important;';
+            css += '}';
 
             // Select dropdown styling
-            css += `.ytc-themed-modal select {`;
-            css += `background: var(--ytc-bg-input) !important;`;
-            css += `border: 1px solid var(--ytc-border) !important;`;
-            css += `border-radius: 6px !important;`;
-            css += `color: var(--ytc-text-primary) !important;`;
-            css += `transition: all 0.2s ease !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal select:hover {`;
-            css += `border-color: #525863 !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal select:focus {`;
-            css += `border-color: var(--ytc-border-focus) !important;`;
-            css += `box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;`;
-            css += `outline: none !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal select option {`;
-            css += `background: var(--ytc-bg-secondary) !important;`;
-            css += `color: var(--ytc-text-primary) !important;`;
-            css += `padding: 4px 8px !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal select {';
+            css += 'background: var(--ytc-bg-input) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'border-radius: 6px !important;';
+            css += 'color: var(--ytc-text-primary) !important;';
+            css += 'transition: all 0.2s ease !important;';
+            css += '}';
+            css += '.ytc-themed-modal select:hover {';
+            css += 'border-color: #525863 !important;';
+            css += '}';
+            css += '.ytc-themed-modal select:focus {';
+            css += 'border-color: var(--ytc-border-focus) !important;';
+            css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
+            css += 'outline: none !important;';
+            css += '}';
+            css += '.ytc-themed-modal select option {';
+            css += 'background: var(--ytc-bg-secondary) !important;';
+            css += 'color: #000000 !important;';
+            css += 'padding: 4px 8px !important;';
+            css += '}';
 
             // Button styling
-            css += `.ytc-themed-modal button {`;
-            css += `border-radius: 6px !important;`;
-            css += `font-weight: 500 !important;`;
-            css += `transition: all 0.2s ease !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal button:hover {`;
-            css += `transform: translateY(-1px) !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal button {';
+            css += 'border-radius: 6px !important;';
+            css += 'font-weight: 500 !important;';
+            css += 'transition: all 0.2s ease !important;';
+            css += '}';
+            css += '.ytc-themed-modal button:hover {';
+            css += 'transform: translateY(-1px) !important;';
+            css += '}';
 
             // Primary button (Process)
-            css += `.ytc-themed-modal .mod-cta, .ytc-themed-modal button[style*="interactive-accent"] {`;
-            css += `background: var(--ytc-accent-gradient) !important;`;
-            css += `border: none !important;`;
-            css += `color: white !important;`;
-            css += `box-shadow: 0 4px 15px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.15) !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal .mod-cta:hover {`;
-            css += `transform: translateY(-2px) !important;`;
-            css += `box-shadow: 0 6px 25px rgba(45, 212, 191, 0.45), 0 0 30px rgba(45, 212, 191, 0.25) !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal .mod-cta, .ytc-themed-modal button[style*="interactive-accent"] {';
+            css += 'background: var(--ytc-accent-gradient) !important;';
+            css += 'border: none !important;';
+            css += 'color: white !important;';
+            css += 'box-shadow: 0 4px 15px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.15) !important;';
+            css += '}';
+            css += '.ytc-themed-modal .mod-cta:hover {';
+            css += 'transform: translateY(-2px) !important;';
+            css += 'box-shadow: 0 6px 25px rgba(45, 212, 191, 0.45), 0 0 30px rgba(45, 212, 191, 0.25) !important;';
+            css += '}';
 
             // Labels styling
-            css += `.ytc-themed-modal [style*="font-weight: 500"] {`;
-            css += `color: var(--ytc-text-secondary) !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal [style*="font-weight: 500"] {';
+            css += 'color: var(--ytc-text-secondary) !important;';
+            css += '}';
 
             // Textarea styling
-            css += `.ytc-themed-modal textarea {`;
-            css += `background: var(--ytc-bg-input) !important;`;
-            css += `border: 1px solid var(--ytc-border) !important;`;
-            css += `border-radius: 6px !important;`;
-            css += `color: var(--ytc-text-primary) !important;`;
-            css += `transition: all 0.2s ease !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal textarea:hover {`;
-            css += `border-color: #525863 !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal textarea:focus {`;
-            css += `border-color: var(--ytc-border-focus) !important;`;
-            css += `box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;`;
-            css += `outline: none !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal textarea {';
+            css += 'background: var(--ytc-bg-input) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'border-radius: 6px !important;';
+            css += 'color: var(--ytc-text-primary) !important;';
+            css += 'transition: all 0.2s ease !important;';
+            css += '}';
+            css += '.ytc-themed-modal textarea:hover {';
+            css += 'border-color: #525863 !important;';
+            css += '}';
+            css += '.ytc-themed-modal textarea:focus {';
+            css += 'border-color: var(--ytc-border-focus) !important;';
+            css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
+            css += 'outline: none !important;';
+            css += '}';
 
             // Scrollbar styling
-            css += `.ytc-themed-modal ::-webkit-scrollbar {`;
-            css += `width: 8px !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal ::-webkit-scrollbar-track {`;
-            css += `background: var(--ytc-bg-primary) !important;`;
-            css += `border-radius: 4px !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal ::-webkit-scrollbar-thumb {`;
-            css += `background: var(--ytc-border) !important;`;
-            css += `border-radius: 4px !important;`;
-            css += `}`;
-            css += `.ytc-themed-modal ::-webkit-scrollbar-thumb:hover {`;
-            css += `background: #525863 !important;`;
-            css += `}`;
+            css += '.ytc-themed-modal ::-webkit-scrollbar {';
+            css += 'width: 8px !important;';
+            css += '}';
+            css += '.ytc-themed-modal ::-webkit-scrollbar-track {';
+            css += 'background: var(--ytc-bg-primary) !important;';
+            css += 'border-radius: 4px !important;';
+            css += '}';
+            css += '.ytc-themed-modal ::-webkit-scrollbar-thumb {';
+            css += 'background: var(--ytc-border) !important;';
+            css += 'border-radius: 4px !important;';
+            css += '}';
+            css += '.ytc-themed-modal ::-webkit-scrollbar-thumb:hover {';
+            css += 'background: #525863 !important;';
+            css += '}';
 
             themeStyle.innerHTML = css;
             document.head.appendChild(themeStyle);
@@ -1585,23 +1709,23 @@ export class YouTubeUrlModal extends BaseModal {
             this.contentEl.style.borderRadius = '16px';
         }
 
-        // Update dropdown styles to match theme
+        // Update dropdown styles to match theme - use explicit colors for visibility
         if (this.formatSelect) {
-            this.formatSelect.style.background = `var(--ytc-bg-input)`;
-            this.formatSelect.style.color = `var(--ytc-text-primary)`;
-            this.formatSelect.style.borderColor = `var(--ytc-border)`;
+            this.formatSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
+            this.formatSelect.style.color = isLight ? '#000000' : '#ebedf0';
+            this.formatSelect.style.borderColor = isLight ? '#ddd' : '#444';
         }
 
         if (this.providerSelect) {
-            this.providerSelect.style.background = `var(--ytc-bg-input)`;
-            this.providerSelect.style.color = `var(--ytc-text-primary)`;
-            this.providerSelect.style.borderColor = `var(--ytc-border)`;
+            this.providerSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
+            this.providerSelect.style.color = isLight ? '#000000' : '#ebedf0';
+            this.providerSelect.style.borderColor = isLight ? '#ddd' : '#444';
         }
 
         if (this.modelSelect) {
-            this.modelSelect.style.background = `var(--ytc-bg-input)`;
-            this.modelSelect.style.color = `var(--ytc-text-primary)`;
-            this.modelSelect.style.borderColor = `var(--ytc-border)`;
+            this.modelSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
+            this.modelSelect.style.color = isLight ? '#000000' : '#ebedf0';
+            this.modelSelect.style.borderColor = isLight ? '#ddd' : '#444';
         }
 
         // Update URL input
@@ -1900,7 +2024,7 @@ export class YouTubeUrlModal extends BaseModal {
             this.selectedModel = this.modelSelect?.value;
 
             // Update progress to 75% (process with AI) - show provider name
-            const providerDisplayName = this.selectedProvider 
+            const providerDisplayName = this.selectedProvider
                 ? this.selectedProvider.charAt(0).toUpperCase() + this.selectedProvider.slice(1)
                 : 'AI';
             this.updateProgress(75, `Processing with ${providerDisplayName}...`);
@@ -2098,8 +2222,8 @@ export class YouTubeUrlModal extends BaseModal {
                 this.focusUrlInput();
             }
         } catch (error) {
-            
-new Notice('Could not access clipboard');
+
+            new Notice('Could not access clipboard');
         }
     }
 
@@ -2149,7 +2273,7 @@ new Notice('Could not access clipboard');
      * Get cache status for a provider
      */
     private getCacheStatus(provider: string): { isCached: boolean; ageMinutes?: number } {
-        const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama'];
+        const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud'];
 
         if (!dynamicProviders.includes(provider)) {
             return { isCached: false }; // Static providers
@@ -2167,7 +2291,7 @@ new Notice('Could not access clipboard');
         // Known multimodal model patterns
         const multimodalPatterns = [
             'vision', 'vl', 'v-', 'multimodal', 'pixtral', 'fuyu', 'llava', 'moondream',
-            'gemini-2.5', 'gemini-2.0', 'claude-3.5', 'gpt-4o', 'phi-3.5-vision', 'qwen2-vl'
+            'gemini-2.5', 'gemini-2.0', 'claude-3.5', 'gpt-4o', 'phi-3.5-vision', 'qwen2-vl',
         ];
 
         // Check if model name contains any multimodal indicators
@@ -2189,10 +2313,10 @@ new Notice('Could not access clipboard');
     private updateRefreshButtonTooltip(): void {
         if (this.refreshButton) {
             const currentProvider = this.selectedProvider || 'Google Gemini';
-            const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama'];
+            const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud'];
 
             if (dynamicProviders.includes(currentProvider)) {
-                this.refreshButton.title = `Refresh models (Shift+Click to force refresh and bypass cache)`;
+                this.refreshButton.title = 'Refresh models (Shift+Click to force refresh and bypass cache)';
             } else {
                 this.refreshButton.title = 'Refresh models (static list)';
             }

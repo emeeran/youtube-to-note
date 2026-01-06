@@ -20,11 +20,11 @@ export class RetryService {
                 return await operation();
             } catch (error) {
                 lastError = error as Error;
-                
+
                 logger.warn(`Operation failed: ${operationName}`, 'RetryService', {
                     attempt,
                     error: lastError.message,
-                    willRetry: attempt < maxAttempts
+                    willRetry: attempt < maxAttempts,
                 });
 
                 if (attempt === maxAttempts) break;

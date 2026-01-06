@@ -11,22 +11,22 @@ export const MODAL_STYLES = {
         color: '#ffa500',
         fontSize: '28px',
         fontWeight: '700',
-        textAlign: 'center'
+        textAlign: 'center',
     },
     message: {
         marginBottom: '20px',
-        lineHeight: '1.5'
+        lineHeight: '1.5',
     },
     buttonContainer: {
         marginTop: '20px',
         display: 'flex',
         gap: '10px',
-        justifyContent: 'flex-end'
+        justifyContent: 'flex-end',
     },
     button: {
         padding: '8px 16px',
-        minWidth: '100px'
-    }
+        minWidth: '100px',
+    },
 } as const;
 
 export const INPUT_STYLES = {
@@ -34,9 +34,9 @@ export const INPUT_STYLES = {
     marginTop: '8px',
     padding: '8px',
     border: '1px solid var(--background-modifier-border)',
-    borderRadius: '4px'
+    borderRadius: '4px',
 } as const;
 
 export const CONTAINER_STYLES = {
-    marginTop: '20px'
+    marginTop: '20px',
 } as const;

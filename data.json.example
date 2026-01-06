@@ -1,0 +1,20 @@
+{
+  "_comment": "This is a template file. Copy to data.json and add your API keys.",
+  "geminiApiKey": "your-gemini-api-key-here",
+  "groqApiKey": "your-groq-api-key-here",
+  "ollamaApiKey": "your-ollama-api-key-here",
+  "ollamaEndpoint": "http://localhost:11434",
+  "huggingFaceApiKey": "your-huggingface-api-key-here",
+  "openRouterApiKey": "your-openrouter-api-key-here",
+  "outputPath": "YouTube/Processed Videos",
+  "useEnvironmentVariables": false,
+  "environmentPrefix": "YTC",
+  "performanceMode": "balanced",
+  "enableParallelProcessing": true,
+  "enableAutoFallback": true,
+  "preferMultimodal": true,
+  "defaultMaxTokens": 4096,
+  "defaultTemperature": 0.5,
+  "modelOptionsCache": {},
+  "modelCacheTimestamps": {}
+}

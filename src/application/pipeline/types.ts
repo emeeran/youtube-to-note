@@ -3,9 +3,11 @@
  * Defines the core types for the 5-stage processing pipeline
  */
 
+import { EnhancedVideoData } from '../../types';
+
 export interface PipelineContext {
   // Input data
-  input: any;
+  input: PipelineInput;
 
   // Current stage information
   currentStage?: string;
@@ -18,8 +20,11 @@ export interface PipelineContext {
   errors?: PipelineError[];
 
   // Configuration
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
+
+/** Pipeline input - can be URL or video ID */
+export type PipelineInput = string | { url?: string; videoId?: string };
 
 export interface PipelineMetadata {
   // Identification
@@ -42,7 +47,7 @@ export interface PipelineMetadata {
 export interface StageExecution {
   stage: string;
   status: 'success' | 'failed' | 'skipped';
-  output?: any;
+  output?: StageOutput;
   error?: Error;
   duration: number;
   timestamp: number;
@@ -71,11 +76,11 @@ export interface PipelineMetrics {
 }
 
 export interface StageInput {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StageOutput {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Stage-specific types
@@ -103,8 +108,8 @@ export interface ValidationResult {
   };
 }
 
-export interface EnrichmentOutput {
-  videoData: any;
+export interface EnrichmentOutput extends StageOutput {
+  videoData: EnhancedVideoData;
   transcript?: string;
   thumbnail?: string;
   cacheStatus: 'hit' | 'miss' | 'partial';

@@ -39,7 +39,7 @@ export class Logger {
             enableFile: false,
             maxLogEntries: 1000,
             enableTimestamps: true,
-            ...config
+            ...config,
         };
     }
 
@@ -80,7 +80,7 @@ export class Logger {
             level,
             message,
             context,
-            data
+            data,
         };
 
         this.logs.push(entry);
@@ -96,17 +96,17 @@ export class Logger {
 
             switch (level) {
                 case LogLevel.DEBUG:
-                    
-break;
+
+                    break;
                 case LogLevel.INFO:
-                    
-break;
+
+                    break;
                 case LogLevel.WARN:
-                    
-break;
+
+                    break;
                 case LogLevel.ERROR:
-                    
-break;
+
+                    break;
             }
         }
     }

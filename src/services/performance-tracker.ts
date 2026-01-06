@@ -66,7 +66,7 @@ export class PerformanceTracker {
             duration,
             success,
             timestamp: Date.now(),
-            metadata
+            metadata,
         };
 
         if (!this.serviceMetrics.has(service)) {
@@ -147,7 +147,7 @@ export class PerformanceTracker {
             average: durations.reduce((a, b) => a + b, 0) / durations.length,
             min: Math.min(...durations),
             max: Math.max(...durations),
-            successRate: successCount / metrics.length
+            successRate: successCount / metrics.length,
         };
     }
 
@@ -160,7 +160,7 @@ export class PerformanceTracker {
             uptime: Date.now() - this.startTime,
             services: {},
             systemMetrics: {},
-            recommendations: []
+            recommendations: [],
         };
 
         // Process service metrics
@@ -177,7 +177,7 @@ export class PerformanceTracker {
                 successRate: successfulOps.length / metrics.length,
                 errorCount: failedOps.length,
                 slowestOperation: this.findExtremeOperation(metrics, 'slowest'),
-                fastestOperation: this.findExtremeOperation(metrics, 'fastest')
+                fastestOperation: this.findExtremeOperation(metrics, 'fastest'),
             };
 
             report.services[serviceName] = serviceStats;
@@ -187,7 +187,7 @@ export class PerformanceTracker {
         report.systemMetrics = {
             memoryUsage: this.getMemoryUsage(),
             cacheHitRate: this.getCacheHitRate(),
-            httpMetrics: this.getHTTPMetrics()
+            httpMetrics: this.getHTTPMetrics(),
         };
 
         // Generate recommendations
@@ -217,7 +217,7 @@ export class PerformanceTracker {
         }
         return {
             name: `${extreme.operation}${extreme.metadata ? ` (${JSON.stringify(extreme.metadata)})` : ''}`,
-            duration: extreme.duration
+            duration: extreme.duration,
         };
     }
 
@@ -302,9 +302,9 @@ export class PerformanceTracker {
                 memory: performance.memory ? {
                     used: performance.memory.usedJSHeapSize,
                     total: performance.memory.totalJSHeapSize,
-                    limit: performance.memory.jsHeapSizeLimit
-                } : undefined
-            }
+                    limit: performance.memory.jsHeapSizeLimit,
+                } : undefined,
+            },
         }, null, 2);
     }
 

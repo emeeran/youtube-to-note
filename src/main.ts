@@ -11,7 +11,6 @@ import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal, BatchVideoModal } from './components/features/youtube';
 import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 
-
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
 
@@ -30,7 +29,7 @@ const DEFAULT_SETTINGS: YouTubePluginSettings = {
     enableAutoFallback: true,
     preferMultimodal: true,
     defaultMaxTokens: 4096,
-    defaultTemperature: 0.5
+    defaultTemperature: 0.5,
 };
 
 export default class YoutubeClipperPlugin extends Plugin {
@@ -58,7 +57,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             logger.plugin('Plugin loaded successfully');
         } catch (error) {
             logger.error('Failed to load plugin', 'Plugin', {
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
             ErrorHandler.handle(error as Error, 'Plugin initialization');
             new Notice('Failed to load YoutubeClipper Plugin. Check console for details.');
@@ -79,7 +78,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             logger.plugin('Plugin unloaded successfully');
         } catch (error) {
             logger.error('Error during plugin unload', 'Plugin', {
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -91,7 +90,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             level: isDev ? LogLevel.DEBUG : LogLevel.INFO,
             enableConsole: true,
             enableFile: false,
-            maxLogEntries: 1000
+            maxLogEntries: 1000,
         });
     }
 
@@ -135,14 +134,31 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private registerUIComponents(): void {
+        // Create custom YouTube icon with purple background
+        const youtubeIcon = document.createElement('div');
+        youtubeIcon.innerHTML = `
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+                <rect width="24" height="24" fill="#FF0000" rx="4"/>
+                <polygon fill="#FFFFFF" points="9.5,7.5 16.5,12 9.5,16.5"/>
+            </svg>
+        `;
+        youtubeIcon.style.cssText = `
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
         this.ribbonIcon = this.addRibbonIcon('film', 'Process YouTube Video', () => {
-            console.log("[YT-CLIPPER] Ribbon icon clicked"); void this.safeShowUrlModal();
+            console.log('[YT-CLIPPER] Ribbon icon clicked'); void this.safeShowUrlModal();
         });
 
-        // Add batch processing ribbon icon
-        this.addRibbonIcon('layers', 'Batch Process YouTube Videos', () => {
-            void this.openBatchModal();
-        });
+        // Replace the default icon with our custom YouTube icon
+        const iconEl = this.ribbonIcon.querySelector('.lucide');
+        if (iconEl) {
+            iconEl.replaceWith(youtubeIcon);
+        }
 
         logger.plugin('Ribbon icon set successfully');
 
@@ -150,13 +166,13 @@ export default class YoutubeClipperPlugin extends Plugin {
             id: `${PLUGIN_PREFIX}-process-youtube-video`,
             name: 'Process YouTube Video',
             callback: () => {
-                console.log("[YT-CLIPPER] Ribbon icon clicked"); void this.safeShowUrlModal();
-            }
+                console.log('[YT-CLIPPER] Ribbon icon clicked'); void this.safeShowUrlModal();
+            },
         });
 
         this.addSettingTab(new YouTubeSettingsTab(this.app, {
             plugin: this,
-            onSettingsChange: this.handleSettingsChange.bind(this)
+            onSettingsChange: this.handleSettingsChange.bind(this),
         }));
 
         this.addCommand({
@@ -164,7 +180,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             name: 'YouTube Clipper: Open URL Modal (from clipboard)',
             callback: async () => {
                 await this.handleClipboardUrl();
-            }
+            },
         });
 
         this.addCommand({
@@ -172,7 +188,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             name: 'YouTube Clipper: Batch Process Videos',
             callback: () => {
                 void this.openBatchModal();
-            }
+            },
         });
     }
 
@@ -187,7 +203,7 @@ export default class YoutubeClipperPlugin extends Plugin {
         logger.info('URL detected, opening modal', 'Plugin', {
             url: result.url,
             source: result.source,
-            filePath: result.filePath
+            filePath: result.filePath,
         });
         void this.safeShowUrlModal(result.url);
     }
@@ -212,15 +228,15 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async safeShowUrlModal(initialUrl?: string): Promise<void> {
-        console.log("[YT-CLIPPER] safeShowUrlModal called", { 
-            initialUrl, 
-            hasModalManager: !!this.modalManager, 
+        console.log('[YT-CLIPPER] safeShowUrlModal called', {
+            initialUrl,
+            hasModalManager: !!this.modalManager,
             hasServiceContainer: !!this.serviceContainer,
-            modalState: this.modalManager?.getState?.() 
+            modalState: this.modalManager?.getState?.(),
         });
-        
+
         if (!this.modalManager || !this.serviceContainer) {
-            console.error("[YT-CLIPPER] Cannot show modal - missing services");
+            console.error('[YT-CLIPPER] Cannot show modal - missing services');
             return;
         }
 
@@ -228,12 +244,12 @@ export default class YoutubeClipperPlugin extends Plugin {
         try {
             await this.openYouTubeUrlModal(initialUrl);
         } catch (error) {
-            console.error("[YT-CLIPPER] Failed to open modal:", error);
+            console.error('[YT-CLIPPER] Failed to open modal:', error);
         }
     }
 
     private async openYouTubeUrlModal(initialUrl?: string): Promise<void> {
-        console.log("[YT-CLIPPER] openYouTubeUrlModal called", { initialUrl });
+        console.log('[YT-CLIPPER] openYouTubeUrlModal called', { initialUrl });
         if (this.isUnloading) {
             ConflictPrevention.log('Plugin is unloading, ignoring modal request');
             return;
@@ -282,13 +298,13 @@ export default class YoutubeClipperPlugin extends Plugin {
                             // Update model cache
                             this._settings.modelOptionsCache = {
                                 ...this._settings.modelOptionsCache,
-                                [provider]: models
+                                [provider]: models,
                             };
 
                             // Update timestamp for provider (especially for OpenRouter)
                             this._settings.modelCacheTimestamps = {
                                 ...this._settings.modelCacheTimestamps,
-                                [provider]: Date.now()
+                                [provider]: Date.now(),
                             };
 
                             await this.saveSettings();
@@ -308,7 +324,8 @@ export default class YoutubeClipperPlugin extends Plugin {
                     this._settings.preferMultimodal = preferMultimodal;
                     await this.saveSettings();
                     this.serviceContainer = new ServiceContainer(this._settings, this.app);
-                }
+                },
+                onOpenBatchModal: this.openBatchModal.bind(this),
             });
 
             modal.open();
@@ -332,7 +349,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             defaultModel: 'gemini-2.5-pro',
             modelOptions: modelOptionsMap,
             defaultMaxTokens: this._settings.defaultMaxTokens,
-            defaultTemperature: this._settings.defaultTemperature
+            defaultTemperature: this._settings.defaultTemperature,
         });
         modal.open();
     }
@@ -393,14 +410,14 @@ export default class YoutubeClipperPlugin extends Plugin {
                     transcript = transcriptData.fullText;
                     logger.info('Transcript fetched successfully', 'Plugin', {
                         videoId,
-                        transcriptLength: transcript.length
+                        transcriptLength: transcript.length,
                     });
                 } else {
                     logger.debug('No transcript available for this video', 'Plugin', { videoId });
                 }
             } catch (error) {
                 logger.debug('Could not fetch transcript, continuing without it', 'Plugin', {
-                    error: error instanceof Error ? error.message : String(error)
+                    error: error instanceof Error ? error.message : String(error),
                 });
             }
 
@@ -412,7 +429,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 provider: providerName || 'Auto',
                 model: model || 'Default',
                 maxTokens: maxTokens || 2048,
-                temperature: temperature || 0.7
+                temperature: temperature || 0.7,
             });
 
             // Set model parameters on providers if available
@@ -439,11 +456,11 @@ export default class YoutubeClipperPlugin extends Plugin {
                 logger.aiService('AI Response received', {
                     provider: aiResponse.provider,
                     model: aiResponse.model,
-                    contentLength: aiResponse.content?.length || 0
+                    contentLength: aiResponse.content?.length || 0,
                 });
             } catch (error) {
                 logger.error('AI Processing failed', 'Plugin', {
-                    error: error instanceof Error ? error.message : String(error)
+                    error: error instanceof Error ? error.message : String(error),
                 });
 
                 // Use enhanced error handling for quota issues
@@ -498,7 +515,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private async openFileInNewTab(file: TFile): Promise<void> {
         try {
-            const leaf = this.app.workspace.getLeaf('tab') as WorkspaceLeaf;
+            const leaf = this.app.workspace.getLeaf('tab');
             await leaf.openFile(file);
             this.app.workspace.setActiveLeaf(leaf);
             new Notice(`📂 Opened: ${file.name}`);
@@ -534,7 +551,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             hasGeminiKey: !!this._settings.geminiApiKey,
             geminiKeyLength: this._settings.geminiApiKey?.length,
             hasGroqKey: !!this._settings.groqApiKey,
-            groqKeyLength: this._settings.groqApiKey?.length
+            groqKeyLength: this._settings.groqApiKey?.length,
         });
     }
 
@@ -557,7 +574,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             return result;
         } catch (error) {
             logger.error(`Failed operation ${opId}: ${operationName}`, 'Plugin', {
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
             });
             ErrorHandler.handle(error as Error, operationName);
             return null;

@@ -5,7 +5,6 @@ import { ErrorHandler } from '../services/error-handler';
  * Base AI provider interface and abstract implementation
  */
 
-
 export abstract class BaseAIProvider implements AIProvider {
     abstract readonly name: string;
     protected _model: string;

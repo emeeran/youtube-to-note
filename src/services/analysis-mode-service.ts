@@ -94,7 +94,7 @@ Format as a structured review.`,
     }
 
     detectMode(transcript: string, title: string): AnalysisMode {
-        const text = (title + ' ' + transcript).toLowerCase();
+        const text = (`${title} ${transcript}`).toLowerCase();
 
         if (this.hasCodeKeywords(text)) return 'code-tutorial';
         if (this.hasInterviewKeywords(text)) return 'interview';

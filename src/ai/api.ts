@@ -9,14 +9,14 @@ export const API_ENDPOINTS = {
     HUGGINGFACE: 'https://api-inference.huggingface.co/models',
     OPENROUTER: 'https://openrouter.ai/api/v1/chat/completions',
     YOUTUBE_OEMBED: 'https://www.youtube.com/oembed',
-    CORS_PROXY: 'https://api.allorigins.win/raw'
+    CORS_PROXY: 'https://api.allorigins.win/raw',
 } as const;
 
 export const AI_MODELS = {
     GEMINI: 'gemini-2.5-pro',
     GROQ: 'llama-3.3-70b-versatile',
     HUGGINGFACE: 'Qwen/Qwen3-8B',
-    OPENROUTER: 'meta-llama/llama-3.1-8b-instruct:free'
+    OPENROUTER: 'meta-llama/llama-3.1-8b-instruct:free',
 } as const;
 
 // Known model options per provider (used to populate model selector in UI)
@@ -72,7 +72,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
 
         // Experimental models
         { name: 'gemini-exp-1206', supportsAudioVideo: true },
-        { name: 'gemini-exp-latest', supportsAudioVideo: true }
+        { name: 'gemini-exp-latest', supportsAudioVideo: true },
     ],
     'Groq': [
         // Llama 3.3 Series (latest)
@@ -96,9 +96,16 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
 
         // Qwen Models
         { name: 'qwen-2.5-32b' },
-        { name: 'qwen-2.5-coder-32b' }
+        { name: 'qwen-2.5-coder-32b' },
     ],
     'Ollama': [
+        // DeepSeek v3.2 Series (NEW - Latest reasoning models)
+        { name: 'deepseek-v3.2', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:latest', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:32b', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:70b', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:instruct', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:coder', supportsAudioVideo: true },
         // Llama 3.2 Series (Latest)
         { name: 'llama3.2', supportsAudioVideo: true },
         { name: 'llama3.2:3b', supportsAudioVideo: true },
@@ -216,7 +223,39 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'yi', supportsAudioVideo: true },
         { name: 'yi:34b', supportsAudioVideo: true },
         { name: 'yi:6b', supportsAudioVideo: true },
-        { name: 'yi:1.5-9b', supportsAudioVideo: true }
+        { name: 'yi:1.5-9b', supportsAudioVideo: true },
+    ],
+    'Ollama Cloud': [
+        // DeepSeek v3.2 Series (NEW - Latest reasoning models on Ollama Cloud)
+        { name: 'deepseek-v3.2', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:latest', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:32b', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:70b', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:instruct', supportsAudioVideo: true },
+        { name: 'deepseek-v3.2:coder', supportsAudioVideo: true },
+        // DeepSeek R1 Series (Reasoning models)
+        { name: 'deepseek-r1', supportsAudioVideo: true },
+        { name: 'deepseek-r1:32b', supportsAudioVideo: true },
+        { name: 'deepseek-r1:70b', supportsAudioVideo: true },
+        { name: 'deepseek-r1:distill-llama-70b', supportsAudioVideo: true },
+        { name: 'deepseek-r1:distill-qwen-32b', supportsAudioVideo: true },
+        // Llama 3.2 Series (Latest)
+        { name: 'llama3.2', supportsAudioVideo: true },
+        { name: 'llama3.2:3b', supportsAudioVideo: true },
+        { name: 'llama3.2:1b', supportsAudioVideo: true },
+        { name: 'llama3.2-vision', supportsAudioVideo: true },
+        { name: 'llama3.2-vision:11b', supportsAudioVideo: true },
+        { name: 'llama3.2-vision:90b', supportsAudioVideo: true },
+        // Qwen 3 Series (Cloud optimized)
+        { name: 'qwen3:32b', supportsAudioVideo: true },
+        { name: 'qwen3:14b', supportsAudioVideo: true },
+        { name: 'qwen3:8b', supportsAudioVideo: true },
+        { name: 'qwen3-coder:480b-cloud', supportsAudioVideo: true },
+        { name: 'qwen3-coder:32b', supportsAudioVideo: true },
+        // Mixtral Series (Cloud)
+        { name: 'mixtral:8x7b', supportsAudioVideo: true },
+        { name: 'mixtral:8x22b', supportsAudioVideo: true },
+        { name: 'mixtral:8x7b-instruct-v0.1', supportsAudioVideo: true },
     ],
     'Hugging Face': [
         // Multimodal Vision-Language Models
@@ -239,7 +278,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
 
         // Multimodal Specialist Models
         { name: 'llava-hf/llava-1.5-7b', supportsAudioVideo: true },
-        { name: 'llava-hf/llava-1.5-13b', supportsAudioVideo: true }
+        { name: 'llava-hf/llava-1.5-13b', supportsAudioVideo: true },
     ],
     'OpenRouter': [
         // Free tier models
@@ -274,8 +313,8 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'deepseek/deepseek-r1' },
         { name: 'deepseek/deepseek-chat' },
         { name: 'cohere/command-r-plus' },
-        { name: 'cohere/command-r-08-2024' }
-    ]
+        { name: 'cohere/command-r-08-2024' },
+    ],
 };
 
 // Optional: provider pages to attempt to scrape for latest model names (best-effort)
@@ -283,8 +322,9 @@ export const PROVIDER_MODEL_LIST_URLS: Record<string, string> = {
     'Google Gemini': 'https://developers.generativeai.google/models',
     'Groq': 'https://groq.com',
     'Ollama': 'http://localhost:11434',
+    'Ollama Cloud': 'https://ollama.com',
     'Hugging Face': 'https://huggingface.co/models',
-    'OpenRouter': 'https://openrouter.ai/models'
+    'OpenRouter': 'https://openrouter.ai/models',
 };
 
 // Simple regex patterns to try to extract model-like tokens from provider pages
@@ -292,15 +332,16 @@ export const PROVIDER_MODEL_REGEX: Record<string, RegExp> = {
     'Google Gemini': /gemini[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
     'Groq': /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
     'Ollama': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
+    'Ollama Cloud': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
     'Hugging Face': /[\w-]+\/[\w\-\.]+/g,
-    'OpenRouter': /[\w-]+\/[\w\-\.:]+/g
+    'OpenRouter': /[\w-]+\/[\w\-\.:]+/g,
 };
 
 export const API_LIMITS = {
     MAX_TOKENS: 8000,  // Increased from 2000 to handle comprehensive tutorials
     TEMPERATURE: 0.7,
     DESCRIPTION_MAX_LENGTH: 1000,
-    TITLE_MAX_LENGTH: 100
+    TITLE_MAX_LENGTH: 100,
 } as const;
 
 export const TIMEOUTS = {
@@ -308,5 +349,5 @@ export const TIMEOUTS = {
     MODAL_DELAY: 100,
     FALLBACK_MODAL_CHECK: 500,
     FOCUS_DELAY: 150,
-    REPAINT_DELAY: 50
+    REPAINT_DELAY: 50,
 } as const;

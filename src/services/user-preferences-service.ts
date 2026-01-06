@@ -4,7 +4,6 @@ import { OutputFormat, PerformanceMode } from '../types';
  * User preferences service for storing and managing user-specific settings
  */
 
-
 export interface UserPreferences {
     // Last used settings
     lastFormat?: OutputFormat;
@@ -21,6 +20,7 @@ export interface UserPreferences {
     lastModel_Gemini?: string;
     lastModel_Groq?: string;
     lastModel_Ollama?: string;
+    lastModel_OllamaCloud?: string;
     lastModel_HuggingFace?: string;
     lastModel_OpenRouter?: string;
 
@@ -61,9 +61,9 @@ export class UserPreferencesService {
             brief: 0,
             'executive-summary': 0,
             'detailed-guide': 0,
-            custom: 0
+            custom: 0,
         },
-        providerUsage: {}
+        providerUsage: {},
     };
 
     /**
@@ -77,8 +77,8 @@ export class UserPreferencesService {
                 return { ...this.DEFAULT_PREFERENCES, ...parsed };
             }
         } catch (error) {
-            
-}
+
+        }
         return { ...this.DEFAULT_PREFERENCES };
     }
 
@@ -89,8 +89,8 @@ export class UserPreferencesService {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(preferences));
         } catch (error) {
-            
-}
+
+        }
     }
 
     /**
@@ -211,7 +211,7 @@ export class UserPreferencesService {
 
         return {
             maxTokens: preferences.lastMaxTokens || 4096,
-            temperature: preferences.lastTemperature || 0.5
+            temperature: preferences.lastTemperature || 0.5,
         };
     }
 
@@ -223,14 +223,14 @@ export class UserPreferencesService {
         parallel: boolean;
         multimodal: boolean;
         autoFallback: boolean;
-    } {
+        } {
         const preferences = this.loadPreferences();
 
         return {
             mode: preferences.lastPerformanceMode || 'balanced',
             parallel: preferences.lastParallelProcessing || false,
             multimodal: preferences.lastMultimodal || true,
-            autoFallback: preferences.lastAutoFallback !== undefined ? preferences.lastAutoFallback : true
+            autoFallback: preferences.lastAutoFallback !== undefined ? preferences.lastAutoFallback : true,
         };
     }
 
@@ -259,7 +259,7 @@ export class UserPreferencesService {
         averageTemperature: number;
         usageLevel: 'light' | 'moderate' | 'heavy';
         recommendations: string[];
-    } {
+        } {
         const preferences = this.loadPreferences();
         const formatUsage = preferences.formatUsage || {};
         const providerUsage = preferences.providerUsage || {};
@@ -312,7 +312,7 @@ export class UserPreferencesService {
             averageTokens: preferences.lastMaxTokens || 4096,
             averageTemperature: preferences.lastTemperature || 0.5,
             usageLevel,
-            recommendations
+            recommendations,
         };
     }
 
@@ -340,8 +340,8 @@ export class UserPreferencesService {
             this.savePreferences({ ...this.DEFAULT_PREFERENCES, ...preferences });
             return true;
         } catch (error) {
-            
-return false;
+
+            return false;
         }
     }
 }

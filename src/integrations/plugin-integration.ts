@@ -44,7 +44,7 @@ export class PluginIntegrationManager {
 
     enableIntegration(name: string): boolean {
         const integration = this.integrations.get(name);
-        if (integration && integration.available) {
+        if (integration?.available) {
             integration.enabled = true;
             return true;
         }

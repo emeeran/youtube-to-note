@@ -5,7 +5,6 @@ import { MODAL_STYLES, INPUT_STYLES } from './constants/index';
  * DOM manipulation utilities to eliminate code duplication
  */
 
-
 export class DOMUtils implements DOMUtilsInterface {
     /**
      * Apply styles to an HTML element
@@ -33,17 +32,17 @@ export class DOMUtils implements DOMUtilsInterface {
         onClick?: () => void
     ): HTMLButtonElement {
         const button = container.createEl('button', { text });
-        
+
         if (isPrimary) {
             button.classList.add('mod-cta');
         }
-        
+
         this.applyStyles(button, MODAL_STYLES.button);
-        
+
         if (onClick) {
             button.addEventListener('click', onClick);
         }
-        
+
         return button;
     }
 
@@ -59,9 +58,9 @@ export class DOMUtils implements DOMUtilsInterface {
         const input = container.createEl('input', {
             type,
             placeholder,
-            value
+            value,
         });
-        
+
         this.applyStyles(input, INPUT_STYLES);
         return input;
     }
@@ -72,7 +71,7 @@ export class DOMUtils implements DOMUtilsInterface {
     static setupModalStyling(modalEl: HTMLElement): void {
         this.applyStyles(modalEl, {
             zIndex: MODAL_STYLES.zIndex,
-            display: MODAL_STYLES.display
+            display: MODAL_STYLES.display,
         });
     }
 

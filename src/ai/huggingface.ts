@@ -14,23 +14,23 @@ const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models';
 function formatHuggingFaceError(rawMessage: string): string {
     const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) || rawMessage.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
-    
+
     if (rawMessage.toLowerCase().includes('rate limit')) {
         return `Hugging Face rate limit reached.${retryInfo}`;
     }
-    
+
     if (rawMessage.toLowerCase().includes('loading')) {
-        return `Model is loading. Wait ~20s and try again.`;
+        return 'Model is loading. Wait ~20s and try again.';
     }
-    
+
     if (rawMessage.toLowerCase().includes('paused')) {
-        return `Model endpoint is paused. Try a different model like Qwen/Qwen3-8B`;
+        return 'Model endpoint is paused. Try a different model like Qwen/Qwen3-8B';
     }
-    
+
     if (rawMessage.toLowerCase().includes('quota')) {
         return `Hugging Face quota exceeded.${retryInfo}`;
     }
-    
+
     return rawMessage || 'Hugging Face API error';
 }
 
@@ -49,7 +49,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             // Validate model name format
-            if (!this._model || !this._model.includes('/')) {
+            if (!this._model?.includes('/')) {
                 throw new Error(`Invalid model format: ${this._model}. Use format: owner/model-name`);
             }
 
@@ -60,7 +60,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(this.createRequestBody(prompt)),
-                signal: controller.signal
+                signal: controller.signal,
             });
 
             clearTimeout(timeoutId);
@@ -107,12 +107,12 @@ export class HuggingFaceProvider extends BaseAIProvider {
             if (!response.ok) {
                 const errorData = await this.safeJsonParse(response);
                 const errorMsg = errorData?.error || response.statusText;
-                
+
                 // Check for redirect message
                 if (typeof errorMsg === 'string' && errorMsg.includes('router.huggingface.co')) {
                     throw new Error('HuggingFace API endpoint changed. Please update the plugin.');
                 }
-                
+
                 throw new Error(`Hugging Face error (${response.status}): ${errorMsg}`);
             }
 
@@ -132,7 +132,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
     protected createHeaders(): Record<string, string> {
         return {
             'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         };
     }
 
@@ -143,12 +143,12 @@ export class HuggingFaceProvider extends BaseAIProvider {
                 max_new_tokens: this._maxTokens,
                 temperature: this._temperature,
                 return_full_text: false,
-                do_sample: true
+                do_sample: true,
             },
             options: {
                 wait_for_model: true,
-                use_cache: true
-            }
+                use_cache: true,
+            },
         };
     }
 
@@ -158,12 +158,12 @@ export class HuggingFaceProvider extends BaseAIProvider {
             const text = response[0]?.generated_text;
             return text ? text.trim() : '';
         }
-        
+
         // Some models return a single object
         if (response?.generated_text) {
             return response.generated_text.trim();
         }
-        
+
         throw new Error('Invalid response format from Hugging Face API');
     }
 }

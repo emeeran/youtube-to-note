@@ -1,39 +1,23 @@
 import { BaseAIProvider } from './base';
 
 /**
- * Ollama AI provider implementation
- * Supports both local Ollama instances and Ollama Cloud
- * Local API: http://localhost:11434/api/generate
+ * Ollama Cloud AI provider implementation
  * Cloud API: https://ollama.com/api/generate
+ * Requires API key from https://ollama.com/settings
  */
 
-export class OllamaProvider extends BaseAIProvider {
-    readonly name = 'Ollama';
+export class OllamaCloudProvider extends BaseAIProvider {
+    readonly name = 'Ollama Cloud';
 
-    // Ollama API base URL
+    // Ollama Cloud API base URL
     private readonly apiBaseUrl: string;
 
-    constructor(apiKey: string = '', model?: string, timeout?: number, endpoint?: string) {
-        // Ollama doesn't typically require an API key for local, but required for cloud
-        super(apiKey, model || 'llama3.2', timeout);
+    constructor(apiKey: string, model?: string, timeout?: number) {
+        // Ollama Cloud requires an API key
+        super(apiKey, model || 'deepseek-r1:32b', timeout);
 
-        // Normalize endpoint to API base URL
-        // Local: http://localhost:11434 -> http://localhost:11434/api
-        // Cloud: https://ollama.com -> https://ollama.com/api
-        if (endpoint) {
-            if (endpoint.includes('ollama.com') || endpoint.includes('cloud')) {
-                // Cloud API - use https://ollama.com/api
-                this.apiBaseUrl = 'https://ollama.com/api';
-            } else if (endpoint.endsWith('/api')) {
-                // Already has /api suffix
-                this.apiBaseUrl = endpoint;
-            } else {
-                // Local instance - add /api suffix
-                this.apiBaseUrl = `${endpoint}/api`;
-            }
-        } else {
-            this.apiBaseUrl = 'http://localhost:11434/api';
-        }
+        // Ollama Cloud always uses the official cloud endpoint
+        this.apiBaseUrl = 'https://ollama.com/api';
     }
 
     /**
@@ -50,7 +34,12 @@ export class OllamaProvider extends BaseAIProvider {
                 throw new Error('Prompt cannot be empty');
             }
 
-            // Prepare the request body for Ollama
+            // Validate API key
+            if (!this.apiKey || this.apiKey.trim().length === 0) {
+                throw new Error('Ollama Cloud requires an API key. Please configure it in plugin settings (get it from https://ollama.com/settings)');
+            }
+
+            // Prepare the request body for Ollama Cloud
             const requestBody = {
                 model: this._model,
                 prompt,
@@ -61,7 +50,7 @@ export class OllamaProvider extends BaseAIProvider {
                 },
             };
 
-            // Make the request to Ollama API
+            // Make the request to Ollama Cloud API
             const response = await fetch(this.getApiUrl('/generate'), {
                 method: 'POST',
                 headers: this.createHeaders(),
@@ -70,51 +59,48 @@ export class OllamaProvider extends BaseAIProvider {
 
             if (!response.ok) {
                 if (response.status === 404) {
-                    const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
-                    if (isCloudModel && !this.apiBaseUrl.includes('ollama.com')) {
-                        throw new Error(`Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n1. Switch to a local model (e.g., "llama3.2:latest")\n2. Configure Ollama Cloud in settings with endpoint "https://ollama.com" and your API key`);
-                    }
-                    throw new Error(`Ollama model not found: ${this._model}. Please make sure the model is pulled in Ollama using 'ollama pull ${this._model}'.`);
+                    throw new Error(`Ollama Cloud model not found: ${this._model}. Please check available models at https://ollama.com/library.`);
                 }
                 if (response.status === 401) {
-                    const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
-                    if (isCloudModel) {
-                        throw new Error(`Cloud model "${this._model}" requires authentication. Please configure your Ollama Cloud API key in plugin settings (get it from https://ollama.com/settings)`);
-                    }
-                    throw new Error('Ollama authentication failed. Check if your Ollama instance requires authentication.');
+                    throw new Error(`Ollama Cloud authentication failed. Please check your API key in plugin settings (get it from https://ollama.com/settings)`);
+                }
+                if (response.status === 403) {
+                    throw new Error(`Ollama Cloud access denied. Your API key may not have access to this model or the service.`);
+                }
+                if (response.status === 429) {
+                    throw new Error(`Ollama Cloud rate limit exceeded. Please try again later or upgrade your plan.`);
                 }
                 if (response.status === 500) {
                     const errorData = await this.safeJsonParse(response);
-                    const errorMessage = errorData?.error || 'Ollama server error';
-                    throw new Error(`Ollama error: ${errorMessage}`);
+                    const errorMessage = errorData?.error || 'Ollama Cloud server error';
+                    throw new Error(`Ollama Cloud error: ${errorMessage}`);
                 }
-                throw new Error(`Ollama API error: ${response.status} - ${response.statusText}`);
+                throw new Error(`Ollama Cloud API error: ${response.status} - ${response.statusText}`);
             }
 
             const data = await response.json();
 
             // Validate response structure
             if (!this.validateResponse(data, ['response'])) {
-                throw new Error('Invalid response format from Ollama API');
+                throw new Error('Invalid response format from Ollama Cloud API');
             }
 
             return this.extractContent(data);
         } catch (error) {
             if (error instanceof Error) {
-                // Check if it's a network error (Ollama not running)
+                // Check if it's a network error
                 if (error.message.includes('fetch') || error.message.includes('network') ||
                     error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-                    throw new Error('Ollama server is not running or unreachable. Please ensure Ollama is installed and running on your system.');
+                    throw new Error('Ollama Cloud is unreachable. Please check your internet connection and https://ollama.com status.');
                 }
                 throw error;
             }
-            throw new Error(`Ollama processing failed: ${error}`);
+            throw new Error(`Ollama Cloud processing failed: ${error}`);
         }
     }
 
     /**
      * Process with image support for multimodal models
-     * Note: This is prepared for potential image processing, though it would require special handling in browser
      */
     async processWithImage(prompt: string, images?: (string | ArrayBuffer)[]): Promise<string> {
         try {
@@ -122,14 +108,18 @@ export class OllamaProvider extends BaseAIProvider {
                 throw new Error('Prompt cannot be empty');
             }
 
-            // Prepare the request body for Ollama chat endpoint (multimodal support)
+            if (!this.apiKey || this.apiKey.trim().length === 0) {
+                throw new Error('Ollama Cloud requires an API key. Please configure it in plugin settings (get it from https://ollama.com/settings)');
+            }
+
+            // Prepare the request body for Ollama Cloud chat endpoint (multimodal support)
             const messages = [
                 { role: 'user', content: prompt },
             ];
 
             // If images are provided, add them to the request
             if (images && images.length > 0) {
-                // Ollama expects images as base64 encoded strings
+                // Ollama Cloud expects images as base64 encoded strings
                 const processedImages: string[] = [];
 
                 for (const img of images) {
@@ -163,7 +153,7 @@ export class OllamaProvider extends BaseAIProvider {
                 },
             };
 
-            // Make the request to Ollama API chat endpoint
+            // Make the request to Ollama Cloud API chat endpoint
             const response = await fetch(this.getApiUrl('/chat'), {
                 method: 'POST',
                 headers: this.createHeaders(),
@@ -172,50 +162,48 @@ export class OllamaProvider extends BaseAIProvider {
 
             if (!response.ok) {
                 if (response.status === 404) {
-                    const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
-                    if (isCloudModel && !this.apiBaseUrl.includes('ollama.com')) {
-                        throw new Error(`Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n1. Switch to a local model (e.g., "llama3.2:latest")\n2. Configure Ollama Cloud in settings with endpoint "https://ollama.com" and your API key`);
-                    }
-                    throw new Error(`Ollama model not found: ${this._model}. Please make sure the model is pulled in Ollama using 'ollama pull ${this._model}'.`);
+                    throw new Error(`Ollama Cloud model not found: ${this._model}. Please check available models at https://ollama.com/library.`);
                 }
                 if (response.status === 401) {
-                    const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
-                    if (isCloudModel) {
-                        throw new Error(`Cloud model "${this._model}" requires authentication. Please configure your Ollama Cloud API key in plugin settings (get it from https://ollama.com/settings)`);
-                    }
-                    throw new Error('Ollama authentication failed. Check if your Ollama instance requires authentication.');
+                    throw new Error(`Ollama Cloud authentication failed. Please check your API key in plugin settings (get it from https://ollama.com/settings)`);
+                }
+                if (response.status === 403) {
+                    throw new Error(`Ollama Cloud access denied. Your API key may not have access to this model or the service.`);
+                }
+                if (response.status === 429) {
+                    throw new Error(`Ollama Cloud rate limit exceeded. Please try again later or upgrade your plan.`);
                 }
                 if (response.status === 500) {
                     const errorData = await this.safeJsonParse(response);
-                    const errorMessage = errorData?.error || 'Ollama server error';
-                    throw new Error(`Ollama error: ${errorMessage}`);
+                    const errorMessage = errorData?.error || 'Ollama Cloud server error';
+                    throw new Error(`Ollama Cloud error: ${errorMessage}`);
                 }
-                throw new Error(`Ollama API error: ${response.status} - ${response.statusText}`);
+                throw new Error(`Ollama Cloud API error: ${response.status} - ${response.statusText}`);
             }
 
             const data = await response.json();
 
             // Validate response structure for chat endpoint
             if (!this.validateResponse(data, ['message', 'content'])) {
-                throw new Error('Invalid response format from Ollama API');
+                throw new Error('Invalid response format from Ollama Cloud API');
             }
 
             return this.extractContentFromChat(data);
         } catch (error) {
             if (error instanceof Error) {
-                // Check if it's a network error (Ollama not running)
+                // Check if it's a network error
                 if (error.message.includes('fetch') || error.message.includes('network') ||
                     error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-                    throw new Error('Ollama server is not running or unreachable. Please ensure Ollama is installed and running on your system.');
+                    throw new Error('Ollama Cloud is unreachable. Please check your internet connection and https://ollama.com status.');
                 }
                 throw error;
             }
-            throw new Error(`Ollama processing failed: ${error}`);
+            throw new Error(`Ollama Cloud processing failed: ${error}`);
         }
     }
 
     /**
-     * Check if Ollama server is accessible
+     * Check if Ollama Cloud server is accessible
      */
     async checkAvailability(): Promise<boolean> {
         try {
@@ -231,7 +219,7 @@ export class OllamaProvider extends BaseAIProvider {
     }
 
     /**
-     * Check if a specific model is available in Ollama
+     * Check if a specific model is available in Ollama Cloud
      */
     async checkModelAvailability(modelName: string): Promise<boolean> {
         try {
@@ -265,7 +253,7 @@ export class OllamaProvider extends BaseAIProvider {
             'Content-Type': 'application/json',
         };
 
-        // Add Authorization header if API key is provided
+        // Add Authorization header with API key (required for Ollama Cloud)
         if (this.apiKey) {
             headers['Authorization'] = `Bearer ${this.apiKey}`;
         }
@@ -274,7 +262,7 @@ export class OllamaProvider extends BaseAIProvider {
     }
 
     protected createRequestBody(prompt: string): any {
-        // Ollama uses the process() method instead, so this isn't used
+        // Ollama Cloud uses the process() method instead, so this isn't used
         return {};
     }
 

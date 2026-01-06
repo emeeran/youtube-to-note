@@ -5,7 +5,6 @@ import { App, TFile } from 'obsidian';
  * Modal prompting user when a file conflict is detected.
  */
 
-
 export type ConflictResolution = 'overwrite' | 'new-name' | 'cancel';
 
 const COPY_WARNING = 'A note with this title already exists. Choose how to proceed.';
