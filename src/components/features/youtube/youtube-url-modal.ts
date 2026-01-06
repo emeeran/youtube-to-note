@@ -1504,19 +1504,42 @@ export class YouTubeUrlModal extends BaseModal {
             
             // Buttons
             css += '.ytc-action-btn {';
-            css += 'width: 100% !important; padding: 10px !important; border-radius: 8px !important;';
+            css += 'width: 100% !important; padding: 12px !important; border-radius: 10px !important;';
             css += 'font-weight: 600 !important; font-size: 0.95rem !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
-            css += 'display: flex; align-items: center; justify-content: center; gap: 8px; border: none !important;';
+            css += 'display: flex; align-items: center; justify-content: center; gap: 8px; border: none !important; cursor: pointer !important;';
+            css += 'position: relative !important; overflow: hidden !important;';
             css += '}';
+            css += '.ytc-action-btn:active { transform: translateY(1px) !important; box-shadow: none !important; }';
+            
             css += '.ytc-primary-btn {';
             css += 'background: var(--ytc-accent-gradient) !important; color: white !important;';
-            css += 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;';
+            css += 'box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25), 0 2px 4px rgba(13, 148, 136, 0.15) !important;';
+            css += 'border: 1px solid rgba(255,255,255,0.1) !important;';
             css += '}';
-            css += '.ytc-primary-btn:hover { transform: translateY(-1px) !important; filter: brightness(1.1); }';
+            css += '.ytc-primary-btn:hover {';
+            css += 'transform: translateY(-2px) !important;';
+            css += 'box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35), 0 4px 8px rgba(13, 148, 136, 0.2) !important;';
+            css += 'filter: brightness(1.05) !important;';
+            css += '}';
+            
             css += '.ytc-secondary-btn {';
-            css += 'background: transparent !important; color: var(--ytc-text-secondary) !important; border: 1px solid var(--ytc-border) !important;';
+            css += 'background: var(--ytc-bg-input) !important; color: var(--ytc-text-primary) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;';
             css += '}';
-            css += '.ytc-secondary-btn:hover { background: var(--ytc-bg-tertiary) !important; color: var(--ytc-text-primary) !important; }';
+            css += '.ytc-secondary-btn:hover {';
+            css += 'background: var(--ytc-bg-tertiary) !important;';
+            css += 'border-color: var(--ytc-text-muted) !important;';
+            css += 'transform: translateY(-1px) !important;';
+            css += 'box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important;';
+            css += '}';
+            
+            css += '.ytc-ghost-btn {';
+            css += 'background: transparent !important; color: var(--ytc-text-muted) !important;';
+            css += 'padding: 8px !important; width: auto !important; margin: 0 auto !important;';
+            css += 'font-size: 0.85rem !important; font-weight: 500 !important;';
+            css += '}';
+            css += '.ytc-ghost-btn:hover { color: var(--ytc-text-primary) !important; background: var(--ytc-bg-tertiary) !important; border-radius: 6px !important; }';
             
             css += '.ytc-ai-content {';
             css += 'border-top: 1px solid var(--ytc-border) !important;';
@@ -1624,9 +1647,9 @@ export class YouTubeUrlModal extends BaseModal {
         container.style.cssText = `
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
             margin-top: 24px;
-            padding-top: 20px;
+            padding-top: 24px;
             border-top: 1px solid var(--ytc-border);
         `;
 
@@ -1634,18 +1657,18 @@ export class YouTubeUrlModal extends BaseModal {
         const primaryRow = container.createDiv();
         primaryRow.style.cssText = `
             display: flex;
-            gap: 10px;
+            gap: 12px;
         `;
 
         this.processButton = primaryRow.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
-        this.processButton.textContent = MESSAGES.MODALS.PROCESS;
+        this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
         this.processButton.addEventListener('click', () => this.handleProcess());
 
         // Secondary actions row (initially hidden)
         const secondaryRow = container.createDiv();
         secondaryRow.style.cssText = `
             display: none;
-            gap: 8px;
+            gap: 12px;
         `;
         this.secondaryActionsRow = secondaryRow;
 
@@ -1670,25 +1693,8 @@ export class YouTubeUrlModal extends BaseModal {
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
         // Cancel button (always visible but smaller)
-        const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn' });
+        const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn ytc-ghost-btn' });
         cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = `
-            background: transparent;
-            color: var(--ytc-text-muted);
-            font-size: 0.85rem;
-            font-weight: 500;
-            padding: 8px;
-            border: none;
-            cursor: pointer;
-            align-self: center;
-            width: auto !important;
-        `;
-        cancelBtn.addEventListener('mouseenter', () => {
-            cancelBtn.style.color = 'var(--ytc-text-primary)';
-        });
-        cancelBtn.addEventListener('mouseleave', () => {
-            cancelBtn.style.color = 'var(--ytc-text-muted)';
-        });
         cancelBtn.addEventListener('click', () => this.close());
 
         this.updateProcessButtonState();
