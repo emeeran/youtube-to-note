@@ -44,6 +44,8 @@ export class YouTubeUrlModal extends BaseModal {
     private processButton?: HTMLButtonElement;
     private openButton?: HTMLButtonElement;
     private copyPathButton?: HTMLButtonElement;
+    private processAnotherButton?: HTMLButtonElement;
+    private secondaryActionsRow?: HTMLDivElement;
     private thumbnailEl?: HTMLImageElement;
     private metadataContainer?: HTMLDivElement;
     private fetchInProgress = false;
@@ -218,7 +220,7 @@ export class YouTubeUrlModal extends BaseModal {
     private createUrlSection(): void {
         const urlContainer = this.contentEl.createDiv();
         urlContainer.style.cssText = `
-            margin: 20px 0 15px 0;
+            margin: 12px 0;
             position: relative;
         `;
 
@@ -232,35 +234,34 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.urlInput = inputWrapper.createEl('input');
         this.urlInput.type = 'url';
-        this.urlInput.placeholder = 'Enter YouTube URL...';
+        this.urlInput.placeholder = 'Paste YouTube URL...';
         this.urlInput.style.cssText = `
             flex: 1;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            background: #ffffff;
-            color: #333;
-            transition: all 0.2s ease;
+            padding: 10px 14px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 15px;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            transition: all 0.15s ease;
             outline: none;
-            height: 45px;
+            height: 40px;
         `;
 
         this.pasteButton = inputWrapper.createEl('button');
         this.pasteButton.innerHTML = '📋';
         this.pasteButton.style.cssText = `
             padding: 0;
-            background: #00b894;
+            background: var(--interactive-accent);
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 18px;
-            font-weight: 500;
+            font-size: 16px;
             transition: all 0.2s ease;
             color: white;
             flex-shrink: 0;
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -268,33 +269,33 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.pasteButton.addEventListener('click', () => this.handleSmartPaste());
         this.pasteButton.addEventListener('mouseenter', () => {
-            if (this.pasteButton) this.pasteButton.style.background = '#00a383';
+            this.pasteButton.style.transform = 'scale(1.05)';
         });
         this.pasteButton.addEventListener('mouseleave', () => {
-            if (this.pasteButton) this.pasteButton.style.background = '#00b894';
+            this.pasteButton.style.transform = 'scale(1)';
         });
 
         this.urlInput.addEventListener('focus', () => {
             if (this.urlInput) {
-                this.urlInput.style.borderColor = '#00b894';
-                this.urlInput.style.boxShadow = '0 0 0 3px rgba(0, 184, 148, 0.1)';
+                this.urlInput.style.borderColor = 'var(--interactive-accent)';
+                this.urlInput.style.boxShadow = '0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2)';
             }
         });
 
         this.urlInput.addEventListener('blur', () => {
             if (this.urlInput) {
-                this.urlInput.style.borderColor = '#ddd';
+                this.urlInput.style.borderColor = 'var(--background-modifier-border)';
                 this.urlInput.style.boxShadow = 'none';
             }
         });
 
         this.validationMessage = urlContainer.createDiv();
         this.validationMessage.style.cssText = `
-            margin-top: 8px;
-            padding: 8px 12px;
-            font-size: 14px;
-            color: #00b894;
-            border-radius: 6px;
+            margin-top: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+            color: var(--text-success);
+            border-radius: 4px;
         `;
 
         this.createVideoPreviewSection(urlContainer);
@@ -350,9 +351,10 @@ export class YouTubeUrlModal extends BaseModal {
             `;
         });
 
-        this.providerSelect.addEventListener('change', () => {
+        this.providerSelect.addEventListener('change', async () => {
             this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
-            this.handleProviderChange();
+            // Update model dropdown when provider changes
+            this.updateModelDropdown(this.options.modelOptions);
         });
     }
 
@@ -528,57 +530,45 @@ export class YouTubeUrlModal extends BaseModal {
         const dropdownRow = this.contentEl.createDiv();
         dropdownRow.style.cssText = `
             display: grid;
-            grid-template-columns: 1fr 1fr 1.2fr;
-            gap: 12px;
-            margin: 20px 0;
-            padding: 15px;
-            background: var(--background-secondary);
-            border-radius: 10px;
-            border: 1px solid var(--background-modifier-border);
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 16px 0 12px 0;
+            padding: 0;
         `;
 
         // Format dropdown
         const formatContainer = dropdownRow.createDiv();
-        const formatLabel = formatContainer.createDiv();
-        formatLabel.textContent = 'FORMAT';
-        formatLabel.style.cssText = `
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        `;
-
         this.formatSelect = formatContainer.createEl('select');
         this.formatSelect.style.cssText = `
             width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            background: #ffffff;
-            color: #000000;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--background-primary);
+            color: var(--text-normal);
             cursor: pointer;
             outline: none;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
         `;
 
         const formatOptions = [
-            { value: 'executive-summary', text: '1. Executive' },
-            { value: 'detailed-guide', text: '2. Detailed' },
-            { value: 'brief', text: '3. Brief' },
-            { value: 'custom', text: '4. Custom' },
+            { value: 'executive-summary', text: '📊 Executive' },
+            { value: 'detailed-guide', text: '📖 Detailed' },
+            { value: 'brief', text: '⚡ Brief' },
+            { value: 'custom', text: '✏️ Custom' },
         ];
 
         formatOptions.forEach(option => {
             const optionEl = this.formatSelect.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
-            optionEl.style.cssText = `
-                color: #000000;
-                background: #ffffff;
-            `;
         });
 
         this.formatSelect.value = this.format;
@@ -590,99 +580,89 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Provider dropdown
         const providerContainer = dropdownRow.createDiv();
-        const providerLabel = providerContainer.createDiv();
-        providerLabel.textContent = 'PROVIDER';
-        providerLabel.style.cssText = `
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        `;
-
         this.providerSelect = providerContainer.createEl('select');
         this.providerSelect.style.cssText = `
             width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            background: #ffffff;
-            color: #000000;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--background-primary);
+            color: var(--text-normal);
             cursor: pointer;
             outline: none;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
         `;
 
         const providerOptions = [
-            { value: 'Google Gemini', text: 'Google' },
-            { value: 'Groq', text: 'Groq' },
-            { value: 'Hugging Face', text: 'HuggingFace' },
-            { value: 'OpenRouter', text: 'OpenRouter' },
-            { value: 'Ollama', text: 'Ollama' },
-            { value: 'Ollama Cloud', text: 'OllamaCloud' },
+            { value: 'Google Gemini', text: '🔵 Gemini' },
+            { value: 'Groq', text: '⚡ Groq' },
+            { value: 'Hugging Face', text: '🤗 HuggingFace' },
+            { value: 'OpenRouter', text: '🔀 OpenRouter' },
+            { value: 'Ollama', text: '🦙 Ollama' },
+            { value: 'Ollama Cloud', text: '☁️ Ollama Cloud' },
         ];
 
         providerOptions.forEach(option => {
             const optionEl = this.providerSelect.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
-            optionEl.style.cssText = `
-                color: #000000;
-                background: #ffffff;
-            `;
         });
 
-        // Set the initial provider value
         this.providerSelect.value = this.selectedProvider;
-
-        this.providerSelect.addEventListener('change', () => {
+        this.providerSelect.addEventListener('change', async () => {
             this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
-            this.handleProviderChange();
+
+            // Update model dropdown when provider changes
+            this.updateModelDropdown(this.options.modelOptions);
+
+            // Auto-fetch models for the new provider
+            if (this.options.fetchModelsForProvider) {
+                try {
+                    const models = await this.options.fetchModelsForProvider(this.selectedProvider, false);
+                    if (models && models.length > 0) {
+                        const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
+                        this.options.modelOptions = updatedOptions;
+                        this.updateModelDropdown(updatedOptions);
+                    }
+                } catch (error) {
+                    console.warn('[YT-CLIPPER] Auto-fetch for provider change failed:', error);
+                }
+            }
         });
 
-        // Model dropdown with eye icon
+        // Model dropdown
         const modelContainer = dropdownRow.createDiv();
-        const modelLabelWrapper = modelContainer.createDiv();
-        modelLabelWrapper.style.cssText = `
+        const modelWrapper = modelContainer.createDiv();
+        modelWrapper.style.cssText = `
+            position: relative;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
         `;
 
-        const modelLabel = modelLabelWrapper.createDiv();
-        modelLabel.textContent = 'MODEL';
-        modelLabel.style.cssText = `
-            font-size: 12px;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        `;
-
-        const eyeIcon = modelLabelWrapper.createSpan();
-        eyeIcon.innerHTML = '👁️';
-        eyeIcon.style.cssText = `
-            font-size: 14px;
-            cursor: help;
-            opacity: 0.7;
-        `;
-        eyeIcon.title = 'Multimodal capable';
-
-        this.modelSelect = modelContainer.createEl('select');
+        this.modelSelect = modelWrapper.createEl('select');
         this.modelSelect.style.cssText = `
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            background: #ffffff;
-            color: #000000;
+            flex: 1;
+            padding: 10px 32px 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--background-primary);
+            color: var(--text-normal);
             cursor: pointer;
             outline: none;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
         `;
 
         this.modelSelect.addEventListener('change', () => {
@@ -691,7 +671,7 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create icons row with sun, refresh, star, batch button and toggle switch
+     * Create icons row with actions
      */
     private createIconsRow(): void {
         const iconsRow = this.contentEl.createDiv();
@@ -699,107 +679,125 @@ export class YouTubeUrlModal extends BaseModal {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 12px;
-            margin: 15px 0;
-            padding: 10px 0;
+            gap: 8px;
+            margin: 8px 0 12px 0;
+            padding: 8px;
+            background: var(--background-secondary);
+            border-radius: 8px;
         `;
 
-        const createSeparator = () => {
-            const sep = iconsRow.createSpan();
-            sep.textContent = '|';
-            sep.style.cssText = `
-                color: #ccc;
-                font-size: 14px;
-                opacity: 0.5;
-            `;
-            return sep;
-        };
-
-        // Sun icon (theme toggle placeholder)
-        const sunIcon = iconsRow.createSpan();
-        sunIcon.innerHTML = '☀️';
-        sunIcon.style.cssText = `
-            font-size: 18px;
+        // Theme toggle
+        const themeBtn = iconsRow.createEl('button');
+        themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
+        themeBtn.style.cssText = `
+            padding: 6px 10px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
             cursor: pointer;
             opacity: 0.7;
-            transition: opacity 0.2s ease;
+            transition: all 0.2s ease;
         `;
-        sunIcon.title = 'Toggle theme';
-        sunIcon.addEventListener('mouseenter', () => {
-            sunIcon.style.opacity = '1';
-        });
-        sunIcon.addEventListener('mouseleave', () => {
-            sunIcon.style.opacity = '0.7';
-        });
-        sunIcon.addEventListener('click', () => {
+        themeBtn.title = 'Toggle theme';
+        themeBtn.addEventListener('mouseenter', () => { themeBtn.style.opacity = '1'; themeBtn.style.background = 'var(--background-modifier-hover)'; });
+        themeBtn.addEventListener('mouseleave', () => { themeBtn.style.opacity = '0.7'; themeBtn.style.background = 'transparent'; });
+        themeBtn.addEventListener('click', () => {
             this.isLightTheme = !this.isLightTheme;
             this.applyTheme(this.isLightTheme);
             localStorage.setItem('ytc-theme-mode', this.isLightTheme ? 'light' : 'dark');
+            themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
         });
 
-        createSeparator();
-
-        // Refresh icon
-        const refreshIcon = iconsRow.createSpan();
-        refreshIcon.innerHTML = '🔄';
-        refreshIcon.style.cssText = `
-            font-size: 18px;
+        // Refresh button with loading state
+        const refreshBtn = iconsRow.createEl('button');
+        refreshBtn.innerHTML = '🔄';
+        this.refreshButton = refreshBtn;
+        refreshBtn.style.cssText = `
+            padding: 6px 10px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
             cursor: pointer;
             opacity: 0.7;
-            transition: opacity 0.2s ease;
+            transition: all 0.2s ease;
         `;
-        refreshIcon.title = 'Refresh models';
-        refreshIcon.addEventListener('mouseenter', () => {
-            refreshIcon.style.opacity = '1';
-        });
-        refreshIcon.addEventListener('mouseleave', () => {
-            refreshIcon.style.opacity = '0.7';
-        });
-        refreshIcon.addEventListener('click', async () => {
-            refreshIcon.style.opacity = '0.5';
-            if (this.options.fetchModelsForProvider && this.selectedProvider) {
-                await this.options.fetchModelsForProvider(this.selectedProvider, true);
+        refreshBtn.title = 'Fetch latest models from provider';
+        refreshBtn.addEventListener('mouseenter', () => { refreshBtn.style.opacity = '1'; refreshBtn.style.background = 'var(--background-modifier-hover)'; });
+        refreshBtn.addEventListener('mouseleave', () => { refreshBtn.style.opacity = '0.7'; refreshBtn.style.background = 'transparent'; });
+        refreshBtn.addEventListener('click', async () => {
+            if (this.fetchInProgress) return;
+
+            refreshBtn.style.opacity = '0.5';
+            refreshBtn.innerHTML = '⏳';
+            this.fetchInProgress = true;
+
+            // Show loading in model dropdown
+            if (this.modelSelect) {
+                this.modelSelect.disabled = true;
+                this.modelSelect.innerHTML = '<option value="">🔄 Fetching models...</option>';
             }
-            setTimeout(() => {
-                refreshIcon.style.opacity = '0.7';
-            }, 500);
+
+            try {
+                if (this.options.fetchModelsForProvider && this.selectedProvider) {
+                    const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
+
+                    // Update the options map
+                    const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
+                    this.options.modelOptions = updatedOptions;
+
+                    // Refresh the dropdown with new models
+                    this.updateModelDropdown(updatedOptions);
+
+                    new Notice(`✅ Fetched ${models.length} models for ${this.selectedProvider}`);
+                }
+            } catch (error) {
+                // Restore dropdown on error
+                if (this.modelSelect) {
+                    this.modelSelect.disabled = false;
+                }
+                new Notice(`❌ Failed to fetch models: ${error instanceof Error ? error.message : String(error)}`);
+            } finally {
+                refreshBtn.innerHTML = '🔄';
+                refreshBtn.style.opacity = '0.7';
+                this.fetchInProgress = false;
+            }
         });
 
-        createSeparator();
-
-        // Star icon
-        const starIcon = iconsRow.createSpan();
-        starIcon.innerHTML = '⭐';
-        starIcon.style.cssText = `
-            font-size: 18px;
+        // Star/Save preference
+        const starBtn = iconsRow.createEl('button');
+        starBtn.innerHTML = '⭐';
+        starBtn.style.cssText = `
+            padding: 6px 10px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
             cursor: pointer;
             opacity: 0.7;
-            transition: opacity 0.2s ease;
+            transition: all 0.2s ease;
         `;
-        starIcon.title = 'Set as default';
-        starIcon.addEventListener('mouseenter', () => {
-            starIcon.style.opacity = '1';
-        });
-        starIcon.addEventListener('mouseleave', () => {
-            starIcon.style.opacity = '0.7';
-        });
-        starIcon.addEventListener('click', () => {
+        starBtn.title = 'Save as default';
+        starBtn.addEventListener('mouseenter', () => { starBtn.style.opacity = '1'; starBtn.style.background = 'var(--background-modifier-hover)'; });
+        starBtn.addEventListener('mouseleave', () => { starBtn.style.opacity = '0.7'; starBtn.style.background = 'transparent'; });
+        starBtn.addEventListener('click', () => {
             if (this.selectedModel) {
                 UserPreferencesService.setPreference('preferredModel', this.selectedModel);
-                new Notice('Model saved as preference!');
+                new Notice('⭐ Model saved as preference!');
             }
         });
 
-        createSeparator();
+        // Separator
+        const sep1 = iconsRow.createSpan();
+        sep1.textContent = '|';
+        sep1.style.cssText = `color: var(--text-faint); font-size: 12px; opacity: 0.5;`;
 
-        // Batch Process button
-        const batchButton = iconsRow.createEl('button');
-        batchButton.innerHTML = '📦 Batch';
-        batchButton.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 14px;
+        // Batch button
+        const batchBtn = iconsRow.createEl('button');
+        batchBtn.innerHTML = '📦 Batch';
+        batchBtn.style.cssText = `
+            padding: 8px 16px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -807,64 +805,59 @@ export class YouTubeUrlModal extends BaseModal {
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            opacity: 0.9;
             transition: all 0.2s ease;
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         `;
-        batchButton.title = 'Process multiple videos at once';
-        batchButton.addEventListener('mouseenter', () => {
-            batchButton.style.opacity = '1';
-            batchButton.style.transform = 'translateY(-1px)';
-            batchButton.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+        batchBtn.title = 'Process multiple videos';
+        batchBtn.addEventListener('mouseenter', () => {
+            batchBtn.style.transform = 'translateY(-1px)';
+            batchBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
         });
-        batchButton.addEventListener('mouseleave', () => {
-            batchButton.style.opacity = '0.9';
-            batchButton.style.transform = 'translateY(0)';
-            batchButton.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+        batchBtn.addEventListener('mouseleave', () => {
+            batchBtn.style.transform = 'translateY(0)';
+            batchBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
         });
-        batchButton.addEventListener('click', () => {
+        batchBtn.addEventListener('click', () => {
             if (this.options.onOpenBatchModal) {
                 this.options.onOpenBatchModal();
             }
         });
 
-        createSeparator();
+        // Separator
+        const sep2 = iconsRow.createSpan();
+        sep2.textContent = '|';
+        sep2.style.cssText = `color: var(--text-faint); font-size: 12px; opacity: 0.5;`;
 
-        // Auto-fallback toggle switch
+        // Auto-fallback toggle
         const toggleWrapper = iconsRow.createDiv();
         toggleWrapper.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         `;
 
         const toggleLabel = toggleWrapper.createSpan();
         toggleLabel.textContent = 'Auto';
-        toggleLabel.style.cssText = `
-            font-size: 11px;
-            color: #666;
-            font-weight: 500;
-        `;
+        toggleLabel.style.cssText = `font-size: 11px; color: var(--text-muted); font-weight: 500;`;
 
         const toggleSwitch = toggleWrapper.createDiv();
         toggleSwitch.style.cssText = `
             position: relative;
-            width: 40px;
-            height: 22px;
+            width: 36px;
+            height: 20px;
             background: #00b894;
-            border-radius: 11px;
+            border-radius: 10px;
             cursor: pointer;
             transition: background 0.2s ease;
-            flex-shrink: 0;
         `;
 
         const toggleKnob = toggleSwitch.createDiv();
         toggleKnob.style.cssText = `
             position: absolute;
             top: 2px;
-            left: 20px;
-            width: 18px;
-            height: 18px;
+            left: 18px;
+            width: 16px;
+            height: 16px;
             background: white;
             border-radius: 50%;
             transition: transform 0.2s ease;
@@ -879,8 +872,8 @@ export class YouTubeUrlModal extends BaseModal {
                 toggleKnob.style.transform = 'translateX(0)';
                 this.autoFallbackEnabled = true;
             } else {
-                toggleSwitch.style.background = '#ccc';
-                toggleKnob.style.transform = 'translateX(-18px)';
+                toggleSwitch.style.background = 'var(--background-modifier-border)';
+                toggleKnob.style.transform = 'translateX(-16px)';
                 this.autoFallbackEnabled = false;
             }
             UserPreferencesService.updateLastUsed({
@@ -1306,29 +1299,52 @@ export class YouTubeUrlModal extends BaseModal {
 
     /**
      * Update the model dropdown options based on provider selection and fetched data
+     * This is called dynamically when models are fetched from the web/API
      */
     private updateModelDropdown(modelOptionsMap: Record<string, string[]>): void {
         if (!this.modelSelect || !this.providerSelect) return;
 
-        // Clear existing options
-        if (!this.modelSelect || !this.providerSelect) return;
-        this.modelSelect.innerHTML = '';
-
         // Get the currently selected provider
         const currentProvider = this.providerSelect.value;
 
+        // Show loading state in dropdown
+        const currentValue = this.modelSelect.value;
+        this.modelSelect.innerHTML = '<option value="">Loading models...</option>';
+        this.modelSelect.disabled = true;
+
         // Get available models for the current provider
         let models: string[] = [];
+        let sourceInfo = '';
+
         if (modelOptionsMap?.[currentProvider]) {
             models = modelOptionsMap[currentProvider] ?? [];
+            sourceInfo = ' (live)';
         } else {
             // Fallback to PROVIDER_MODEL_OPTIONS (single source of truth)
             const providerModels = PROVIDER_MODEL_OPTIONS[currentProvider];
             if (providerModels) {
                 models = providerModels.map(m => typeof m === 'string' ? m : m.name);
+                sourceInfo = ' (cached)';
             } else {
                 models = [];
             }
+        }
+
+        // Clear and populate dropdown
+        this.modelSelect.innerHTML = '';
+
+        // Add model count indicator as first option (disabled)
+        if (models.length > 0) {
+            const countOption = this.modelSelect.createEl('option');
+            countOption.value = '';
+            countOption.textContent = `📋 ${models.length} models${sourceInfo}`;
+            countOption.disabled = true;
+            countOption.style.cssText = `
+                font-weight: 600;
+                color: var(--text-muted);
+                font-size: 12px;
+                background: var(--background-secondary);
+            `;
         }
 
         // Add models to dropdown with friendly names
@@ -1348,12 +1364,15 @@ export class YouTubeUrlModal extends BaseModal {
                 option.title = `${formattedName} - Supports vision and multimodal analysis`;
             }
 
-            // Ensure black text on white background for all options
+            // Ensure proper text color
             option.style.cssText = `
-                color: #000000;
-                background: #ffffff;
+                color: var(--text-normal);
+                background: var(--background-primary);
             `;
         });
+
+        // Re-enable dropdown
+        this.modelSelect.disabled = false;
 
         // Try to find the best model to select:
         // 1. Try to use the last used model for this provider
@@ -1376,6 +1395,17 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.modelSelect.value = modelToSelect;
         this.selectedModel = modelToSelect;
+
+        // Visual feedback - flash the dropdown to show it was updated
+        if (models.length > 0) {
+            this.modelSelect.style.transition = 'background 0.3s ease';
+            this.modelSelect.style.background = 'var(--background-modifier-hover)';
+            setTimeout(() => {
+                if (this.modelSelect) {
+                    this.modelSelect.style.background = '';
+                }
+            }, 300);
+        }
     }
 
     /**
@@ -1712,20 +1742,20 @@ export class YouTubeUrlModal extends BaseModal {
         // Update dropdown styles to match theme - use explicit colors for visibility
         if (this.formatSelect) {
             this.formatSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
-            this.formatSelect.style.color = isLight ? '#000000' : '#ebedf0';
-            this.formatSelect.style.borderColor = isLight ? '#ddd' : '#444';
+            this.formatSelect.style.color = isLight ? '#1a1d21' : '#ebedf0';
+            this.formatSelect.style.borderColor = isLight ? '#d1d5db' : '#3f444e';
         }
 
         if (this.providerSelect) {
             this.providerSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
-            this.providerSelect.style.color = isLight ? '#000000' : '#ebedf0';
-            this.providerSelect.style.borderColor = isLight ? '#ddd' : '#444';
+            this.providerSelect.style.color = isLight ? '#1a1d21' : '#ebedf0';
+            this.providerSelect.style.borderColor = isLight ? '#d1d5db' : '#3f444e';
         }
 
         if (this.modelSelect) {
             this.modelSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
-            this.modelSelect.style.color = isLight ? '#000000' : '#ebedf0';
-            this.modelSelect.style.borderColor = isLight ? '#ddd' : '#444';
+            this.modelSelect.style.color = isLight ? '#1a1d21' : '#ebedf0';
+            this.modelSelect.style.borderColor = isLight ? '#d1d5db' : '#3f444e';
         }
 
         // Update URL input
@@ -1788,83 +1818,190 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create action buttons
+     * Create action buttons - compact and organized
      */
     private createActionButtons(): void {
+        // Main action container
         const container = this.contentEl.createDiv();
         container.style.cssText = `
             display: flex;
-            justify-content: flex-end;
+            flex-direction: column;
             gap: 12px;
-            margin-top: 30px;
-            padding-top: 20px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--background-modifier-border);
         `;
 
-        const cancelBtn = container.createEl('button');
-        cancelBtn.textContent = MESSAGES.MODALS.CANCEL;
-        cancelBtn.style.cssText = `
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            background: #e0e0e0;
-            color: #333;
-            transition: all 0.2s ease;
+        // Primary action row (Process)
+        const primaryRow = container.createDiv();
+        primaryRow.style.cssText = `
+            display: flex;
+            gap: 10px;
         `;
 
-        cancelBtn.addEventListener('click', () => this.close());
-
-        this.processButton = container.createEl('button');
+        this.processButton = primaryRow.createEl('button');
         this.processButton.textContent = MESSAGES.MODALS.PROCESS;
         this.processButton.style.cssText = `
-            padding: 12px 24px;
+            flex: 1;
+            padding: 12px 20px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            background: #00b894;
-            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            background: var(--interactive-accent);
+            color: var(--text-on-accent);
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         `;
-
         this.processButton.addEventListener('click', () => this.handleProcess());
 
-        this.openButton = container.createEl('button');
-        this.openButton.textContent = 'Open Note';
-        this.openButton.style.cssText = `
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            background: #00b894;
-            color: white;
-            transition: all 0.2s ease;
+        // Secondary actions row (initially hidden)
+        const secondaryRow = container.createDiv();
+        secondaryRow.style.cssText = `
+            display: none;
+            gap: 8px;
         `;
+        this.secondaryActionsRow = secondaryRow;
 
-        this.openButton.style.display = 'none';
+        // Process Another button
+        const processAnotherBtn = secondaryRow.createEl('button');
+        processAnotherBtn.innerHTML = '🔄 Process Another';
+        processAnotherBtn.style.cssText = `
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid var(--interactive-accent);
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            background: transparent;
+            color: var(--interactive-accent);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        `;
+        processAnotherBtn.addEventListener('click', () => {
+            this.showInputState();
+        });
+        this.processAnotherButton = processAnotherBtn;
+
+        // Open Note button
+        this.openButton = secondaryRow.createEl('button');
+        this.openButton.innerHTML = '📄 Open Note';
+        this.openButton.style.cssText = `
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--background-secondary);
+            color: var(--text-normal);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        `;
         this.openButton.addEventListener('click', () => this.handleOpenFile());
 
-        this.copyPathButton = container.createEl('button');
-        this.copyPathButton.textContent = '📋 Copy Path';
+        // Copy Path button
+        this.copyPathButton = secondaryRow.createEl('button');
+        this.copyPathButton.innerHTML = '📋 Copy';
         this.copyPathButton.style.cssText = `
-            padding: 8px 12px;
+            padding: 10px 14px;
             border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
+            border-radius: 7px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 14px;
+            font-weight: 500;
             background: var(--background-secondary);
             color: var(--text-normal);
             transition: all 0.2s ease;
         `;
-        this.copyPathButton.style.display = 'none';
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
+        // Cancel button (always visible but smaller)
+        const cancelBtn = container.createEl('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            align-self: flex-end;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = 'var(--background-modifier-hover)';
+            cancelBtn.style.color = 'var(--text-normal)';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'transparent';
+            cancelBtn.style.color = 'var(--text-muted)';
+        });
+        cancelBtn.addEventListener('click', () => this.close());
+
         this.updateProcessButtonState();
+    }
+
+    /**
+     * Show input state (for "Process Another")
+     */
+    private showInputState(): void {
+        if (this.processButton) {
+            this.processButton.style.display = 'flex';
+            this.processButton.disabled = false;
+        }
+        if (this.secondaryActionsRow) {
+            this.secondaryActionsRow.style.display = 'none';
+        }
+        if (this.urlInput) {
+            this.urlInput.disabled = false;
+            this.urlInput.value = '';
+            this.url = '';
+        }
+        if (this.openButton) {
+            this.openButton.style.display = 'none';
+        }
+        if (this.copyPathButton) {
+            this.copyPathButton.style.display = 'none';
+        }
+        if (this.headerEl) {
+            this.headerEl.textContent = MESSAGES.MODALS.PROCESS_VIDEO;
+        }
+        this.processedFilePath = '';
+        this.updateProcessButtonState();
+        this.focusUrlInput();
+    }
+
+    /**
+     * Show completion state with secondary actions
+     */
+    private showCompletionState(): void {
+        if (this.processButton) {
+            this.processButton.style.display = 'none';
+        }
+        if (this.secondaryActionsRow) {
+            this.secondaryActionsRow.style.display = 'flex';
+        }
+        if (this.openButton) {
+            this.openButton.style.display = 'flex';
+        }
+        if (this.copyPathButton) {
+            this.copyPathButton.style.display = 'flex';
+        }
     }
 
     /**
@@ -2100,16 +2237,18 @@ export class YouTubeUrlModal extends BaseModal {
             this.urlInput.value = '';
             this.url = '';
         }
+        // Use the new layout - hide process button, show secondary actions
         if (this.processButton) {
-            this.processButton.disabled = false;
-            this.processButton.textContent = 'Process Another';
-            this.processButton.style.display = 'inline-block';
+            this.processButton.style.display = 'none';
+        }
+        if (this.secondaryActionsRow) {
+            this.secondaryActionsRow.style.display = 'flex';
         }
         if (this.openButton) {
-            this.openButton.style.display = 'inline-block';
+            this.openButton.style.display = 'flex';
         }
         if (this.copyPathButton) {
-            this.copyPathButton.style.display = 'inline-block';
+            this.copyPathButton.style.display = 'flex';
         }
         if (this.headerEl) {
             this.headerEl.textContent = '✅ Video Processed Successfully!';

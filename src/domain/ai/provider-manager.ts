@@ -8,6 +8,7 @@ import { AIProvider, YouTubePluginSettings } from '../../types';
 import { PROVIDER_MODEL_OPTIONS } from '../../ai/api';
 import { performanceTracker } from '../../services/performance-tracker';
 import { OptimizedHttpClient } from '../../utils/http-client';
+import { WebScraperService } from '../../services/web-scraper';
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -102,6 +103,31 @@ export class ProviderManager {
    */
     async fetchLatestModelsForProvider(providerName: string, bypassCache = false): Promise<string[]> {
         return await performanceTracker.measureOperation('ai-service', `fetch-models-${providerName}`, async () => {
+            // Check cache first (unless bypassing)
+            if (!bypassCache && WebScraperService.isCacheFresh(providerName)) {
+                const cached = WebScraperService.getCachedModels().get(providerName);
+                if (cached) {
+                    logger.info(`Using cached models for ${providerName} (${WebScraperService.getCacheAge(providerName)})`, 'ProviderManager');
+                    return cached.models;
+                }
+            }
+
+            // Try to fetch from web/API for real-time data
+            try {
+                const webModels = await WebScraperService.fetchModelsFromWeb(providerName);
+                if (webModels.length > 0) {
+                    logger.info(`Fetched ${webModels.length} models from web for ${providerName}`, 'ProviderManager');
+                    // Determine source based on provider
+                    const source = (providerName === 'Ollama' || providerName === 'Ollama Cloud' ||
+                                  providerName === 'OpenRouter') ? 'api' : 'web';
+                    WebScraperService.saveCachedModels(providerName, webModels, source);
+                    return webModels;
+                }
+            } catch (error) {
+                logger.warn(`Web fetch failed for ${providerName}, falling back to API/static: ${error}`, 'ProviderManager');
+            }
+
+            // Fall back to provider-specific API methods
             if (providerName === 'Ollama') {
                 return this.fetchOllamaModels(bypassCache);
             }
@@ -117,8 +143,11 @@ export class ProviderManager {
             if (providerName === 'Groq') {
                 return this.fetchGroqModels(bypassCache);
             }
+            if (providerName === 'Google Gemini') {
+                return this.fetchGeminiModels(bypassCache);
+            }
 
-            // For Gemini and others, return static options
+            // Final fallback to static options
             return this.getProviderModels(providerName);
         }, {
             provider: providerName,
@@ -351,6 +380,52 @@ export class ProviderManager {
         }
 
         return cachedModels && cachedModels.length > 0 ? cachedModels : this.getProviderModels('Groq');
+    }
+
+    /**
+   * Fetch Google Gemini models
+   */
+    private async fetchGeminiModels(bypassCache = false): Promise<string[]> {
+        const cacheKey = 'Google Gemini';
+        const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
+        const cachedTimestamp = this.settings.modelCacheTimestamps?.[cacheKey];
+        const now = Date.now();
+
+        if (!bypassCache && cachedModels && cachedTimestamp && (now - cachedTimestamp) < CACHE_DURATION) {
+            return cachedModels;
+        }
+
+        try {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (this.settings.geminiApiKey) {
+                headers['x-goog-api-key'] = this.settings.geminiApiKey;
+            }
+
+            const response = await this.httpClient.get('https://generativelanguage.googleapis.com/v1beta/models', { headers });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data?.models && Array.isArray(data.models)) {
+                    const models = data.models
+                        .filter((m: any) => {
+                            const name = m.name || m.id || '';
+                            return name.includes('gemini');
+                        })
+                        .map((m: any) => {
+                            const name = m.name || m.id || '';
+                            return name.replace('models/', '');
+                        });
+
+                    return models;
+                }
+            }
+        } catch (error) {
+            logger.warn('Gemini API error', 'ProviderManager', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+
+        return cachedModels && cachedModels.length > 0 ? cachedModels : this.getProviderModels('Google Gemini');
     }
 
     /**
