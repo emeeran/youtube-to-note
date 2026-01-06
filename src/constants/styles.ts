@@ -7,8 +7,11 @@ export const MODAL_STYLES = {
     zIndex: '10000',
     display: 'flex',
     header: {
-        marginBottom: '15px',
-        color: 'var(--text-accent)'
+        marginBottom: '20px',
+        color: '#ffa500',
+        fontSize: '28px',
+        fontWeight: '700',
+        textAlign: 'center'
     },
     message: {
         marginBottom: '20px',

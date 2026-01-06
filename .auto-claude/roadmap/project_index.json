@@ -1,0 +1,80 @@
+{
+  "project_root": "/home/em/Sync/obs-vault-minimal/.obsidian/plugins/youtube-to-note",
+  "project_type": "single",
+  "services": {
+    "main": {
+      "name": "main",
+      "path": "/home/em/Sync/obs-vault-minimal/.obsidian/plugins/youtube-to-note",
+      "language": "TypeScript",
+      "framework": null,
+      "type": "unknown",
+      "package_manager": "npm",
+      "build_tool": "esbuild",
+      "dev_command": "npm run dev",
+      "key_directories": {
+        "src": {
+          "path": "src",
+          "purpose": "Source code"
+        },
+        "tests": {
+          "path": "tests",
+          "purpose": "Tests"
+        }
+      },
+      "entry_point": "main.js",
+      "dependencies": [],
+      "dev_dependencies": [
+        "@types/jest",
+        "@types/node",
+        "builtin-modules",
+        "esbuild",
+        "jest",
+        "jest-environment-jsdom",
+        "obsidian",
+        "prettier",
+        "ts-jest",
+        "tslib"
+      ],
+      "testing": "Jest",
+      "test_directory": "tests",
+      "api": {
+        "routes": [
+          {
+            "path": "/clip",
+            "methods": [
+              "POST"
+            ],
+            "file": "extension/chrome-extension/helper/server.js",
+            "framework": "Express",
+            "requires_auth": false
+          },
+          {
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "file": "extension/chrome-extension/helper/server.js",
+            "framework": "Express",
+            "requires_auth": false
+          }
+        ],
+        "total_routes": 2,
+        "methods": [
+          "POST",
+          "GET"
+        ],
+        "protected_routes": []
+      }
+    }
+  },
+  "infrastructure": {
+    "ci": "GitHub Actions",
+    "ci_workflows": [
+      "ci.yml"
+    ]
+  },
+  "conventions": {
+    "formatting": "Prettier",
+    "typescript": true
+  }
+}

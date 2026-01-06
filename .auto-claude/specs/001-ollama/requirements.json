@@ -1,0 +1,4 @@
+{
+  "task_description": "integrate ollama cloud API , set deepseek-3.2 as default",
+  "workflow_type": "refactoring"
+}

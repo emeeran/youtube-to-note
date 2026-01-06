@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-youtube-clipper",
+  "name": "obsidian-youtube-to-note",
   "version": "1.4.0",
-  "description": "YoutubeClipper - Clip YouTube videos and generate structured notes in Obsidian",
+  "description": "YouTube to Note - Generate structured notes from YouTube videos in Obsidian",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -21,10 +21,10 @@
     "obsidian",
     "plugin",
     "youtube",
-    "clipper",
     "video",
     "transcript",
-    "ai"
+    "ai",
+    "notes"
   ],
   "author": "Meeran E Mandhini",
   "license": "MIT",

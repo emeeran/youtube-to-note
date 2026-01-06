@@ -1,0 +1,22 @@
+{
+  "sourceType": "manual",
+  "category": "refactoring",
+  "priority": "medium",
+  "complexity": "small",
+  "impact": "medium",
+  "model": "opus",
+  "thinkingLevel": "high",
+  "isAutoProfile": true,
+  "phaseModels": {
+    "spec": "opus",
+    "planning": "opus",
+    "coding": "opus",
+    "qa": "opus"
+  },
+  "phaseThinking": {
+    "spec": "ultrathink",
+    "planning": "high",
+    "coding": "low",
+    "qa": "low"
+  }
+}

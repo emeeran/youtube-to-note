@@ -1,0 +1,27 @@
+{
+  "id": "session-1767638154682",
+  "projectId": "b75253c0-e765-4032-9afb-01fed4e3ce76",
+  "title": "Suggest improvements for code quality",
+  "messages": [
+    {
+      "id": "msg-1767638170663",
+      "role": "user",
+      "content": "Suggest improvements for code quality",
+      "timestamp": "2026-01-05T18:36:10.663Z"
+    },
+    {
+      "id": "msg-1767639413001",
+      "role": "user",
+      "content": "hello",
+      "timestamp": "2026-01-05T18:56:53.001Z"
+    },
+    {
+      "id": "msg-1767639533618",
+      "role": "assistant",
+      "content": "Request timed out. Please try a shorter query.",
+      "timestamp": "2026-01-05T18:58:53.618Z"
+    }
+  ],
+  "createdAt": "2026-01-05T18:35:54.682Z",
+  "updatedAt": "2026-01-05T18:58:53.618Z"
+}

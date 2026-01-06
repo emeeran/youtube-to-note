@@ -1,10 +1,10 @@
 {
-    "id": "yt-clipper",
-    "name": "YT-Clipper",
+    "id": "youtube-to-note",
+    "name": "YouTube to Note",
     "version": "1.4.0",
     "minAppVersion": "0.15.0",
-    "description": "AI-powered YouTube clipper that extracts key insights and generates structured, actionable notes with conflict-free operation",
+    "description": "Generate structured notes from YouTube videos using AI",
     "author": "Meeran E Mandhini",
-    "authorUrl": "https://github.com/emeeran/yt-clipper.git",
+    "authorUrl": "https://github.com/emeeran/youtube-to-note.git",
     "isDesktopOnly": false
 }

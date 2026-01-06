@@ -1,0 +1,83 @@
+{
+  "spec_id": "001-ollama",
+  "created_at": "2026-01-05T18:30:09.879191+00:00",
+  "updated_at": "2026-01-05T18:30:12.132784+00:00",
+  "phases": {
+    "planning": {
+      "phase": "planning",
+      "status": "active",
+      "started_at": "2026-01-05T18:30:09.879238+00:00",
+      "completed_at": null,
+      "entries": [
+        {
+          "timestamp": "2026-01-05T18:30:09.879286+00:00",
+          "type": "phase_start",
+          "content": "Starting spec creation process",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:10.792383+00:00",
+          "type": "info",
+          "content": "Starting phase 1: PROJECT DISCOVERY",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.102357+00:00",
+          "type": "success",
+          "content": "Discovered 26 files in project",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.103869+00:00",
+          "type": "info",
+          "content": "Starting phase 2: REQUIREMENTS GATHERING",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.112240+00:00",
+          "type": "info",
+          "content": "Starting phase 3: COMPLEXITY ASSESSMENT",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.113094+00:00",
+          "type": "info",
+          "content": "Analyzing task complexity with AI...",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.115532+00:00",
+          "type": "info",
+          "content": "Starting phase 4: HISTORICAL CONTEXT",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.131931+00:00",
+          "type": "info",
+          "content": "Knowledge graph not configured, skipping",
+          "phase": "planning"
+        },
+        {
+          "timestamp": "2026-01-05T18:30:12.132756+00:00",
+          "type": "info",
+          "content": "Starting phase 5: INTEGRATION RESEARCH",
+          "phase": "planning"
+        }
+      ]
+    },
+    "coding": {
+      "phase": "coding",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "entries": []
+    },
+    "validation": {
+      "phase": "validation",
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "entries": []
+    }
+  }
+}

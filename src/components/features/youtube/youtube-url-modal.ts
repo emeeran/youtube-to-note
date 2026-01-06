@@ -173,110 +173,611 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create streamlined modal content with compact UI
+     * Create modal content
      */
     private createModalContent(): void {
         this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
-        this.createThemeToggle(); // Add theme toggle at the top
-        this.createCompactUrlSection();
-        this.createDropDownRow();
+        this.createUrlSection();
+        this.createDropdownRow();
+        this.createIconsRow();
         this.createProgressSection();
         this.createActionButtons();
-        
+
         // Apply theme immediately on modal open
         this.applyTheme(this.isLightTheme);
     }
 
     /**
-     * Create compact URL section with paste button
+     * Create URL input section
      */
-    private createCompactUrlSection(): void {
+    private createUrlSection(): void {
         const urlContainer = this.contentEl.createDiv();
         urlContainer.style.cssText = `
-            margin: 4px 0;
+            margin: 20px 0 15px 0;
             position: relative;
         `;
 
-        // URL input with inline actions (more compact)
         const inputWrapper = urlContainer.createDiv();
         inputWrapper.style.cssText = `
             position: relative;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 8px;
         `;
 
-        // URL input (smaller padding)
         this.urlInput = inputWrapper.createEl('input');
         this.urlInput.type = 'url';
-        this.urlInput.placeholder = 'Paste URL...';
+        this.urlInput.placeholder = 'Enter YouTube URL...';
         this.urlInput.style.cssText = `
             flex: 1;
-            padding: 6px 8px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            font-size: 0.85rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #ffffff;
+            color: #333;
             transition: all 0.2s ease;
             outline: none;
+            height: 45px;
         `;
 
-        // Paste button (more compact)
         this.pasteButton = inputWrapper.createEl('button');
         this.pasteButton.innerHTML = '📋';
         this.pasteButton.style.cssText = `
-            padding: 6px;
-            background: var(--interactive-accent);
+            padding: 0;
+            background: #00b894;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 18px;
+            font-weight: 500;
             transition: all 0.2s ease;
             color: white;
             flex-shrink: 0;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         `;
 
         this.pasteButton.addEventListener('click', () => this.handleSmartPaste());
         this.pasteButton.addEventListener('mouseenter', () => {
-            if (this.pasteButton) this.pasteButton.style.background = 'var(--interactive-accent-hover)';
+            if (this.pasteButton) this.pasteButton.style.background = '#00a383';
         });
         this.pasteButton.addEventListener('mouseleave', () => {
-            if (this.pasteButton) this.pasteButton.style.background = 'var(--interactive-accent)';
+            if (this.pasteButton) this.pasteButton.style.background = '#00b894';
         });
 
-        // Focus effects
         this.urlInput.addEventListener('focus', () => {
             if (this.urlInput) {
-                this.urlInput.style.borderColor = 'var(--interactive-accent)';
-                this.urlInput.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.2)';
+                this.urlInput.style.borderColor = '#00b894';
+                this.urlInput.style.boxShadow = '0 0 0 3px rgba(0, 184, 148, 0.1)';
             }
         });
 
         this.urlInput.addEventListener('blur', () => {
             if (this.urlInput) {
-                this.urlInput.style.borderColor = 'var(--background-modifier-border)';
+                this.urlInput.style.borderColor = '#ddd';
                 this.urlInput.style.boxShadow = 'none';
             }
         });
 
-        // Validation message container (compact)
         this.validationMessage = urlContainer.createDiv();
         this.validationMessage.style.cssText = `
-            margin-top: 2px;
-            padding: 2px 4px;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            border-radius: 3px;
+            margin-top: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            color: #00b894;
+            border-radius: 6px;
         `;
 
-        // Video preview container (hidden by default, more compact)
         this.createVideoPreviewSection(urlContainer);
     }
 
     /**
-     * Create ultra-compact video preview section
+     * Create provider dropdown section
      */
+    private createProviderSection(): void {
+        const providerContainer = this.contentEl.createDiv();
+        providerContainer.style.cssText = `
+            margin: 12px 0;
+        `;
+
+        const label = providerContainer.createDiv();
+        label.textContent = 'AI Provider';
+        label.style.cssText = `
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+
+        this.providerSelect = providerContainer.createEl('select');
+        this.providerSelect.style.cssText = `
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            outline: none;
+        `;
+
+        const providerOptions = [
+            { value: 'Google Gemini', text: 'Google' },
+            { value: 'Groq', text: 'Groq' },
+            { value: 'Hugging Face', text: 'HuggingFace' },
+            { value: 'OpenRouter', text: 'OpenRouter' },
+            { value: 'Ollama', text: 'Ollama' },
+            { value: 'Ollama Cloud', text: 'OllamaCloud' }
+        ];
+
+        providerOptions.forEach(option => {
+            const optionEl = this.providerSelect!.createEl('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.text;
+        });
+
+        this.providerSelect.addEventListener('change', () => {
+            this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
+            this.handleProviderChange();
+        });
+    }
+
+    /**
+     * Create model dropdown section
+     */
+    private createModelSection(): void {
+        const modelContainer = this.contentEl.createDiv();
+        modelContainer.style.cssText = `
+            margin: 12px 0;
+        `;
+
+        const labelRow = modelContainer.createDiv();
+        labelRow.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        `;
+
+        const label = labelRow.createDiv();
+        label.textContent = 'AI Model';
+        label.style.cssText = `
+            font-weight: 600;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+
+        // Action buttons for model management
+        const actionButtons = labelRow.createDiv();
+        actionButtons.style.cssText = `
+            display: flex;
+            gap: 6px;
+        `;
+
+        this.refreshButton = actionButtons.createEl('button');
+        this.refreshButton.innerHTML = '🔄';
+        this.refreshButton.title = 'Refresh models';
+        this.refreshButton.style.cssText = `
+            padding: 4px 8px;
+            background: var(--background-secondary);
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        `;
+
+        this.refreshButton.addEventListener('click', async () => {
+            const isForceRefresh = false;
+            this.refreshButton.innerHTML = '⏳';
+            this.refreshButton.style.opacity = '0.5';
+
+            try {
+                const currentProvider = this.selectedProvider || 'Google Gemini';
+                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud', 'Groq'];
+                const isDynamicProvider = dynamicProviders.includes(currentProvider);
+
+                if (this.options.fetchModelsForProvider) {
+                    const models = await this.options.fetchModelsForProvider(currentProvider, isForceRefresh);
+                    if (models && models.length > 0) {
+                        const updatedOptions = { ...this.options.modelOptions, [currentProvider]: models };
+                        this.updateModelDropdown(updatedOptions);
+                    }
+                }
+            } finally {
+                this.refreshButton.innerHTML = '🔄';
+                this.refreshButton.style.opacity = '1';
+            }
+        });
+
+        const setDefaultBtn = actionButtons.createEl('button');
+        setDefaultBtn.textContent = 'Set Default';
+        setDefaultBtn.style.cssText = `
+            padding: 4px 8px;
+            background: var(--background-secondary);
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        `;
+
+        setDefaultBtn.addEventListener('click', () => {
+            const currentModel = this.modelSelect?.value;
+            if (currentModel) {
+                UserPreferencesService.setPreference('defaultModel', currentModel);
+                const originalText = setDefaultBtn.textContent;
+                setDefaultBtn.textContent = '✓ Saved';
+                setTimeout(() => {
+                    setDefaultBtn.textContent = originalText;
+                }, 1500);
+            }
+        });
+
+        this.modelSelect = modelContainer.createEl('select');
+        this.modelSelect.style.cssText = `
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            outline: none;
+        `;
+
+        this.modelSelect.addEventListener('change', () => {
+            this.selectedModel = this.modelSelect?.value;
+        });
+    }
+
+    /**
+     * Create format dropdown section
+     */
+    private createFormatSection(): void {
+        const formatContainer = this.contentEl.createDiv();
+        formatContainer.style.cssText = `
+            margin: 12px 0;
+        `;
+
+        const label = formatContainer.createDiv();
+        label.textContent = 'Output Format';
+        label.style.cssText = `
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-normal);
+            font-size: 0.9rem;
+        `;
+
+        this.formatSelect = formatContainer.createEl('select');
+        this.formatSelect.style.cssText = `
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            outline: none;
+        `;
+
+        const formatOptions = [
+            { value: 'executive-summary', text: '📊 Executive Summary' },
+            { value: 'detailed-guide', text: '📖 Comprehensive Guide' },
+            { value: 'brief', text: '⚡ Brief Summary' },
+            { value: 'custom', text: '✏️ Custom Format' }
+        ];
+
+        formatOptions.forEach(option => {
+            const optionEl = this.formatSelect!.createEl('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.text;
+        });
+
+        this.formatSelect.value = this.format;
+
+        this.formatSelect.addEventListener('change', () => {
+            this.format = this.formatSelect?.value as OutputFormat ?? 'executive-summary';
+            this.toggleCustomPromptVisibility();
+            UserPreferencesService.setPreference('lastFormat', this.format);
+        });
+    }
+
+    /**
+     * Create horizontal 3-column dropdown row (Format, Provider, Model)
+     */
+    private createDropdownRow(): void {
+        const dropdownRow = this.contentEl.createDiv();
+        dropdownRow.style.cssText = `
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.2fr;
+            gap: 12px;
+            margin: 20px 0;
+        `;
+
+        // Format dropdown
+        const formatContainer = dropdownRow.createDiv();
+        const formatLabel = formatContainer.createDiv();
+        formatLabel.textContent = 'FORMAT';
+        formatLabel.style.cssText = `
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        `;
+
+        this.formatSelect = formatContainer.createEl('select');
+        this.formatSelect.style.cssText = `
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #ffffff;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        `;
+
+        const formatOptions = [
+            { value: 'executive-summary', text: '1. Executive' },
+            { value: 'detailed-guide', text: '2. Detailed' },
+            { value: 'brief', text: '3. Brief' },
+            { value: 'custom', text: '4. Custom' }
+        ];
+
+        formatOptions.forEach(option => {
+            const optionEl = this.formatSelect.createEl('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.text;
+        });
+
+        this.formatSelect.value = this.format;
+        this.formatSelect.addEventListener('change', () => {
+            this.format = this.formatSelect?.value as OutputFormat ?? 'executive-summary';
+            this.toggleCustomPromptVisibility();
+            UserPreferencesService.setPreference('lastFormat', this.format);
+        });
+
+        // Provider dropdown
+        const providerContainer = dropdownRow.createDiv();
+        const providerLabel = providerContainer.createDiv();
+        providerLabel.textContent = 'PROVIDER';
+        providerLabel.style.cssText = `
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        `;
+
+        this.providerSelect = providerContainer.createEl('select');
+        this.providerSelect.style.cssText = `
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #ffffff;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        `;
+
+        const providerOptions = [
+            { value: 'Google Gemini', text: 'Google' },
+            { value: 'Groq', text: 'Groq' },
+            { value: 'Hugging Face', text: 'HuggingFace' },
+            { value: 'OpenRouter', text: 'OpenRouter' },
+            { value: 'Ollama', text: 'Ollama' },
+            { value: 'Ollama Cloud', text: 'OllamaCloud' }
+        ];
+
+        providerOptions.forEach(option => {
+            const optionEl = this.providerSelect.createEl('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.text;
+        });
+
+        this.providerSelect.addEventListener('change', () => {
+            this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
+            this.handleProviderChange();
+        });
+
+        // Model dropdown with eye icon
+        const modelContainer = dropdownRow.createDiv();
+        const modelLabelWrapper = modelContainer.createDiv();
+        modelLabelWrapper.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        `;
+
+        const modelLabel = modelLabelWrapper.createDiv();
+        modelLabel.textContent = 'MODEL';
+        modelLabel.style.cssText = `
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        `;
+
+        const eyeIcon = modelLabelWrapper.createSpan();
+        eyeIcon.innerHTML = '👁️';
+        eyeIcon.style.cssText = `
+            font-size: 14px;
+            cursor: help;
+            opacity: 0.7;
+        `;
+        eyeIcon.title = 'Multimodal capable';
+
+        this.modelSelect = modelContainer.createEl('select');
+        this.modelSelect.style.cssText = `
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #ffffff;
+            color: #333;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        `;
+
+        this.modelSelect.addEventListener('change', () => {
+            this.selectedModel = this.modelSelect?.value;
+        });
+    }
+
+    /**
+     * Create icons row with sun, refresh, star and toggle switch
+     */
+    private createIconsRow(): void {
+        const iconsRow = this.contentEl.createDiv();
+        iconsRow.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 0;
+            padding: 10px 0;
+        `;
+
+        // Left side icons
+        const leftIcons = iconsRow.createDiv();
+        leftIcons.style.cssText = `
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        `;
+
+        // Sun icon (theme toggle placeholder)
+        const sunIcon = leftIcons.createSpan();
+        sunIcon.innerHTML = '☀️';
+        sunIcon.style.cssText = `
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        `;
+        sunIcon.title = 'Toggle theme';
+        sunIcon.addEventListener('mouseenter', () => {
+            sunIcon.style.opacity = '1';
+        });
+        sunIcon.addEventListener('mouseleave', () => {
+            sunIcon.style.opacity = '0.7';
+        });
+        sunIcon.addEventListener('click', () => {
+            this.isLightTheme = !this.isLightTheme;
+            this.applyTheme(this.isLightTheme);
+            localStorage.setItem('ytc-theme-mode', this.isLightTheme ? 'light' : 'dark');
+        });
+
+        // Refresh icon
+        const refreshIcon = leftIcons.createSpan();
+        refreshIcon.innerHTML = '🔄';
+        refreshIcon.style.cssText = `
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        `;
+        refreshIcon.title = 'Refresh models';
+        refreshIcon.addEventListener('mouseenter', () => {
+            refreshIcon.style.opacity = '1';
+        });
+        refreshIcon.addEventListener('mouseleave', () => {
+            refreshIcon.style.opacity = '0.7';
+        });
+        refreshIcon.addEventListener('click', async () => {
+            refreshIcon.style.opacity = '0.5';
+            if (this.options.fetchModelsForProvider && this.selectedProvider) {
+                await this.options.fetchModelsForProvider(this.selectedProvider, true);
+            }
+            setTimeout(() => {
+                refreshIcon.style.opacity = '0.7';
+            }, 500);
+        });
+
+        // Star icon
+        const starIcon = leftIcons.createSpan();
+        starIcon.innerHTML = '⭐';
+        starIcon.style.cssText = `
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        `;
+        starIcon.title = 'Set as default';
+        starIcon.addEventListener('mouseenter', () => {
+            starIcon.style.opacity = '1';
+        });
+        starIcon.addEventListener('mouseleave', () => {
+            starIcon.style.opacity = '0.7';
+        });
+        starIcon.addEventListener('click', () => {
+            if (this.selectedModel) {
+                UserPreferencesService.setPreference('preferredModel', this.selectedModel);
+                new Notice('Model saved as preference!');
+            }
+        });
+
+        // Right side toggle switch (no label)
+        const toggleSwitch = iconsRow.createDiv();
+        toggleSwitch.style.cssText = `
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: #00b894;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        `;
+
+        const toggleKnob = toggleSwitch.createDiv();
+        toggleKnob.style.cssText = `
+            position: absolute;
+            top: 2px;
+            left: 22px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        `;
+
+        let isToggled = true;
+        toggleSwitch.addEventListener('click', () => {
+            isToggled = !isToggled;
+            if (isToggled) {
+                toggleSwitch.style.background = '#00b894';
+                toggleKnob.style.transform = 'translateX(0)';
+                this.autoFallbackEnabled = true;
+            } else {
+                toggleSwitch.style.background = '#ccc';
+                toggleKnob.style.transform = 'translateX(-20px)';
+                this.autoFallbackEnabled = false;
+            }
+            UserPreferencesService.updateLastUsed({
+                autoFallback: this.autoFallbackEnabled
+            });
+        });
+    }
+
     private videoPreviewContainer?: HTMLDivElement;
     private videoTitleEl?: HTMLDivElement;
     private videoDurationEl?: HTMLSpanElement;
@@ -455,387 +956,7 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create ultra-compact dropdowns row: Format, Provider, Model
-     */
-    private createDropDownRow(): void {
-        const dropdownContainer = this.contentEl.createDiv();
-        dropdownContainer.style.cssText = `
-            display: grid;
-            grid-template-columns: 1fr 1fr 1.2fr;
-            gap: 6px;
-            margin: 6px 0;
-            align-items: end;
-        `;
-
-        // Format dropdown (ultra compact)
-        const formatContainer = dropdownContainer.createDiv();
-
-        const formatLabel = formatContainer.createDiv();
-        formatLabel.textContent = 'Format';
-        formatLabel.style.cssText = `
-            font-weight: 500;
-            margin-bottom: 2px;
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        `;
-
-        this.formatSelect = formatContainer.createEl('select');
-        this.formatSelect.style.cssText = `
-            width: 100%;
-            padding: 5px 7px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            font-size: 0.8rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-            transition: all 0.2s ease;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            min-height: 30px;
-        `;
-
-        // Add format options
-        const formatOptions = [
-            { value: 'executive-summary', text: '1. Executive' },
-            { value: 'detailed-guide', text: '2. Comprehensive' },
-            { value: 'brief', text: '3. Brief' },
-            { value: 'custom', text: '4. Custom' }
-        ];
-
-        formatOptions.forEach(option => {
-            const optionEl = this.formatSelect!.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
-        });
-
-        // Set default format selection - use last used or smart default
-        const smartFormat = UserPreferencesService.getSmartDefaultFormat();
-        this.formatSelect!.value = smartFormat;
-        this.format = smartFormat;
-
-        // Update format when changed
-        this.formatSelect!.addEventListener('change', () => {
-            this.format = this.formatSelect?.value as OutputFormat ?? 'executive-summary';
-            this.toggleCustomPromptVisibility();
-
-            // Save the current format selection immediately
-            UserPreferencesService.setPreference('lastFormat', this.format);
-        });
-
-        // Provider dropdown (ultra compact)
-        const providerContainer = dropdownContainer.createDiv();
-
-        const providerLabel = providerContainer.createDiv();
-        providerLabel.textContent = 'Provider';
-        providerLabel.style.cssText = `
-            font-weight: 500;
-            margin-bottom: 2px;
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        `;
-
-        this.providerSelect = providerContainer.createEl('select');
-        this.providerSelect.style.cssText = `
-            width: 100%;
-            padding: 5px 7px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            font-size: 0.8rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-            transition: all 0.2s ease;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            min-height: 30px;
-        `;
-
-        // Add provider options
-        const providerOptions = [
-            { value: 'Google Gemini', text: 'Google' },
-            { value: 'Groq', text: 'Groq' },
-            { value: 'Hugging Face', text: 'HuggingFace' },
-            { value: 'OpenRouter', text: 'OpenRouter' },
-            { value: 'Ollama', text: 'Ollama' }
-        ];
-
-        providerOptions.forEach(option => {
-            const optionEl = this.providerSelect!.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
-        });
-
-        // Set default provider selection - use last used or smart default
-        const smartProvider = UserPreferencesService.getSmartDefaultProvider() || 'Google Gemini';
-        this.providerSelect!.value = smartProvider;
-        this.selectedProvider = smartProvider;
-
-        // Update provider when changed
-        this.providerSelect!.addEventListener('change', async () => {
-            this.selectedProvider = this.providerSelect?.value;
-            console.log('[YT-CLIPPER] Provider changed to:', this.selectedProvider);
-
-            // Automatically fetch models for the new provider from the API
-            // Always bypass cache to get fresh models when switching providers
-            if (this.options.fetchModelsForProvider) {
-                try {
-                    console.log('[YT-CLIPPER] Fetching models for provider:', this.selectedProvider);
-                    const models = await this.options.fetchModelsForProvider(this.selectedProvider || '', true); // bypassCache=true
-                    console.log('[YT-CLIPPER] Fetched models:', models?.length || 0);
-                    if (models && models.length > 0) {
-                        console.log('[YT-CLIPPER] Models list:', JSON.stringify(models, null, 2));
-                        const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider!]: models };
-                        this.options.modelOptions = updatedOptions;
-                        this.updateModelDropdown(updatedOptions);
-                        console.log('[YT-CLIPPER] Updated dropdown with', models.length, 'models');
-                    } else {
-                        console.warn('[YT-CLIPPER] No models returned, using fallback');
-                        // Fallback to cached options if fetch returns nothing
-                        this.updateModelDropdown(this.options.modelOptions);
-                    }
-                } catch (error) {
-                    console.error('[YT-CLIPPER] Provider fetch failed:', error);
-                    // On error, fallback to cached options
-                    this.updateModelDropdown(this.options.modelOptions);
-                }
-            } else if (this.options.modelOptions) {
-                console.warn('[YT-CLIPPER] No fetch function available, using cached models');
-                this.updateModelDropdown(this.options.modelOptions);
-            }
-
-            // Update refresh button tooltip based on provider
-            this.updateRefreshButtonTooltip();
-
-            // Save the current provider selection immediately
-            UserPreferencesService.setPreference('lastProvider', this.selectedProvider);
-        });
-
-        // Model dropdown with ultra-compact action buttons
-        const modelContainer = dropdownContainer.createDiv();
-        modelContainer.style.cssText = `
-            position: relative;
-        `;
-
-        const modelLabelRow = modelContainer.createDiv();
-        modelLabelRow.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2px;
-        `;
-
-        const modelLabel = modelLabelRow.createDiv();
-        modelLabel.textContent = 'Model';
-        modelLabel.style.cssText = `
-            font-weight: 500;
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        `;
-
-        // Action buttons container (ultra compact)
-        const actionButtons = modelLabelRow.createDiv();
-        actionButtons.style.cssText = `
-            display: flex;
-            gap: 2px;
-        `;
-
-        // Create refresh button (ultra compact)
-        const refreshBtn = actionButtons.createEl('button');
-        this.refreshButton = refreshBtn;
-        refreshBtn.innerHTML = '🔄';
-        refreshBtn.title = 'Refresh (Shift+click to force)';
-        refreshBtn.style.cssText = `
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.75rem;
-            padding: 1px;
-            border-radius: 3px;
-            opacity: 0.5;
-            transition: opacity 0.2s, background 0.2s;
-            line-height: 1;
-        `;
-
-        refreshBtn.addEventListener('mouseenter', () => {
-            refreshBtn.style.opacity = '1';
-            refreshBtn.style.background = 'var(--background-modifier-hover)';
-        });
-
-        refreshBtn.addEventListener('mouseleave', () => {
-            refreshBtn.style.opacity = '0.7';
-            refreshBtn.style.background = 'none';
-        });
-
-        refreshBtn.addEventListener('click', async (event) => {
-            const isForceRefresh = event.shiftKey; // Hold Shift for force refresh
-            refreshBtn.innerHTML = '⏳'; // Loading indicator
-            refreshBtn.style.opacity = '0.5';
-            refreshBtn.style.cursor = 'wait';
-
-            try {
-                const currentProvider = this.selectedProvider || 'Google Gemini';
-
-                // Determine if provider supports dynamic fetching
-                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Groq'];
-                const isDynamicProvider = dynamicProviders.includes(currentProvider);
-
-                // Try provider-specific fetch first (faster)
-                if (this.options.fetchModelsForProvider) {
-                    const models = await this.options.fetchModelsForProvider(currentProvider, isForceRefresh);
-                    if (models && models.length > 0) {
-                        // Update just this provider's models
-                        const updatedOptions = { ...this.options.modelOptions, [currentProvider]: models };
-                        this.updateModelDropdown(updatedOptions);
-
-                        // Provide appropriate feedback
-                        if (isDynamicProvider) {
-                            if (isForceRefresh) {
-                                new Notice(`🔄 Force fetched ${models.length} fresh models for ${currentProvider}`);
-                            } else {
-                                const cacheStatus = this.getCacheStatus(currentProvider);
-                                if (cacheStatus.isCached && cacheStatus.ageMinutes) {
-                                    new Notice(`📦 Updated ${models.length} models for ${currentProvider} (${cacheStatus.ageMinutes}m old cache)`);
-                                } else {
-                                    new Notice(`🌐 Fetched ${models.length} fresh models for ${currentProvider}`);
-                                }
-                            }
-                        } else {
-                            new Notice(`📋 Loaded ${models.length} available models for ${currentProvider} (static list)`);
-                        }
-                    } else {
-                        new Notice('No models found. Using defaults.');
-                    }
-                } else if (this.options.fetchModels) {
-                    // Fallback to fetching all providers
-                    const modelOptionsMap = await this.options.fetchModels();
-                    this.updateModelDropdown(modelOptionsMap);
-                    new Notice('Model list updated!');
-                }
-            } catch (error) {
-                new Notice('Failed to refresh models. Using cached options.');
-            } finally {
-                refreshBtn.innerHTML = '🔄';
-                refreshBtn.style.opacity = '0.7';
-                refreshBtn.style.cursor = 'pointer';
-            }
-        });
-
-        // Set initial tooltip
-        this.updateRefreshButtonTooltip();
-
-        // Create "Set Default" button (ultra compact)
-        const setDefaultBtn = actionButtons.createEl('button');
-        setDefaultBtn.innerHTML = '⭐';
-        setDefaultBtn.title = 'Set current selections as default';
-        setDefaultBtn.style.cssText = `
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.75rem;
-            padding: 1px;
-            border-radius: 3px;
-            opacity: 0.5;
-            transition: opacity 0.2s, background 0.2s;
-            line-height: 1;
-        `;
-
-        setDefaultBtn.addEventListener('mouseenter', () => {
-            setDefaultBtn.style.opacity = '1';
-            setDefaultBtn.style.background = 'var(--background-modifier-hover)';
-        });
-
-        setDefaultBtn.addEventListener('mouseleave', () => {
-            setDefaultBtn.style.opacity = '0.5';
-            setDefaultBtn.style.background = 'none';
-        });
-
-        setDefaultBtn.addEventListener('click', () => {
-            const currentFormat = this.formatSelect?.value as OutputFormat;
-            const currentProvider = this.providerSelect?.value;
-            const currentModel = this.modelSelect?.value;
-            const currentAutoFallback = this.fallbackToggle?.checked ?? true;
-
-            // Save as preferred defaults
-            UserPreferencesService.setPreference('preferredFormat', currentFormat);
-            UserPreferencesService.setPreference('preferredProvider', currentProvider);
-            UserPreferencesService.setPreference('preferredModel', currentModel);
-            UserPreferencesService.setPreference('preferredAutoFallback', currentAutoFallback);
-
-            // Also update last used
-            UserPreferencesService.updateLastUsed({
-                format: currentFormat,
-                provider: currentProvider,
-                model: currentModel,
-                autoFallback: currentAutoFallback,
-            });
-
-            // Visual feedback
-            const originalText = setDefaultBtn.innerHTML;
-            setDefaultBtn.innerHTML = '✅';
-            new Notice(`✅ Saved: ${currentModel?.split('/').pop()?.substring(0, 15) || currentModel}`);
-
-            setTimeout(() => {
-                setDefaultBtn.innerHTML = originalText;
-            }, 1000);
-        });
-
-        this.modelSelect = modelContainer.createEl('select');
-        this.modelSelect.style.cssText = `
-            width: 100%;
-            padding: 5px 7px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            font-size: 0.8rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-            transition: all 0.2s ease;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            min-height: 30px;
-        `;
-
-        // Don't populate models yet - onOpen() will auto-fetch from API
-        // This ensures we get fresh models instead of hardcoded fallback
-
-        // Update model when changed
-        this.modelSelect!.addEventListener('change', () => {
-            this.selectedModel = this.modelSelect?.value;
-
-            // Save the current model selection immediately
-            UserPreferencesService.setPreference('lastModel', this.selectedModel);
-
-            // Also save provider-specific model preference
-            if (this.selectedProvider) {
-                const providerKey = `lastModel_${this.selectedProvider.replace(/\s+/g, '')}` as keyof UserPreferences;
-                const preferences = UserPreferencesService.loadPreferences();
-                (preferences as any)[providerKey] = this.selectedModel;
-                UserPreferencesService.savePreferences(preferences);
-            }
-        });
-
-        // Auto Fallback toggle row
-        this.createFallbackToggle(this.contentEl);
-
-        // Custom prompt input container (hidden by default)
-        this.createCustomPromptSection(this.contentEl);
-    }
-
-    /**
-     * Create ultra-compact custom prompt input section
+     * Create custom prompt section
      */
     private customPrompt = '';
 
@@ -1514,13 +1635,13 @@ export class YouTubeUrlModal extends BaseModal {
         // Progress text (ultra compact)
         this.progressText = this.progressContainer.createDiv();
         this.progressText.id = 'progress-text';
-        this.progressText.style.marginBottom = '3px';
+        this.progressText.style.marginBottom = '6px';
         this.progressText.style.fontWeight = '500';
-        this.progressText.style.fontSize = '0.75rem';
-        this.progressText.style.color = 'var(--ytc-accent)';
-        this.progressText.textContent = 'Processing...';
+        this.progressText.style.fontSize = '14px';
+        this.progressText.style.color = '#00b894';
+        this.progressText.textContent = 'Processing with Google Gemini...';
 
-        // Progress bar container (ultra compact)
+        // Progress bar container
         const progressBarContainer = this.progressContainer.createDiv();
         progressBarContainer.setAttribute('role', 'progressbar');
         progressBarContainer.setAttribute('aria-valuenow', '0');
@@ -1528,97 +1649,90 @@ export class YouTubeUrlModal extends BaseModal {
         progressBarContainer.setAttribute('aria-valuemax', '100');
         progressBarContainer.setAttribute('aria-labelledby', 'progress-text');
         progressBarContainer.style.width = '100%';
-        progressBarContainer.style.height = '4px';
-        progressBarContainer.style.backgroundColor = 'var(--ytc-bg-tertiary)';
-        progressBarContainer.style.borderRadius = '2px';
+        progressBarContainer.style.height = '6px';
+        progressBarContainer.style.backgroundColor = '#e0e0e0';
+        progressBarContainer.style.borderRadius = '3px';
         progressBarContainer.style.overflow = 'hidden';
 
         // Progress bar
         this.progressBar = progressBarContainer.createDiv();
         this.progressBar.style.height = '100%';
-        this.progressBar.style.backgroundColor = 'var(--ytc-accent)';
-        this.progressBar.style.borderRadius = '2px';
+        this.progressBar.style.backgroundColor = '#00b894';
+        this.progressBar.style.borderRadius = '3px';
         this.progressBar.style.width = '0%';
         this.progressBar.style.transition = 'width 0.3s ease';
-        this.progressBar.style.boxShadow = '0 0 10px var(--ytc-accent)';
     }
 
     /**
-     * Create ultra-compact action buttons
+     * Create action buttons
      */
     private createActionButtons(): void {
         const container = this.contentEl.createDiv();
         container.style.cssText = `
             display: flex;
             justify-content: flex-end;
-            gap: 6px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid var(--background-modifier-border);
+            gap: 12px;
+            margin-top: 30px;
+            padding-top: 20px;
         `;
 
-        // Cancel button (ultra compact)
         const cancelBtn = container.createEl('button');
         cancelBtn.textContent = MESSAGES.MODALS.CANCEL;
         cancelBtn.style.cssText = `
-            padding: 4px 10px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 16px;
             font-weight: 500;
-            background: var(--background-secondary);
-            color: var(--text-normal);
+            background: #e0e0e0;
+            color: #333;
             transition: all 0.2s ease;
         `;
 
         cancelBtn.addEventListener('click', () => this.close());
 
-        // Process button (ultra compact)
         this.processButton = container.createEl('button');
         this.processButton.textContent = MESSAGES.MODALS.PROCESS;
         this.processButton.style.cssText = `
-            padding: 4px 12px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 16px;
             font-weight: 500;
-            background: var(--interactive-accent);
-            color: var(--text-on-accent);
+            background: #00b894;
+            color: white;
             transition: all 0.2s ease;
         `;
 
         this.processButton.addEventListener('click', () => this.handleProcess());
 
-        // Open Note button (hidden initially, ultra compact)
         this.openButton = container.createEl('button');
-        this.openButton.textContent = 'Open';
+        this.openButton.textContent = 'Open Note';
         this.openButton.style.cssText = `
-            padding: 4px 10px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 16px;
             font-weight: 500;
-            background: var(--interactive-accent);
-            color: var(--text-on-accent);
+            background: #00b894;
+            color: white;
             transition: all 0.2s ease;
         `;
 
         this.openButton.style.display = 'none';
         this.openButton.addEventListener('click', () => this.handleOpenFile());
 
-        // Copy Path button (hidden initially, ultra compact)
         this.copyPathButton = container.createEl('button');
-        this.copyPathButton.textContent = '📋';
-        this.copyPathButton.title = 'Copy file path';
+        this.copyPathButton.textContent = '📋 Copy Path';
         this.copyPathButton.style.cssText = `
-            padding: 4px 8px;
+            padding: 8px 12px;
             border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             background: var(--background-secondary);
             color: var(--text-normal);
             transition: all 0.2s ease;
@@ -1626,7 +1740,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.copyPathButton.style.display = 'none';
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
-        // Initial state update
         this.updateProcessButtonState();
     }
 
