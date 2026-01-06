@@ -354,6 +354,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Validation Message Area - Absolute to prevent jumping
         this.validationMessage = urlContainer.createDiv();
+        this.validationMessage.setAttribute('aria-live', 'polite'); // Announce changes to screen readers
         this.validationMessage.style.cssText = `
             position: absolute;
             bottom: -20px;
@@ -398,17 +399,20 @@ export class YouTubeUrlModal extends BaseModal {
         const formatWrapper = container.createDiv();
         
         // Compact Label
-        const formatLabel = formatWrapper.createDiv();
+        const formatLabel = formatWrapper.createEl('label');
         formatLabel.textContent = 'OUTPUT FORMAT';
+        formatLabel.htmlFor = 'ytc-format-select';
         formatLabel.style.cssText = `
             font-size: 0.7rem;
             font-weight: 600;
             color: var(--ytc-text-muted);
             margin-bottom: 6px;
             letter-spacing: 0.05em;
+            display: block;
         `;
 
         this.formatSelect = formatWrapper.createEl('select');
+        this.formatSelect.id = 'ytc-format-select';
         // Styling handled by CSS
 
         const formatOptions = [
@@ -440,6 +444,9 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Header (Always visible)
         const aiHeader = aiSettings.createDiv('ytc-ai-header');
+        aiHeader.setAttribute('role', 'button');
+        aiHeader.setAttribute('aria-expanded', 'false');
+        aiHeader.setAttribute('tabindex', '0');
         
         const aiTitleGroup = aiHeader.createDiv();
         aiTitleGroup.style.cssText = `display: flex; align-items: center; gap: 8px; flex: 1;`;
@@ -471,21 +478,32 @@ export class YouTubeUrlModal extends BaseModal {
             aiSummary.textContent = `${provider} • ${formattedModel}`;
         };
 
-        aiHeader.addEventListener('click', () => {
+        const toggleAI = () => {
             isExpanded = !isExpanded;
             aiContent.style.display = isExpanded ? 'block' : 'none';
             aiHeader.classList.toggle('expanded', isExpanded);
+            aiHeader.setAttribute('aria-expanded', String(isExpanded));
             chevron.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        };
+
+        aiHeader.addEventListener('click', toggleAI);
+        aiHeader.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleAI();
+            }
         });
 
         // Provider Selection
         const providerRow = aiContent.createDiv();
         
-        const providerLabel = providerRow.createDiv();
+        const providerLabel = providerRow.createEl('label');
         providerLabel.textContent = 'AI PROVIDER';
-        providerLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em;`;
+        providerLabel.htmlFor = 'ytc-provider-select';
+        providerLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block;`;
 
         this.providerSelect = providerRow.createEl('select');
+        this.providerSelect.id = 'ytc-provider-select';
         // CSS handles styling
 
         const providerOptions = [
@@ -511,8 +529,9 @@ export class YouTubeUrlModal extends BaseModal {
         const modelLabelRow = modelRow.createDiv();
         modelLabelRow.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;`;
         
-        const modelLabel = modelLabelRow.createDiv();
+        const modelLabel = modelLabelRow.createEl('label');
         modelLabel.textContent = 'MODEL';
+        modelLabel.htmlFor = 'ytc-model-select';
         modelLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em;`;
 
         // Model Actions (Refresh, Star)
@@ -523,6 +542,7 @@ export class YouTubeUrlModal extends BaseModal {
         const refreshBtn = modelActions.createEl('button');
         refreshBtn.innerHTML = '🔄';
         refreshBtn.title = 'Refresh Models';
+        refreshBtn.setAttribute('aria-label', 'Refresh Models');
         refreshBtn.style.cssText = `
             padding: 2px 6px;
             font-size: 0.8rem;
@@ -544,6 +564,7 @@ export class YouTubeUrlModal extends BaseModal {
         const starBtn = modelActions.createEl('button');
         starBtn.innerHTML = '⭐';
         starBtn.title = 'Save as Default Preference';
+        starBtn.setAttribute('aria-label', 'Save as Default Preference');
         starBtn.style.cssText = `
             padding: 2px 6px;
             font-size: 0.8rem;
@@ -562,6 +583,7 @@ export class YouTubeUrlModal extends BaseModal {
         };
 
         this.modelSelect = modelRow.createEl('select');
+        this.modelSelect.id = 'ytc-model-select';
         // CSS handles styling
 
         // Auto Fallback Toggle
@@ -1267,11 +1289,15 @@ export class YouTubeUrlModal extends BaseModal {
      * Apply theme to modal
      */
     private applyTheme(isLight: boolean): void {
-        // Add custom CSS variables for light theme
-        if (!document.getElementById('ytc-theme-styles')) {
-            const themeStyle = document.createElement('style');
+        // Ensure theme styles are up to date (force update for hot-reload support)
+        let themeStyle = document.getElementById('ytc-theme-styles') as HTMLStyleElement;
+        if (!themeStyle) {
+            themeStyle = document.createElement('style');
             themeStyle.id = 'ytc-theme-styles';
-            let css = '';
+            document.head.appendChild(themeStyle);
+        }
+
+        let css = '';
 
             // Light theme colors - refined warm palette
             css += '.ytc-modal-light {';
@@ -1403,8 +1429,9 @@ export class YouTubeUrlModal extends BaseModal {
             css += '}';
 
             // Labels styling
-            css += '.ytc-themed-modal [style*="font-weight: 500"] {';
+            css += '.ytc-themed-modal label {';
             css += 'color: var(--ytc-text-secondary) !important;';
+            css += 'cursor: pointer !important;';
             css += '}';
 
             // Textarea styling
@@ -1422,6 +1449,12 @@ export class YouTubeUrlModal extends BaseModal {
             css += 'border-color: var(--ytc-border-focus) !important;';
             css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
             css += 'outline: none !important;';
+            css += '}';
+
+            // Focus Visible (Accessibility)
+            css += '.ytc-themed-modal :focus-visible {';
+            css += 'outline: 2px solid var(--ytc-accent) !important;';
+            css += 'outline-offset: 2px !important;';
             css += '}';
 
             // Scrollbar styling
@@ -1497,10 +1530,11 @@ export class YouTubeUrlModal extends BaseModal {
             css += '}';
             css += '.ytc-ai-header {';
             css += 'padding: 10px 14px !important; background: var(--ytc-bg-secondary) !important;';
-            css += 'border-bottom: 1px solid transparent !important; transition: all 0.2s ease !important;';
+            css += 'border-bottom: 1px solid transparent !important; transition: all 0.2s ease !important; cursor: pointer !important;';
             css += '}';
             css += '.ytc-ai-header:hover { background: var(--ytc-bg-tertiary) !important; }';
             css += '.ytc-ai-header.expanded { border-bottom-color: var(--ytc-border) !important; }';
+            css += '.ytc-ai-header:focus-visible { background: var(--ytc-bg-tertiary) !important; outline: 2px solid var(--ytc-accent) !important; outline-offset: -2px !important; }';
             
             // Buttons
             css += '.ytc-action-btn {';
@@ -1546,8 +1580,6 @@ export class YouTubeUrlModal extends BaseModal {
             css += '}';
 
             themeStyle.innerHTML = css;
-            document.head.appendChild(themeStyle);
-        }
 
         // Apply theme class to modal
         this.modalEl?.classList.add('ytc-themed-modal');

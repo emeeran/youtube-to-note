@@ -22,28 +22,35 @@
     const btn = document.createElement('button');
     btn.id = BUTTON_ID;
     btn.title = 'Send to YouTube Clipper in Obsidian (Ctrl+Shift+Y)';
-    btn.textContent = '✂ Clip';
+    
+    // Use YouTube native-style icon
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 32px; height: 32px; display: block;">
+        <rect width="24" height="24" fill="#FF0000" rx="6"/>
+        <polygon fill="#FFFFFF" points="9.5,7.5 16.5,12 9.5,16.5"/>
+      </svg>
+    `;
+    
     btn.style.cssText = `
       margin-left: 8px;
-      padding: 6px 12px;
-      background: linear-gradient(135deg, #7c3aed, #5b21b6);
-      color: white;
-      border-radius: 4px;
+      padding: 0;
+      background: transparent;
       border: none;
-      font-weight: 600;
-      font-size: 12px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      opacity: 0.9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     `.replace(/\s+/g, ' ');
 
     btn.addEventListener('mouseenter', () => {
-      btn.style.transform = 'scale(1.05)';
-      btn.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+      btn.style.transform = 'scale(1.1)';
+      btn.style.opacity = '1';
     });
     btn.addEventListener('mouseleave', () => {
       btn.style.transform = 'scale(1)';
-      btn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+      btn.style.opacity = '0.9';
     });
     btn.addEventListener('click', onClick);
     
