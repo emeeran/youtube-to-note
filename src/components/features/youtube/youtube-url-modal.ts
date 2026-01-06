@@ -189,24 +189,36 @@ export class YouTubeUrlModal extends BaseModal {
     private createModalContent(): void {
         console.log('[YT-CLIPPER] createModalContent starting');
         try {
-            this.headerEl = this.createHeader(MESSAGES.MODALS.PROCESS_VIDEO);
-            console.log('[YT-CLIPPER] Header created');
+            this.contentEl.empty();
+            this.contentEl.addClass('ytc-modal-content-wrapper');
+
+            // 1. Top Bar: Header + Global Actions (Theme, Batch)
+            this.createTopBar();
+            console.log('[YT-CLIPPER] Top bar created');
+
+            // 2. Main Input Area
             this.createUrlSection();
             console.log('[YT-CLIPPER] URL section created');
-            this.createDropdownRow();
-            console.log('[YT-CLIPPER] Dropdown row created');
-            // Initialize dropdowns with current values
-            this.updateModelDropdown(this.options.modelOptions);
-            console.log('[YT-CLIPPER] Model dropdown initialized');
-            this.createIconsRow();
-            console.log('[YT-CLIPPER] Icons row created');
+
+            // 3. Settings Area (Format + Collapsible AI Config)
+            this.createSettingsSection();
+            console.log('[YT-CLIPPER] Settings section created');
+
+            // 4. Progress Area
             this.createProgressSection();
             console.log('[YT-CLIPPER] Progress section created');
+
+            // 5. Primary Actions
             this.createActionButtons();
             console.log('[YT-CLIPPER] Action buttons created');
 
-            // Apply theme immediately on modal open
+            // Initialize state
+            this.updateModelDropdown(this.options.modelOptions);
             this.applyTheme(this.isLightTheme);
+            
+            // Apply initial visibility states
+            this.toggleCustomPromptVisibility();
+            
             console.log('[YT-CLIPPER] Theme applied');
         } catch (error) {
             console.error('[YT-CLIPPER] Error in createModalContent:', error);
@@ -215,287 +227,189 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
+     * Create top bar with header and global controls
+     */
+    private createTopBar(): void {
+        const topBar = this.contentEl.createDiv('ytc-top-bar');
+        topBar.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+
+        // Header Title
+        const titleContainer = topBar.createDiv();
+        const title = titleContainer.createEl('h2');
+        title.textContent = 'Process YouTube Video';
+        this.headerEl = title;
+
+        const subtitle = titleContainer.createDiv('subtitle');
+        subtitle.textContent = 'Generate AI summaries & notes';
+
+        // Global Controls (Batch, Theme)
+        const controls = topBar.createDiv();
+        controls.style.cssText = `
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        `;
+
+        // Batch Mode Button
+        const batchBtn = controls.createEl('button');
+        batchBtn.innerHTML = '<span style="font-size: 1.1em">📦</span>';
+        batchBtn.setAttribute('aria-label', 'Batch Process');
+        batchBtn.title = 'Batch Process Multiple Videos';
+        batchBtn.style.cssText = `
+            background: transparent;
+            border: 1px solid var(--ytc-border);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ytc-text-secondary);
+        `;
+        batchBtn.onclick = () => this.options.onOpenBatchModal?.();
+        batchBtn.onmouseenter = () => {
+            batchBtn.style.background = 'var(--ytc-bg-tertiary)';
+            batchBtn.style.color = 'var(--ytc-text-primary)';
+        };
+        batchBtn.onmouseleave = () => {
+            batchBtn.style.background = 'transparent';
+            batchBtn.style.color = 'var(--ytc-text-secondary)';
+        };
+
+        // Theme Toggle
+        const themeBtn = controls.createEl('button');
+        themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
+        themeBtn.setAttribute('aria-label', 'Toggle Theme');
+        themeBtn.title = 'Toggle Light/Dark Mode';
+        themeBtn.style.cssText = `
+            background: transparent;
+            border: 1px solid var(--ytc-border);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1.1em;
+            color: var(--ytc-text-secondary);
+        `;
+        themeBtn.onclick = () => {
+            this.isLightTheme = !this.isLightTheme;
+            this.applyTheme(this.isLightTheme);
+            localStorage.setItem('ytc-theme-mode', this.isLightTheme ? 'light' : 'dark');
+            themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
+        };
+        themeBtn.onmouseenter = () => {
+            themeBtn.style.background = 'var(--ytc-bg-tertiary)';
+            themeBtn.style.color = 'var(--ytc-text-primary)';
+        };
+        themeBtn.onmouseleave = () => {
+            themeBtn.style.background = 'transparent';
+            themeBtn.style.color = 'var(--ytc-text-secondary)';
+        };
+    }
+
+    /**
      * Create URL input section
      */
     private createUrlSection(): void {
         const urlContainer = this.contentEl.createDiv();
         urlContainer.style.cssText = `
-            margin: 12px 0;
+            margin: 0 0 20px 0;
             position: relative;
         `;
 
-        const inputWrapper = urlContainer.createDiv();
+        // Input Wrapper
+        const inputWrapper = urlContainer.createDiv('ytc-input-group');
         inputWrapper.style.cssText = `
             position: relative;
             display: flex;
             align-items: center;
-            gap: 8px;
         `;
 
         this.urlInput = inputWrapper.createEl('input');
         this.urlInput.type = 'url';
-        this.urlInput.placeholder = 'Paste YouTube URL...';
-        this.urlInput.style.cssText = `
-            flex: 1;
-            padding: 10px 14px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 15px;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            transition: all 0.15s ease;
-            outline: none;
-            height: 40px;
-        `;
+        this.urlInput.placeholder = 'Paste YouTube URL here...';
+        this.urlInput.setAttribute('aria-label', 'YouTube URL Input');
+        // Styling handled by CSS classes now, but keeping some structure logic
 
-        this.pasteButton = inputWrapper.createEl('button');
-        this.pasteButton.innerHTML = '📋';
-        this.pasteButton.style.cssText = `
-            padding: 0;
-            background: var(--interactive-accent);
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.2s ease;
-            color: white;
-            flex-shrink: 0;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
+        // Integrated Paste Button (Inside Input)
+        this.pasteButton = inputWrapper.createEl('button', { cls: 'ytc-paste-btn-integrated' });
+        this.pasteButton.innerHTML = '📋 Paste';
+        this.pasteButton.setAttribute('aria-label', 'Paste URL from clipboard');
+        this.pasteButton.title = 'Paste from clipboard';
 
-        this.pasteButton.addEventListener('click', () => this.handleSmartPaste());
-        this.pasteButton.addEventListener('mouseenter', () => {
-            this.pasteButton.style.transform = 'scale(1.05)';
-        });
-        this.pasteButton.addEventListener('mouseleave', () => {
-            this.pasteButton.style.transform = 'scale(1)';
+        this.pasteButton.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent focus loss if possible
+            this.handleSmartPaste();
         });
 
-        this.urlInput.addEventListener('focus', () => {
-            if (this.urlInput) {
-                this.urlInput.style.borderColor = 'var(--interactive-accent)';
-                this.urlInput.style.boxShadow = '0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2)';
-            }
-        });
-
-        this.urlInput.addEventListener('blur', () => {
-            if (this.urlInput) {
-                this.urlInput.style.borderColor = 'var(--background-modifier-border)';
-                this.urlInput.style.boxShadow = 'none';
-            }
-        });
-
+        // Validation Message Area - Absolute to prevent jumping
         this.validationMessage = urlContainer.createDiv();
         this.validationMessage.style.cssText = `
-            margin-top: 6px;
-            padding: 6px 10px;
-            font-size: 13px;
-            color: var(--text-success);
-            border-radius: 4px;
+            position: absolute;
+            bottom: -20px;
+            left: 2px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            height: 20px;
+            display: flex;
+            align-items: center;
         `;
 
+        // Initialize video preview container (hidden by default)
         this.createVideoPreviewSection(urlContainer);
     }
 
     /**
-     * Create provider dropdown section
+     * Legacy unused methods removed
      */
-    private createProviderSection(): void {
-        const providerContainer = this.contentEl.createDiv();
-        providerContainer.style.cssText = `
-            margin: 12px 0;
-        `;
 
-        const label = providerContainer.createDiv();
-        label.textContent = 'AI Provider';
-        label.style.cssText = `
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--text-normal);
-            font-size: 0.9rem;
-        `;
 
-        this.providerSelect = providerContainer.createEl('select');
-        this.providerSelect.style.cssText = `
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-        `;
 
-        const providerOptions = [
-            { value: 'Google Gemini', text: 'Google' },
-            { value: 'Groq', text: 'Groq' },
-            { value: 'Hugging Face', text: 'HuggingFace' },
-            { value: 'OpenRouter', text: 'OpenRouter' },
-            { value: 'Ollama', text: 'Ollama' },
-            { value: 'Ollama Cloud', text: 'OllamaCloud' },
-        ];
 
-        providerOptions.forEach(option => {
-            const optionEl = this.providerSelect!.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
-            optionEl.style.cssText = `
-                color: #000000;
-                background: #ffffff;
-            `;
-        });
-
-        this.providerSelect.addEventListener('change', async () => {
-            this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
-            // Update model dropdown when provider changes
-            this.updateModelDropdown(this.options.modelOptions);
-        });
-    }
 
     /**
-     * Create model dropdown section
+     * Create Settings Section (Format + Collapsible AI Config)
      */
-    private createModelSection(): void {
-        const modelContainer = this.contentEl.createDiv();
-        modelContainer.style.cssText = `
-            margin: 12px 0;
-        `;
-
-        const labelRow = modelContainer.createDiv();
-        labelRow.style.cssText = `
+    private createSettingsSection(): void {
+        const container = this.contentEl.createDiv();
+        container.addClass('ytc-settings-section');
+        container.style.cssText = `
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
         `;
 
-        const label = labelRow.createDiv();
-        label.textContent = 'AI Model';
-        label.style.cssText = `
+        // 1. Output Format (Primary Decision)
+        const formatWrapper = container.createDiv();
+        
+        // Compact Label
+        const formatLabel = formatWrapper.createDiv();
+        formatLabel.textContent = 'OUTPUT FORMAT';
+        formatLabel.style.cssText = `
+            font-size: 0.7rem;
             font-weight: 600;
-            color: var(--text-normal);
-            font-size: 0.9rem;
+            color: var(--ytc-text-muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
         `;
 
-        // Action buttons for model management
-        const actionButtons = labelRow.createDiv();
-        actionButtons.style.cssText = `
-            display: flex;
-            gap: 6px;
-        `;
-
-        this.refreshButton = actionButtons.createEl('button');
-        this.refreshButton.innerHTML = '🔄';
-        this.refreshButton.title = 'Refresh models';
-        this.refreshButton.style.cssText = `
-            padding: 4px 8px;
-            background: var(--background-secondary);
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85rem;
-        `;
-
-        this.refreshButton.addEventListener('click', async () => {
-            const isForceRefresh = false;
-            this.refreshButton.innerHTML = '⏳';
-            this.refreshButton.style.opacity = '0.5';
-
-            try {
-                const currentProvider = this.selectedProvider || 'Google Gemini';
-                const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud', 'Groq', 'OllamaCloud'];
-                const isDynamicProvider = dynamicProviders.includes(currentProvider);
-
-                if (this.options.fetchModelsForProvider) {
-                    const models = await this.options.fetchModelsForProvider(currentProvider, isForceRefresh);
-                    if (models && models.length > 0) {
-                        const updatedOptions = { ...this.options.modelOptions, [currentProvider]: models };
-                        this.updateModelDropdown(updatedOptions);
-                    }
-                }
-            } finally {
-                this.refreshButton.innerHTML = '🔄';
-                this.refreshButton.style.opacity = '1';
-            }
-        });
-
-        const setDefaultBtn = actionButtons.createEl('button');
-        setDefaultBtn.textContent = 'Set Default';
-        setDefaultBtn.style.cssText = `
-            padding: 4px 8px;
-            background: var(--background-secondary);
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
-        `;
-
-        setDefaultBtn.addEventListener('click', () => {
-            const currentModel = this.modelSelect?.value;
-            if (currentModel) {
-                UserPreferencesService.setPreference('defaultModel', currentModel);
-                const originalText = setDefaultBtn.textContent;
-                setDefaultBtn.textContent = '✓ Saved';
-                setTimeout(() => {
-                    setDefaultBtn.textContent = originalText;
-                }, 1500);
-            }
-        });
-
-        this.modelSelect = modelContainer.createEl('select');
-        this.modelSelect.style.cssText = `
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-        `;
-
-        this.modelSelect.addEventListener('change', () => {
-            this.selectedModel = this.modelSelect?.value;
-        });
-    }
-
-    /**
-     * Create format dropdown section
-     */
-    private createFormatSection(): void {
-        const formatContainer = this.contentEl.createDiv();
-        formatContainer.style.cssText = `
-            margin: 12px 0;
-        `;
-
-        const label = formatContainer.createDiv();
-        label.textContent = 'Output Format';
-        label.style.cssText = `
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--text-normal);
-            font-size: 0.9rem;
-        `;
-
-        this.formatSelect = formatContainer.createEl('select');
-        this.formatSelect.style.cssText = `
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-        `;
+        this.formatSelect = formatWrapper.createEl('select');
+        // Styling handled by CSS
 
         const formatOptions = [
             { value: 'executive-summary', text: '📊 Executive Summary' },
@@ -508,67 +422,6 @@ export class YouTubeUrlModal extends BaseModal {
             const optionEl = this.formatSelect!.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
-            optionEl.style.cssText = `
-                color: #000000;
-                background: #ffffff;
-            `;
-        });
-
-        this.formatSelect.value = this.format;
-
-        this.formatSelect.addEventListener('change', () => {
-            this.format = this.formatSelect?.value as OutputFormat ?? 'executive-summary';
-            this.toggleCustomPromptVisibility();
-            UserPreferencesService.setPreference('lastFormat', this.format);
-        });
-    }
-
-    /**
-     * Create horizontal 3-column dropdown row (Format, Provider, Model)
-     */
-    private createDropdownRow(): void {
-        const dropdownRow = this.contentEl.createDiv();
-        dropdownRow.style.cssText = `
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            margin: 16px 0 12px 0;
-            padding: 0;
-        `;
-
-        // Format dropdown
-        const formatContainer = dropdownRow.createDiv();
-        this.formatSelect = formatContainer.createEl('select');
-        this.formatSelect.style.cssText = `
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-            transition: all 0.15s ease;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            padding-right: 30px;
-        `;
-
-        const formatOptions = [
-            { value: 'executive-summary', text: '📊 Executive' },
-            { value: 'detailed-guide', text: '📖 Detailed' },
-            { value: 'brief', text: '⚡ Brief' },
-            { value: 'custom', text: '✏️ Custom' },
-        ];
-
-        formatOptions.forEach(option => {
-            const optionEl = this.formatSelect.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
         });
 
         this.formatSelect.value = this.format;
@@ -578,308 +431,171 @@ export class YouTubeUrlModal extends BaseModal {
             UserPreferencesService.setPreference('lastFormat', this.format);
         });
 
-        // Provider dropdown
-        const providerContainer = dropdownRow.createDiv();
-        this.providerSelect = providerContainer.createEl('select');
-        this.providerSelect.style.cssText = `
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-            transition: all 0.15s ease;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            padding-right: 30px;
+        // Custom Prompt Container (Hidden by default, shown if Custom Format selected)
+        this.createCustomPromptSection(container);
+
+        // 2. Advanced AI Settings (Collapsible)
+        const aiSettings = container.createDiv('ytc-ai-settings');
+        // CSS handles styling
+
+        // Header (Always visible)
+        const aiHeader = aiSettings.createDiv('ytc-ai-header');
+        
+        const aiTitleGroup = aiHeader.createDiv();
+        aiTitleGroup.style.cssText = `display: flex; align-items: center; gap: 8px; flex: 1;`;
+        aiTitleGroup.innerHTML = `<span style="font-size: 1.1em">🤖</span> <span style="font-weight: 600; font-size: 0.9rem;">AI Configuration</span>`;
+        
+        const aiSummary = aiHeader.createDiv();
+        aiSummary.style.cssText = `color: var(--ytc-text-muted); font-size: 0.8rem; display: flex; align-items: center; gap: 6px;`;
+        
+        // Chevron
+        const chevron = aiHeader.createDiv();
+        chevron.innerHTML = `<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>`;
+        chevron.style.cssText = `transition: transform 0.2s ease; opacity: 0.5; margin-left: 8px; color: var(--ytc-text-secondary);`;
+
+        // Content (Collapsible)
+        const aiContent = aiSettings.createDiv('ytc-ai-content');
+        aiContent.style.cssText = `
+            padding: 16px;
+            display: none;
+            animation: fadeIn 0.15s ease-out;
         `;
+
+        // Toggle Logic
+        let isExpanded = false;
+        
+        const updateSummary = () => {
+            const provider = this.selectedProvider || 'Google Gemini';
+            const model = this.selectedModel || 'Default';
+            const formattedModel = this.formatModelName(model).replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim(); // Remove emojis for summary
+            aiSummary.textContent = `${provider} • ${formattedModel}`;
+        };
+
+        aiHeader.addEventListener('click', () => {
+            isExpanded = !isExpanded;
+            aiContent.style.display = isExpanded ? 'block' : 'none';
+            aiHeader.classList.toggle('expanded', isExpanded);
+            chevron.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        });
+
+        // Provider Selection
+        const providerRow = aiContent.createDiv();
+        
+        const providerLabel = providerRow.createDiv();
+        providerLabel.textContent = 'AI PROVIDER';
+        providerLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em;`;
+
+        this.providerSelect = providerRow.createEl('select');
+        // CSS handles styling
 
         const providerOptions = [
-            { value: 'Google Gemini', text: '🔵 Gemini' },
-            { value: 'Groq', text: '⚡ Groq' },
-            { value: 'Hugging Face', text: '🤗 HuggingFace' },
-            { value: 'OpenRouter', text: '🔀 OpenRouter' },
-            { value: 'Ollama', text: '🦙 Ollama' },
-            { value: 'Ollama Cloud', text: '☁️ Ollama Cloud' },
+            { value: 'Google Gemini', text: 'Google Gemini (Recommended)' },
+            { value: 'Groq', text: 'Groq (Fastest)' },
+            { value: 'OpenRouter', text: 'OpenRouter' },
+            { value: 'Hugging Face', text: 'Hugging Face' },
+            { value: 'Ollama', text: 'Ollama (Local)' },
+            { value: 'Ollama Cloud', text: 'Ollama Cloud' },
         ];
 
-        providerOptions.forEach(option => {
-            const optionEl = this.providerSelect.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
+        providerOptions.forEach(opt => {
+            const el = this.providerSelect!.createEl('option');
+            el.value = opt.value;
+            el.textContent = opt.text;
         });
+        this.providerSelect.value = this.selectedProvider || 'Google Gemini';
 
-        this.providerSelect.value = this.selectedProvider;
+        // Model Selection
+        const modelRow = aiContent.createDiv();
+        modelRow.style.cssText = `margin-top: 16px;`;
+        
+        const modelLabelRow = modelRow.createDiv();
+        modelLabelRow.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;`;
+        
+        const modelLabel = modelLabelRow.createDiv();
+        modelLabel.textContent = 'MODEL';
+        modelLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em;`;
+
+        // Model Actions (Refresh, Star)
+        const modelActions = modelLabelRow.createDiv();
+        modelActions.style.cssText = `display: flex; gap: 4px;`;
+
+        // Refresh Button
+        const refreshBtn = modelActions.createEl('button');
+        refreshBtn.innerHTML = '🔄';
+        refreshBtn.title = 'Refresh Models';
+        refreshBtn.style.cssText = `
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            background: transparent;
+            border: 1px solid var(--ytc-border);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--ytc-text-secondary);
+        `;
+        refreshBtn.onclick = async (e) => {
+            e.stopPropagation();
+            refreshBtn.innerHTML = '⏳';
+            await this.fetchModelsForCurrentProvider();
+            refreshBtn.innerHTML = '🔄';
+            updateSummary();
+        };
+
+        // Star Button
+        const starBtn = modelActions.createEl('button');
+        starBtn.innerHTML = '⭐';
+        starBtn.title = 'Save as Default Preference';
+        starBtn.style.cssText = `
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            background: transparent;
+            border: 1px solid var(--ytc-border);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--ytc-text-secondary);
+        `;
+        starBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (this.selectedModel) {
+                UserPreferencesService.setPreference('preferredModel', this.selectedModel);
+                new Notice('⭐ Model saved as default!');
+            }
+        };
+
+        this.modelSelect = modelRow.createEl('select');
+        // CSS handles styling
+
+        // Auto Fallback Toggle
+        this.createFallbackToggle(aiContent);
+
+        // Event Listeners for AI Settings
         this.providerSelect.addEventListener('change', async () => {
             this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
-
-            // Update model dropdown when provider changes
-            this.updateModelDropdown(this.options.modelOptions);
-
-            // Auto-fetch models for the new provider
-            if (this.options.fetchModelsForProvider) {
-                try {
-                    const models = await this.options.fetchModelsForProvider(this.selectedProvider, false);
-                    if (models && models.length > 0) {
-                        const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
-                        this.options.modelOptions = updatedOptions;
-                        this.updateModelDropdown(updatedOptions);
-                    }
-                } catch (error) {
-                    console.warn('[YT-CLIPPER] Auto-fetch for provider change failed:', error);
-                }
-            }
+            // Trigger model update
+            await this.fetchModelsForCurrentProvider();
+            updateSummary();
         });
-
-        // Model dropdown
-        const modelContainer = dropdownRow.createDiv();
-        const modelWrapper = modelContainer.createDiv();
-        modelWrapper.style.cssText = `
-            position: relative;
-            display: flex;
-            align-items: center;
-        `;
-
-        this.modelSelect = modelWrapper.createEl('select');
-        this.modelSelect.style.cssText = `
-            flex: 1;
-            padding: 10px 32px 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            cursor: pointer;
-            outline: none;
-            transition: all 0.15s ease;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-        `;
 
         this.modelSelect.addEventListener('change', () => {
             this.selectedModel = this.modelSelect?.value;
+            updateSummary();
         });
+
+        // Initial summary update
+        updateSummary();
+        
+        // Hook into updateModelDropdown to keep summary fresh
+        const originalUpdateDropdown = this.updateModelDropdown.bind(this);
+        this.updateModelDropdown = (options) => {
+            originalUpdateDropdown(options);
+            updateSummary();
+        };
     }
 
     /**
-     * Create icons row with actions
+     * Legacy icons row - functionality moved to createTopBar and createSettingsSection
      */
     private createIconsRow(): void {
-        const iconsRow = this.contentEl.createDiv();
-        iconsRow.style.cssText = `
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            margin: 8px 0 12px 0;
-            padding: 8px;
-            background: var(--background-secondary);
-            border-radius: 8px;
-        `;
-
-        // Theme toggle
-        const themeBtn = iconsRow.createEl('button');
-        themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
-        themeBtn.style.cssText = `
-            padding: 6px 10px;
-            background: transparent;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: all 0.2s ease;
-        `;
-        themeBtn.title = 'Toggle theme';
-        themeBtn.addEventListener('mouseenter', () => { themeBtn.style.opacity = '1'; themeBtn.style.background = 'var(--background-modifier-hover)'; });
-        themeBtn.addEventListener('mouseleave', () => { themeBtn.style.opacity = '0.7'; themeBtn.style.background = 'transparent'; });
-        themeBtn.addEventListener('click', () => {
-            this.isLightTheme = !this.isLightTheme;
-            this.applyTheme(this.isLightTheme);
-            localStorage.setItem('ytc-theme-mode', this.isLightTheme ? 'light' : 'dark');
-            themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
-        });
-
-        // Refresh button with loading state
-        const refreshBtn = iconsRow.createEl('button');
-        refreshBtn.innerHTML = '🔄';
-        this.refreshButton = refreshBtn;
-        refreshBtn.style.cssText = `
-            padding: 6px 10px;
-            background: transparent;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: all 0.2s ease;
-        `;
-        refreshBtn.title = 'Fetch latest models from provider';
-        refreshBtn.addEventListener('mouseenter', () => { refreshBtn.style.opacity = '1'; refreshBtn.style.background = 'var(--background-modifier-hover)'; });
-        refreshBtn.addEventListener('mouseleave', () => { refreshBtn.style.opacity = '0.7'; refreshBtn.style.background = 'transparent'; });
-        refreshBtn.addEventListener('click', async () => {
-            if (this.fetchInProgress) return;
-
-            refreshBtn.style.opacity = '0.5';
-            refreshBtn.innerHTML = '⏳';
-            this.fetchInProgress = true;
-
-            // Show loading in model dropdown
-            if (this.modelSelect) {
-                this.modelSelect.disabled = true;
-                this.modelSelect.innerHTML = '<option value="">🔄 Fetching models...</option>';
-            }
-
-            try {
-                if (this.options.fetchModelsForProvider && this.selectedProvider) {
-                    const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
-
-                    // Update the options map
-                    const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
-                    this.options.modelOptions = updatedOptions;
-
-                    // Refresh the dropdown with new models
-                    this.updateModelDropdown(updatedOptions);
-
-                    new Notice(`✅ Fetched ${models.length} models for ${this.selectedProvider}`);
-                }
-            } catch (error) {
-                // Restore dropdown on error
-                if (this.modelSelect) {
-                    this.modelSelect.disabled = false;
-                }
-                new Notice(`❌ Failed to fetch models: ${error instanceof Error ? error.message : String(error)}`);
-            } finally {
-                refreshBtn.innerHTML = '🔄';
-                refreshBtn.style.opacity = '0.7';
-                this.fetchInProgress = false;
-            }
-        });
-
-        // Star/Save preference
-        const starBtn = iconsRow.createEl('button');
-        starBtn.innerHTML = '⭐';
-        starBtn.style.cssText = `
-            padding: 6px 10px;
-            background: transparent;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: all 0.2s ease;
-        `;
-        starBtn.title = 'Save as default';
-        starBtn.addEventListener('mouseenter', () => { starBtn.style.opacity = '1'; starBtn.style.background = 'var(--background-modifier-hover)'; });
-        starBtn.addEventListener('mouseleave', () => { starBtn.style.opacity = '0.7'; starBtn.style.background = 'transparent'; });
-        starBtn.addEventListener('click', () => {
-            if (this.selectedModel) {
-                UserPreferencesService.setPreference('preferredModel', this.selectedModel);
-                new Notice('⭐ Model saved as preference!');
-            }
-        });
-
-        // Separator
-        const sep1 = iconsRow.createSpan();
-        sep1.textContent = '|';
-        sep1.style.cssText = `color: var(--text-faint); font-size: 12px; opacity: 0.5;`;
-
-        // Batch button
-        const batchBtn = iconsRow.createEl('button');
-        batchBtn.innerHTML = '📦 Batch';
-        batchBtn.style.cssText = `
-            padding: 8px 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-        `;
-        batchBtn.title = 'Process multiple videos';
-        batchBtn.addEventListener('mouseenter', () => {
-            batchBtn.style.transform = 'translateY(-1px)';
-            batchBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
-        });
-        batchBtn.addEventListener('mouseleave', () => {
-            batchBtn.style.transform = 'translateY(0)';
-            batchBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
-        });
-        batchBtn.addEventListener('click', () => {
-            if (this.options.onOpenBatchModal) {
-                this.options.onOpenBatchModal();
-            }
-        });
-
-        // Separator
-        const sep2 = iconsRow.createSpan();
-        sep2.textContent = '|';
-        sep2.style.cssText = `color: var(--text-faint); font-size: 12px; opacity: 0.5;`;
-
-        // Auto-fallback toggle
-        const toggleWrapper = iconsRow.createDiv();
-        toggleWrapper.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        `;
-
-        const toggleLabel = toggleWrapper.createSpan();
-        toggleLabel.textContent = 'Auto';
-        toggleLabel.style.cssText = `font-size: 11px; color: var(--text-muted); font-weight: 500;`;
-
-        const toggleSwitch = toggleWrapper.createDiv();
-        toggleSwitch.style.cssText = `
-            position: relative;
-            width: 36px;
-            height: 20px;
-            background: #00b894;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        `;
-
-        const toggleKnob = toggleSwitch.createDiv();
-        toggleKnob.style.cssText = `
-            position: absolute;
-            top: 2px;
-            left: 18px;
-            width: 16px;
-            height: 16px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        `;
-
-        let isToggled = true;
-        toggleSwitch.addEventListener('click', () => {
-            isToggled = !isToggled;
-            if (isToggled) {
-                toggleSwitch.style.background = '#00b894';
-                toggleKnob.style.transform = 'translateX(0)';
-                this.autoFallbackEnabled = true;
-            } else {
-                toggleSwitch.style.background = 'var(--background-modifier-border)';
-                toggleKnob.style.transform = 'translateX(-16px)';
-                this.autoFallbackEnabled = false;
-            }
-            UserPreferencesService.updateLastUsed({
-                autoFallback: this.autoFallbackEnabled,
-            });
-        });
+        // Deprecated
     }
 
     private videoPreviewContainer?: HTMLDivElement;
@@ -1724,6 +1440,88 @@ export class YouTubeUrlModal extends BaseModal {
             css += 'background: #525863 !important;';
             css += '}';
 
+            // Modern & Compact Overrides
+            css += '.ytc-top-bar { margin-bottom: 20px !important; }';
+            css += '.ytc-top-bar h2 { font-size: 1.25rem !important; font-weight: 600 !important; color: var(--ytc-text-primary) !important; letter-spacing: -0.01em !important; }';
+            css += '.ytc-top-bar .subtitle { font-size: 0.85rem !important; color: var(--ytc-text-muted) !important; margin-top: 2px !important; }';
+            
+            // Input Fields
+            css += '.ytc-input-group { position: relative; display: flex; align-items: center; }';
+            css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"], .ytc-themed-modal textarea {';
+            css += 'background: var(--ytc-bg-input) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'border-radius: 8px !important;';
+            css += 'color: var(--ytc-text-primary) !important;';
+            css += 'font-size: 0.95rem !important;';
+            css += 'padding: 10px 12px !important;';
+            css += 'transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
+            css += 'width: 100% !important;';
+            css += '}';
+            css += '.ytc-themed-modal input:hover, .ytc-themed-modal textarea:hover { border-color: var(--ytc-text-muted) !important; }';
+            css += '.ytc-themed-modal input:focus, .ytc-themed-modal textarea:focus {';
+            css += 'border-color: var(--ytc-border-focus) !important;';
+            css += 'box-shadow: var(--ytc-glow) !important;';
+            css += 'outline: none !important;';
+            css += '}';
+
+            // Paste Button inside Input
+            css += '.ytc-paste-btn-integrated {';
+            css += 'position: absolute !important; right: 6px !important; top: 50% !important; transform: translateY(-50%) !important;';
+            css += 'background: var(--ytc-bg-tertiary) !important; color: var(--ytc-text-secondary) !important;';
+            css += 'border: none !important; border-radius: 6px !important; padding: 4px 8px !important;';
+            css += 'font-size: 0.8rem !important; font-weight: 500 !important; cursor: pointer !important;';
+            css += 'transition: all 0.2s ease !important; display: flex; align-items: center; gap: 4px; height: 28px !important;';
+            css += '}';
+            css += '.ytc-paste-btn-integrated:hover { background: var(--ytc-accent) !important; color: white !important; }';
+
+            // Dropdowns
+            css += '.ytc-themed-modal select {';
+            css += 'background: var(--ytc-bg-input) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'border-radius: 8px !important;';
+            css += 'color: var(--ytc-text-primary) !important;';
+            css += 'font-size: 0.9rem !important;';
+            css += 'padding: 8px 12px !important;';
+            css += 'height: 38px !important;';
+            css += 'cursor: pointer !important; transition: all 0.2s ease !important;';
+            css += '}';
+            css += '.ytc-themed-modal select:hover { border-color: var(--ytc-text-muted) !important; }';
+            css += '.ytc-themed-modal select:focus { border-color: var(--ytc-border-focus) !important; box-shadow: var(--ytc-glow) !important; }';
+
+            // AI Config Section
+            css += '.ytc-ai-settings {';
+            css += 'background: var(--ytc-bg-primary) !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'border-radius: 8px !important;';
+            css += 'overflow: hidden !important;';
+            css += '}';
+            css += '.ytc-ai-header {';
+            css += 'padding: 10px 14px !important; background: var(--ytc-bg-secondary) !important;';
+            css += 'border-bottom: 1px solid transparent !important; transition: all 0.2s ease !important;';
+            css += '}';
+            css += '.ytc-ai-header:hover { background: var(--ytc-bg-tertiary) !important; }';
+            css += '.ytc-ai-header.expanded { border-bottom-color: var(--ytc-border) !important; }';
+            
+            // Buttons
+            css += '.ytc-action-btn {';
+            css += 'width: 100% !important; padding: 10px !important; border-radius: 8px !important;';
+            css += 'font-weight: 600 !important; font-size: 0.95rem !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
+            css += 'display: flex; align-items: center; justify-content: center; gap: 8px; border: none !important;';
+            css += '}';
+            css += '.ytc-primary-btn {';
+            css += 'background: var(--ytc-accent-gradient) !important; color: white !important;';
+            css += 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;';
+            css += '}';
+            css += '.ytc-primary-btn:hover { transform: translateY(-1px) !important; filter: brightness(1.1); }';
+            css += '.ytc-secondary-btn {';
+            css += 'background: transparent !important; color: var(--ytc-text-secondary) !important; border: 1px solid var(--ytc-border) !important;';
+            css += '}';
+            css += '.ytc-secondary-btn:hover { background: var(--ytc-bg-tertiary) !important; color: var(--ytc-text-primary) !important; }';
+            
+            css += '.ytc-ai-content {';
+            css += 'border-top: 1px solid var(--ytc-border) !important;';
+            css += '}';
+
             themeStyle.innerHTML = css;
             document.head.appendChild(themeStyle);
         }
@@ -1827,9 +1625,9 @@ export class YouTubeUrlModal extends BaseModal {
             display: flex;
             flex-direction: column;
             gap: 12px;
-            margin-top: 20px;
-            padding-top: 16px;
-            border-top: 1px solid var(--background-modifier-border);
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--ytc-border);
         `;
 
         // Primary action row (Process)
@@ -1839,24 +1637,8 @@ export class YouTubeUrlModal extends BaseModal {
             gap: 10px;
         `;
 
-        this.processButton = primaryRow.createEl('button');
+        this.processButton = primaryRow.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
         this.processButton.textContent = MESSAGES.MODALS.PROCESS;
-        this.processButton.style.cssText = `
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 600;
-            background: var(--interactive-accent);
-            color: var(--text-on-accent);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        `;
         this.processButton.addEventListener('click', () => this.handleProcess());
 
         // Secondary actions row (initially hidden)
@@ -1868,88 +1650,44 @@ export class YouTubeUrlModal extends BaseModal {
         this.secondaryActionsRow = secondaryRow;
 
         // Process Another button
-        const processAnotherBtn = secondaryRow.createEl('button');
+        const processAnotherBtn = secondaryRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         processAnotherBtn.innerHTML = '🔄 Process Another';
-        processAnotherBtn.style.cssText = `
-            flex: 1;
-            padding: 10px 16px;
-            border: 1px solid var(--interactive-accent);
-            border-radius: 7px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            background: transparent;
-            color: var(--interactive-accent);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        `;
+        processAnotherBtn.style.flex = '1';
         processAnotherBtn.addEventListener('click', () => {
             this.showInputState();
         });
         this.processAnotherButton = processAnotherBtn;
 
         // Open Note button
-        this.openButton = secondaryRow.createEl('button');
+        this.openButton = secondaryRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         this.openButton.innerHTML = '📄 Open Note';
-        this.openButton.style.cssText = `
-            flex: 1;
-            padding: 10px 16px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 7px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            background: var(--background-secondary);
-            color: var(--text-normal);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        `;
+        this.openButton.style.flex = '1';
         this.openButton.addEventListener('click', () => this.handleOpenFile());
 
         // Copy Path button
-        this.copyPathButton = secondaryRow.createEl('button');
+        this.copyPathButton = secondaryRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         this.copyPathButton.innerHTML = '📋 Copy';
-        this.copyPathButton.style.cssText = `
-            padding: 10px 14px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 7px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            background: var(--background-secondary);
-            color: var(--text-normal);
-            transition: all 0.2s ease;
-        `;
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
         // Cancel button (always visible but smaller)
-        const cancelBtn = container.createEl('button');
+        const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn' });
         cancelBtn.textContent = 'Cancel';
         cancelBtn.style.cssText = `
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
             background: transparent;
-            color: var(--text-muted);
-            transition: all 0.2s ease;
-            align-self: flex-end;
+            color: var(--ytc-text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 8px;
+            border: none;
+            cursor: pointer;
+            align-self: center;
+            width: auto !important;
         `;
         cancelBtn.addEventListener('mouseenter', () => {
-            cancelBtn.style.background = 'var(--background-modifier-hover)';
-            cancelBtn.style.color = 'var(--text-normal)';
+            cancelBtn.style.color = 'var(--ytc-text-primary)';
         });
         cancelBtn.addEventListener('mouseleave', () => {
-            cancelBtn.style.background = 'transparent';
-            cancelBtn.style.color = 'var(--text-muted)';
+            cancelBtn.style.color = 'var(--ytc-text-muted)';
         });
         cancelBtn.addEventListener('click', () => this.close());
 
@@ -1986,23 +1724,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.focusUrlInput();
     }
 
-    /**
-     * Show completion state with secondary actions
-     */
-    private showCompletionState(): void {
-        if (this.processButton) {
-            this.processButton.style.display = 'none';
-        }
-        if (this.secondaryActionsRow) {
-            this.secondaryActionsRow.style.display = 'flex';
-        }
-        if (this.openButton) {
-            this.openButton.style.display = 'flex';
-        }
-        if (this.copyPathButton) {
-            this.copyPathButton.style.display = 'flex';
-        }
-    }
+
 
     /**
      * Set up event handlers for the modal
