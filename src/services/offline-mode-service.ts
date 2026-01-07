@@ -7,7 +7,7 @@ import { logger } from './logger';
 export interface QueuedOperation {
     id: string;
     type: 'process-video' | 'fetch-transcript' | 'ai-analysis';
-    data: any;
+    data: Record<string, unknown>;
     priority: number;
     timestamp: number;
     retries: number;
@@ -63,7 +63,8 @@ export class OfflineModeService {
         this.processing = true;
 
         while (this.queue.length > 0 && this.isOnline) {
-            const operation = this.queue.shift()!;
+            const operation = this.queue.shift();
+            if (!operation) break;
 
             try {
                 await this.executeOperation(operation);

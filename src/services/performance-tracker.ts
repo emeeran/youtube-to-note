@@ -11,7 +11,7 @@ export interface ServicePerformanceMetrics {
     duration: number;
     success: boolean;
     timestamp: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export interface PluginPerformanceReport {
@@ -58,7 +58,7 @@ export class PerformanceTracker {
         operation: string,
         duration: number,
         success: boolean = true,
-        metadata?: Record<string, any>
+        metadata?: Record<string, unknown>
     ): void {
         if (!this.isEnabled) return;
 
@@ -75,12 +75,14 @@ export class PerformanceTracker {
             this.serviceMetrics.set(service, []);
         }
 
-        const metrics = this.serviceMetrics.get(service)!;
-        metrics.push(metric);
+        const metrics = this.serviceMetrics.get(service);
+        if (metrics) {
+            metrics.push(metric);
 
-        // Keep only last 1000 metrics per service to prevent memory leaks
-        if (metrics.length > 1000) {
-            metrics.splice(0, metrics.length - 1000);
+            // Keep only last 1000 metrics per service to prevent memory leaks
+            if (metrics.length > 1000) {
+                metrics.splice(0, metrics.length - 1000);
+            }
         }
 
         // Log slow operations
@@ -96,7 +98,7 @@ export class PerformanceTracker {
         service: string,
         operation: string,
         fn: () => T | Promise<T>,
-        metadata?: Record<string, any>
+        metadata?: Record<string, unknown>
     ): Promise<T> {
         if (!this.isEnabled) {
             return fn();
@@ -245,7 +247,7 @@ export class PerformanceTracker {
     /**
      * Get HTTP metrics from services that support it
      */
-    private getHTTPMetrics(): any {
+    private getHTTPMetrics(): undefined {
         // This would need to be implemented by aggregating metrics from HTTP clients
         // For now, return undefined
         return undefined;

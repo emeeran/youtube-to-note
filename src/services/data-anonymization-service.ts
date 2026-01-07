@@ -86,17 +86,17 @@ export class DataAnonymizationService {
     /**
      * Sanitize log output
      */
-    sanitizeLog(data: any): any {
+    sanitizeLog(data: unknown): unknown {
         if (typeof data === 'string') {
             return this.removeApiKeys(this.anonymizeAll(data));
         } else if (typeof data === 'object' && data !== null) {
-            const sanitized: any = Array.isArray(data) ? [] : {};
+            const sanitized: Record<string, unknown> = Array.isArray(data) ? [] : {};
             for (const key in data) {
                 if (Object.prototype.hasOwnProperty.call(data, key)) {
                     if (key.toLowerCase().includes('key') || key.toLowerCase().includes('secret')) {
                         sanitized[key] = '[REDACTED]';
                     } else {
-                        sanitized[key] = this.sanitizeLog(data[key]);
+                        sanitized[key] = this.sanitizeLog((data as Record<string, unknown>)[key]);
                     }
                 }
             }

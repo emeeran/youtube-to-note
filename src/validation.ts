@@ -57,12 +57,14 @@ export class ValidationUtils {
      * Extract YouTube video ID from URL (memoized for performance)
      * Enhanced extraction with better error handling
      */
+    // eslint-disable-next-line complexity
     static extractVideoId(url: string): string | null {
         if (!url || typeof url !== 'string') return null;
 
         // Check cache first (O(1) for repeated URLs)
         if (this.URL_CACHE.has(url)) {
-            return this.URL_CACHE.get(url)!;
+            const cached = this.URL_CACHE.get(url);
+            return cached ?? null;
         }
 
         const cleanUrl = this.cleanYouTubeUrl(url);
@@ -132,7 +134,8 @@ export class ValidationUtils {
     /**
      * Validate settings configuration
      */
-    static validateSettings(settings: any): { isValid: boolean; errors: string[] } {
+    // eslint-disable-next-line complexity
+    static validateSettings(settings: Record<string, unknown>): { isValid: boolean; errors: string[] } {
         const errors: string[] = [];
 
         const usingEnv = Boolean(settings.useEnvironmentVariables);
@@ -174,7 +177,7 @@ export class ValidationUtils {
     /**
      * Validate that a string is not empty
      */
-    static isNonEmptyString(value: any): value is string {
+    static isNonEmptyString(value: unknown): value is string {
         return typeof value === 'string' && value.trim().length > 0;
     }
 

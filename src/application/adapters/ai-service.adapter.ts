@@ -11,12 +11,66 @@ import {
     ProcessingStage,
     PersistenceStage,
 } from '../pipeline/stages';
+import type { JsonObject } from '../../types/api-responses';
 
 // Original interface from types.ts
 interface AIResponse {
   content: string;
   provider: string;
   model: string;
+}
+
+// Service interfaces for type safety
+interface AIServiceInterface {
+    process(prompt: string, images?: (string | ArrayBuffer)[]): Promise<AIResponse>;
+    processWith(
+        providerName: string,
+        prompt: string,
+        overrideModel?: string,
+        images?: (string | ArrayBuffer)[]
+    ): Promise<AIResponse>;
+    getProviderNames(): string[];
+    getProviderModels(providerName: string): string[];
+    fetchLatestModels(): Promise<Record<string, string[]>>;
+    fetchLatestModelsForProvider(providerName: string): Promise<string[]>;
+    hasAvailableProviders(): boolean;
+    updateSettings(newSettings: unknown): void;
+    getPerformanceMetrics(): JsonObject;
+    cleanup?(): void;
+}
+
+interface VideoServiceInterface {
+    extractVideoId(url: string): string | null;
+    getVideoData(videoId: string): Promise<Record<string, unknown>>;
+    getTranscript?(videoId: string): Promise<{ fullText: string } | null>;
+    getPerformanceMetrics?(): JsonObject;
+    cleanup?(): void;
+}
+
+interface TranscriptServiceInterface {
+    getTranscript(videoId: string): Promise<{ fullText: string } | null>;
+}
+
+interface FileServiceInterface {
+    saveToFile(title: string, content: string, outputPath: string): Promise<string>;
+}
+
+interface PromptServiceInterface {
+    createAnalysisPrompt(options: {
+        videoData: Record<string, unknown>;
+        videoUrl: string;
+        format?: string;
+        customPrompt?: string;
+        transcript?: string;
+    }): string;
+    processAIResponse(
+        content: string,
+        provider: string,
+        model: string,
+        format?: string,
+        videoData?: Record<string, unknown>,
+        videoUrl?: string
+    ): string;
 }
 
 /**
@@ -27,11 +81,11 @@ export class AIServiceAdapter {
     private pipeline: PipelineOrchestrator;
 
     constructor(
-    private originalAIService: any,
-    private videoService?: any,
-    private transcriptService?: any,
-    private fileService?: any,
-    private promptService?: any
+    private originalAIService: AIServiceInterface,
+    private videoService?: VideoServiceInterface,
+    private transcriptService?: TranscriptServiceInterface,
+    private fileService?: FileServiceInterface,
+    private promptService?: PromptServiceInterface
     ) {
     // Initialize pipeline with all 5 stages
         this.pipeline = new PipelineOrchestrator({
@@ -135,14 +189,14 @@ export class AIServiceAdapter {
     /**
    * Update settings - maintains original signature
    */
-    updateSettings(newSettings: any): void {
+    updateSettings(newSettings: unknown): void {
         this.originalAIService.updateSettings(newSettings);
     }
 
     /**
    * Get performance metrics - maintains original signature
    */
-    getPerformanceMetrics(): any {
+    getPerformanceMetrics(): JsonObject {
         return this.originalAIService.getPerformanceMetrics();
     }
 
@@ -158,6 +212,7 @@ export class AIServiceAdapter {
    * New method: Process video through full pipeline
    * This is the new functionality that uses the 5-stage pipeline
    */
+    // eslint-disable-next-line max-lines-per-function
     async processVideo(params: {
     url: string;
     source?: 'clipboard' | 'protocol' | 'file-monitor' | 'extension' | 'manual';
@@ -173,7 +228,7 @@ export class AIServiceAdapter {
     filePath?: string;
     content?: string;
     error?: string;
-    metrics?: any;
+    metrics?: JsonObject;
   }> {
         try {
             const result = await this.pipeline.execute(

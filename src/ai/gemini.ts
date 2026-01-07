@@ -1,6 +1,8 @@
 import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
+import type { GeminiRequestBody, GeminiResponse } from '../types/api-responses';
+import type { ProviderModelEntry } from '../constants/index';
 
 /**
  * Google Gemini AI provider implementation
@@ -34,6 +36,7 @@ export class GeminiProvider extends BaseAIProvider {
         super(apiKey, model ?? AI_MODELS.GEMINI, timeout);
     }
 
+    // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string): Promise<string> {
         try {
             // Validate inputs
@@ -77,7 +80,7 @@ export class GeminiProvider extends BaseAIProvider {
                 await this.handleAPIError(response);
             }
 
-            const data = await response.json();
+            const data = (await response.json()) as GeminiResponse;
 
             // Enhanced response validation
             if (!data.candidates?.length) {
@@ -88,11 +91,11 @@ export class GeminiProvider extends BaseAIProvider {
                 throw new Error('Response blocked by Gemini safety filters. Try rephrasing.');
             }
 
-            if (!this.validateResponse(data, ['candidates', '0', 'content', 'parts', '0', 'text'])) {
+            if (!this.validateResponse(data as unknown as Record<string, unknown>, ['candidates', '0', 'content', 'parts', '0', 'text'])) {
                 throw new Error('Invalid response format from Gemini API');
             }
 
-            return this.extractContent(data);
+            return this.extractContent(data as unknown as Record<string, unknown>);
         } catch (error) {
             if (error instanceof Error) {
                 throw error;
@@ -107,7 +110,8 @@ export class GeminiProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    // eslint-disable-next-line max-lines-per-function
+    protected createRequestBody(prompt: string): GeminiRequestBody {
         // Detect YouTube prompts by scanning for common markers instead of brittle literals
         const normalizedPrompt = prompt.toLowerCase();
         const isVideoAnalysis =
@@ -115,7 +119,7 @@ export class GeminiProvider extends BaseAIProvider {
             normalizedPrompt.includes('youtu.be/') ||
             normalizedPrompt.includes('youtube.com/');
 
-        const baseConfig = {
+        const baseConfig: GeminiRequestBody = {
             contents: [{
                 parts: [{ text: prompt }],
             }],
@@ -124,16 +128,6 @@ export class GeminiProvider extends BaseAIProvider {
                 maxOutputTokens: this._maxTokens,
                 candidateCount: 1,
             },
-            // safetySettings: [
-            //     {
-            //         category: "HARM_CATEGORY_HARASSMENT",
-            //         threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            //     },
-            //     {
-            //         category: "HARM_CATEGORY_HATE_SPEECH",
-            //         threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            //     }
-            // ]
         };
 
         // Enable multimodal analysis for YouTube videos only when the chosen Gemini model
@@ -143,7 +137,7 @@ export class GeminiProvider extends BaseAIProvider {
         if (isVideoAnalysis) {
             // Lookup the model entry in PROVIDER_MODEL_OPTIONS to see if it explicitly
             // supports audio/video tokens. This is more reliable than a name heuristic.
-            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? [] as any[];
+            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? [] as ProviderModelEntry[];
             const currentModelName = String(this.model ?? '').toLowerCase();
             providerModels.find(m => {
                 const name = (typeof m === 'string') ? m : (m?.name ? m.name : '');
@@ -155,7 +149,7 @@ export class GeminiProvider extends BaseAIProvider {
             // `useAudioVideoTokens` or similar parameter needed. The multimodal
             // analysis is built-in behavior. We rely on a strong system instruction
             // to guide comprehensive analysis of both visual and audio content.
-            const videoConfig: any = {
+            const videoConfig: GeminiRequestBody & { systemInstruction: { parts: Array<{ text: string }> } } = {
                 ...baseConfig,
                 systemInstruction: {
                     parts: [{
@@ -200,8 +194,8 @@ For best results:
         return baseConfig;
     }
 
-    protected extractContent(response: any): string {
-        const content = response.candidates[0].content.parts[0].text;
+    protected extractContent(response: Record<string, unknown>): string {
+        const content = (response.candidates as GeminiResponse['candidates'])[0]?.content?.parts[0]?.text;
         return content ? content.trim() : '';
     }
 }

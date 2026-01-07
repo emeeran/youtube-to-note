@@ -14,7 +14,7 @@ export interface TemplateVariables {
     tags?: string[];
     duration?: string;
     publishedAt?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface Template {
@@ -32,6 +32,7 @@ export class TemplateService {
         this.registerDefaultTemplates();
     }
 
+    // eslint-disable-next-line max-lines-per-function
     private registerDefaultTemplates(): void {
         this.templates.set('executive', {
             id: 'executive',

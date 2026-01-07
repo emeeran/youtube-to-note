@@ -7,18 +7,20 @@ import { logger } from '../services/logger';
 
 type Listener = () => void;
 
-export interface Action<T = any> {
+export interface Action<T = unknown> {
     type: string;
     payload?: T;
 }
 
-export type Reducer<S> = (state: S, action: Action) => S;
+export type Reducer<S> = (state: S, action: Action<unknown>) => S;
 
 export class Store<S> {
     private state: S;
     private reducer: Reducer<S>;
     private listeners: Set<Listener> = new Set();
-    private middleware: Array<(store: Store<S>) => (next: (action: Action) => void) => (action: Action) => void> = [];
+    private middleware: Array<
+        (store: Store<S>) => (next: (action: Action<unknown>) => void) => (action: Action<unknown>) => void
+    > = [];
 
     constructor(initialState: S, reducer: Reducer<S>) {
         this.state = initialState;
@@ -29,9 +31,9 @@ export class Store<S> {
         return this.state;
     }
 
-    dispatch(action: Action): void {
+    dispatch(action: Action<unknown>): void {
         // Apply middleware
-        let finalDispatch = (action: Action) => {
+        let finalDispatch = (action: Action<unknown>) => {
             this.state = this.reducer(this.state, action);
             this.notify();
         };
@@ -53,7 +55,11 @@ export class Store<S> {
         this.listeners.forEach(listener => listener());
     }
 
-    use(middleware: (store: Store<S>) => (next: (action: Action) => void) => (action: Action) => void): void {
+    use(
+        middleware: (
+            store: Store<S>
+        ) => (next: (action: Action<unknown>) => void) => (action: Action<unknown>) => void
+    ): void {
         this.middleware.push(middleware);
     }
 }
@@ -68,8 +74,8 @@ export function createStore<S>(initialState: S, reducer: Reducer<S>): Store<S> {
 /**
  * Logger middleware
  */
-export function loggerMiddleware(store: Store<any>) {
-    return (next: (action: Action) => void) => (action: Action) => {
+export function loggerMiddleware(store: Store<unknown>) {
+    return (next: (action: Action<unknown>) => void) => (action: Action<unknown>) => {
         logger.debug('Dispatching action', 'Store', { action });
         logger.debug('Previous state', 'Store', { state: store.getState() });
         next(action);
@@ -80,8 +86,8 @@ export function loggerMiddleware(store: Store<any>) {
 /**
  * Thunk middleware for async actions
  */
-export function thunkMiddleware(store: Store<any>) {
-    return (next: (action: Action) => void) => (action: Action) => {
+export function thunkMiddleware(store: Store<unknown>) {
+    return (next: (action: Action<unknown>) => void) => (action: Action<unknown>) => {
         if (typeof action === 'function') {
             return action(store.dispatch, store.getState);
         }

@@ -1,5 +1,6 @@
 import { AIProvider } from '../types';
 import { ErrorHandler } from '../services/error-handler';
+import type { JsonObject } from '../types/api-responses';
 
 /**
  * Base AI provider interface and abstract implementation
@@ -77,13 +78,13 @@ export abstract class BaseAIProvider implements AIProvider {
     /**
      * Validate API response structure
      */
-    protected validateResponse(response: any, requiredPath: string[]): boolean {
-        let current = response;
+    protected validateResponse(response: JsonObject, requiredPath: string[]): boolean {
+        let current: unknown = response;
         for (const key of requiredPath) {
             if (!current || typeof current !== 'object' || !(key in current)) {
                 return false;
             }
-            current = current[key];
+            current = (current as Record<string, unknown>)[key];
         }
         return current !== null && current !== undefined;
     }
@@ -91,7 +92,7 @@ export abstract class BaseAIProvider implements AIProvider {
     /**
      * Safely parse JSON response without throwing
      */
-    protected async safeJsonParse(response: Response): Promise<any> {
+    protected async safeJsonParse(response: Response): Promise<JsonObject | null> {
         try {
             return await response.json();
         } catch {
@@ -114,10 +115,10 @@ export abstract class BaseAIProvider implements AIProvider {
     /**
      * Create request body
      */
-    protected abstract createRequestBody(prompt: string): any;
+    protected abstract createRequestBody(prompt: string): JsonObject;
 
     /**
      * Extract content from API response
      */
-    protected abstract extractContent(response: any): string;
+    protected abstract extractContent(response: JsonObject): string;
 }

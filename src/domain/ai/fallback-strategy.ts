@@ -27,12 +27,15 @@ export interface ProcessResult {
  */
 export class FallbackStrategy {
     constructor(
-    private providerManager: any,
-    private config: FallbackConfig = {
-        enableModelFallback: true,
-        enableProviderFallback: true,
-        maxFallbackAttempts: 3,
-    }
+        private providerManager: {
+            getProvider(name: string): AIProvider | undefined;
+            getAvailableProviders(): AIProvider[];
+        },
+        private config: FallbackConfig = {
+            enableModelFallback: true,
+            enableProviderFallback: true,
+            maxFallbackAttempts: 3,
+        }
     ) {}
 
     /**
@@ -60,10 +63,13 @@ export class FallbackStrategy {
             const result = await this.tryProvider(primaryProvider, prompt, processFn, options);
 
             if (result.success) {
+                if (!result.content || !result.provider || !result.model) {
+                    throw new Error('Primary provider failed: Missing required fields');
+                }
                 return {
-                    content: result.content!,
-                    provider: result.provider!,
-                    model: result.model!,
+                    content: result.content,
+                    provider: result.provider,
+                    model: result.model,
                 };
             }
 
@@ -103,15 +109,16 @@ export class FallbackStrategy {
             const originalModel = provider.model;
 
             // Apply model override if specified
-            if (options?.overrideModel && typeof (provider as any).setModel === 'function') {
-                (provider as any).setModel(options.overrideModel);
+            const providerWithSetModel = provider as AIProvider & { setModel?(model: string): void };
+            if (options?.overrideModel && typeof providerWithSetModel.setModel === 'function') {
+                providerWithSetModel.setModel(options.overrideModel);
             }
 
             const content = await processFn(provider, options?.overrideModel);
 
             // Restore original model
-            if (options?.overrideModel && typeof (provider as any).setModel === 'function') {
-                (provider as any).setModel(originalModel);
+            if (options?.overrideModel && typeof providerWithSetModel.setModel === 'function') {
+                providerWithSetModel.setModel(originalModel);
             }
 
             if (content && content.trim().length > 0) {
@@ -184,6 +191,7 @@ export class FallbackStrategy {
     /**
    * Try fallback models for a provider
    */
+    // eslint-disable-next-line max-lines-per-function
     private async tryModelFallback(
         provider: AIProvider,
         prompt: string,
@@ -211,8 +219,9 @@ export class FallbackStrategy {
                 logger.info(`Trying fallback model ${fallbackModel} for ${provider.name}`, 'FallbackStrategy');
 
                 const originalModel = provider.model;
-                if (typeof (provider as any).setModel === 'function') {
-                    (provider as any).setModel(fallbackModel);
+                const providerWithSetModel = provider as AIProvider & { setModel?(model: string): void };
+                if (typeof providerWithSetModel.setModel === 'function') {
+                    providerWithSetModel.setModel(fallbackModel);
                 }
 
                 const content = await processFn(provider, fallbackModel);
@@ -223,8 +232,8 @@ export class FallbackStrategy {
                     });
 
                     // Restore original model
-                    if (typeof (provider as any).setModel === 'function') {
-                        (provider as any).setModel(originalModel);
+                    if (typeof providerWithSetModel.setModel === 'function') {
+                        providerWithSetModel.setModel(originalModel);
                     }
 
                     return {
@@ -239,8 +248,9 @@ export class FallbackStrategy {
                 });
             } finally {
                 // Restore original model
-                if (typeof (provider as any).setModel === 'function') {
-                    (provider as any).setModel(provider.model);
+                const providerWithSetModel = provider as AIProvider & { setModel?(model: string): void };
+                if (typeof providerWithSetModel.setModel === 'function') {
+                    providerWithSetModel.setModel(provider.model);
                 }
             }
         }
@@ -279,9 +289,9 @@ export class FallbackStrategy {
                 if (result.success) {
                     logger.info(`Fallback to ${fallbackProvider.name} succeeded`, 'FallbackStrategy');
                     return {
-                        content: result.content!,
-                        provider: result.provider!,
-                        model: result.model!,
+                        content: result.content ?? '',
+                        provider: result.provider ?? '',
+                        model: result.model ?? '',
                     };
                 }
 
@@ -326,7 +336,7 @@ export class FallbackStrategy {
     ): Promise<string> {
         if (images && images.length > 0 && provider.processWithImage) {
             return await RetryService.withRetry(
-                () => provider.processWithImage!(prompt, images),
+                () => provider.processWithImage(prompt, images),
                 `${provider.name}-process-multimodal`,
                 2,
                 2000

@@ -85,7 +85,12 @@ export class RateLimiterManager {
         if (!this.limiters.has(key)) {
             this.limiters.set(key, new RateLimiter(config, key));
         }
-        return this.limiters.get(key)!;
+        const limiter = this.limiters.get(key);
+        if (!limiter) {
+            // This should never happen, but TypeScript needs the check
+            return new RateLimiter(config, key);
+        }
+        return limiter;
     }
 
     removeLimiter(key: string): void {

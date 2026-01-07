@@ -206,11 +206,11 @@ export class MultiLevelCache<K, V> {
     /**
      * Get cache statistics
      */
-    getStats() {
+    getStats(): { l1Size: number; l2Size: number; l1Capacity: number } {
         return {
             l1Size: this.l1Cache.size(),
             l2Size: this.l2Cache?.size ?? 0,
-            l1Capacity: (this.l1Cache as any).capacity,
+            l1Capacity: this.l1Cache['capacity'] ?? 100,
         };
     }
 }

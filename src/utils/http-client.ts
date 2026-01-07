@@ -134,13 +134,16 @@ export class OptimizedHttpClient {
             }
         }
 
-        throw lastError!;
+        if (!lastError) {
+            throw new Error('Request failed after retries');
+        }
+        throw lastError;
     }
 
     /**
      * POST request helper
      */
-    async post(url: string, data: any, options: RequestInit = {}): Promise<Response> {
+    async post(url: string, data: unknown, options: RequestInit = {}): Promise<Response> {
         return this.request(url, {
             method: 'POST',
             headers: {
@@ -165,7 +168,7 @@ export class OptimizedHttpClient {
     /**
      * PUT request helper
      */
-    async put(url: string, data: any, options: RequestInit = {}): Promise<Response> {
+    async put(url: string, data: unknown, options: RequestInit = {}): Promise<Response> {
         return this.request(url, {
             method: 'PUT',
             headers: {
@@ -326,7 +329,10 @@ export class OptimizedHttpClient {
             if (!groups[key]) {
                 groups[key] = [];
             }
-            groups[key]!.push(metric);
+            const group = groups[key];
+            if (group) {
+                group.push(metric);
+            }
         });
 
         return groups;

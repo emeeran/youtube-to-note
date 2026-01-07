@@ -96,6 +96,7 @@ export class YouTubeVideoService implements VideoDataService {
     /**
      * Get video metadata using YouTube oEmbed API
      */
+    // eslint-disable-next-line complexity, max-lines-per-function
     private async getVideoMetadata(videoId: string): Promise<{
         title: string;
         description?: string;
@@ -130,30 +131,7 @@ export class YouTubeVideoService implements VideoDataService {
                     throw new Error(`Invalid YouTube video ID: ${videoId}. Please check the URL and try again.`);
                 } else if (response.status === 401) {
                     // 401 from oEmbed often means the video is age-restricted or requires sign-in
-                    // Try to get basic metadata from page scraping as fallback
-                    logger.warn(`YouTube oEmbed returned 401 for ${videoId}, attempting fallback...`, 'VideoData');
-                    try {
-                        const pageData = await this.scrapeAdditionalMetadata(videoId);
-                        if (pageData.description ?? pageData.duration) {
-                            return {
-                                title: `YouTube Video (${videoId})`,
-                                description: pageData.description,
-                                duration: pageData.duration,
-                                thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-                                channelName: undefined,
-                            };
-                        }
-                    } catch (scrapeError) {
-                        // Scraping also failed, continue with minimal fallback
-                    }
-                    // Return minimal metadata to allow AI processing to continue
-                    return {
-                        title: `YouTube Video (${videoId})`,
-                        description: `Video URL: https://www.youtube.com/watch?v=${videoId}`,
-                        duration: undefined,
-                        thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-                        channelName: undefined,
-                    };
+                    return await this.getMetadataWithFallback(videoId);
                 } else if (response.status === 404) {
                     throw new Error(
                         `YouTube video not found: ${videoId}. The video may be private, deleted, ` +
@@ -171,7 +149,13 @@ export class YouTubeVideoService implements VideoDataService {
             const data = await response.json();
 
             // Get additional metadata by scraping video page
-            let enhancedData: any = {
+            let enhancedData: {
+                title: string;
+                thumbnail?: string;
+                author_name: string;
+                description?: string;
+                duration?: number;
+            } = {
                 title: data.title || 'Unknown Title',
                 thumbnail: data.thumbnail_url,
                 author_name: data.author_name,
@@ -208,6 +192,37 @@ export class YouTubeVideoService implements VideoDataService {
             }
             throw error; // Re-throw other errors
         }
+    }
+
+    /**
+     * Get metadata with fallback for age-restricted videos
+     */
+    private async getMetadataWithFallback(videoId: string): Promise<VideoData> {
+        // Try to get basic metadata from page scraping as fallback
+        logger.warn(`Attempting fallback metadata retrieval for ${videoId}`, 'VideoData');
+        try {
+            const pageData = await this.scrapeAdditionalMetadata(videoId);
+            if (pageData.description ?? pageData.duration) {
+                return {
+                    title: `YouTube Video (${videoId})`,
+                    description: pageData.description,
+                    duration: pageData.duration,
+                    thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                    channelName: undefined,
+                };
+            }
+        } catch (scrapeError) {
+            // Scraping also failed, continue with minimal fallback
+        }
+
+        // Return minimal metadata to allow AI processing to continue
+        return {
+            title: `YouTube Video (${videoId})`,
+            description: `Video URL: https://www.youtube.com/watch?v=${videoId}`,
+            duration: undefined,
+            thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+            channelName: undefined,
+        };
     }
 
     /**

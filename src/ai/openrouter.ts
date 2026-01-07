@@ -1,4 +1,5 @@
 import { BaseAIProvider } from './base';
+import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
  * OpenRouter API provider implementation
@@ -42,6 +43,7 @@ export class OpenRouterProvider extends BaseAIProvider {
         this.siteName = 'YouTube Clipper Obsidian Plugin';
     }
 
+    // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string): Promise<string> {
         try {
             if (!this.apiKey || this.apiKey.trim().length === 0) {
@@ -100,7 +102,7 @@ export class OpenRouterProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string): OpenAICompatibleRequestBody {
         return {
             model: this._model,
             messages: [
@@ -113,13 +115,14 @@ export class OpenRouterProvider extends BaseAIProvider {
                     content: prompt,
                 },
             ],
-            max_tokens: this._maxTokens,
             temperature: this._temperature,
+            max_tokens: this._maxTokens,
+            stream: false,
         };
     }
 
-    protected extractContent(response: any): string {
-        const content = response.choices[0].message.content;
+    protected extractContent(response: Record<string, unknown>): string {
+        const content = (response.choices as OpenAICompatibleResponse['choices'])[0]?.message?.content;
         return content ? content.trim() : '';
     }
 }

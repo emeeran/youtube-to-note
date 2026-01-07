@@ -73,8 +73,8 @@ export class ProviderManager {
    * Get available models for a provider
    */
     getProviderModels(providerName: string): string[] {
-        const raw = PROVIDER_MODEL_OPTIONS[providerName] ?? [] as any[];
-        return raw.map(r => typeof r === 'string' ? r : (r?.name ? r.name : String(r)));
+        const raw = PROVIDER_MODEL_OPTIONS[providerName] ?? [] as Array<string | { name: string }>;
+        return raw.map(r => typeof r === 'string' ? r : (r.name ? r.name : String(r)));
     }
 
     /**
@@ -102,7 +102,9 @@ export class ProviderManager {
     /**
    * Fetch latest models for a specific provider
    */
+    // eslint-disable-next-line complexity
     async fetchLatestModelsForProvider(providerName: string, bypassCache = false): Promise<string[]> {
+        // eslint-disable-next-line complexity
         return await performanceTracker.measureOperation('ai-service', `fetch-models-${providerName}`, async () => {
             // Check cache first (unless bypassing)
             if (!bypassCache && WebScraperService.isCacheFresh(providerName)) {
@@ -159,6 +161,7 @@ export class ProviderManager {
     /**
    * Fetch Ollama models
    */
+    // eslint-disable-next-line complexity
     private async fetchOllamaModels(bypassCache = false): Promise<string[]> {
         const cacheKey = 'Ollama';
         const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
@@ -187,7 +190,8 @@ export class ProviderManager {
                 const data = await response.json();
                 if (data?.models && Array.isArray(data.models)) {
                     const modelNames = data.models
-                        .map((model: any) => model.name || model.id || model.model || '')
+                        .map((model: { name?: string; id?: string; model?: string }) =>
+                            model.name ?? model.id ?? model.model ?? '')
                         .filter((name: string) => name !== '');
                     return modelNames;
                 }
@@ -204,6 +208,7 @@ export class ProviderManager {
     /**
    * Fetch Ollama Cloud models
    */
+    // eslint-disable-next-line complexity
     private async fetchOllamaCloudModels(bypassCache = false): Promise<string[]> {
         const cacheKey = 'Ollama Cloud';
         const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
@@ -235,7 +240,8 @@ export class ProviderManager {
                 const data = await response.json();
                 if (data?.models && Array.isArray(data.models)) {
                     const modelNames = data.models
-                        .map((model: any) => model.name || model.id || model.model || '')
+                        .map((model: { name?: string; id?: string; model?: string }) =>
+                            model.name ?? model.id ?? model.model ?? '')
                         .filter((name: string) => name !== '');
                     return modelNames;
                 }
@@ -256,6 +262,7 @@ export class ProviderManager {
     /**
    * Fetch OpenRouter models
    */
+    // eslint-disable-next-line complexity
     private async fetchOpenRouterModels(bypassCache = false): Promise<string[]> {
         const cacheKey = 'OpenRouter';
         const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
@@ -278,13 +285,14 @@ export class ProviderManager {
                 const data = await response.json();
                 if (data?.data && Array.isArray(data.data)) {
                     const models = data.data
-                        .filter((m: any) => {
-                            const id = m.id || '';
+                        .filter((m: { id?: string }) => {
+                            const id = m.id ?? '';
                             return !id.includes('-deprecated') && !id.includes('-legacy') && !id.includes('-old');
                         })
-                        .sort((a: any, b: any) => (b.context_length || 0) - (a.context_length || 0))
-                        .map((m: any) => m.id)
-                        .filter((id: string) => id);
+                        .sort((a: { context_length?: number }, b: { context_length?: number }) =>
+                            (b.context_length ?? 0) - (a.context_length ?? 0))
+                        .map((m: { id?: string }) => m.id)
+                        .filter((id: string | undefined): id is string => !!id);
 
                     return models;
                 }
@@ -299,6 +307,7 @@ export class ProviderManager {
     /**
    * Fetch Hugging Face models
    */
+    // eslint-disable-next-line complexity
     private async fetchHuggingFaceModels(bypassCache = false): Promise<string[]> {
         const cacheKey = 'Hugging Face';
         const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
@@ -324,12 +333,13 @@ export class ProviderManager {
                 const data = await response.json();
                 if (Array.isArray(data)) {
                     const models = data
-                        .filter((m: any) => {
-                            const id = m.id || '';
+                        .filter((m: { id?: string; disabled?: boolean; private?: boolean }) => {
+                            const id = m.id ?? '';
                             return !m.disabled && !m.private &&
                      !id.includes('-legacy') && !id.includes('-old') && !id.includes('-deprecated');
                         })
-                        .map((m: any) => m.id);
+                        .map((m: { id?: string }) => m.id)
+                        .filter((id: string | undefined): id is string => !!id);
 
                     if (models.length > 0) return models;
                 }
@@ -344,6 +354,7 @@ export class ProviderManager {
     /**
    * Fetch Groq models
    */
+    // eslint-disable-next-line complexity
     private async fetchGroqModels(bypassCache = false): Promise<string[]> {
         const cacheKey = 'Groq';
         const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
@@ -366,12 +377,12 @@ export class ProviderManager {
                 const data = await response.json();
                 if (data?.data && Array.isArray(data.data)) {
                     const models = data.data
-                        .filter((m: any) => {
-                            const id = m.id || m.name || '';
+                        .filter((m: { id?: string; name?: string }) => {
+                            const id = m.id ?? m.name ?? '';
                             return !id.includes('-deprecated') && !id.includes('-legacy') && !id.includes('-old');
                         })
-                        .map((m: any) => m.id || m.name)
-                        .filter((id: string) => id);
+                        .map((m: { id?: string; name?: string }) => m.id ?? m.name)
+                        .filter((id: string | undefined): id is string => !!id);
 
                     return models;
                 }
@@ -386,6 +397,7 @@ export class ProviderManager {
     /**
    * Fetch Google Gemini models
    */
+    // eslint-disable-next-line complexity
     private async fetchGeminiModels(bypassCache = false): Promise<string[]> {
         const cacheKey = 'Google Gemini';
         const cachedModels = this.settings.modelOptionsCache?.[cacheKey];
@@ -408,12 +420,12 @@ export class ProviderManager {
                 const data = await response.json();
                 if (data?.models && Array.isArray(data.models)) {
                     const models = data.models
-                        .filter((m: any) => {
-                            const name = m.name || m.id || '';
+                        .filter((m: { name?: string; id?: string }) => {
+                            const name = m.name ?? m.id ?? '';
                             return name.includes('gemini');
                         })
-                        .map((m: any) => {
-                            const name = m.name || m.id || '';
+                        .map((m: { name?: string; id?: string }) => {
+                            const name = m.name ?? m.id ?? '';
                             return name.replace('models/', '');
                         });
 

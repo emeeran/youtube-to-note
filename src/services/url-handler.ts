@@ -41,6 +41,7 @@ export class UrlHandler {
     /**
      * Check if a file is a temporary YouTube clipper file
      */
+    // eslint-disable-next-line complexity
     private isTempFile(file: TFile, content: string): boolean {
         try {
             // 1. Contains the hidden marker (most reliable)

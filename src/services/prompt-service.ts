@@ -5,6 +5,15 @@ import { ValidationUtils } from '../validation';
  * Prompt generation service for AI processing
  */
 
+interface AnalysisPromptOptions {
+    videoData: VideoData;
+    videoUrl: string;
+    format?: OutputFormat;
+    customPrompt?: string;
+    transcript?: string;
+    performanceMode?: PerformanceMode;
+}
+
 export class AIPromptService implements PromptService {
     // Optimized prompt templates for different performance modes
     private static readonly COMPACT_BASE_TEMPLATE = `Analyze this YouTube video:
@@ -39,14 +48,15 @@ ANALYSIS INSTRUCTIONS:
     /**
      * Create analysis prompt for YouTube video content with performance optimization
      */
-    createAnalysisPrompt(
-        videoData: VideoData,
-        videoUrl: string,
-        format: OutputFormat = 'detailed-guide',
-        customPrompt?: string,
-        transcript?: string,
-        performanceMode: PerformanceMode = 'balanced'
-    ): string {
+    createAnalysisPrompt(options: AnalysisPromptOptions): string {
+        const {
+            videoData,
+            videoUrl,
+            format = 'detailed-guide',
+            customPrompt,
+            transcript,
+            performanceMode = 'balanced',
+        } = options;
         // Select base template based on performance mode
         let baseTemplate: string;
         switch (performanceMode) {
@@ -193,6 +203,7 @@ ANALYSIS INSTRUCTIONS:
     /**
      * Create executive summary prompt (structured format with strategic insights)
      */
+    // eslint-disable-next-line max-lines-per-function
     private createExecutiveSummaryPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
@@ -339,6 +350,7 @@ List concrete actions the audience can take based on this content:
     /**
      * Create custom format prompt: adaptable analysis based on user instructions
      */
+    // eslint-disable-next-line max-lines-per-function
     private createCustomFormatPrompt(baseContent: string, _videoData: VideoData, videoUrl: string, customInstructions?: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;

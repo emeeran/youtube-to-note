@@ -14,12 +14,13 @@ export class ProgressTracker {
     private listeners: Set<(id: string, state: ProgressState) => void> = new Set();
 
     start(id: string, total: number): void {
-        this.state.set(id, {
+        const newState: ProgressState = {
             current: 0,
             total,
             startTime: Date.now(),
-        });
-        this.notify(id, this.state.get(id)!);
+        };
+        this.state.set(id, newState);
+        this.notify(id, newState);
     }
 
     update(id: string, current: number): void {
@@ -39,7 +40,10 @@ export class ProgressTracker {
     }
 
     complete(id: string): void {
-        this.update(id, this.state.get(id)!.total);
+        const state = this.state.get(id);
+        if (state) {
+            this.update(id, state.total);
+        }
     }
 
     getState(id: string): ProgressState | undefined {

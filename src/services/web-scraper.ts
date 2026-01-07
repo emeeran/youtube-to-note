@@ -65,14 +65,14 @@ export class WebScraperService {
             // Handle different API response formats
             if (providerName === 'Ollama' || providerName === 'Ollama Cloud') {
                 if (data?.models && Array.isArray(data.models)) {
-                    return data.models.map((m: any) => m.name || m.model || m.id || '')
+                    return data.models.map((m: { name?: string; model?: string; id?: string }) => m.name ?? m.model ?? m.id ?? '')
                         .filter((name: string) => name.length > 0);
                 }
             }
 
             if (providerName === 'OpenRouter') {
                 if (data?.data && Array.isArray(data.data)) {
-                    return data.data.map((m: any) => m.id || '')
+                    return data.data.map((m: { id?: string }) => m.id ?? '')
                         .filter((name: string) => name.length > 0);
                 }
             }

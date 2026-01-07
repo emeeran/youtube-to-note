@@ -140,13 +140,13 @@ export interface CacheService {
 
 /** Prompt service interface */
 export interface PromptService {
-    createAnalysisPrompt(
-        videoData: VideoData,
-        videoUrl: string,
-        format?: OutputFormat,
-        customPrompt?: string,
-        transcript?: string
-    ): string;
+    createAnalysisPrompt(options: {
+        videoData: VideoData;
+        videoUrl: string;
+        format?: OutputFormat;
+        customPrompt?: string;
+        transcript?: string;
+    }): string;
     processAIResponse(
         content: string,
         provider: string,

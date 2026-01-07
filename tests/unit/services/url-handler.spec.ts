@@ -29,7 +29,10 @@ jest.mock('../../../src/validation', () => ({
 }));
 
 describe('UrlHandler', () => {
-    let mockApp: any;
+    let mockApp: {
+        vault: { read: jest.Mock };
+        workspace: { getActiveFile: jest.Mock };
+    };
     let mockSettings: YouTubePluginSettings;
     let mockOnUrlDetected: jest.Mock;
     let urlHandler: UrlHandler;

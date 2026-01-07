@@ -5,6 +5,7 @@
 
 import { AIProvider, AIResponse, YouTubePluginSettings } from '../types';
 import { AIOrchestrator } from '../domain/ai';
+import type { JsonObject } from '../types/api-responses';
 
 /**
  * AI Service facade - delegates to AIOrchestrator
@@ -69,7 +70,7 @@ export class AIService {
         return this.orchestrator.removeProvider(providerName);
     }
 
-    getPerformanceMetrics(): any {
+    getPerformanceMetrics(): JsonObject {
         return this.orchestrator.getPerformanceMetrics();
     }
 

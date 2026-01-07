@@ -9,7 +9,7 @@ import { logger } from '../../../services/logger';
 
 export interface PersistenceInput {
   generatedContent: string;
-  videoData: any;
+  videoData: Record<string, unknown>;
   url: string;
   provider?: string;
   model?: string;
@@ -23,12 +23,20 @@ export interface PersistenceOutput extends StageOutput {
   conflicts: string[];
 }
 
+interface FileServiceInterface {
+    saveToFile(title: string, content: string, outputPath: string): Promise<string>;
+}
+
+interface CacheServiceInterface {
+    set?(key: string, value: unknown, ttl?: number): void;
+}
+
 export class PersistenceStage extends BaseStage {
     readonly name = 'persistence';
 
     constructor(
-    private fileService?: any,
-    private cacheService?: any
+    private fileService?: FileServiceInterface,
+    private cacheService?: CacheServiceInterface
     ) {
         super();
     }
@@ -136,15 +144,15 @@ export class PersistenceStage extends BaseStage {
         return `---\n${yaml}\n---\n\n${content}`;
     }
 
-    private generateTags(videoData: any): string[] {
+    private generateTags(videoData: Record<string, unknown>): string[] {
         const tags = ['youtube', 'video'];
 
-        if (videoData.tags) {
-            tags.push(...videoData.tags.slice(0, 5));
+        if (videoData.tags && Array.isArray(videoData.tags)) {
+            tags.push(...videoData.tags.slice(0, 5) as string[]);
         }
 
         if (videoData.category) {
-            tags.push(videoData.category);
+            tags.push(String(videoData.category));
         }
 
         return [...new Set(tags)]; // Remove duplicates
@@ -155,7 +163,7 @@ export class PersistenceStage extends BaseStage {
         return match ? match[1] : '';
     }
 
-    private toYaml(obj: Record<string, any>): string {
+    private toYaml(obj: Record<string, unknown>): string {
         const lines: string[] = [];
 
         for (const [key, value] of Object.entries(obj)) {
@@ -177,7 +185,7 @@ export class PersistenceStage extends BaseStage {
 
         // Cache the generated content
         const cacheKey = `processed:${this.extractVideoId(input.url)}`;
-        await this.cacheService.set(cacheKey, {
+        this.cacheService.set(cacheKey, {
             content: input.generatedContent,
             timestamp: Date.now(),
             provider: input.provider,

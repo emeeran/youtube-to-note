@@ -7,6 +7,7 @@ import { Plugin } from 'obsidian';
 import { YouTubeSettingsTab } from '../settings-tab';
 import { YouTubePluginSettings } from '../types';
 import { logger } from '../services/logger';
+import type { JsonObject } from '../types/api-responses';
 
 export interface RegistrationConfig {
   plugin: Plugin;
@@ -15,8 +16,8 @@ export interface RegistrationConfig {
   onOpenBatchModal: () => Promise<void>;
   onOpenClipboardUrl: () => Promise<void>;
   onSettingsChange: (newSettings: YouTubePluginSettings) => Promise<void>;
-  getModalManager: () => any;
-  getServiceContainer: () => any;
+  getModalManager: () => unknown;
+  getServiceContainer: () => JsonObject;
   saveSettings: () => Promise<void>;
 }
 

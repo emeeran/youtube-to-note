@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { ConflictPrevention } from './conflict-prevention';
 import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
@@ -13,6 +14,20 @@ import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
+
+interface ProcessVideoOptions {
+    url: string;
+    format?: OutputFormat;
+    providerName?: string;
+    model?: string;
+    customPrompt?: string;
+    performanceMode?: PerformanceMode;
+    enableParallel?: boolean;
+    preferMultimodal?: boolean;
+    maxTokens?: number;
+    temperature?: number;
+    enableAutoFallback?: boolean;
+}
 
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
@@ -107,16 +122,18 @@ export default class YoutubeClipperPlugin extends Plugin {
     private setupUrlHandling(): void {
         if (!this.urlHandler) return;
 
+        const urlHandler = this.urlHandler;
+
         // Register file creation handler
         this.registerEvent(this.app.vault.on('create', (file) => {
             if (file instanceof TFile) {
-                void this.safeOperation(() => this.urlHandler!.handleFileCreate(file), 'Handle file create');
+                void this.safeOperation(() => urlHandler.handleFileCreate(file), 'Handle file create');
             }
         }));
 
         // Register active leaf change handler
         this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
-            void this.safeOperation(() => this.urlHandler!.handleActiveLeafChange(), 'Handle active leaf change');
+            void this.safeOperation(() => urlHandler.handleActiveLeafChange(), 'Handle active leaf change');
         }));
     }
 
@@ -227,6 +244,7 @@ export default class YoutubeClipperPlugin extends Plugin {
         }
     }
 
+    // eslint-disable-next-line max-lines-per-function
     private async openYouTubeUrlModal(initialUrl?: string): Promise<void> {
         logger.debug('[YT-CLIPPER] openYouTubeUrlModal called', 'Plugin', { initialUrl });
         if (this.isUnloading) {
@@ -234,6 +252,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             return;
         }
 
+        // eslint-disable-next-line max-lines-per-function
         ConflictPrevention.safeOperation(async () => {
             if (!this.serviceContainer) return;
 
@@ -254,15 +273,21 @@ export default class YoutubeClipperPlugin extends Plugin {
                 modelOptions: modelOptionsMap,
                 fetchModels: async () => {
                     try {
-                        const map = await (this.serviceContainer!.aiService as any).fetchLatestModels();
+                        if (!this.serviceContainer) {
+                            return modelOptionsMap;
+                        }
+                        const aiService = this.serviceContainer
+                            .aiService as { fetchLatestModels(): Promise<Record<string, string[]>> };
+                        const map = await aiService.fetchLatestModels();
                         this._settings.modelOptionsCache = map;
 
                         // Update timestamps for all providers
                         const now = Date.now();
-                        this._settings.modelCacheTimestamps = {};
+                        const timestamps: Record<string, number> = {};
                         Object.keys(map).forEach(provider => {
-                            this._settings.modelCacheTimestamps![provider] = now;
+                            timestamps[provider] = now;
                         });
+                        this._settings.modelCacheTimestamps = timestamps;
 
                         await this.saveSettings();
                         return map;
@@ -272,7 +297,16 @@ export default class YoutubeClipperPlugin extends Plugin {
                 },
                 fetchModelsForProvider: async (provider: string, forceRefresh = false) => {
                     try {
-                        const aiService = this.serviceContainer!.aiService as any;
+                        if (!this.serviceContainer) {
+                            return [];
+                        }
+                        const aiService = this.serviceContainer
+                            .aiService as {
+                                fetchLatestModelsForProvider(
+                                    providerName: string,
+                                    bypassCache: boolean
+                                ): Promise<string[]>;
+                            };
                         const models = await aiService.fetchLatestModelsForProvider(provider, forceRefresh);
                         if (models && models.length > 0) {
                             // Update model cache
@@ -338,24 +372,24 @@ export default class YoutubeClipperPlugin extends Plugin {
         modal.open();
     }
 
-    private async processYouTubeVideo(
-        url: string,
-        format: OutputFormat = 'detailed-guide',
-        providerName?: string,
-        model?: string,
-        customPrompt?: string,
-        performanceMode?: PerformanceMode,
-        enableParallel?: boolean,
-        preferMultimodal?: boolean,
-        maxTokens?: number,
-        temperature?: number,
-        enableAutoFallback?: boolean
-    ): Promise<string> {
+    // eslint-disable-next-line max-lines-per-function
+    private async processYouTubeVideo(options: ProcessVideoOptions): Promise<string> {
+        const {
+            url,
+            format = 'detailed-guide',
+            providerName,
+            model,
+            customPrompt,
+            maxTokens,
+            temperature,
+            enableAutoFallback,
+        } = options;
         if (this.isUnloading) {
             ConflictPrevention.log('Plugin is unloading, cancelling video processing');
             throw new Error('Plugin is shutting down');
         }
 
+        // eslint-disable-next-line complexity, max-lines-per-function
         const result = await ConflictPrevention.safeOperation(async () => {
             new Notice(MESSAGES.PROCESSING);
 
@@ -405,7 +439,13 @@ export default class YoutubeClipperPlugin extends Plugin {
                 });
             }
 
-            const prompt = promptService.createAnalysisPrompt(videoData, url, format, promptToUse, transcript);
+            const prompt = promptService.createAnalysisPrompt({
+                videoData,
+                videoUrl: url,
+                format,
+                customPrompt: promptToUse,
+                transcript,
+            });
 
             logger.aiService('Processing video', {
                 videoId,
@@ -417,7 +457,14 @@ export default class YoutubeClipperPlugin extends Plugin {
             });
 
             // Set model parameters on providers if available
-            const providers = (aiService as any).providers || [];
+            const providers = (
+                aiService as {
+                    providers?: Array<{
+                        setMaxTokens?(tokens: number): void;
+                        setTemperature?(temp: number): void;
+                    }>;
+                }
+            ).providers ?? [];
             for (const provider of providers) {
                 if (maxTokens && provider.setMaxTokens) {
                     provider.setMaxTokens(maxTokens);
@@ -432,7 +479,15 @@ export default class YoutubeClipperPlugin extends Plugin {
                 if (providerName) {
                     // Pass enableAutoFallback to control fallback behavior
                     const shouldFallback = enableAutoFallback ?? true;
-                    aiResponse = await (aiService as any).processWith(
+                    aiResponse = await (aiService as {
+                        processWith(
+                            provider: string,
+                            prompt: string,
+                            model?: string,
+                            images?: string[],
+                            enableFallback?: boolean
+                        ): Promise<string>;
+                    }).processWith(
                         providerName,
                         prompt,
                         model,

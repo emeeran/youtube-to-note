@@ -53,7 +53,7 @@ export class CrossReferenceService {
     /**
      * Calculate similarity between two sets of keywords
      */
-    private calculateSimilarity(keywords1: Set<string>, data2: any): number {
+    private calculateSimilarity(keywords1: Set<string>, data2: { keywords: Set<string> }): number {
         const intersection = new Set(
             Array.from(keywords1).filter(x => data2.keywords.has(x))
         );

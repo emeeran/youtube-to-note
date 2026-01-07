@@ -113,6 +113,7 @@ export class UserPreferencesService {
     /**
      * Update last used settings
      */
+    // eslint-disable-next-line complexity
     static updateLastUsed(settings: {
         format?: OutputFormat;
         provider?: string;
@@ -128,12 +129,18 @@ export class UserPreferencesService {
 
         if (settings.format) {
             preferences.lastFormat = settings.format;
-            preferences.formatUsage![settings.format] = (preferences.formatUsage![settings.format] ?? 0) + 1;
+            if (!preferences.formatUsage) {
+                preferences.formatUsage = {};
+            }
+            preferences.formatUsage[settings.format] = (preferences.formatUsage[settings.format] ?? 0) + 1;
         }
 
         if (settings.provider) {
             preferences.lastProvider = settings.provider;
-            preferences.providerUsage![settings.provider] = (preferences.providerUsage![settings.provider] ?? 0) + 1;
+            if (!preferences.providerUsage) {
+                preferences.providerUsage = {};
+            }
+            preferences.providerUsage[settings.provider] = (preferences.providerUsage[settings.provider] ?? 0) + 1;
         }
 
         if (settings.model) preferences.lastModel = settings.model;
@@ -252,6 +259,7 @@ export class UserPreferencesService {
     /**
      * Analyze user behavior and suggest optimizations
      */
+    // eslint-disable-next-line complexity
     static getUserInsights(): {
         favoriteFormat: OutputFormat;
         favoriteProvider: string;

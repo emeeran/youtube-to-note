@@ -1,6 +1,7 @@
 import { API_ENDPOINTS, AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
+import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
  * Groq AI provider implementation
@@ -59,8 +60,8 @@ export class GroqProvider extends BaseAIProvider {
         if (response.status === 429) {
             let errorMessage = '';
             try {
-                const errorData = await response.json();
-                errorMessage = errorData?.error?.message || errorData?.message || '';
+                const errorData = await response.json() as { error?: { message?: string }; message?: string };
+                errorMessage = errorData?.error?.message ?? errorData?.message ?? '';
             } catch {
                 // Ignore JSON parse errors
             }
@@ -71,13 +72,13 @@ export class GroqProvider extends BaseAIProvider {
             await this.handleAPIError(response);
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as OpenAICompatibleResponse;
 
-        if (!this.validateResponse(data, ['choices', '0', 'message'])) {
+        if (!this.validateResponse(data as unknown as Record<string, unknown>, ['choices', '0', 'message'])) {
             throw new Error('Invalid response format from Groq API');
         }
 
-        return this.extractContent(data);
+        return this.extractContent(data as unknown as Record<string, unknown>);
     }
 
     protected createHeaders(): Record<string, string> {
@@ -87,7 +88,7 @@ export class GroqProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string): OpenAICompatibleRequestBody {
         return {
             model: this.model,
             messages: [
@@ -100,13 +101,14 @@ export class GroqProvider extends BaseAIProvider {
                     content: prompt,
                 },
             ],
-            max_tokens: this._maxTokens,
             temperature: this._temperature,
+            max_tokens: this._maxTokens,
+            stream: false,
         };
     }
 
-    protected extractContent(response: any): string {
-        const content = response.choices[0].message.content;
+    protected extractContent(response: Record<string, unknown>): string {
+        const content = (response.choices as OpenAICompatibleResponse['choices'])[0]?.message?.content;
         return content ? content.trim() : '';
     }
 }

@@ -84,11 +84,13 @@ export class URLInputComponent {
         });
     }
 
+    // eslint-disable-next-line max-lines-per-function
     private createButtons(): void {
         const inputWrapper = this.container.querySelector('div');
+        if (!inputWrapper) return;
 
         if (this.options.showPasteButton !== false) {
-            this.pasteButton = inputWrapper!.createEl('button');
+            this.pasteButton = inputWrapper.createEl('button');
             this.pasteButton.innerHTML = '📋';
             this.pasteButton.style.cssText = `
         padding: 6px;
@@ -109,16 +111,20 @@ export class URLInputComponent {
             });
 
             this.pasteButton.addEventListener('mouseenter', () => {
-        this.pasteButton!.style.background = 'var(--interactive-accent-hover)';
+                if (this.pasteButton) {
+                    this.pasteButton.style.background = 'var(--interactive-accent-hover)';
+                }
             });
 
             this.pasteButton.addEventListener('mouseleave', () => {
-        this.pasteButton!.style.background = 'var(--interactive-accent)';
+                if (this.pasteButton) {
+                    this.pasteButton.style.background = 'var(--interactive-accent)';
+                }
             });
         }
 
         if (this.options.showClearButton) {
-            this.clearButton = inputWrapper!.createEl('button');
+            this.clearButton = inputWrapper.createEl('button');
             this.clearButton.innerHTML = '✕';
             this.clearButton.style.cssText = `
         padding: 6px;

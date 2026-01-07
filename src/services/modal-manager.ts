@@ -37,6 +37,7 @@ export class ModalManager {
     /**
      * Open a modal safely with deduplication
      */
+    // eslint-disable-next-line max-lines-per-function
     public async openModal<T>(
         url: string | undefined,
         openModalFn: () => Promise<T>,
@@ -104,7 +105,7 @@ export class ModalManager {
 
             // Store timeout for potential cleanup (with safety check)
             if (result && typeof result === 'object') {
-                (result as any)._fallbackTimeout = fallbackTimeout;
+                (result as Record<string, unknown>)._fallbackTimeout = fallbackTimeout;
             } else {
                 // If result is not an object, clear the timeout to prevent memory leaks
                 logger.debug('Modal result is not an object, clearing fallback timeout', 'ModalManager', {

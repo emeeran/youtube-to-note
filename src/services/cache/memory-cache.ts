@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: CacheConfig = {
 };
 
 export class MemoryCacheService implements CacheService {
-    private cache: Map<string, CacheItem<any>> = new Map();
+    private cache: Map<string, CacheItem<unknown>> = new Map();
     private accessOrder: string[] = [];
     private config: CacheConfig;
     private metrics: CacheMetrics = {
@@ -200,7 +200,7 @@ export class MemoryCacheService implements CacheService {
     /**
      * Estimate size of cached data (rough estimation)
      */
-    private estimateSize(data: any): number {
+    private estimateSize(data: unknown): number {
         if (data === null || data === undefined) return 8;
         if (typeof data === 'string') return data.length * 2;
         if (typeof data === 'number') return 8;

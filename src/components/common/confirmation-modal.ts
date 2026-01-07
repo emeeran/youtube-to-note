@@ -123,7 +123,7 @@ export class ConfirmationModal extends BaseModal {
     private focusConfirmButton(): void {
         if (this.confirmButton) {
             setTimeout(() => {
-                this.confirmButton!.focus();
+                this.confirmButton?.focus();
             }, 50);
         }
     }

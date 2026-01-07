@@ -12,6 +12,7 @@ import { OpenRouterProvider } from '../ai/openrouter';
 import { YouTubeVideoService } from '../video-data';
 import { performanceTracker } from './performance-tracker';
 import { logger } from './logger';
+import type { JsonObject } from '../types/api-responses';
 import {
     ServiceContainer as IServiceContainer,
     YouTubePluginSettings,
@@ -154,7 +155,7 @@ export class ServiceContainer implements IServiceContainer {
         factory: () => T
     ): T {
         const serviceProperty = `_${serviceName}` as keyof this;
-        const service = (this as any)[serviceProperty] as T;
+        const service = (this as Record<string, T>)[serviceProperty];
 
         if (service) {
             // Update usage metrics
@@ -169,7 +170,7 @@ export class ServiceContainer implements IServiceContainer {
         // Create new service instance
         const startTime = performance.now();
         const newService = factory();
-        (this as any)[serviceProperty] = newService;
+        (this as Record<string, T>)[serviceProperty] = newService;
 
         // Track metrics asynchronously (non-blocking)
         performanceTracker.trackOperation(
@@ -234,18 +235,18 @@ export class ServiceContainer implements IServiceContainer {
      */
     private clearService(serviceName: string): void {
         const serviceProperty = `_${serviceName}` as keyof this;
-        const service = (this as any)[serviceProperty];
+        const service = (this as Record<string, unknown>)[serviceProperty];
 
         // Call cleanup method if it exists
-        if (service && typeof (service).cleanup === 'function') {
+        if (service && typeof (service as Record<string, unknown>).cleanup === 'function') {
             try {
-                (service).cleanup();
+                (service as Record<string, () => void>).cleanup();
             } catch (error) {
                 logger.warn(`Error during cleanup of ${serviceName}:`, 'ServiceContainer', error);
             }
         }
 
-        (this as any)[serviceProperty] = undefined;
+        (this as Record<string, unknown>)[serviceProperty] = undefined;
     }
 
     /**
@@ -359,15 +360,18 @@ export class ServiceContainer implements IServiceContainer {
     /**
      * Get comprehensive performance report
      */
-    getPerformanceReport(): any {
+    getPerformanceReport(): JsonObject {
         const serviceMetrics = this.getServiceMetrics();
-        const performanceReport = performanceTracker.generateReport();
+        const performanceReport = performanceTracker.generateReport() as JsonObject & {
+            services: JsonObject;
+            systemMetrics: JsonObject;
+        };
 
         // Add service-specific metrics
         const aiService = this._aiService;
         if (aiService && typeof aiService.getPerformanceMetrics === 'function') {
             performanceReport.services.aiService = {
-                ...performanceReport.services.aiService,
+                ...(performanceReport.services.aiService as JsonObject),
                 ...aiService.getPerformanceMetrics(),
             };
         }
@@ -375,7 +379,7 @@ export class ServiceContainer implements IServiceContainer {
         const videoService = this._videoService;
         if (videoService && typeof videoService.getPerformanceMetrics === 'function') {
             performanceReport.services.videoService = {
-                ...performanceReport.services.videoService,
+                ...(performanceReport.services.videoService as JsonObject),
                 ...videoService.getPerformanceMetrics(),
             };
         }

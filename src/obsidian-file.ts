@@ -139,7 +139,8 @@ export class ObsidianFileService implements FileService {
 
         while (this.fileExists(filePath)) {
             const pathParts = basePath.split('/');
-            const filename = pathParts.pop()!;
+            const filename = pathParts.pop();
+            if (!filename) throw new Error('Invalid file path');
             const nameWithoutExt = filename.replace('.md', '');
             const newFilename = `${nameWithoutExt} (${counter}).md`;
             filePath = [...pathParts, newFilename].join('/');
@@ -158,7 +159,8 @@ export class ObsidianFileService implements FileService {
 
     private async createVersionedCopy(originalPath: string, content: string): Promise<string> {
         const pathParts = originalPath.split('/');
-        const filename = pathParts.pop()!;
+        const filename = pathParts.pop();
+        if (!filename) throw new Error('Invalid file path');
         const nameWithoutExt = filename.replace('.md', '');
 
         let counter = 1;

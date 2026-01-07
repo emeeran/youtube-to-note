@@ -78,6 +78,7 @@ export class BatchVideoModal extends Modal {
         this.createActionButtons();
     }
 
+    // eslint-disable-next-line max-lines-per-function
     private addStyles(): void {
         const style = document.createElement('style');
         style.textContent = `

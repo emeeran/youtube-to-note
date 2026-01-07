@@ -13,7 +13,7 @@ export interface PluginIntegration {
 export class PluginIntegrationManager {
     private integrations: Map<string, PluginIntegration> = new Map();
 
-    constructor(private app: any) {
+    constructor(private app: { plugins?: { plugins?: Record<string, unknown> } }) {
         this.detectIntegrations();
     }
 
@@ -63,7 +63,14 @@ export class PluginIntegrationManager {
     /**
      * Add Dataview metadata to note
      */
-    addDataviewMetadata(videoData: any): string {
+    addDataviewMetadata(videoData: {
+        videoId: string;
+        title: string;
+        author: string;
+        duration: number;
+        publishedAt: string;
+        tags?: string[];
+    }): string {
         const integration = this.integrations.get('dataview');
         if (!integration?.enabled) {
             return '';
@@ -77,7 +84,7 @@ title: "${videoData.title}"
 author: "${videoData.author}"
 duration: ${videoData.duration}
 publishedAt: ${videoData.publishedAt}
-tags: [${videoData.tags?.join(', ') || ''}]
+tags: [${videoData.tags?.join(', ') ?? ''}]
 processedAt: "${new Date().toISOString()}"
 ---`;
     }
@@ -85,7 +92,7 @@ processedAt: "${new Date().toISOString()}"
     /**
      * Process note with Templater
      */
-    async processWithTemplater(content: string, variables: Record<string, any>): Promise<string> {
+    async processWithTemplater(content: string, variables: Record<string, unknown>): Promise<string> {
         const integration = this.integrations.get('templater');
         if (!integration?.enabled) {
             return content;
@@ -107,7 +114,7 @@ processedAt: "${new Date().toISOString()}"
     /**
      * Add Kanban board entry
      */
-    addKanbanEntry(videoData: any): string {
+    addKanbanEntry(videoData: { title: string; url: string }): string {
         const integration = this.integrations.get('kanban');
         if (!integration?.enabled) {
             return '';
@@ -132,7 +139,8 @@ export class PluginAPI {
         if (!this.callbacks.has(event)) {
             this.callbacks.set(event, new Set());
         }
-        this.callbacks.get(event)!.add(callback);
+        const callbacks = this.callbacks.get(event);
+        callbacks?.add(callback);
 
         // Return unsubscribe function
         return () => {
@@ -140,7 +148,7 @@ export class PluginAPI {
         };
     }
 
-    emit(event: string, data: any): void {
+    emit(event: string, data: unknown): void {
         const callbacks = this.callbacks.get(event);
         if (callbacks) {
             callbacks.forEach(cb => {
@@ -156,7 +164,7 @@ export class PluginAPI {
     /**
      * Process video and emit event
      */
-    async processVideo(url: string, options?: any): Promise<any> {
+    async processVideo(url: string, options?: Record<string, unknown>): Promise<{ url: string; processed: boolean }> {
         // This would integrate with actual video processing
         this.emit('video-processing-started', { url, options });
 

@@ -1,4 +1,5 @@
 import { BaseAIProvider } from './base';
+import type { HuggingFaceRequestBody } from '../types/api-responses';
 
 /**
  * Hugging Face Inference API provider implementation
@@ -41,6 +42,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
         super(apiKey, model ?? 'Qwen/Qwen3-8B', timeout);
     }
 
+    // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string): Promise<string> {
         try {
             if (!this.apiKey || this.apiKey.trim().length === 0) {
@@ -135,13 +137,12 @@ export class HuggingFaceProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string): HuggingFaceRequestBody {
         return {
             inputs: prompt,
             parameters: {
                 max_new_tokens: this._maxTokens,
                 temperature: this._temperature,
-                return_full_text: false,
                 do_sample: true,
             },
             options: {
@@ -151,16 +152,16 @@ export class HuggingFaceProvider extends BaseAIProvider {
         };
     }
 
-    protected extractContent(response: any): string {
+    protected extractContent(response: Record<string, unknown>): string {
         // HuggingFace returns an array of generated texts
         if (Array.isArray(response)) {
-            const text = response[0]?.generated_text;
+            const text = response[0]?.generated_text as string | undefined;
             return text ? text.trim() : '';
         }
 
         // Some models return a single object
         if (response?.generated_text) {
-            return response.generated_text.trim();
+            return String(response.generated_text).trim();
         }
 
         throw new Error('Invalid response format from Hugging Face API');

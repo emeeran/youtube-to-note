@@ -1,4 +1,5 @@
 import { BaseAIProvider } from './base';
+import type { OllamaGenerateRequestBody, OllamaChatRequestBody, OllamaModelsResponse } from '../types/api-responses';
 
 /**
  * Ollama AI provider implementation
@@ -43,6 +44,7 @@ export class OllamaProvider extends BaseAIProvider {
         return `${this.apiBaseUrl}${path}`;
     }
 
+    // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string): Promise<string> {
         try {
             // Validate inputs
@@ -51,7 +53,7 @@ export class OllamaProvider extends BaseAIProvider {
             }
 
             // Prepare the request body for Ollama
-            const requestBody = {
+            const requestBody: OllamaGenerateRequestBody = {
                 model: this._model,
                 prompt,
                 stream: false,
@@ -123,6 +125,7 @@ export class OllamaProvider extends BaseAIProvider {
      * Process with image support for multimodal models
      * Note: This is prepared for potential image processing, though it would require special handling in browser
      */
+    // eslint-disable-next-line complexity, max-lines-per-function
     async processWithImage(prompt: string, images?: (string | ArrayBuffer)[]): Promise<string> {
         try {
             if (!prompt || prompt.trim().length === 0) {
@@ -137,30 +140,13 @@ export class OllamaProvider extends BaseAIProvider {
             // If images are provided, add them to the request
             if (images && images.length > 0) {
                 // Ollama expects images as base64 encoded strings
-                const processedImages: string[] = [];
-
-                for (const img of images) {
-                    if (typeof img === 'string') {
-                        // If it's already a base64 string or data URL, add it directly
-                        processedImages.push(img);
-                    } else if (img instanceof ArrayBuffer) {
-                        // Convert ArrayBuffer to base64
-                        const bytes = new Uint8Array(img);
-                        let binary = '';
-                        for (let i = 0; i < bytes.length; i++) {
-                            binary += String.fromCharCode(bytes[i]!);
-                        }
-                        const base64 = btoa(binary);
-                        processedImages.push(base64);
-                    }
-                }
-
+                const processedImages = this.processImages(images);
                 if (processedImages.length > 0) {
-                    (messages[0] as any).images = processedImages;
+                    (messages[0] as OllamaChatRequestBody['messages'][0] & { images?: string[] }).images = processedImages;
                 }
             }
 
-            const requestBody = {
+            const requestBody: OllamaChatRequestBody = {
                 model: this._model,
                 messages,
                 stream: false,
@@ -229,6 +215,37 @@ export class OllamaProvider extends BaseAIProvider {
     }
 
     /**
+     * Process and convert images to base64 strings
+     */
+    private processImages(images: (string | ArrayBuffer)[]): string[] {
+        const processedImages: string[] = [];
+
+        for (const img of images) {
+            if (typeof img === 'string') {
+                // If it's already a base64 string or data URL, add it directly
+                processedImages.push(img);
+            } else if (img instanceof ArrayBuffer) {
+                // Convert ArrayBuffer to base64
+                processedImages.push(this.arrayBufferToBase64(img));
+            }
+        }
+
+        return processedImages;
+    }
+
+    /**
+     * Convert ArrayBuffer to base64 string
+     */
+    private arrayBufferToBase64(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    /**
      * Check if Ollama server is accessible
      */
     async checkAvailability(): Promise<boolean> {
@@ -258,16 +275,16 @@ export class OllamaProvider extends BaseAIProvider {
                 return false;
             }
 
-            const data = await response.json();
+            const data = (await response.json()) as OllamaModelsResponse;
             if (!data?.models) {
                 return false;
             }
 
             // Check if the model exists in the list (both name and id)
-            return data.models.some((model: any) =>
+            return data.models.some((model) =>
                 model.name === modelName ||
                 model.name.startsWith(`${modelName}:`) ||
-                (model.id?.includes(modelName))
+                (model.id?.includes(modelName) ?? false)
             );
         } catch (error) {
             return false;
@@ -287,21 +304,32 @@ export class OllamaProvider extends BaseAIProvider {
         return headers;
     }
 
-    protected createRequestBody(_prompt: string): any {
+    protected createRequestBody(_prompt: string): OllamaGenerateRequestBody {
         // Ollama uses the process() method instead, so this isn't used
-        return {};
+        return {
+            model: this._model,
+            prompt: _prompt,
+            stream: false,
+            options: {
+                temperature: this._temperature,
+                num_predict: this._maxTokens,
+            },
+        };
     }
 
-    protected extractContent(response: any): string {
+    protected extractContent(response: Record<string, unknown>): string {
         if (response && typeof response === 'object' && 'response' in response) {
-            return response.response.trim();
+            return String(response.response).trim();
         }
         return '';
     }
 
-    protected extractContentFromChat(response: any): string {
-        if (response && typeof response === 'object' && response.message && 'content' in response.message) {
-            return response.message.content.trim();
+    protected extractContentFromChat(response: Record<string, unknown>): string {
+        if (response && typeof response === 'object' && 'message' in response) {
+            const message = response.message as Record<string, unknown>;
+            if ('content' in message) {
+                return String(message.content).trim();
+            }
         }
         return '';
     }

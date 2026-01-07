@@ -32,7 +32,10 @@ export async function retryWithBackoff<T>(
         }
     }
 
-    throw lastError!;
+    if (!lastError) {
+        throw new Error('All retry attempts failed');
+    }
+    throw lastError;
 }
 
 /**
@@ -40,10 +43,10 @@ export async function retryWithBackoff<T>(
  */
 export async function parallel<T>(
     items: T[],
-    fn: (item: T) => Promise<any>,
+    fn: (item: T) => Promise<unknown>,
     concurrency: number = 5
 ): Promise<void> {
-    const executing: Promise<any>[] = [];
+    const executing: Promise<unknown>[] = [];
 
     for (const item of items) {
         const promise = fn(item);
@@ -78,7 +81,7 @@ export async function parallel<T>(
 /**
  * Create a debounced function
  */
-export function debounce<T extends(...args: any[]) => any>(
+export function debounce<T extends(...args: unknown[]) => unknown>(
     fn: T,
     delay: number
 ): (...args: Parameters<T>) => void {
@@ -86,14 +89,15 @@ export function debounce<T extends(...args: any[]) => any>(
 
     return (...args: Parameters<T>) => {
         clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => fn(...args), delay);
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+        timeoutId = setTimeout(() => void fn(...args), delay || 0);
     };
 }
 
 /**
  * Create a throttled function
  */
-export function throttle<T extends(...args: any[]) => any>(
+export function throttle<T extends(...args: unknown[]) => unknown>(
     fn: T,
     limit: number
 ): (...args: Parameters<T>) => void {

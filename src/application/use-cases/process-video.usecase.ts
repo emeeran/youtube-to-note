@@ -46,11 +46,11 @@ export class ProcessVideoUseCase {
 
     constructor(
     private dependencies: {
-      videoService?: any;
-      transcriptService?: any;
-      aiService?: any;
-      fileService?: any;
-      promptService?: any;
+      videoService?: { getVideoMetadata(url: string): Promise<unknown> };
+      transcriptService?: { getTranscript(url: string): Promise<string> };
+      aiService?: { process(prompt: string, options?: { images?: string[] }): Promise<string> };
+      fileService?: { createNote(content: string, path: string): Promise<void> };
+      promptService?: { createPrompt(videoData: unknown, transcript: string): string };
     }
     ) {
     // Initialize pipeline with all stages

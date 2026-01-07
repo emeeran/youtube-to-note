@@ -4,6 +4,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import type { JsonObject } from '../../types/api-responses';
 
 import {
     PipelineContext,
@@ -82,7 +83,8 @@ export class PipelineOrchestrator {
     /**
    * Execute the complete pipeline
    */
-    async execute(initialInput: any, metadata: Partial<PipelineContext['metadata']> = {}): Promise<PipelineResult> {
+    // eslint-disable-next-line max-lines-per-function
+    async execute(initialInput: JsonObject, metadata: Partial<PipelineContext['metadata']> = {}): Promise<PipelineResult> {
         const pipelineId = uuidv4();
         const startTime = performance.now();
 
@@ -118,18 +120,8 @@ export class PipelineOrchestrator {
 
                 // Handle stage failure
                 if (stageResult.status === 'failed') {
-                    errorCount++;
-
-                    if (!this.config.continueOnError) {
-                        // Add error to context
-                        if (!context.errors) context.errors = [];
-                        context.errors.push({
-                            stage: stageName,
-                            error: stageResult.error!,
-                            recoverable: false,
-                        });
-
-                        // Early termination
+                    const shouldTerminate = this.handleStageFailure(stageName, stageResult, context);
+                    if (shouldTerminate) {
                         break;
                     }
                 }
@@ -191,7 +183,7 @@ export class PipelineOrchestrator {
             // Apply post-middlewares
             let processedOutput = output;
             for (const middleware of this.middlewares.filter(m => m.phase === 'post')) {
-                processedOutput = await middleware.apply(processedOutput, stageName) as any;
+                processedOutput = await middleware.apply(processedOutput, stageName) as StageOutput;
             }
 
             const duration = performance.now() - startTime;
@@ -214,6 +206,32 @@ export class PipelineOrchestrator {
                 timestamp: Date.now(),
             };
         }
+    }
+
+    /**
+     * Handle stage failure
+     * @returns true if execution should terminate, false to continue
+     */
+    private handleStageFailure(
+        stageName: string,
+        stageResult: StageExecution,
+        context: PipelineContext
+    ): boolean {
+        if (!this.config.continueOnError) {
+            // Add error to context
+            if (!context.errors) context.errors = [];
+            context.errors.push({
+                stage: stageName,
+                error: stageResult.error ?? new Error('Unknown error'),
+                recoverable: false,
+            });
+
+            // Return true to signal termination
+            return true;
+        }
+
+        // Continue to next stage
+        return false;
     }
 
     /**

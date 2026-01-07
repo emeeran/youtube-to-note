@@ -7,6 +7,7 @@ import { AIService as IAIService, AIProvider, AIResponse, YouTubePluginSettings 
 import { ProviderManager } from './provider-manager';
 import { FallbackStrategy } from './fallback-strategy';
 import { performanceTracker } from '../../services/performance-tracker';
+import type { JsonObject } from '../../types/api-responses';
 
 /**
  * AI Orchestrator - Main facade for AI operations
@@ -181,7 +182,7 @@ export class AIOrchestrator implements IAIService {
     /**
    * Get performance metrics
    */
-    getPerformanceMetrics(): any {
+    getPerformanceMetrics(): JsonObject {
         const providerMetrics = this.providerManager.getMetrics();
         const aiProcessingMetrics = performanceTracker.getMetricsSummary('ai-service');
 

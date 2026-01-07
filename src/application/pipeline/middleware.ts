@@ -4,6 +4,16 @@
  */
 
 import { PipelineContext, StageOutput } from './types';
+import type { JsonObject } from '../../types/api-responses';
+
+interface StageMetadata {
+    duration: number;
+    timestamp: number;
+}
+
+interface ExtendedStageOutput extends StageOutput {
+    _stageMetadata?: StageMetadata;
+}
 
 export type MiddlewarePhase = 'pre' | 'post';
 
@@ -45,12 +55,12 @@ export class LoggingMiddleware extends BaseMiddleware {
     readonly name = 'logging';
     readonly phase = 'post' as const;
 
-    constructor(private logger: (message: string, data?: any) => void) {
+    constructor(private logger: (message: string, data?: JsonObject) => void) {
         super();
     }
 
     async apply(result: StageOutput, stageName: string): Promise<StageOutput> {
-        const metadata = (result as any)._stageMetadata;
+        const metadata = (result as ExtendedStageOutput)._stageMetadata;
         if (metadata) {
             this.logger(`Stage '${stageName}' completed`, {
                 duration: metadata.duration,
@@ -69,8 +79,8 @@ export class CacheMiddleware extends BaseMiddleware {
     readonly phase = 'pre' as const;
 
     constructor(
-    private cache: Map<string, any>,
-    private logger?: (message: string, data?: any) => void
+    private cache: Map<string, unknown>,
+    private logger?: (message: string, data?: JsonObject) => void
     ) {
         super();
     }
@@ -115,12 +125,15 @@ export class TelemetryMiddleware extends BaseMiddleware {
     private metrics: Map<string, number[]> = new Map();
 
     async apply(result: StageOutput, stageName: string): Promise<StageOutput> {
-        const metadata = (result as any)._stageMetadata;
+        const metadata = (result as ExtendedStageOutput)._stageMetadata;
         if (metadata?.duration) {
             if (!this.metrics.has(stageName)) {
                 this.metrics.set(stageName, []);
             }
-            this.metrics.get(stageName)!.push(metadata.duration);
+            const durations = this.metrics.get(stageName);
+            if (durations) {
+                durations.push(metadata.duration);
+            }
         }
         return result;
     }

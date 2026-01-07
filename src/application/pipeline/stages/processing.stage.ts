@@ -7,7 +7,7 @@ import { BaseStage } from '../stage';
 import { PipelineContext, StageOutput } from '../types';
 
 export interface ProcessingInput {
-  videoData: any;
+  videoData: Record<string, unknown>;
   transcript?: string;
   url: string;
   format?: string;
@@ -29,12 +29,40 @@ export interface ProcessingOutput extends StageOutput {
   fallbackChain: string[];
 }
 
+interface AIServiceInterface {
+    process(prompt: string, images?: (string | ArrayBuffer)[]): Promise<{
+        content: string;
+        provider: string;
+        model: string;
+    }>;
+    processWith(
+        providerName: string,
+        prompt: string,
+        overrideModel?: string,
+        images?: (string | ArrayBuffer)[]
+    ): Promise<{
+        content: string;
+        provider: string;
+        model: string;
+    }>;
+}
+
+interface PromptServiceInterface {
+    createAnalysisPrompt(options: {
+        videoData: Record<string, unknown>;
+        videoUrl: string;
+        format?: string;
+        customPrompt?: string;
+        transcript?: string;
+    }): string;
+}
+
 export class ProcessingStage extends BaseStage {
     readonly name = 'processing';
 
     constructor(
-    private aiService?: any,
-    private promptService?: any
+    private aiService?: AIServiceInterface,
+    private promptService?: PromptServiceInterface
     ) {
         super();
     }
@@ -96,13 +124,13 @@ export class ProcessingStage extends BaseStage {
 
         const format = input.format ?? 'detailed-guide';
 
-        return this.promptService.createAnalysisPrompt(
-            input.videoData,
-            input.url,
+        return this.promptService.createAnalysisPrompt({
+            videoData: input.videoData,
+            videoUrl: input.url,
             format,
-            input.customPrompt,
-            input.transcript
-        );
+            customPrompt: input.customPrompt,
+            transcript: input.transcript,
+        });
     }
 
     private setModelParameters(maxTokens?: number, temperature?: number): void {

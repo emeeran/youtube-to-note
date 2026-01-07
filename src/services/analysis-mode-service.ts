@@ -19,6 +19,7 @@ export class AnalysisModeService {
         this.initializePrompts();
     }
 
+    // eslint-disable-next-line max-lines-per-function
     private initializePrompts(): void {
         this.prompts.set('code-tutorial', {
             mode: 'code-tutorial',
@@ -85,7 +86,16 @@ Format as a structured review.`,
     }
 
     getPrompt(mode: AnalysisMode): AnalysisPrompt {
-        return this.prompts.get(mode) ?? this.prompts.get('general')!;
+        const prompt = this.prompts.get(mode) ?? this.prompts.get('general');
+        if (!prompt) {
+            // Return a default prompt as fallback
+            return {
+                systemPrompt: 'Analyze the following transcript.',
+                userPrompt: 'Please provide a summary.',
+                outputFormat: 'summary',
+            };
+        }
+        return prompt;
     }
 
     analyzeWithMode(transcript: string, mode: AnalysisMode): string {

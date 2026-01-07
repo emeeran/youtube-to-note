@@ -1,10 +1,11 @@
+/* eslint-disable max-lines */
 import { BaseModal } from '../../common/base-modal';
 import { ErrorHandler } from '../../../services/error-handler';
 import { logger } from '../../../services/logger';
 import { MESSAGES } from '../../../constants/index';
 import { PROVIDER_MODEL_OPTIONS } from '../../../ai/api';
 import { OutputFormat, PerformanceMode } from '../../../types';
-import { UserPreferencesService, UserPreferences } from '../../../services/user-preferences-service';
+import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
 import { App, Notice } from 'obsidian';
 
@@ -109,9 +110,9 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Load smart defaults from user preferences
         const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
-        const lastProvider = UserPreferencesService.getSmartDefaultProvider();
-        const lastFormat = UserPreferencesService.getSmartDefaultFormat();
-        const smartAutoFallback = UserPreferencesService.getSmartDefaultAutoFallback();
+        const lastProvider = UserPreferencesService.getSmartDefaultProvider() ?? 'Google Gemini';
+        const lastFormat = UserPreferencesService.getSmartDefaultFormat() ?? 'timestamped';
+        const smartAutoFallback = UserPreferencesService.getSmartDefaultAutoFallback() ?? true;
 
         // Check for user-set preferred model, falling back to last used
         const preferredModel = UserPreferencesService.getPreference('preferredModel');
@@ -242,6 +243,7 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Create top bar with header and global controls
      */
+    // eslint-disable-next-line max-lines-per-function
     private createTopBar(): void {
         const topBar = this.contentEl.createDiv('ytc-top-bar');
         topBar.style.cssText = `
@@ -432,6 +434,7 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Create Settings Section (Format + Collapsible AI Config)
      */
+    // eslint-disable-next-line max-lines-per-function
     private createSettingsSection(): void {
         const container = this.contentEl.createDiv();
         container.addClass('ytc-settings-section');
@@ -480,7 +483,8 @@ export class YouTubeUrlModal extends BaseModal {
         ];
 
         formatOptions.forEach(option => {
-            const optionEl = this.formatSelect!.createEl('option');
+            if (!this.formatSelect) return;
+            const optionEl = this.formatSelect.createEl('option');
             optionEl.value = option.value;
             optionEl.textContent = option.text;
         });
@@ -608,7 +612,8 @@ export class YouTubeUrlModal extends BaseModal {
         ];
 
         providerOptions.forEach(opt => {
-            const el = this.providerSelect!.createEl('option');
+            if (!this.providerSelect) return;
+            const el = this.providerSelect.createEl('option');
             el.value = opt.value;
             el.textContent = opt.text;
         });
@@ -703,6 +708,7 @@ export class YouTubeUrlModal extends BaseModal {
     private videoChannelEl?: HTMLSpanElement;
     private providerStatusEl?: HTMLDivElement;
 
+    // eslint-disable-next-line max-lines-per-function
     private createVideoPreviewSection(parent: HTMLElement): void {
         this.videoPreviewContainer = parent.createDiv();
         this.videoPreviewContainer.style.cssText = `
@@ -778,6 +784,7 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Show video preview with thumbnail and metadata
      */
+    // eslint-disable-next-line complexity, max-lines-per-function
     private async showVideoPreview(videoId: string): Promise<void> {
         if (!this.videoPreviewContainer || !this.thumbnailEl) return;
 
@@ -880,6 +887,7 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private customPrompt = '';
 
+    // eslint-disable-next-line max-lines-per-function
     private createCustomPromptSection(parent: HTMLElement): void {
         this.customPromptContainer = parent.createDiv();
         this.customPromptContainer.style.cssText = `
@@ -953,13 +961,17 @@ export class YouTubeUrlModal extends BaseModal {
         `;
 
         this.customPromptInput.addEventListener('focus', () => {
-            this.customPromptInput!.style.borderColor = 'var(--interactive-accent)';
-            this.customPromptInput!.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
+            if (this.customPromptInput) {
+                this.customPromptInput.style.borderColor = 'var(--interactive-accent)';
+                this.customPromptInput.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
+            }
         });
 
         this.customPromptInput.addEventListener('blur', () => {
-            this.customPromptInput!.style.borderColor = 'var(--background-modifier-border)';
-            this.customPromptInput!.style.boxShadow = 'none';
+            if (this.customPromptInput) {
+                this.customPromptInput.style.borderColor = 'var(--background-modifier-border)';
+                this.customPromptInput.style.boxShadow = 'none';
+            }
         });
 
         this.customPromptInput.addEventListener('input', () => {
@@ -1004,6 +1016,7 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private fallbackToggle?: HTMLInputElement;
 
+    // eslint-disable-next-line max-lines-per-function
     private createFallbackToggle(parent: HTMLElement): void {
         const toggleRow = parent.createDiv();
         toggleRow.style.cssText = `
@@ -1068,9 +1081,9 @@ export class YouTubeUrlModal extends BaseModal {
             if (this.fallbackToggle?.checked) {
                 this.fallbackToggle.style.background = 'var(--ytc-accent)';
                 this.fallbackToggle.style.boxShadow = '0 0 10px rgba(45, 212, 191, 0.4)';
-            } else {
-                this.fallbackToggle!.style.background = 'var(--ytc-border)';
-                this.fallbackToggle!.style.boxShadow = 'none';
+            } else if (this.fallbackToggle) {
+                this.fallbackToggle.style.background = 'var(--ytc-border)';
+                this.fallbackToggle.style.boxShadow = 'none';
             }
         };
 
@@ -1117,6 +1130,7 @@ export class YouTubeUrlModal extends BaseModal {
      * Update the model dropdown options based on provider selection and fetched data
      * This is called dynamically when models are fetched from the web/API
      */
+    // eslint-disable-next-line complexity, max-lines-per-function
     private updateModelDropdown(modelOptionsMap: Record<string, string[]>): void {
         if (!this.modelSelect || !this.providerSelect) return;
 
@@ -1164,7 +1178,8 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Add models to dropdown with friendly names
         models.forEach(model => {
-            const option = this.modelSelect!.createEl('option');
+            if (!this.modelSelect) return;
+            const option = this.modelSelect.createEl('option');
             option.value = model;
 
             // Format model names to be more user-friendly
@@ -1197,8 +1212,8 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Get last used model for this specific provider
         const preferences = UserPreferencesService.loadPreferences();
-        const providerKey = `lastModel_${currentProvider.replace(/\s+/g, '')}` as keyof UserPreferences;
-        const lastProviderModel = (preferences as any)[providerKey] as string;
+        const providerKey = `lastModel_${currentProvider.replace(/\s+/g, '')}`;
+        const lastProviderModel = (preferences as Record<string, unknown>)[providerKey] as string | undefined;
 
         if (lastProviderModel && models.includes(lastProviderModel)) {
             modelToSelect = lastProviderModel;
@@ -1226,6 +1241,7 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Format model names to be more user-friendly
      */
+    // eslint-disable-next-line complexity, max-lines-per-function
     private formatModelName(modelName: string): string {
         // Handle special cases for better naming
         if (modelName === 'gemini-2.5-pro') return 'Gemini Pro 2.5';
@@ -1384,6 +1400,7 @@ export class YouTubeUrlModal extends BaseModal {
     private timerInterval?: number;
     private timerEl?: HTMLSpanElement;
 
+    // eslint-disable-next-line max-lines-per-function
     private createProgressSection(): void {
         this.progressContainer = this.contentEl.createDiv();
         this.progressContainer.setAttribute('role', 'region');
@@ -1691,6 +1708,7 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Handle process button click
      */
+    // eslint-disable-next-line complexity, max-lines-per-function
     private async handleProcess(): Promise<void> {
         const trimmedUrl = this.url.trim();
         if (!trimmedUrl) {

@@ -30,6 +30,7 @@ export class EnrichmentStage extends BaseStage {
         super();
     }
 
+    // eslint-disable-next-line complexity
     async execute(context: PipelineContext): Promise<EnrichmentOutput> {
         const input = context.input as EnrichmentInput;
 

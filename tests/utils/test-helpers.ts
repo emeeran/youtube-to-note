@@ -86,7 +86,7 @@ export function createMockAIResponse(overrides = {}) {
 /**
  * Mock successful API response
  */
-export function createMockSuccessResponse(data: any) {
+export function createMockSuccessResponse(data: unknown) {
     return {
         ok: true,
         status: 200,
@@ -112,7 +112,7 @@ export function createMockErrorResponse(status: number, message: string) {
 /**
  * Stub a method and track calls
  */
-export function createStub<T extends (...args: any[]) => any>(
+export function createStub<T extends (...args: unknown[]) => unknown>(
     implementation?: T
 ): jest.MockedFunction<T> {
     return jest.fn(implementation) as jest.MockedFunction<T>;
