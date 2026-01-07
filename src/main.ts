@@ -123,12 +123,12 @@ export default class YoutubeClipperPlugin extends Plugin {
     private setupProtocolHandler(): void {
         try {
             this.registerObsidianProtocolHandler('youtube-clipper', (params) => {
-                console.log('[YT-Clipper] Protocol received:', params);
+                logger.info('[YT-Clipper] Protocol received:', 'Plugin', params);
                 this.urlHandler?.handleProtocol(params);
             });
-            console.log('[YT-Clipper] Protocol handler registered successfully');
+            logger.info('[YT-Clipper] Protocol handler registered successfully', 'Plugin');
         } catch (error) {
-            console.error('[YT-Clipper] Protocol handler registration failed:', error);
+            logger.error('[YT-Clipper] Protocol handler registration failed:', 'Plugin', error);
             logger.debug('Protocol handler not available', 'Plugin');
         }
     }
@@ -136,7 +136,7 @@ export default class YoutubeClipperPlugin extends Plugin {
     private registerUIComponents(): void {
 
         this.ribbonIcon = this.addRibbonIcon('youtube', 'Process YouTube Video', () => {
-            console.log('[YT-CLIPPER] Ribbon icon clicked'); void this.safeShowUrlModal();
+            logger.info('[YT-CLIPPER] Ribbon icon clicked', 'Plugin'); void this.safeShowUrlModal();
         });
 
         logger.plugin('Ribbon icon set successfully');
@@ -145,7 +145,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             id: `${PLUGIN_PREFIX}-process-youtube-video`,
             name: 'Process YouTube Video',
             callback: () => {
-                console.log('[YT-CLIPPER] Ribbon icon clicked'); void this.safeShowUrlModal();
+                logger.info('[YT-CLIPPER] Process command triggered', 'Plugin'); void this.safeShowUrlModal();
             },
         });
 
@@ -207,7 +207,7 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async safeShowUrlModal(initialUrl?: string): Promise<void> {
-        console.log('[YT-CLIPPER] safeShowUrlModal called', {
+        logger.debug('[YT-CLIPPER] safeShowUrlModal called', 'Plugin', {
             initialUrl,
             hasModalManager: !!this.modalManager,
             hasServiceContainer: !!this.serviceContainer,
@@ -215,7 +215,7 @@ export default class YoutubeClipperPlugin extends Plugin {
         });
 
         if (!this.modalManager || !this.serviceContainer) {
-            console.error('[YT-CLIPPER] Cannot show modal - missing services');
+            logger.error('[YT-CLIPPER] Cannot show modal - missing services', 'Plugin');
             return;
         }
 
@@ -223,12 +223,12 @@ export default class YoutubeClipperPlugin extends Plugin {
         try {
             await this.openYouTubeUrlModal(initialUrl);
         } catch (error) {
-            console.error('[YT-CLIPPER] Failed to open modal:', error);
+            logger.error('[YT-CLIPPER] Failed to open modal:', 'Plugin', error);
         }
     }
 
     private async openYouTubeUrlModal(initialUrl?: string): Promise<void> {
-        console.log('[YT-CLIPPER] openYouTubeUrlModal called', { initialUrl });
+        logger.debug('[YT-CLIPPER] openYouTubeUrlModal called', 'Plugin', { initialUrl });
         if (this.isUnloading) {
             ConflictPrevention.log('Plugin is unloading, ignoring modal request');
             return;
@@ -297,7 +297,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 enableParallelProcessing: this._settings.enableParallelProcessing || false,
                 enableAutoFallback: this._settings.enableAutoFallback ?? true,
                 preferMultimodal: this._settings.preferMultimodal || false,
-                onPerformanceSettingsChange: async (performanceMode: any, enableParallel: boolean, preferMultimodal: boolean) => {
+                onPerformanceSettingsChange: async (performanceMode: PerformanceMode, enableParallel: boolean, preferMultimodal: boolean) => {
                     this._settings.performanceMode = performanceMode;
                     this._settings.enableParallelProcessing = enableParallel;
                     this._settings.preferMultimodal = preferMultimodal;
@@ -524,9 +524,9 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private async loadSettings(): Promise<void> {
         const loadedData = await this.loadData();
-        console.log('[YT-CLIPPER] Settings loaded from data.json:', loadedData);
+        logger.debug('[YT-CLIPPER] Settings loaded from data.json:', 'Plugin', loadedData);
         this._settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-        console.log('[YT-CLIPPER] Final settings after merge:', {
+        logger.debug('[YT-CLIPPER] Final settings after merge:', 'Plugin', {
             hasGeminiKey: !!this._settings.geminiApiKey,
             geminiKeyLength: this._settings.geminiApiKey?.length,
             hasGroqKey: !!this._settings.groqApiKey,

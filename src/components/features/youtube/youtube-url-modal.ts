@@ -1,5 +1,6 @@
 import { BaseModal } from '../../common/base-modal';
 import { ErrorHandler } from '../../../services/error-handler';
+import { logger } from '../../../services/logger';
 import { MESSAGES } from '../../../constants/index';
 import { PROVIDER_MODEL_OPTIONS } from '../../../ai/api';
 import { OutputFormat, PerformanceMode } from '../../../types';
@@ -124,14 +125,14 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     onOpen(): void {
-        console.log('[YT-CLIPPER] YouTubeUrlModal.onOpen called');
+        logger.debug('[YT-CLIPPER] YouTubeUrlModal.onOpen called', 'Modal');
         try {
             this.createModalContent();
-            console.log('[YT-CLIPPER] Modal content created');
+            logger.debug('[YT-CLIPPER] Modal content created', 'Modal');
             this.setupEventHandlers();
-            console.log('[YT-CLIPPER] Event handlers set up');
+            logger.debug('[YT-CLIPPER] Event handlers set up', 'Modal');
             this.setupKeyboardShortcuts();
-            console.log('[YT-CLIPPER] Keyboard shortcuts set up');
+            logger.debug('[YT-CLIPPER] Keyboard shortcuts set up', 'Modal');
 
             // Automatically fetch fresh models for the current provider on modal open
             this.fetchModelsForCurrentProvider();
@@ -148,7 +149,7 @@ export class YouTubeUrlModal extends BaseModal {
             }
             this.focusUrlInput();
         } catch (error) {
-            console.error('[YT-CLIPPER] Error in onOpen:', error);
+            logger.error('[YT-CLIPPER] Error in onOpen:', 'Modal', error);
             throw error;
         }
     }
@@ -161,24 +162,24 @@ export class YouTubeUrlModal extends BaseModal {
         if (!this.options.fetchModelsForProvider || !this.selectedProvider) return;
 
         try {
-            console.log('[YT-CLIPPER] Fetching models for provider:', this.selectedProvider);
+            logger.debug('[YT-CLIPPER] Fetching models for provider:', 'Modal', this.selectedProvider);
             // Always bypass cache on modal open to get fresh models
             const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
-            console.log('[YT-CLIPPER] Fetched models:', models?.length || 0);
+            logger.debug('[YT-CLIPPER] Fetched models count:', 'Modal', models?.length || 0);
             if (models && models.length > 0) {
                 const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
                 this.options.modelOptions = updatedOptions;
                 this.updateModelDropdown(updatedOptions);
-                console.log('[YT-CLIPPER] Updated dropdown with', models.length, 'models');
+                logger.debug('[YT-CLIPPER] Updated dropdown with models', 'Modal', { count: models.length });
             } else {
-                console.warn('[YT-CLIPPER] No models returned from API, using fallback');
+                logger.warn('[YT-CLIPPER] No models returned from API, using fallback', 'Modal');
                 // Still update with whatever we got (empty array) to trigger fallback
                 this.updateModelDropdown(this.options.modelOptions);
             }
         } catch (error) {
             // Log error and still try to update dropdown
-            console.error('[YT-CLIPPER] Auto-fetch models failed:', error);
-            console.warn('[YT-CLIPPER] Falling back to cached or static models');
+            logger.error('[YT-CLIPPER] Auto-fetch models failed:', 'Modal', error);
+            logger.warn('[YT-CLIPPER] Falling back to cached or static models', 'Modal');
             this.updateModelDropdown(this.options.modelOptions);
         }
     }
@@ -186,46 +187,45 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Create modal content
      */
-    private createModalContent(): void {
-        console.log('[YT-CLIPPER] createModalContent starting');
-        try {
-            this.contentEl.empty();
-            this.contentEl.addClass('ytc-modal-content-wrapper');
-
-            // 1. Top Bar: Header + Global Actions (Theme, Batch)
-            this.createTopBar();
-            console.log('[YT-CLIPPER] Top bar created');
-
-            // 2. Main Input Area
-            this.createUrlSection();
-            console.log('[YT-CLIPPER] URL section created');
-
-            // 3. Settings Area (Format + Collapsible AI Config)
-            this.createSettingsSection();
-            console.log('[YT-CLIPPER] Settings section created');
-
-            // 4. Progress Area
-            this.createProgressSection();
-            console.log('[YT-CLIPPER] Progress section created');
-
-            // 5. Primary Actions
-            this.createActionButtons();
-            console.log('[YT-CLIPPER] Action buttons created');
-
-            // Initialize state
-            this.updateModelDropdown(this.options.modelOptions);
-            this.applyTheme(this.isLightTheme);
-
-            // Apply initial visibility states
-            this.toggleCustomPromptVisibility();
-
-            console.log('[YT-CLIPPER] Theme applied');
-        } catch (error) {
-            console.error('[YT-CLIPPER] Error in createModalContent:', error);
-            throw error;
+        private createModalContent(): void {
+            logger.debug('[YT-CLIPPER] createModalContent starting', 'Modal');
+            try {
+                this.contentEl.empty();
+                this.contentEl.addClass('ytc-modal-content-wrapper');
+    
+                // 1. Top Bar: Header + Global Actions (Theme, Batch)
+                this.createTopBar();
+                logger.debug('[YT-CLIPPER] Top bar created', 'Modal');
+    
+                // 2. Main Input Area
+                this.createUrlSection();
+                logger.debug('[YT-CLIPPER] URL section created', 'Modal');
+    
+                // 3. Settings Area (Format + Collapsible AI Config)
+                this.createSettingsSection();
+                logger.debug('[YT-CLIPPER] Settings section created', 'Modal');
+    
+                // 4. Progress Area
+                this.createProgressSection();
+                logger.debug('[YT-CLIPPER] Progress section created', 'Modal');
+    
+                // 5. Primary Actions
+                this.createActionButtons();
+                logger.debug('[YT-CLIPPER] Action buttons created', 'Modal');
+    
+                // Initialize state
+                this.updateModelDropdown(this.options.modelOptions);
+                this.applyTheme(this.isLightTheme);
+                
+                // Apply initial visibility states
+                this.toggleCustomPromptVisibility();
+                
+                logger.debug('[YT-CLIPPER] Theme applied', 'Modal');
+            } catch (error) {
+                logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', error);
+                throw error;
+            }
         }
-    }
-
     /**
      * Create top bar with header and global controls
      */
@@ -1353,367 +1353,15 @@ export class YouTubeUrlModal extends BaseModal {
      * Apply theme to modal
      */
     private applyTheme(isLight: boolean): void {
-        // Ensure theme styles are up to date (force update for hot-reload support)
-        let themeStyle = document.getElementById('ytc-theme-styles') as HTMLStyleElement;
-        if (!themeStyle) {
-            themeStyle = document.createElement('style');
-            themeStyle.id = 'ytc-theme-styles';
-            document.head.appendChild(themeStyle);
-        }
-
-        let css = '';
-
-        // Light theme colors - refined warm palette
-        css += '.ytc-modal-light {';
-        css += '--ytc-bg-primary: #fafbfc;';
-        css += '--ytc-bg-secondary: #f0f2f5;';
-        css += '--ytc-bg-tertiary: #e4e7eb;';
-        css += '--ytc-bg-input: #ffffff;';
-        css += '--ytc-text-primary: #1a1d21;';
-        css += '--ytc-text-secondary: #4a5568;';
-        css += '--ytc-text-muted: #718096;';
-        css += '--ytc-border: #d1d5db;';
-        css += '--ytc-border-focus: #0f766e;';
-        css += '--ytc-accent: #0d9488;';
-        css += '--ytc-accent-hover: #0f766e;';
-        css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);';
-        css += '--ytc-success: #10b981;';
-        css += '--ytc-warning: #f59e0b;';
-        css += '--ytc-error: #ef4444;';
-        css += '--ytc-shadow: rgba(0, 0, 0, 0.08);';
-        css += '--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);';
-        css += '--ytc-glow: 0 0 20px rgba(13, 148, 136, 0.25);';
-        css += '}';
-
-        // Dark theme colors - premium dark palette with depth
-        css += '.ytc-modal-dark {';
-        css += '--ytc-bg-primary: #1a1b1e;';
-        css += '--ytc-bg-secondary: #25262b;';
-        css += '--ytc-bg-tertiary: #2c2e33;';
-        css += '--ytc-bg-input: #141517;';
-        css += '--ytc-text-primary: #ebedf0;';
-        css += '--ytc-text-secondary: #a8adb5;';
-        css += '--ytc-text-muted: #6b7280;';
-        css += '--ytc-border: #3f444e;';
-        css += '--ytc-border-focus: #2dd4bf;';
-        css += '--ytc-accent: #2dd4bf;';
-        css += '--ytc-accent-hover: #14b8a6;';
-        css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);';
-        css += '--ytc-success: #34d399;';
-        css += '--ytc-warning: #fbbf24;';
-        css += '--ytc-error: #fb7185;';
-        css += '--ytc-shadow: rgba(0, 0, 0, 0.5);';
-        css += '--ytc-shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.65);';
-        css += '--ytc-glow: 0 0 40px rgba(45, 212, 191, 0.3);';
-        css += '}';
-
-        // Modal container styling
-        css += '.ytc-themed-modal .modal-content {';
-        css += 'background: var(--ytc-bg-secondary) !important;';
-        css += 'border-radius: 12px !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'box-shadow: var(--ytc-shadow-lg), 0 0 0 1px rgba(255,255,255,0.05), var(--ytc-glow) !important;';
-        css += 'padding: 20px !important;';
-        css += 'max-width: 520px !important;';
-        css += '}';
-
-        // Header styling
-        css += '.ytc-themed-modal .ytc-modal-header {';
-        css += 'background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;';
-        css += '-webkit-background-clip: text !important;';
-        css += '-webkit-text-fill-color: transparent !important;';
-        css += 'background-clip: text !important;';
-        css += 'font-size: 1.5rem !important;';
-        css += 'font-weight: 700 !important;';
-        css += 'margin-bottom: 20px !important;';
-        css += 'text-align: center !important;';
-        css += 'width: 100% !important;';
-        css += 'display: block !important;';
-        css += '}';
-
-        // Input field styling
-        css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {';
-        css += 'background: var(--ytc-bg-input) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'border-radius: 6px !important;';
-        css += 'color: var(--ytc-text-primary) !important;';
-        css += 'transition: all 0.2s ease !important;';
-        css += '}';
-        css += '.ytc-themed-modal input:hover {';
-        css += 'border-color: #525863 !important;';
-        css += '}';
-        css += '.ytc-themed-modal input:focus {';
-        css += 'border-color: var(--ytc-border-focus) !important;';
-        css += 'box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 0 20px rgba(45, 212, 191, 0.1) !important;';
-        css += 'outline: none !important;';
-        css += '}';
-
-        // Select dropdown styling
-        css += '.ytc-themed-modal select {';
-        css += 'background: var(--ytc-bg-input) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'border-radius: 6px !important;';
-        css += 'color: var(--ytc-text-primary) !important;';
-        css += 'transition: all 0.2s ease !important;';
-        css += '}';
-        css += '.ytc-themed-modal select:hover {';
-        css += 'border-color: #525863 !important;';
-        css += '}';
-        css += '.ytc-themed-modal select:focus {';
-        css += 'border-color: var(--ytc-border-focus) !important;';
-        css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
-        css += 'outline: none !important;';
-        css += '}';
-        css += '.ytc-themed-modal select option {';
-        css += 'background: var(--ytc-bg-secondary) !important;';
-        css += 'color: #000000 !important;';
-        css += 'padding: 4px 8px !important;';
-        css += '}';
-
-        // Button styling
-        css += '.ytc-themed-modal button {';
-        css += 'border-radius: 6px !important;';
-        css += 'font-weight: 500 !important;';
-        css += 'transition: all 0.2s ease !important;';
-        css += '}';
-        css += '.ytc-themed-modal button:hover {';
-        css += 'transform: translateY(-1px) !important;';
-        css += '}';
-
-        // Primary button (Process)
-        css += '.ytc-themed-modal .mod-cta, .ytc-themed-modal button[style*="interactive-accent"] {';
-        css += 'background: var(--ytc-accent-gradient) !important;';
-        css += 'border: none !important;';
-        css += 'color: white !important;';
-        css += 'box-shadow: 0 4px 15px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.15) !important;';
-        css += '}';
-        css += '.ytc-themed-modal .mod-cta:hover {';
-        css += 'transform: translateY(-2px) !important;';
-        css += 'box-shadow: 0 6px 25px rgba(45, 212, 191, 0.45), 0 0 30px rgba(45, 212, 191, 0.25) !important;';
-        css += '}';
-
-        // Labels styling
-        css += '.ytc-themed-modal label {';
-        css += 'color: var(--ytc-text-secondary) !important;';
-        css += 'cursor: pointer !important;';
-        css += '}';
-
-        // Textarea styling
-        css += '.ytc-themed-modal textarea {';
-        css += 'background: var(--ytc-bg-input) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'border-radius: 6px !important;';
-        css += 'color: var(--ytc-text-primary) !important;';
-        css += 'transition: all 0.2s ease !important;';
-        css += '}';
-        css += '.ytc-themed-modal textarea:hover {';
-        css += 'border-color: #525863 !important;';
-        css += '}';
-        css += '.ytc-themed-modal textarea:focus {';
-        css += 'border-color: var(--ytc-border-focus) !important;';
-        css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
-        css += 'outline: none !important;';
-        css += '}';
-
-        // Focus Visible (Accessibility)
-        css += '.ytc-themed-modal :focus-visible {';
-        css += 'outline: 2px solid var(--ytc-accent) !important;';
-        css += 'outline-offset: 2px !important;';
-        css += '}';
-
-        // Scrollbar styling
-        css += '.ytc-themed-modal ::-webkit-scrollbar {';
-        css += 'width: 8px !important;';
-        css += '}';
-        css += '.ytc-themed-modal ::-webkit-scrollbar-track {';
-        css += 'background: var(--ytc-bg-primary) !important;';
-        css += 'border-radius: 4px !important;';
-        css += '}';
-        css += '.ytc-themed-modal ::-webkit-scrollbar-thumb {';
-        css += 'background: var(--ytc-border) !important;';
-        css += 'border-radius: 4px !important;';
-        css += '}';
-        css += '.ytc-themed-modal ::-webkit-scrollbar-thumb:hover {';
-        css += 'background: #525863 !important;';
-        css += '}';
-
-        // Modern & Compact Overrides
-        css += '.ytc-top-bar { margin-bottom: 20px !important; }';
-        css += '.ytc-top-bar h2 { font-size: 1.25rem !important; font-weight: 600 !important; color: var(--ytc-text-primary) !important; letter-spacing: -0.01em !important; }';
-        css += '.ytc-top-bar .subtitle { font-size: 0.85rem !important; color: var(--ytc-text-muted) !important; margin-top: 2px !important; }';
-
-        // Input Fields
-        css += '.ytc-input-group { position: relative; display: flex; align-items: center; }';
-        css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"], .ytc-themed-modal textarea {';
-        css += 'background: var(--ytc-bg-input) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'border-radius: 8px !important;';
-        css += 'color: var(--ytc-text-primary) !important;';
-        css += 'font-size: 0.95rem !important;';
-        css += 'padding: 10px 12px !important;';
-        css += 'transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
-        css += 'width: 100% !important;';
-        css += '}';
-        css += '.ytc-themed-modal input:hover, .ytc-themed-modal textarea:hover { border-color: var(--ytc-text-muted) !important; }';
-        css += '.ytc-themed-modal input:focus, .ytc-themed-modal textarea:focus {';
-        css += 'border-color: var(--ytc-border-focus) !important;';
-        css += 'box-shadow: var(--ytc-glow) !important;';
-        css += 'outline: none !important;';
-        css += '}';
-
-        // Paste Button inside Input
-        css += '.ytc-paste-btn-integrated {';
-        css += 'position: absolute !important; right: 6px !important; top: 50% !important; transform: translateY(-50%) !important;';
-        css += 'background: var(--ytc-bg-tertiary) !important; color: var(--ytc-text-secondary) !important;';
-        css += 'border: none !important; border-radius: 6px !important; padding: 4px 8px !important;';
-        css += 'font-size: 0.8rem !important; font-weight: 500 !important; cursor: pointer !important;';
-        css += 'transition: all 0.2s ease !important; display: flex; align-items: center; gap: 4px; height: 28px !important;';
-        css += '}';
-        css += '.ytc-paste-btn-integrated:hover { background: var(--ytc-accent) !important; color: white !important; }';
-
-        // Dropdowns
-        css += '.ytc-themed-modal select {';
-        css += 'background: var(--ytc-bg-input) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'border-radius: 8px !important;';
-        css += 'color: var(--ytc-text-primary) !important;';
-        css += 'font-size: 0.9rem !important;';
-        css += 'padding: 8px 12px !important;';
-        css += 'height: 38px !important;';
-        css += 'cursor: pointer !important; transition: all 0.2s ease !important;';
-        css += '}';
-        css += '.ytc-themed-modal select:hover { border-color: var(--ytc-text-muted) !important; }';
-        css += '.ytc-themed-modal select:focus { border-color: var(--ytc-border-focus) !important; box-shadow: var(--ytc-glow) !important; }';
-
-        // AI Config Section
-        css += '.ytc-ai-settings {';
-        css += 'background: var(--ytc-bg-primary) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'border-radius: 8px !important;';
-        css += 'overflow: hidden !important;';
-        css += '}';
-        css += '.ytc-ai-header {';
-        css += 'padding: 10px 14px !important; background: var(--ytc-bg-secondary) !important;';
-        css += 'border-bottom: 1px solid transparent !important; transition: all 0.2s ease !important; cursor: pointer !important;';
-        css += '}';
-        css += '.ytc-ai-header:hover { background: var(--ytc-bg-tertiary) !important; }';
-        css += '.ytc-ai-header.expanded { border-bottom-color: var(--ytc-border) !important; }';
-        css += '.ytc-ai-header:focus-visible { background: var(--ytc-bg-tertiary) !important; outline: 2px solid var(--ytc-accent) !important; outline-offset: -2px !important; }';
-
-        // Buttons
-        css += '.ytc-action-btn {';
-        css += 'width: 100% !important; padding: 12px !important; border-radius: 10px !important;';
-        css += 'font-weight: 600 !important; font-size: 0.95rem !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
-        css += 'display: flex; align-items: center; justify-content: center; gap: 8px; border: none !important; cursor: pointer !important;';
-        css += 'position: relative !important; overflow: hidden !important;';
-        css += '}';
-        css += '.ytc-action-btn:active { transform: translateY(1px) !important; box-shadow: none !important; }';
-
-        css += '.ytc-primary-btn {';
-        css += 'background: var(--ytc-accent-gradient) !important; color: white !important;';
-        css += 'box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25), 0 2px 4px rgba(13, 148, 136, 0.15) !important;';
-        css += 'border: 1px solid rgba(255,255,255,0.1) !important;';
-        css += '}';
-        css += '.ytc-primary-btn:hover {';
-        css += 'transform: translateY(-2px) !important;';
-        css += 'box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35), 0 4px 8px rgba(13, 148, 136, 0.2) !important;';
-        css += 'filter: brightness(1.05) !important;';
-        css += '}';
-
-        css += '.ytc-secondary-btn {';
-        css += 'background: var(--ytc-bg-input) !important; color: var(--ytc-text-primary) !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;';
-        css += '}';
-        css += '.ytc-secondary-btn:hover {';
-        css += 'background: var(--ytc-bg-tertiary) !important;';
-        css += 'border-color: var(--ytc-text-muted) !important;';
-        css += 'transform: translateY(-1px) !important;';
-        css += 'box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important;';
-        css += '}';
-
-        css += '.ytc-ghost-btn {';
-        css += 'background: transparent !important; color: var(--ytc-text-muted) !important;';
-        css += 'padding: 8px !important; width: auto !important; margin: 0 auto !important;';
-        css += 'font-size: 0.85rem !important; font-weight: 500 !important;';
-        css += '}';
-        css += '.ytc-ghost-btn:hover { color: var(--ytc-text-primary) !important; background: var(--ytc-bg-tertiary) !important; border-radius: 6px !important; }';
-
-        css += '.ytc-ai-content {';
-        css += 'border-top: 1px solid var(--ytc-border) !important;';
-        css += '}';
-
-        // Icon Buttons (Refresh, Star)
-        css += '.ytc-icon-btn {';
-        css += 'background: transparent !important;';
-        css += 'border: 1px solid var(--ytc-border) !important;';
-        css += 'color: var(--ytc-text-secondary) !important;';
-        css += 'border-radius: 6px !important;';
-        css += 'width: 32px !important;';
-        css += 'height: 38px !important;';
-        css += 'display: flex !important;';
-        css += 'align-items: center !important;';
-        css += 'justify-content: center !important;';
-        css += 'cursor: pointer !important;';
-        css += 'transition: all 0.2s ease !important;';
-        css += 'font-size: 1rem !important;';
-        css += 'padding: 0 !important;';
-        css += 'flex-shrink: 0 !important;';
-        css += '}';
-        css += '.ytc-icon-btn:hover {';
-        css += 'background: var(--ytc-bg-tertiary) !important;';
-        css += 'color: var(--ytc-text-primary) !important;';
-        css += 'border-color: var(--ytc-text-muted) !important;';
-        css += 'transform: translateY(-1px) !important;';
-        css += 'box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;';
-        css += '}';
-
-        themeStyle.innerHTML = css;
-
         // Apply theme class to modal
         this.modalEl?.classList.add('ytc-themed-modal');
         this.modalEl?.classList.toggle('ytc-modal-light', isLight);
         this.modalEl?.classList.toggle('ytc-modal-dark', !isLight);
 
-        // Apply background to modal content
-        if (this.contentEl) {
-            this.contentEl.style.background = 'var(--ytc-bg-secondary)';
-            this.contentEl.style.borderRadius = '16px';
-        }
-
-        // Update dropdown styles to match theme - use explicit colors for visibility
-        if (this.formatSelect) {
-            this.formatSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
-            this.formatSelect.style.color = isLight ? '#1a1d21' : '#ebedf0';
-            this.formatSelect.style.borderColor = isLight ? '#d1d5db' : '#3f444e';
-        }
-
-        if (this.providerSelect) {
-            this.providerSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
-            this.providerSelect.style.color = isLight ? '#1a1d21' : '#ebedf0';
-            this.providerSelect.style.borderColor = isLight ? '#d1d5db' : '#3f444e';
-        }
-
-        if (this.modelSelect) {
-            this.modelSelect.style.background = isLight ? '#ffffff' : '#1e1e1e';
-            this.modelSelect.style.color = isLight ? '#1a1d21' : '#ebedf0';
-            this.modelSelect.style.borderColor = isLight ? '#d1d5db' : '#3f444e';
-        }
-
-        // Update URL input
-        if (this.urlInput) {
-            this.urlInput.style.background = 'var(--ytc-bg-input)';
-            this.urlInput.style.color = 'var(--ytc-text-primary)';
-            this.urlInput.style.borderColor = 'var(--ytc-border)';
-        }
-
-        // Update other UI elements
-        if (this.headerEl) {
-            this.headerEl.style.color = 'var(--ytc-text-primary)';
-        }
-
-        if (this.progressText) {
-            this.progressText.style.color = 'var(--ytc-text-primary)';
+        // Remove manually injected styles if they exist (cleanup)
+        const existingStyle = document.getElementById('ytc-theme-styles');
+        if (existingStyle) {
+            existingStyle.remove();
         }
     }
 

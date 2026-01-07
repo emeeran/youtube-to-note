@@ -11,6 +11,7 @@ import { OllamaCloudProvider } from '../ai/ollama-cloud';
 import { OpenRouterProvider } from '../ai/openrouter';
 import { YouTubeVideoService } from '../video-data';
 import { performanceTracker } from './performance-tracker';
+import { logger } from './logger';
 import {
     ServiceContainer as IServiceContainer,
     YouTubePluginSettings,
@@ -240,7 +241,7 @@ export class ServiceContainer implements IServiceContainer {
             try {
                 (service).cleanup();
             } catch (error) {
-                console.warn(`Error during cleanup of ${serviceName}:`, error);
+                logger.warn(`Error during cleanup of ${serviceName}:`, 'ServiceContainer', error);
             }
         }
 
@@ -264,7 +265,7 @@ export class ServiceContainer implements IServiceContainer {
      * Perform aggressive cleanup when memory is high
      */
     private performAggressiveCleanup(): void {
-        console.warn('High memory usage detected, performing aggressive cleanup');
+        logger.warn('High memory usage detected, performing aggressive cleanup', 'ServiceContainer');
 
         // Clear all services except the most recently used one
         const sortedServices = Array.from(this.serviceMetrics.entries())
@@ -304,7 +305,7 @@ export class ServiceContainer implements IServiceContainer {
 
                 // Only log if memory usage is significant
                 if (usageMB > 50) {
-                    console.debug(`Memory usage: ${usageMB}MB / ${totalMB}MB`);
+                    logger.debug(`Memory usage: ${usageMB}MB / ${totalMB}MB`, 'ServiceContainer');
                 }
             }
         }, 60 * 1000);

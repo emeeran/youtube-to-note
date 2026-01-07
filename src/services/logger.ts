@@ -96,16 +96,16 @@ export class Logger {
 
             switch (level) {
                 case LogLevel.DEBUG:
-
+                    console.debug(formattedMessage);
                     break;
                 case LogLevel.INFO:
-
+                    console.log(formattedMessage);
                     break;
                 case LogLevel.WARN:
-
+                    console.warn(formattedMessage);
                     break;
                 case LogLevel.ERROR:
-
+                    console.error(formattedMessage);
                     break;
             }
         }
