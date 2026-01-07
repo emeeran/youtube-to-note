@@ -32,7 +32,10 @@ export interface PipelineMiddleware {
 export abstract class BaseMiddleware implements PipelineMiddleware {
   abstract readonly name: string;
   abstract readonly phase: MiddlewarePhase;
-  abstract apply(contextOrResult: PipelineContext | StageOutput, stageName: string): Promise<PipelineContext | StageOutput>;
+  abstract apply(
+    contextOrResult: PipelineContext | StageOutput,
+    stageName: string
+  ): Promise<PipelineContext | StageOutput>;
 }
 
 /**
@@ -117,7 +120,7 @@ export class TelemetryMiddleware extends BaseMiddleware {
             if (!this.metrics.has(stageName)) {
                 this.metrics.set(stageName, []);
             }
-      this.metrics.get(stageName)!.push(metadata.duration);
+            this.metrics.get(stageName)!.push(metadata.duration);
         }
         return result;
     }

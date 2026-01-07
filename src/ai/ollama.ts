@@ -72,9 +72,16 @@ export class OllamaProvider extends BaseAIProvider {
                 if (response.status === 404) {
                     const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
                     if (isCloudModel && !this.apiBaseUrl.includes('ollama.com')) {
-                        throw new Error(`Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n1. Switch to a local model (e.g., "llama3.2:latest")\n2. Configure Ollama Cloud in settings with endpoint "https://ollama.com" and your API key`);
+                        throw new Error(
+                            `Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n` +
+                            '1. Switch to a local model (e.g., "llama3.2:latest")\n' +
+                            '2. Configure Ollama Cloud in settings with endpoint "https://ollama.com" and your API key'
+                        );
                     }
-                    throw new Error(`Ollama model not found: ${this._model}. Please make sure the model is pulled in Ollama using 'ollama pull ${this._model}'.`);
+                    throw new Error(
+                        `Ollama model not found: ${this._model}. Please make sure the model is pulled ` +
+                        `in Ollama using 'ollama pull ${this._model}'.`
+                    );
                 }
                 if (response.status === 401) {
                     const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
@@ -174,9 +181,16 @@ export class OllamaProvider extends BaseAIProvider {
                 if (response.status === 404) {
                     const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');
                     if (isCloudModel && !this.apiBaseUrl.includes('ollama.com')) {
-                        throw new Error(`Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n1. Switch to a local model (e.g., "llama3.2:latest")\n2. Configure Ollama Cloud in settings with endpoint "https://ollama.com" and your API key`);
+                        throw new Error(
+                            `Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n` +
+                            '1. Switch to a local model (e.g., "llama3.2:latest")\n' +
+                            '2. Configure Ollama Cloud in settings with endpoint "https://ollama.com" and your API key'
+                        );
                     }
-                    throw new Error(`Ollama model not found: ${this._model}. Please make sure the model is pulled in Ollama using 'ollama pull ${this._model}'.`);
+                    throw new Error(
+                        `Ollama model not found: ${this._model}. Please make sure the model is pulled ` +
+                        `in Ollama using 'ollama pull ${this._model}'.`
+                    );
                 }
                 if (response.status === 401) {
                     const isCloudModel = this._model.includes('-cloud') || this._model.includes(':cloud');

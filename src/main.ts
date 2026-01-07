@@ -272,7 +272,8 @@ export default class YoutubeClipperPlugin extends Plugin {
                 },
                 fetchModelsForProvider: async (provider: string, forceRefresh = false) => {
                     try {
-                        const models = await (this.serviceContainer!.aiService as any).fetchLatestModelsForProvider(provider, forceRefresh);
+                        const aiService = this.serviceContainer!.aiService as any;
+                        const models = await aiService.fetchLatestModelsForProvider(provider, forceRefresh);
                         if (models && models.length > 0) {
                             // Update model cache
                             this._settings.modelOptionsCache = {
@@ -297,7 +298,11 @@ export default class YoutubeClipperPlugin extends Plugin {
                 enableParallelProcessing: this._settings.enableParallelProcessing ?? false,
                 enableAutoFallback: this._settings.enableAutoFallback ?? true,
                 preferMultimodal: this._settings.preferMultimodal ?? false,
-                onPerformanceSettingsChange: async (performanceMode: PerformanceMode, enableParallel: boolean, preferMultimodal: boolean) => {
+                onPerformanceSettingsChange: async (
+                    performanceMode: PerformanceMode,
+                    enableParallel: boolean,
+                    preferMultimodal: boolean
+                ) => {
                     this._settings.performanceMode = performanceMode;
                     this._settings.enableParallelProcessing = enableParallel;
                     this._settings.preferMultimodal = preferMultimodal;
@@ -427,7 +432,13 @@ export default class YoutubeClipperPlugin extends Plugin {
                 if (providerName) {
                     // Pass enableAutoFallback to control fallback behavior
                     const shouldFallback = enableAutoFallback ?? true;
-                    aiResponse = await (aiService as any).processWith(providerName, prompt, model, undefined, shouldFallback);
+                    aiResponse = await (aiService as any).processWith(
+                        providerName,
+                        prompt,
+                        model,
+                        undefined,
+                        shouldFallback
+                    );
                 } else {
                     aiResponse = await aiService.process(prompt);
                 }

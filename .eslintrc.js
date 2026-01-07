@@ -86,6 +86,12 @@ module.exports = {
                 'max-lines': 'off',
             },
         },
+        {
+            files: ['src/services/logger.ts'],
+            rules: {
+                'no-console': 'off',
+            },
+        },
     ],
     ignorePatterns: [
         'node_modules/',

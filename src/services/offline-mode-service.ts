@@ -2,6 +2,8 @@
  * Offline Mode & Operation Queue Service
  */
 
+import { logger } from './logger';
+
 export interface QueuedOperation {
     id: string;
     type: 'process-video' | 'fetch-transcript' | 'ai-analysis';
@@ -78,7 +80,7 @@ export class OfflineModeService {
 
     private async executeOperation(operation: QueuedOperation): Promise<void> {
         // This would integrate with the actual services
-        console.log('Executing operation:', operation.id);
+        logger.info(`Executing operation: ${operation.id}`, 'OfflineMode');
     }
 
     private generateId(): string {

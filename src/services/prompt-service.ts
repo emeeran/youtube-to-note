@@ -33,7 +33,8 @@ ANALYSIS INSTRUCTIONS:
 1. Analyze the transcript content thoroughly
 2. Extract key insights, themes, and practical information
 3. Focus on action-oriented information with specific examples
-4. Maintain accuracy and cite specific examples from the content when relevant`;
+4. Maintain accuracy and cite specific examples from the content ` +
+            'when relevant';
 
     /**
      * Create analysis prompt for YouTube video content with performance optimization
@@ -120,7 +121,10 @@ ANALYSIS INSTRUCTIONS:
         ---
 
         <div style="text-align: center; margin-bottom: 24px;">
-        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
         </div>
 
         ---
@@ -166,7 +170,10 @@ ANALYSIS INSTRUCTIONS:
         ---
 
         <div style="text-align: center; margin-bottom: 24px;">
-        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
         </div>
 
         ---
@@ -192,7 +199,8 @@ ANALYSIS INSTRUCTIONS:
 
         return `${baseContent}
 
-You are an expert content analyst specializing in creating executive transcripts. Your task is to analyze video content and provide a comprehensive yet refined output.
+You are an expert content analyst specializing in creating executive transcripts. ` +
+            `Your task is to analyze video content and provide a comprehensive yet refined output.
 
 **Your Analysis Process:**
 1. Carefully review the entire video content, including spoken words, visual elements, and context
@@ -218,8 +226,12 @@ ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
 ---
 
-<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-  <iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen title="{{TITLE}}"></iframe>
+<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; ` +
+            `max-width: 100%; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+  <iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" ` +
+            'frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen title="{{TITLE}}"></iframe>
 </div>
 
 ---
@@ -305,7 +317,10 @@ List concrete actions the audience can take based on this content:
         ---
 
         <div style="text-align: center; margin-bottom: 24px;">
-        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
         </div>
 
         ---
@@ -335,7 +350,9 @@ List concrete actions the audience can take based on this content:
 
         return `${baseContent}
 
-You are an adaptive content analyst capable of providing customized analysis based on specific user requirements. Your task is to analyze content according to the user's explicit instructions while maintaining high quality standards.
+You are an adaptive content analyst capable of providing customized analysis based on ` +
+            'specific user requirements. Your task is to analyze content according to the user\'s ' +
+            `explicit instructions while maintaining high quality standards.
 
 **Your Analysis Process:**
 1. Carefully read and understand the custom requirements provided
@@ -402,7 +419,10 @@ ai_model: "__AI_MODEL__"
 ---
 
 <div style="text-align: center; margin-bottom: 24px;">
-<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+    'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+    'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+    `allowfullscreen></iframe>
 </div>
 
 ---
@@ -433,10 +453,12 @@ ai_model: "__AI_MODEL__"
     private ensureFrontMatterValue(content: string, key: string, value: string): string {
         const pattern = new RegExp(`(${key}\\s*:\\s*)(["'])?([^"'\\n]*)(["'])?`, 'i');
         if (pattern.test(content)) {
-            return content.replace(pattern, (_, prefix: string, openingQuote?: string, _existing?: string, closingQuote?: string) => {
-                const quote = openingQuote ?? closingQuote ? '"' : '';
-                return `${prefix}${quote}${value}${quote}`;
-            });
+            return content.replace(
+                pattern,
+                (_: string, prefix: string, openingQuote?: string, _existing?: string, closingQuote?: string) => {
+                    const quote = openingQuote ?? closingQuote ? '"' : '';
+                    return `${prefix}${quote}${value}${quote}`;
+                });
         }
 
         if (content.startsWith('---')) {

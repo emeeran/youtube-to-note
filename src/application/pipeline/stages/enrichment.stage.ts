@@ -6,6 +6,7 @@
 import { BaseStage } from '../stage';
 import { PipelineContext, EnrichmentOutput } from '../types';
 import { VideoDataService, EnhancedVideoData } from '../../../types';
+import { logger } from '../../../services/logger';
 
 export interface EnrichmentInput {
   videoId: string;
@@ -73,7 +74,7 @@ export class EnrichmentStage extends BaseStage {
                 }
             } catch (error) {
                 // Transcript is optional, don't fail
-                console.warn('Failed to fetch transcript:', error);
+                logger.warn('Failed to fetch transcript:', 'EnrichmentStage', { error });
             }
         }
 

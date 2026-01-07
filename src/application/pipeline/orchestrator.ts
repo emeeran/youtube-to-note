@@ -182,7 +182,11 @@ export class PipelineOrchestrator {
             }
 
             // Execute stage
-            const output = await (stage instanceof BaseStage ? stage.executeSafe(context) : stage.execute(processingContext));
+            const output = await (
+                stage instanceof BaseStage ?
+                    stage.executeSafe(context) :
+                    stage.execute(processingContext)
+            );
 
             // Apply post-middlewares
             let processedOutput = output;

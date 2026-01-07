@@ -3,6 +3,8 @@
  * Unified performance monitoring with metrics collection and reporting
  */
 
+import { logger } from './logger';
+
 export interface ServicePerformanceMetrics {
     service: string;
     operation: string;
@@ -83,7 +85,7 @@ export class PerformanceTracker {
 
         // Log slow operations
         if (duration > 10000) { // 10 seconds
-            console.warn(`Slow operation detected: ${service}.${operation} took ${duration.toFixed(2)}ms`);
+            logger.warn(`Slow operation detected: ${service}.${operation} took ${duration.toFixed(2)}ms`, 'Performance');
         }
     }
 

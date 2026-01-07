@@ -104,8 +104,9 @@ export class UrlHandler {
 
             // Try to find the first YouTube URL anywhere in the content
             const trimmed = content.trim();
-            const ytRegex = /(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}|https?:\/\/(?:www\.)?youtu\.be\/[A-Za-z0-9_-]{6,})/i;
-            const match = trimmed.match(ytRegex);
+            const ytRegex = /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}/i;
+            const ytbeRegex = /https?:\/\/(?:www\.)?youtu\.be\/[A-Za-z0-9_-]{6,}/i;
+            const match = trimmed.match(ytRegex) ?? trimmed.match(ytbeRegex);
 
             if (match?.[1]) {
                 const url = match[1].trim();

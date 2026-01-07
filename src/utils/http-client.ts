@@ -2,6 +2,8 @@
  * Optimized HTTP client with connection pooling, retries, and performance monitoring
  */
 
+import { logger } from '../services/logger';
+
 interface HttpClientConfig {
     timeout: number;
     retries: number;
@@ -126,7 +128,7 @@ export class OptimizedHttpClient {
 
                     // Record retry attempt
                     if (this.config.enableMetrics) {
-                        console.debug(`Retrying request (attempt ${attempt + 1}/${this.config.retries}): ${url}`);
+                        logger.debug(`Retrying request (attempt ${attempt + 1}/${this.config.retries}): ${url}`, 'HttpClient');
                     }
                 }
             }

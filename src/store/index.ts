@@ -3,6 +3,8 @@
  * Simple Redux-like store for managing application state
  */
 
+import { logger } from '../services/logger';
+
 type Listener = () => void;
 
 export interface Action<T = any> {
@@ -68,10 +70,10 @@ export function createStore<S>(initialState: S, reducer: Reducer<S>): Store<S> {
  */
 export function loggerMiddleware(store: Store<any>) {
     return (next: (action: Action) => void) => (action: Action) => {
-        console.log('Dispatching:', action);
-        console.log('Previous state:', store.getState());
+        logger.debug('Dispatching action', 'Store', { action });
+        logger.debug('Previous state', 'Store', { state: store.getState() });
         next(action);
-        console.log('New state:', store.getState());
+        logger.debug('New state', 'Store', { state: store.getState() });
     };
 }
 

@@ -3,6 +3,8 @@
  * Designed to prevent conflicts with other Obsidian plugins
  */
 
+import { logger } from './services/logger';
+
 export class ConflictPrevention {
     private static readonly PLUGIN_ID = 'youtube-clipper';
     private static readonly CSS_PREFIX = 'ytc';
@@ -95,13 +97,13 @@ export class ConflictPrevention {
 
         switch (level) {
             case 'warn':
-                console.warn(logMessage);
+                logger.warn(logMessage, 'ConflictPrevention');
                 break;
             case 'error':
-                console.error(logMessage);
+                logger.error(logMessage, 'ConflictPrevention');
                 break;
             default:
-                console.log(logMessage);
+                logger.info(logMessage, 'ConflictPrevention');
         }
     }
 

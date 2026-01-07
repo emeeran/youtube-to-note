@@ -5,6 +5,7 @@ import { ValidationUtils } from './validation';
 import { VideoAnalysisStrategy } from './constants/video-optimization';
 import { VideoDataService, VideoData, CacheService } from './types';
 import { YouTubeTranscriptService } from './services/transcript-service';
+import { logger } from './services/logger';
 
 /**
  * YouTube video data extraction service
@@ -130,7 +131,7 @@ export class YouTubeVideoService implements VideoDataService {
                 } else if (response.status === 401) {
                     // 401 from oEmbed often means the video is age-restricted or requires sign-in
                     // Try to get basic metadata from page scraping as fallback
-                    console.warn(`YouTube oEmbed returned 401 for ${videoId}, attempting fallback...`);
+                    logger.warn(`YouTube oEmbed returned 401 for ${videoId}, attempting fallback...`, 'VideoData');
                     try {
                         const pageData = await this.scrapeAdditionalMetadata(videoId);
                         if (pageData.description ?? pageData.duration) {
@@ -154,9 +155,14 @@ export class YouTubeVideoService implements VideoDataService {
                         channelName: undefined,
                     };
                 } else if (response.status === 404) {
-                    throw new Error(`YouTube video not found: ${videoId}. The video may be private, deleted, or the ID is incorrect.`);
+                    throw new Error(
+                        `YouTube video not found: ${videoId}. The video may be private, deleted, ` +
+                        'or the ID is incorrect.'
+                    );
                 } else if (response.status === 403) {
-                    throw new Error(`Access denied to YouTube video: ${videoId}. The video may be private or restricted.`);
+                    throw new Error(
+                        `Access denied to YouTube video: ${videoId}. The video may be private or restricted.`
+                    );
                 } else {
                     throw new Error(MESSAGES.ERRORS.FETCH_VIDEO_DATA(response.status));
                 }
@@ -269,7 +275,8 @@ export class YouTubeVideoService implements VideoDataService {
      */
     private async fetchVideoPageHTML(videoId: string): Promise<string> {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=${encodeURIComponent(videoUrl)}`;
+        const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=` +
+            `${encodeURIComponent(videoUrl)}`;
 
         const response = await fetch(proxyUrl);
 

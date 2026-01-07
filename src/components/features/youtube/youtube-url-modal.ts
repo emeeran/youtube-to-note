@@ -13,7 +13,19 @@ import { App, Notice } from 'obsidian';
  */
 
 export interface YouTubeUrlModalOptions {
-    onProcess: (url: string, format: OutputFormat, provider?: string, model?: string, customPrompt?: string, performanceMode?: PerformanceMode, enableParallel?: boolean, preferMultimodal?: boolean, maxTokens?: number, temperature?: number, enableAutoFallback?: boolean) => Promise<string>; // Return file path
+    onProcess: (
+        url: string,
+        format: OutputFormat,
+        provider?: string,
+        model?: string,
+        customPrompt?: string,
+        performanceMode?: PerformanceMode,
+        enableParallel?: boolean,
+        preferMultimodal?: boolean,
+        maxTokens?: number,
+        temperature?: number,
+        enableAutoFallback?: boolean
+    ) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
     onOpenBatchModal?: () => void;
     initialUrl?: string;
@@ -30,7 +42,11 @@ export interface YouTubeUrlModalOptions {
     enableParallelProcessing?: boolean;
     enableAutoFallback?: boolean;
     preferMultimodal?: boolean;
-    onPerformanceSettingsChange?: (performanceMode: PerformanceMode, enableParallel: boolean, preferMultimodal: boolean) => Promise<void>;
+    onPerformanceSettingsChange?: (
+        performanceMode: PerformanceMode,
+        enableParallel: boolean,
+        preferMultimodal: boolean
+    ) => Promise<void>;
 }
 
 export class YouTubeUrlModal extends BaseModal {
@@ -854,7 +870,8 @@ export class YouTubeUrlModal extends BaseModal {
     private updateProviderStatus(provider: string, status: string): void {
         if (this.providerStatusEl) {
             this.providerStatusEl.style.display = 'block';
-            this.providerStatusEl.innerHTML = `<span style="color: var(--ytc-accent);">🤖 ${provider}</span> — ${status}`;
+            const providerSpan = `<span style="color: var(--ytc-accent);">🤖 ${provider}</span>`;
+            this.providerStatusEl.innerHTML = `${providerSpan} — ${status}`;
         }
     }
 
@@ -1916,7 +1933,11 @@ export class YouTubeUrlModal extends BaseModal {
                 this.setUrl(trimmed);
                 new Notice('YouTube URL detected and pasted!');
             } else {
-                const urlMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+                const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)/;
+                const embedRegex = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/;
+                const ytMatch = trimmed.match(ytRegex);
+                const embedMatch = trimmed.match(embedRegex);
+                const urlMatch = ytMatch ?? embedMatch;
                 if (urlMatch) {
                     const videoId = urlMatch[1];
                     const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;

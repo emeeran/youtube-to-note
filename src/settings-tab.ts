@@ -2,6 +2,7 @@ import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { logger } from './services/logger';
 
 /**
  * Plugin settings tab component
@@ -193,10 +194,20 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 border-radius: 50%;
             }
 
-            .${CSS_PREFIX}-status-chip.valid .${CSS_PREFIX}-status-dot { background: var(--color-green); box-shadow: 0 0 4px var(--color-green); }
-            .${CSS_PREFIX}-status-chip.invalid .${CSS_PREFIX}-status-dot { background: var(--color-red); }
-            .${CSS_PREFIX}-status-chip.testing .${CSS_PREFIX}-status-dot { background: var(--color-yellow); animation: pulse 1s infinite; }
-            .${CSS_PREFIX}-status-chip.untested .${CSS_PREFIX}-status-dot { background: var(--text-muted); }
+            .${CSS_PREFIX}-status-chip.valid .${CSS_PREFIX}-status-dot {
+                background: var(--color-green);
+                box-shadow: 0 0 4px var(--color-green);
+            }
+            .${CSS_PREFIX}-status-chip.invalid .${CSS_PREFIX}-status-dot {
+                background: var(--color-red);
+            }
+            .${CSS_PREFIX}-status-chip.testing .${CSS_PREFIX}-status-dot {
+                background: var(--color-yellow);
+                animation: pulse 1s infinite;
+            }
+            .${CSS_PREFIX}-status-chip.untested .${CSS_PREFIX}-status-dot {
+                background: var(--text-muted);
+            }
 
             /* Drawers/Sections */
             .${CSS_PREFIX}-drawer {
@@ -328,14 +339,25 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
             /* Helpers */
             .${CSS_PREFIX}-hidden { display: none !important; }
-            
-            @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-5px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
         `;
         document.head.appendChild(style);
     }
 
-    private createDrawer(title: string, icon: string, isOpenByDefault = false): { drawer: HTMLElement; content: HTMLElement } {
+    private createDrawer(
+        title: string,
+        icon: string,
+        isOpenByDefault = false
+    ): { drawer: HTMLElement; content: HTMLElement } {
         const drawerKey = title; // Use title as unique identifier
         const savedState = this.drawerStates.get(drawerKey) ?? isOpenByDefault;
 
@@ -591,7 +613,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             cls: `${CSS_PREFIX}-action-btn danger`,
         });
         resetBtn.innerHTML = '<span>🔄</span> Reset';
-        resetBtn.addEventListener('click', () => this.resetToDefaults());
+        resetBtn.addEventListener('click', async () => this.resetToDefaults());
     }
 
     private async testAllProviders(): Promise<void> {
@@ -646,8 +668,19 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     return;
                 }
 
-                // Confirm import
-                if (confirm('Import settings? This will overwrite your current settings.')) {
+                // Confirm import using ConfirmationModal
+                const { ConfirmationModal } = await import('./components/common/confirmation-modal');
+                const confirmed = await new Promise<boolean>((resolve) => {
+                    const modal = new ConfirmationModal(this.app, {
+                        title: 'Import Settings',
+                        message: 'This will overwrite your current settings.',
+                        onConfirm: () => resolve(true),
+                        onCancel: () => resolve(false),
+                    });
+                    modal.open();
+                });
+
+                if (confirmed) {
                     await this.options.onSettingsChange(imported);
                     this.settings = { ...imported };
                     this.display();
@@ -660,8 +693,22 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         input.click();
     }
 
-    private resetToDefaults(): void {
-        if (confirm('Reset all settings to defaults? This action cannot be undone.')) {
+    private async resetToDefaults(): Promise<void> {
+        // Confirm reset using ConfirmationModal
+        const { ConfirmationModal } = await import('./components/common/confirmation-modal');
+        const confirmed = await new Promise<boolean>((resolve) => {
+            const modal = new ConfirmationModal(this.app, {
+                title: 'Reset to Defaults',
+                message: 'This action cannot be undone.',
+                confirmText: 'Reset',
+                isDangerous: true,
+                onConfirm: () => resolve(true),
+                onCancel: () => resolve(false),
+            });
+            modal.open();
+        });
+
+        if (confirmed) {
             // Keep API keys, reset everything else
             const apiKeys = {
                 geminiApiKey: this.settings.geminiApiKey,
@@ -723,7 +770,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
     private updateHeaderBadge(isReady: boolean): void {
         if (this.headerBadge) {
-            this.headerBadge.className = `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`;
+            const badgeClass = isReady ?
+                `${CSS_PREFIX}-badge-ready` :
+                `${CSS_PREFIX}-badge-setup`;
+            this.headerBadge.className = `${CSS_PREFIX}-badge ${badgeClass}`;
             this.headerBadge.textContent = isReady ? '✓ Ready' : '⚠ Setup Required';
         }
     }
@@ -1095,7 +1145,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
         } catch (error) {
             // Silently fail and use defaults
-            console.debug('Could not load drawer states:', error);
+            logger.debug('Could not load drawer states:', 'SettingsTab', { error });
         }
     }
 
@@ -1108,7 +1158,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             localStorage.setItem(this.DRAWER_STATES_KEY, JSON.stringify(states));
         } catch (error) {
             // Silently fail
-            console.debug('Could not save drawer states:', error);
+            logger.debug('Could not save drawer states:', 'SettingsTab', { error });
         }
     }
 }

@@ -159,14 +159,16 @@ export class GeminiProvider extends BaseAIProvider {
                 ...baseConfig,
                 systemInstruction: {
                     parts: [{
-                        text: `You are an expert video content analyzer. Provide comprehensive, multimodal analysis using:
+                        text: 'You are an expert video content analyzer. ' +
+                            `Provide comprehensive, multimodal analysis using:
 • AUDIO STREAM: Transcribe all spoken content, identify speakers, capture tone/emphasis/emotion
-• VIDEO STREAM: Analyze visual elements, text overlays, diagrams, slides, gestures, scene changes, and visual demonstrations
+• VIDEO STREAM: Analyze visual elements, text overlays, diagrams, slides, gestures, ` +
+                            `scene changes, and visual demonstrations
 • INTEGRATED INSIGHTS: Synthesize audio and visual data to provide complete understanding
 
 For best results:
-- Prioritize accuracy in transcription and speaker identification
-- Extract and explain key concepts shown visually
+- Prioritize accuracy in transcription and speaker identification` +
+                            `- Extract and explain key concepts shown visually
 - Note timing relationships between audio and visual elements
 - Identify visual cues that reinforce or clarify spoken content`,
                     }],

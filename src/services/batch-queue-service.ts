@@ -2,6 +2,8 @@
  * Enhanced Batch Processing Queue System
  */
 
+import { logger } from './logger';
+
 export interface BatchJob {
     id: string;
     url: string;
@@ -95,7 +97,7 @@ export class BatchQueueService {
 
     private async processVideo(url: string): Promise<void> {
         // Integration point with actual video processing
-        console.log('Processing video:', url);
+        logger.info(`Processing video: ${url}`, 'BatchQueue');
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
 

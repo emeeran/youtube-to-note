@@ -141,20 +141,22 @@ export class TemplateService {
         });
 
         // Loops {% for item in items %}...{% endfor %}
-        result = result.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}([\s\S]*?)\{%\s*endfor\s*%\}/g, (_, itemName, arrayName, body) => {
-            const array = variables[arrayName];
-            if (!Array.isArray(array)) return '';
+        result = result.replace(
+            /\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}([\s\S]*?)\{%\s*endfor\s*%\}/g,
+            (_, itemName, arrayName, body) => {
+                const array = variables[arrayName];
+                if (!Array.isArray(array)) return '';
 
-            return array.map(item => {
-                let itemBody = body;
-                if (typeof item === 'object' && item !== null) {
-                    Object.keys(item).forEach(key => {
-                        itemBody = itemBody.replace(new RegExp(`{{${itemName}\\.${key}}}`, 'g'), item[key]);
-                    });
-                }
-                return itemBody;
-            }).join('');
-        });
+                return array.map(item => {
+                    let itemBody = body;
+                    if (typeof item === 'object' && item !== null) {
+                        Object.keys(item).forEach(key => {
+                            itemBody = itemBody.replace(new RegExp(`{{${itemName}\\.${key}}}`, 'g'), item[key]);
+                        });
+                    }
+                    return itemBody;
+                }).join('');
+            });
 
         return result;
     }

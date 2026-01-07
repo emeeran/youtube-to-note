@@ -6,6 +6,7 @@
 import { Plugin } from 'obsidian';
 import { YouTubeSettingsTab } from '../settings-tab';
 import { YouTubePluginSettings } from '../types';
+import { logger } from '../services/logger';
 
 export interface RegistrationConfig {
   plugin: Plugin;
@@ -41,7 +42,7 @@ export class PluginRegistry {
 
         // Main processing icon
         const mainIcon = plugin.addRibbonIcon('film', 'Process YouTube Video', () => {
-            console.log('[YT-CLIPPER] Ribbon icon clicked');
+            logger.plugin('Ribbon icon clicked');
             void onShowUrlModal();
         });
         this.ribbonIcons.push(mainIcon);
@@ -64,7 +65,7 @@ export class PluginRegistry {
             id: 'ytp-process-youtube-video',
             name: 'Process YouTube Video',
             callback: () => {
-                console.log('[YT-CLIPPER] Process YouTube Video command');
+                logger.plugin('Process YouTube Video command');
                 void onShowUrlModal();
             },
         });

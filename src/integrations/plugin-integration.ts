@@ -2,6 +2,8 @@
  * Plugin-to-Plugin Integration Service
  */
 
+import { logger } from '../services/logger';
+
 export interface PluginIntegration {
     name: string;
     enabled: boolean;
@@ -97,7 +99,7 @@ processedAt: "${new Date().toISOString()}"
         try {
             return await templater.templater.parse_templates({ content, target_path: '', run_mode: 0 }, variables);
         } catch (error) {
-            console.error('Templater processing error:', error);
+            logger.error('Templater processing error:', 'PluginIntegration', { error });
             return content;
         }
     }
@@ -145,7 +147,7 @@ export class PluginAPI {
                 try {
                     cb(data);
                 } catch (error) {
-                    console.error(`Error in event callback for '${event}':`, error);
+                    logger.error(`Error in event callback for '${event}':`, 'PluginAPI', { error });
                 }
             });
         }

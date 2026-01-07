@@ -178,6 +178,7 @@ export abstract class BaseModal extends Modal {
         // For backward compatibility, return a synchronous value.
         // However, in practice, you should use showConfirmationModal() for the full async experience.
         // This fallback uses native confirm() only if needed.
+        // eslint-disable-next-line no-alert
         return confirm(message);
     }
 

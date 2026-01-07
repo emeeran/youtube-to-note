@@ -187,7 +187,8 @@ export class YouTubeTranscriptService {
      */
     private async extractTranscriptFromHTML(html: string): Promise<TranscriptSegment[] | null> {
         // Look for transcript data in the page JavaScript
-        const transcriptRegex = /"captions":\s*{[^}]*"playerCaptionsTracklistRenderer":\s*{[^}]*"captionTracks":\s*\[([^\]]+)\]/;
+        const transcriptRegex =
+            /"captions":\s*{[^}]*"playerCaptionsTracklistRenderer":\s*{[^}]*"captionTracks":\s*\[([^\]]+)\]/;
         const match = html.match(transcriptRegex);
 
         if (!match?.[1]) {

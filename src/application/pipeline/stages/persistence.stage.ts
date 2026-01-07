@@ -5,6 +5,7 @@
 
 import { BaseStage } from '../stage';
 import { PipelineContext, StageOutput } from '../types';
+import { logger } from '../../../services/logger';
 
 export interface PersistenceInput {
   generatedContent: string;
@@ -83,7 +84,7 @@ export class PersistenceStage extends BaseStage {
                 await this.updateCache(input);
                 cacheUpdated = true;
             } catch (error) {
-                console.warn('Failed to update cache:', error);
+                logger.warn('Failed to update cache:', 'PersistenceStage', { error });
             }
         }
 
