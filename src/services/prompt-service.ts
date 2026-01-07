@@ -94,8 +94,6 @@ ANALYSIS INSTRUCTIONS:
         }
     }
 
-
-
     /**
      * Create a brief prompt: Summary + Key Takeaways
      */
@@ -331,9 +329,9 @@ List concrete actions the audience can take based on this content:
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
         // Determine user instructions for custom template
-        const userInstructions = customInstructions?.trim() 
+        const userInstructions = customInstructions?.trim()
             ? `USER'S CUSTOM INSTRUCTIONS:\n${customInstructions}\n\n`
-            : ``; // If no custom instructions, just an empty string
+            : ''; // If no custom instructions, just an empty string
 
         return `${baseContent}
 

@@ -135,12 +135,9 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private registerUIComponents(): void {
 
-
         this.ribbonIcon = this.addRibbonIcon('youtube', 'Process YouTube Video', () => {
             console.log('[YT-CLIPPER] Ribbon icon clicked'); void this.safeShowUrlModal();
         });
-
-
 
         logger.plugin('Ribbon icon set successfully');
 

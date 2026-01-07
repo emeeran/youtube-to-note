@@ -215,10 +215,10 @@ export class YouTubeUrlModal extends BaseModal {
             // Initialize state
             this.updateModelDropdown(this.options.modelOptions);
             this.applyTheme(this.isLightTheme);
-            
+
             // Apply initial visibility states
             this.toggleCustomPromptVisibility();
-            
+
             console.log('[YT-CLIPPER] Theme applied');
         } catch (error) {
             console.error('[YT-CLIPPER] Error in createModalContent:', error);
@@ -277,7 +277,7 @@ export class YouTubeUrlModal extends BaseModal {
             color: var(--ytc-text-secondary);
         `;
         updateFallbackIcon();
-        
+
         fallbackBtn.onclick = () => {
             this.autoFallbackEnabled = !this.autoFallbackEnabled;
             updateFallbackIcon();
@@ -416,10 +416,6 @@ export class YouTubeUrlModal extends BaseModal {
      * Legacy unused methods removed
      */
 
-
-
-
-
     /**
      * Create Settings Section (Format + Collapsible AI Config)
      */
@@ -444,7 +440,7 @@ export class YouTubeUrlModal extends BaseModal {
         // 1. Output Format (Left)
         const formatWrapper = controlsRow.createDiv();
         formatWrapper.style.flex = '1';
-        
+
         // Compact Label
         const formatLabel = formatWrapper.createEl('label');
         formatLabel.textContent = 'OUTPUT FORMAT';
@@ -526,7 +522,7 @@ export class YouTubeUrlModal extends BaseModal {
         `;
 
         const chevron = aiToggleBtn.createDiv();
-        chevron.innerHTML = `<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>`;
+        chevron.innerHTML = '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>';
         chevron.style.cssText = `
             transition: transform 0.2s ease;
             opacity: 0.5;
@@ -552,12 +548,12 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Toggle Logic
         let isExpanded = false;
-        
+
         const updateSummary = () => {
             const provider = this.selectedProvider || 'Google Gemini';
             const model = this.selectedModel || 'Default';
             // Simplify summary for the button
-            aiSummary.textContent = `${provider}`; 
+            aiSummary.textContent = `${provider}`;
             aiSummary.title = `${provider} • ${this.formatModelName(model)}`;
         };
 
@@ -579,11 +575,11 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Provider Selection
         const providerRow = aiContent.createDiv();
-        
+
         const providerLabel = providerRow.createEl('label');
         providerLabel.textContent = 'AI PROVIDER';
         providerLabel.htmlFor = 'ytc-provider-select';
-        providerLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block;`;
+        providerLabel.style.cssText = 'font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block;';
 
         this.providerSelect = providerRow.createEl('select');
         this.providerSelect.id = 'ytc-provider-select';
@@ -607,15 +603,15 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Model Selection
         const modelRow = aiContent.createDiv();
-        modelRow.style.cssText = `margin-top: 16px;`;
-        
+        modelRow.style.cssText = 'margin-top: 16px;';
+
         const modelLabel = modelRow.createEl('label');
         modelLabel.textContent = 'MODEL';
         modelLabel.htmlFor = 'ytc-model-select';
-        modelLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 6px;`;
+        modelLabel.style.cssText = 'font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 6px;';
 
         const modelInputGroup = modelRow.createDiv();
-        modelInputGroup.style.cssText = `display: flex; gap: 8px; align-items: center;`;
+        modelInputGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
 
         this.modelSelect = modelInputGroup.createEl('select');
         this.modelSelect.id = 'ytc-model-select';
@@ -672,7 +668,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Initial summary update
         updateSummary();
-        
+
         // Hook into updateModelDropdown to keep summary fresh
         const originalUpdateDropdown = this.updateModelDropdown.bind(this);
         this.updateModelDropdown = (options) => {
@@ -1367,312 +1363,312 @@ export class YouTubeUrlModal extends BaseModal {
 
         let css = '';
 
-            // Light theme colors - refined warm palette
-            css += '.ytc-modal-light {';
-            css += '--ytc-bg-primary: #fafbfc;';
-            css += '--ytc-bg-secondary: #f0f2f5;';
-            css += '--ytc-bg-tertiary: #e4e7eb;';
-            css += '--ytc-bg-input: #ffffff;';
-            css += '--ytc-text-primary: #1a1d21;';
-            css += '--ytc-text-secondary: #4a5568;';
-            css += '--ytc-text-muted: #718096;';
-            css += '--ytc-border: #d1d5db;';
-            css += '--ytc-border-focus: #0f766e;';
-            css += '--ytc-accent: #0d9488;';
-            css += '--ytc-accent-hover: #0f766e;';
-            css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);';
-            css += '--ytc-success: #10b981;';
-            css += '--ytc-warning: #f59e0b;';
-            css += '--ytc-error: #ef4444;';
-            css += '--ytc-shadow: rgba(0, 0, 0, 0.08);';
-            css += '--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);';
-            css += '--ytc-glow: 0 0 20px rgba(13, 148, 136, 0.25);';
-            css += '}';
+        // Light theme colors - refined warm palette
+        css += '.ytc-modal-light {';
+        css += '--ytc-bg-primary: #fafbfc;';
+        css += '--ytc-bg-secondary: #f0f2f5;';
+        css += '--ytc-bg-tertiary: #e4e7eb;';
+        css += '--ytc-bg-input: #ffffff;';
+        css += '--ytc-text-primary: #1a1d21;';
+        css += '--ytc-text-secondary: #4a5568;';
+        css += '--ytc-text-muted: #718096;';
+        css += '--ytc-border: #d1d5db;';
+        css += '--ytc-border-focus: #0f766e;';
+        css += '--ytc-accent: #0d9488;';
+        css += '--ytc-accent-hover: #0f766e;';
+        css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);';
+        css += '--ytc-success: #10b981;';
+        css += '--ytc-warning: #f59e0b;';
+        css += '--ytc-error: #ef4444;';
+        css += '--ytc-shadow: rgba(0, 0, 0, 0.08);';
+        css += '--ytc-shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);';
+        css += '--ytc-glow: 0 0 20px rgba(13, 148, 136, 0.25);';
+        css += '}';
 
-            // Dark theme colors - premium dark palette with depth
-            css += '.ytc-modal-dark {';
-            css += '--ytc-bg-primary: #1a1b1e;';
-            css += '--ytc-bg-secondary: #25262b;';
-            css += '--ytc-bg-tertiary: #2c2e33;';
-            css += '--ytc-bg-input: #141517;';
-            css += '--ytc-text-primary: #ebedf0;';
-            css += '--ytc-text-secondary: #a8adb5;';
-            css += '--ytc-text-muted: #6b7280;';
-            css += '--ytc-border: #3f444e;';
-            css += '--ytc-border-focus: #2dd4bf;';
-            css += '--ytc-accent: #2dd4bf;';
-            css += '--ytc-accent-hover: #14b8a6;';
-            css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);';
-            css += '--ytc-success: #34d399;';
-            css += '--ytc-warning: #fbbf24;';
-            css += '--ytc-error: #fb7185;';
-            css += '--ytc-shadow: rgba(0, 0, 0, 0.5);';
-            css += '--ytc-shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.65);';
-            css += '--ytc-glow: 0 0 40px rgba(45, 212, 191, 0.3);';
-            css += '}';
+        // Dark theme colors - premium dark palette with depth
+        css += '.ytc-modal-dark {';
+        css += '--ytc-bg-primary: #1a1b1e;';
+        css += '--ytc-bg-secondary: #25262b;';
+        css += '--ytc-bg-tertiary: #2c2e33;';
+        css += '--ytc-bg-input: #141517;';
+        css += '--ytc-text-primary: #ebedf0;';
+        css += '--ytc-text-secondary: #a8adb5;';
+        css += '--ytc-text-muted: #6b7280;';
+        css += '--ytc-border: #3f444e;';
+        css += '--ytc-border-focus: #2dd4bf;';
+        css += '--ytc-accent: #2dd4bf;';
+        css += '--ytc-accent-hover: #14b8a6;';
+        css += '--ytc-accent-gradient: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);';
+        css += '--ytc-success: #34d399;';
+        css += '--ytc-warning: #fbbf24;';
+        css += '--ytc-error: #fb7185;';
+        css += '--ytc-shadow: rgba(0, 0, 0, 0.5);';
+        css += '--ytc-shadow-lg: 0 10px 50px rgba(0, 0, 0, 0.65);';
+        css += '--ytc-glow: 0 0 40px rgba(45, 212, 191, 0.3);';
+        css += '}';
 
-            // Modal container styling
-            css += '.ytc-themed-modal .modal-content {';
-            css += 'background: var(--ytc-bg-secondary) !important;';
-            css += 'border-radius: 12px !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'box-shadow: var(--ytc-shadow-lg), 0 0 0 1px rgba(255,255,255,0.05), var(--ytc-glow) !important;';
-            css += 'padding: 20px !important;';
-            css += 'max-width: 520px !important;';
-            css += '}';
+        // Modal container styling
+        css += '.ytc-themed-modal .modal-content {';
+        css += 'background: var(--ytc-bg-secondary) !important;';
+        css += 'border-radius: 12px !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'box-shadow: var(--ytc-shadow-lg), 0 0 0 1px rgba(255,255,255,0.05), var(--ytc-glow) !important;';
+        css += 'padding: 20px !important;';
+        css += 'max-width: 520px !important;';
+        css += '}';
 
-            // Header styling
-            css += '.ytc-themed-modal .ytc-modal-header {';
-            css += 'background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;';
-            css += '-webkit-background-clip: text !important;';
-            css += '-webkit-text-fill-color: transparent !important;';
-            css += 'background-clip: text !important;';
-            css += 'font-size: 1.5rem !important;';
-            css += 'font-weight: 700 !important;';
-            css += 'margin-bottom: 20px !important;';
-            css += 'text-align: center !important;';
-            css += 'width: 100% !important;';
-            css += 'display: block !important;';
-            css += '}';
+        // Header styling
+        css += '.ytc-themed-modal .ytc-modal-header {';
+        css += 'background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;';
+        css += '-webkit-background-clip: text !important;';
+        css += '-webkit-text-fill-color: transparent !important;';
+        css += 'background-clip: text !important;';
+        css += 'font-size: 1.5rem !important;';
+        css += 'font-weight: 700 !important;';
+        css += 'margin-bottom: 20px !important;';
+        css += 'text-align: center !important;';
+        css += 'width: 100% !important;';
+        css += 'display: block !important;';
+        css += '}';
 
-            // Input field styling
-            css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {';
-            css += 'background: var(--ytc-bg-input) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'border-radius: 6px !important;';
-            css += 'color: var(--ytc-text-primary) !important;';
-            css += 'transition: all 0.2s ease !important;';
-            css += '}';
-            css += '.ytc-themed-modal input:hover {';
-            css += 'border-color: #525863 !important;';
-            css += '}';
-            css += '.ytc-themed-modal input:focus {';
-            css += 'border-color: var(--ytc-border-focus) !important;';
-            css += 'box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 0 20px rgba(45, 212, 191, 0.1) !important;';
-            css += 'outline: none !important;';
-            css += '}';
+        // Input field styling
+        css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"] {';
+        css += 'background: var(--ytc-bg-input) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'border-radius: 6px !important;';
+        css += 'color: var(--ytc-text-primary) !important;';
+        css += 'transition: all 0.2s ease !important;';
+        css += '}';
+        css += '.ytc-themed-modal input:hover {';
+        css += 'border-color: #525863 !important;';
+        css += '}';
+        css += '.ytc-themed-modal input:focus {';
+        css += 'border-color: var(--ytc-border-focus) !important;';
+        css += 'box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 0 20px rgba(45, 212, 191, 0.1) !important;';
+        css += 'outline: none !important;';
+        css += '}';
 
-            // Select dropdown styling
-            css += '.ytc-themed-modal select {';
-            css += 'background: var(--ytc-bg-input) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'border-radius: 6px !important;';
-            css += 'color: var(--ytc-text-primary) !important;';
-            css += 'transition: all 0.2s ease !important;';
-            css += '}';
-            css += '.ytc-themed-modal select:hover {';
-            css += 'border-color: #525863 !important;';
-            css += '}';
-            css += '.ytc-themed-modal select:focus {';
-            css += 'border-color: var(--ytc-border-focus) !important;';
-            css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
-            css += 'outline: none !important;';
-            css += '}';
-            css += '.ytc-themed-modal select option {';
-            css += 'background: var(--ytc-bg-secondary) !important;';
-            css += 'color: #000000 !important;';
-            css += 'padding: 4px 8px !important;';
-            css += '}';
+        // Select dropdown styling
+        css += '.ytc-themed-modal select {';
+        css += 'background: var(--ytc-bg-input) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'border-radius: 6px !important;';
+        css += 'color: var(--ytc-text-primary) !important;';
+        css += 'transition: all 0.2s ease !important;';
+        css += '}';
+        css += '.ytc-themed-modal select:hover {';
+        css += 'border-color: #525863 !important;';
+        css += '}';
+        css += '.ytc-themed-modal select:focus {';
+        css += 'border-color: var(--ytc-border-focus) !important;';
+        css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
+        css += 'outline: none !important;';
+        css += '}';
+        css += '.ytc-themed-modal select option {';
+        css += 'background: var(--ytc-bg-secondary) !important;';
+        css += 'color: #000000 !important;';
+        css += 'padding: 4px 8px !important;';
+        css += '}';
 
-            // Button styling
-            css += '.ytc-themed-modal button {';
-            css += 'border-radius: 6px !important;';
-            css += 'font-weight: 500 !important;';
-            css += 'transition: all 0.2s ease !important;';
-            css += '}';
-            css += '.ytc-themed-modal button:hover {';
-            css += 'transform: translateY(-1px) !important;';
-            css += '}';
+        // Button styling
+        css += '.ytc-themed-modal button {';
+        css += 'border-radius: 6px !important;';
+        css += 'font-weight: 500 !important;';
+        css += 'transition: all 0.2s ease !important;';
+        css += '}';
+        css += '.ytc-themed-modal button:hover {';
+        css += 'transform: translateY(-1px) !important;';
+        css += '}';
 
-            // Primary button (Process)
-            css += '.ytc-themed-modal .mod-cta, .ytc-themed-modal button[style*="interactive-accent"] {';
-            css += 'background: var(--ytc-accent-gradient) !important;';
-            css += 'border: none !important;';
-            css += 'color: white !important;';
-            css += 'box-shadow: 0 4px 15px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.15) !important;';
-            css += '}';
-            css += '.ytc-themed-modal .mod-cta:hover {';
-            css += 'transform: translateY(-2px) !important;';
-            css += 'box-shadow: 0 6px 25px rgba(45, 212, 191, 0.45), 0 0 30px rgba(45, 212, 191, 0.25) !important;';
-            css += '}';
+        // Primary button (Process)
+        css += '.ytc-themed-modal .mod-cta, .ytc-themed-modal button[style*="interactive-accent"] {';
+        css += 'background: var(--ytc-accent-gradient) !important;';
+        css += 'border: none !important;';
+        css += 'color: white !important;';
+        css += 'box-shadow: 0 4px 15px rgba(45, 212, 191, 0.35), 0 0 20px rgba(45, 212, 191, 0.15) !important;';
+        css += '}';
+        css += '.ytc-themed-modal .mod-cta:hover {';
+        css += 'transform: translateY(-2px) !important;';
+        css += 'box-shadow: 0 6px 25px rgba(45, 212, 191, 0.45), 0 0 30px rgba(45, 212, 191, 0.25) !important;';
+        css += '}';
 
-            // Labels styling
-            css += '.ytc-themed-modal label {';
-            css += 'color: var(--ytc-text-secondary) !important;';
-            css += 'cursor: pointer !important;';
-            css += '}';
+        // Labels styling
+        css += '.ytc-themed-modal label {';
+        css += 'color: var(--ytc-text-secondary) !important;';
+        css += 'cursor: pointer !important;';
+        css += '}';
 
-            // Textarea styling
-            css += '.ytc-themed-modal textarea {';
-            css += 'background: var(--ytc-bg-input) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'border-radius: 6px !important;';
-            css += 'color: var(--ytc-text-primary) !important;';
-            css += 'transition: all 0.2s ease !important;';
-            css += '}';
-            css += '.ytc-themed-modal textarea:hover {';
-            css += 'border-color: #525863 !important;';
-            css += '}';
-            css += '.ytc-themed-modal textarea:focus {';
-            css += 'border-color: var(--ytc-border-focus) !important;';
-            css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
-            css += 'outline: none !important;';
-            css += '}';
+        // Textarea styling
+        css += '.ytc-themed-modal textarea {';
+        css += 'background: var(--ytc-bg-input) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'border-radius: 6px !important;';
+        css += 'color: var(--ytc-text-primary) !important;';
+        css += 'transition: all 0.2s ease !important;';
+        css += '}';
+        css += '.ytc-themed-modal textarea:hover {';
+        css += 'border-color: #525863 !important;';
+        css += '}';
+        css += '.ytc-themed-modal textarea:focus {';
+        css += 'border-color: var(--ytc-border-focus) !important;';
+        css += 'box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;';
+        css += 'outline: none !important;';
+        css += '}';
 
-            // Focus Visible (Accessibility)
-            css += '.ytc-themed-modal :focus-visible {';
-            css += 'outline: 2px solid var(--ytc-accent) !important;';
-            css += 'outline-offset: 2px !important;';
-            css += '}';
+        // Focus Visible (Accessibility)
+        css += '.ytc-themed-modal :focus-visible {';
+        css += 'outline: 2px solid var(--ytc-accent) !important;';
+        css += 'outline-offset: 2px !important;';
+        css += '}';
 
-            // Scrollbar styling
-            css += '.ytc-themed-modal ::-webkit-scrollbar {';
-            css += 'width: 8px !important;';
-            css += '}';
-            css += '.ytc-themed-modal ::-webkit-scrollbar-track {';
-            css += 'background: var(--ytc-bg-primary) !important;';
-            css += 'border-radius: 4px !important;';
-            css += '}';
-            css += '.ytc-themed-modal ::-webkit-scrollbar-thumb {';
-            css += 'background: var(--ytc-border) !important;';
-            css += 'border-radius: 4px !important;';
-            css += '}';
-            css += '.ytc-themed-modal ::-webkit-scrollbar-thumb:hover {';
-            css += 'background: #525863 !important;';
-            css += '}';
+        // Scrollbar styling
+        css += '.ytc-themed-modal ::-webkit-scrollbar {';
+        css += 'width: 8px !important;';
+        css += '}';
+        css += '.ytc-themed-modal ::-webkit-scrollbar-track {';
+        css += 'background: var(--ytc-bg-primary) !important;';
+        css += 'border-radius: 4px !important;';
+        css += '}';
+        css += '.ytc-themed-modal ::-webkit-scrollbar-thumb {';
+        css += 'background: var(--ytc-border) !important;';
+        css += 'border-radius: 4px !important;';
+        css += '}';
+        css += '.ytc-themed-modal ::-webkit-scrollbar-thumb:hover {';
+        css += 'background: #525863 !important;';
+        css += '}';
 
-            // Modern & Compact Overrides
-            css += '.ytc-top-bar { margin-bottom: 20px !important; }';
-            css += '.ytc-top-bar h2 { font-size: 1.25rem !important; font-weight: 600 !important; color: var(--ytc-text-primary) !important; letter-spacing: -0.01em !important; }';
-            css += '.ytc-top-bar .subtitle { font-size: 0.85rem !important; color: var(--ytc-text-muted) !important; margin-top: 2px !important; }';
-            
-            // Input Fields
-            css += '.ytc-input-group { position: relative; display: flex; align-items: center; }';
-            css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"], .ytc-themed-modal textarea {';
-            css += 'background: var(--ytc-bg-input) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'border-radius: 8px !important;';
-            css += 'color: var(--ytc-text-primary) !important;';
-            css += 'font-size: 0.95rem !important;';
-            css += 'padding: 10px 12px !important;';
-            css += 'transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
-            css += 'width: 100% !important;';
-            css += '}';
-            css += '.ytc-themed-modal input:hover, .ytc-themed-modal textarea:hover { border-color: var(--ytc-text-muted) !important; }';
-            css += '.ytc-themed-modal input:focus, .ytc-themed-modal textarea:focus {';
-            css += 'border-color: var(--ytc-border-focus) !important;';
-            css += 'box-shadow: var(--ytc-glow) !important;';
-            css += 'outline: none !important;';
-            css += '}';
+        // Modern & Compact Overrides
+        css += '.ytc-top-bar { margin-bottom: 20px !important; }';
+        css += '.ytc-top-bar h2 { font-size: 1.25rem !important; font-weight: 600 !important; color: var(--ytc-text-primary) !important; letter-spacing: -0.01em !important; }';
+        css += '.ytc-top-bar .subtitle { font-size: 0.85rem !important; color: var(--ytc-text-muted) !important; margin-top: 2px !important; }';
 
-            // Paste Button inside Input
-            css += '.ytc-paste-btn-integrated {';
-            css += 'position: absolute !important; right: 6px !important; top: 50% !important; transform: translateY(-50%) !important;';
-            css += 'background: var(--ytc-bg-tertiary) !important; color: var(--ytc-text-secondary) !important;';
-            css += 'border: none !important; border-radius: 6px !important; padding: 4px 8px !important;';
-            css += 'font-size: 0.8rem !important; font-weight: 500 !important; cursor: pointer !important;';
-            css += 'transition: all 0.2s ease !important; display: flex; align-items: center; gap: 4px; height: 28px !important;';
-            css += '}';
-            css += '.ytc-paste-btn-integrated:hover { background: var(--ytc-accent) !important; color: white !important; }';
+        // Input Fields
+        css += '.ytc-input-group { position: relative; display: flex; align-items: center; }';
+        css += '.ytc-themed-modal input[type="url"], .ytc-themed-modal input[type="text"], .ytc-themed-modal textarea {';
+        css += 'background: var(--ytc-bg-input) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'border-radius: 8px !important;';
+        css += 'color: var(--ytc-text-primary) !important;';
+        css += 'font-size: 0.95rem !important;';
+        css += 'padding: 10px 12px !important;';
+        css += 'transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
+        css += 'width: 100% !important;';
+        css += '}';
+        css += '.ytc-themed-modal input:hover, .ytc-themed-modal textarea:hover { border-color: var(--ytc-text-muted) !important; }';
+        css += '.ytc-themed-modal input:focus, .ytc-themed-modal textarea:focus {';
+        css += 'border-color: var(--ytc-border-focus) !important;';
+        css += 'box-shadow: var(--ytc-glow) !important;';
+        css += 'outline: none !important;';
+        css += '}';
 
-            // Dropdowns
-            css += '.ytc-themed-modal select {';
-            css += 'background: var(--ytc-bg-input) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'border-radius: 8px !important;';
-            css += 'color: var(--ytc-text-primary) !important;';
-            css += 'font-size: 0.9rem !important;';
-            css += 'padding: 8px 12px !important;';
-            css += 'height: 38px !important;';
-            css += 'cursor: pointer !important; transition: all 0.2s ease !important;';
-            css += '}';
-            css += '.ytc-themed-modal select:hover { border-color: var(--ytc-text-muted) !important; }';
-            css += '.ytc-themed-modal select:focus { border-color: var(--ytc-border-focus) !important; box-shadow: var(--ytc-glow) !important; }';
+        // Paste Button inside Input
+        css += '.ytc-paste-btn-integrated {';
+        css += 'position: absolute !important; right: 6px !important; top: 50% !important; transform: translateY(-50%) !important;';
+        css += 'background: var(--ytc-bg-tertiary) !important; color: var(--ytc-text-secondary) !important;';
+        css += 'border: none !important; border-radius: 6px !important; padding: 4px 8px !important;';
+        css += 'font-size: 0.8rem !important; font-weight: 500 !important; cursor: pointer !important;';
+        css += 'transition: all 0.2s ease !important; display: flex; align-items: center; gap: 4px; height: 28px !important;';
+        css += '}';
+        css += '.ytc-paste-btn-integrated:hover { background: var(--ytc-accent) !important; color: white !important; }';
 
-            // AI Config Section
-            css += '.ytc-ai-settings {';
-            css += 'background: var(--ytc-bg-primary) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'border-radius: 8px !important;';
-            css += 'overflow: hidden !important;';
-            css += '}';
-            css += '.ytc-ai-header {';
-            css += 'padding: 10px 14px !important; background: var(--ytc-bg-secondary) !important;';
-            css += 'border-bottom: 1px solid transparent !important; transition: all 0.2s ease !important; cursor: pointer !important;';
-            css += '}';
-            css += '.ytc-ai-header:hover { background: var(--ytc-bg-tertiary) !important; }';
-            css += '.ytc-ai-header.expanded { border-bottom-color: var(--ytc-border) !important; }';
-            css += '.ytc-ai-header:focus-visible { background: var(--ytc-bg-tertiary) !important; outline: 2px solid var(--ytc-accent) !important; outline-offset: -2px !important; }';
-            
-            // Buttons
-            css += '.ytc-action-btn {';
-            css += 'width: 100% !important; padding: 12px !important; border-radius: 10px !important;';
-            css += 'font-weight: 600 !important; font-size: 0.95rem !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
-            css += 'display: flex; align-items: center; justify-content: center; gap: 8px; border: none !important; cursor: pointer !important;';
-            css += 'position: relative !important; overflow: hidden !important;';
-            css += '}';
-            css += '.ytc-action-btn:active { transform: translateY(1px) !important; box-shadow: none !important; }';
-            
-            css += '.ytc-primary-btn {';
-            css += 'background: var(--ytc-accent-gradient) !important; color: white !important;';
-            css += 'box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25), 0 2px 4px rgba(13, 148, 136, 0.15) !important;';
-            css += 'border: 1px solid rgba(255,255,255,0.1) !important;';
-            css += '}';
-            css += '.ytc-primary-btn:hover {';
-            css += 'transform: translateY(-2px) !important;';
-            css += 'box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35), 0 4px 8px rgba(13, 148, 136, 0.2) !important;';
-            css += 'filter: brightness(1.05) !important;';
-            css += '}';
-            
-            css += '.ytc-secondary-btn {';
-            css += 'background: var(--ytc-bg-input) !important; color: var(--ytc-text-primary) !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;';
-            css += '}';
-            css += '.ytc-secondary-btn:hover {';
-            css += 'background: var(--ytc-bg-tertiary) !important;';
-            css += 'border-color: var(--ytc-text-muted) !important;';
-            css += 'transform: translateY(-1px) !important;';
-            css += 'box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important;';
-            css += '}';
-            
-            css += '.ytc-ghost-btn {';
-            css += 'background: transparent !important; color: var(--ytc-text-muted) !important;';
-            css += 'padding: 8px !important; width: auto !important; margin: 0 auto !important;';
-            css += 'font-size: 0.85rem !important; font-weight: 500 !important;';
-            css += '}';
-            css += '.ytc-ghost-btn:hover { color: var(--ytc-text-primary) !important; background: var(--ytc-bg-tertiary) !important; border-radius: 6px !important; }';
-            
-            css += '.ytc-ai-content {';
-            css += 'border-top: 1px solid var(--ytc-border) !important;';
-            css += '}';
-            
-            // Icon Buttons (Refresh, Star)
-            css += '.ytc-icon-btn {';
-            css += 'background: transparent !important;';
-            css += 'border: 1px solid var(--ytc-border) !important;';
-            css += 'color: var(--ytc-text-secondary) !important;';
-            css += 'border-radius: 6px !important;';
-            css += 'width: 32px !important;';
-            css += 'height: 38px !important;';
-            css += 'display: flex !important;';
-            css += 'align-items: center !important;';
-            css += 'justify-content: center !important;';
-            css += 'cursor: pointer !important;';
-            css += 'transition: all 0.2s ease !important;';
-            css += 'font-size: 1rem !important;';
-            css += 'padding: 0 !important;';
-            css += 'flex-shrink: 0 !important;';
-            css += '}';
-            css += '.ytc-icon-btn:hover {';
-            css += 'background: var(--ytc-bg-tertiary) !important;';
-            css += 'color: var(--ytc-text-primary) !important;';
-            css += 'border-color: var(--ytc-text-muted) !important;';
-            css += 'transform: translateY(-1px) !important;';
-            css += 'box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;';
-            css += '}';
+        // Dropdowns
+        css += '.ytc-themed-modal select {';
+        css += 'background: var(--ytc-bg-input) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'border-radius: 8px !important;';
+        css += 'color: var(--ytc-text-primary) !important;';
+        css += 'font-size: 0.9rem !important;';
+        css += 'padding: 8px 12px !important;';
+        css += 'height: 38px !important;';
+        css += 'cursor: pointer !important; transition: all 0.2s ease !important;';
+        css += '}';
+        css += '.ytc-themed-modal select:hover { border-color: var(--ytc-text-muted) !important; }';
+        css += '.ytc-themed-modal select:focus { border-color: var(--ytc-border-focus) !important; box-shadow: var(--ytc-glow) !important; }';
 
-            themeStyle.innerHTML = css;
+        // AI Config Section
+        css += '.ytc-ai-settings {';
+        css += 'background: var(--ytc-bg-primary) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'border-radius: 8px !important;';
+        css += 'overflow: hidden !important;';
+        css += '}';
+        css += '.ytc-ai-header {';
+        css += 'padding: 10px 14px !important; background: var(--ytc-bg-secondary) !important;';
+        css += 'border-bottom: 1px solid transparent !important; transition: all 0.2s ease !important; cursor: pointer !important;';
+        css += '}';
+        css += '.ytc-ai-header:hover { background: var(--ytc-bg-tertiary) !important; }';
+        css += '.ytc-ai-header.expanded { border-bottom-color: var(--ytc-border) !important; }';
+        css += '.ytc-ai-header:focus-visible { background: var(--ytc-bg-tertiary) !important; outline: 2px solid var(--ytc-accent) !important; outline-offset: -2px !important; }';
+
+        // Buttons
+        css += '.ytc-action-btn {';
+        css += 'width: 100% !important; padding: 12px !important; border-radius: 10px !important;';
+        css += 'font-weight: 600 !important; font-size: 0.95rem !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;';
+        css += 'display: flex; align-items: center; justify-content: center; gap: 8px; border: none !important; cursor: pointer !important;';
+        css += 'position: relative !important; overflow: hidden !important;';
+        css += '}';
+        css += '.ytc-action-btn:active { transform: translateY(1px) !important; box-shadow: none !important; }';
+
+        css += '.ytc-primary-btn {';
+        css += 'background: var(--ytc-accent-gradient) !important; color: white !important;';
+        css += 'box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25), 0 2px 4px rgba(13, 148, 136, 0.15) !important;';
+        css += 'border: 1px solid rgba(255,255,255,0.1) !important;';
+        css += '}';
+        css += '.ytc-primary-btn:hover {';
+        css += 'transform: translateY(-2px) !important;';
+        css += 'box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35), 0 4px 8px rgba(13, 148, 136, 0.2) !important;';
+        css += 'filter: brightness(1.05) !important;';
+        css += '}';
+
+        css += '.ytc-secondary-btn {';
+        css += 'background: var(--ytc-bg-input) !important; color: var(--ytc-text-primary) !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;';
+        css += '}';
+        css += '.ytc-secondary-btn:hover {';
+        css += 'background: var(--ytc-bg-tertiary) !important;';
+        css += 'border-color: var(--ytc-text-muted) !important;';
+        css += 'transform: translateY(-1px) !important;';
+        css += 'box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important;';
+        css += '}';
+
+        css += '.ytc-ghost-btn {';
+        css += 'background: transparent !important; color: var(--ytc-text-muted) !important;';
+        css += 'padding: 8px !important; width: auto !important; margin: 0 auto !important;';
+        css += 'font-size: 0.85rem !important; font-weight: 500 !important;';
+        css += '}';
+        css += '.ytc-ghost-btn:hover { color: var(--ytc-text-primary) !important; background: var(--ytc-bg-tertiary) !important; border-radius: 6px !important; }';
+
+        css += '.ytc-ai-content {';
+        css += 'border-top: 1px solid var(--ytc-border) !important;';
+        css += '}';
+
+        // Icon Buttons (Refresh, Star)
+        css += '.ytc-icon-btn {';
+        css += 'background: transparent !important;';
+        css += 'border: 1px solid var(--ytc-border) !important;';
+        css += 'color: var(--ytc-text-secondary) !important;';
+        css += 'border-radius: 6px !important;';
+        css += 'width: 32px !important;';
+        css += 'height: 38px !important;';
+        css += 'display: flex !important;';
+        css += 'align-items: center !important;';
+        css += 'justify-content: center !important;';
+        css += 'cursor: pointer !important;';
+        css += 'transition: all 0.2s ease !important;';
+        css += 'font-size: 1rem !important;';
+        css += 'padding: 0 !important;';
+        css += 'flex-shrink: 0 !important;';
+        css += '}';
+        css += '.ytc-icon-btn:hover {';
+        css += 'background: var(--ytc-bg-tertiary) !important;';
+        css += 'color: var(--ytc-text-primary) !important;';
+        css += 'border-color: var(--ytc-text-muted) !important;';
+        css += 'transform: translateY(-1px) !important;';
+        css += 'box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;';
+        css += '}';
+
+        themeStyle.innerHTML = css;
 
         // Apply theme class to modal
         this.modalEl?.classList.add('ytc-themed-modal');
@@ -1788,7 +1784,7 @@ export class YouTubeUrlModal extends BaseModal {
             transition: width 0.3s ease;
             position: relative;
         `;
-        
+
         // Add shimmer effect
         const shimmer = this.progressBar.createDiv();
         shimmer.style.cssText = `
@@ -1912,8 +1908,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.updateProcessButtonState();
         this.focusUrlInput();
     }
-
-
 
     /**
      * Set up event handlers for the modal
@@ -2134,7 +2128,7 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.timerInterval) window.clearInterval(this.timerInterval);
         const startTime = Date.now();
         if (this.timerEl) this.timerEl.textContent = '0.0s';
-        
+
         this.timerInterval = window.setInterval(() => {
             if (this.timerEl) {
                 const elapsed = (Date.now() - startTime) / 1000;
@@ -2170,7 +2164,7 @@ export class YouTubeUrlModal extends BaseModal {
             this.urlInput.value = '';
             this.url = '';
         }
-        
+
         // Single row layout logic: Hide process button, show secondary row
         if (this.processButton) {
             this.processButton.style.display = 'none';
@@ -2178,7 +2172,7 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.style.display = 'flex';
         }
-        
+
         if (this.headerEl) {
             this.headerEl.textContent = '✅ Video Processed Successfully!';
         }

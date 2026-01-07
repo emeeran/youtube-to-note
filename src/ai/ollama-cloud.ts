@@ -62,13 +62,13 @@ export class OllamaCloudProvider extends BaseAIProvider {
                     throw new Error(`Ollama Cloud model not found: ${this._model}. Please check available models at https://ollama.com/library.`);
                 }
                 if (response.status === 401) {
-                    throw new Error(`Ollama Cloud authentication failed. Please check your API key in plugin settings (get it from https://ollama.com/settings)`);
+                    throw new Error('Ollama Cloud authentication failed. Please check your API key in plugin settings (get it from https://ollama.com/settings)');
                 }
                 if (response.status === 403) {
-                    throw new Error(`Ollama Cloud access denied. Your API key may not have access to this model or the service.`);
+                    throw new Error('Ollama Cloud access denied. Your API key may not have access to this model or the service.');
                 }
                 if (response.status === 429) {
-                    throw new Error(`Ollama Cloud rate limit exceeded. Please try again later or upgrade your plan.`);
+                    throw new Error('Ollama Cloud rate limit exceeded. Please try again later or upgrade your plan.');
                 }
                 if (response.status === 500) {
                     const errorData = await this.safeJsonParse(response);
@@ -165,13 +165,13 @@ export class OllamaCloudProvider extends BaseAIProvider {
                     throw new Error(`Ollama Cloud model not found: ${this._model}. Please check available models at https://ollama.com/library.`);
                 }
                 if (response.status === 401) {
-                    throw new Error(`Ollama Cloud authentication failed. Please check your API key in plugin settings (get it from https://ollama.com/settings)`);
+                    throw new Error('Ollama Cloud authentication failed. Please check your API key in plugin settings (get it from https://ollama.com/settings)');
                 }
                 if (response.status === 403) {
-                    throw new Error(`Ollama Cloud access denied. Your API key may not have access to this model or the service.`);
+                    throw new Error('Ollama Cloud access denied. Your API key may not have access to this model or the service.');
                 }
                 if (response.status === 429) {
-                    throw new Error(`Ollama Cloud rate limit exceeded. Please try again later or upgrade your plan.`);
+                    throw new Error('Ollama Cloud rate limit exceeded. Please try again later or upgrade your plan.');
                 }
                 if (response.status === 500) {
                     const errorData = await this.safeJsonParse(response);
