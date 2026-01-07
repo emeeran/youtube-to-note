@@ -134,31 +134,13 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private registerUIComponents(): void {
-        // Create custom YouTube icon with purple background
-        const youtubeIcon = document.createElement('div');
-        youtubeIcon.innerHTML = `
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
-                <rect width="24" height="24" fill="#FF0000" rx="4"/>
-                <polygon fill="#FFFFFF" points="9.5,7.5 16.5,12 9.5,16.5"/>
-            </svg>
-        `;
-        youtubeIcon.style.cssText = `
-            width: 22px;
-            height: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
 
-        this.ribbonIcon = this.addRibbonIcon('film', 'Process YouTube Video', () => {
+
+        this.ribbonIcon = this.addRibbonIcon('youtube', 'Process YouTube Video', () => {
             console.log('[YT-CLIPPER] Ribbon icon clicked'); void this.safeShowUrlModal();
         });
 
-        // Replace the default icon with our custom YouTube icon
-        const iconEl = this.ribbonIcon.querySelector('.lucide');
-        if (iconEl) {
-            iconEl.replaceWith(youtubeIcon);
-        }
+
 
         logger.plugin('Ribbon icon set successfully');
 

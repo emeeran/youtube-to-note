@@ -46,11 +46,6 @@ ANALYSIS INSTRUCTIONS:
         transcript?: string,
         performanceMode: PerformanceMode = 'balanced'
     ): string {
-        // Use custom prompt if provided
-        if (customPrompt?.trim()) {
-            return this.applyCustomPrompt(customPrompt, videoData, videoUrl);
-        }
-
         // Select base template based on performance mode
         let baseTemplate: string;
         switch (performanceMode) {
@@ -67,8 +62,8 @@ ANALYSIS INSTRUCTIONS:
         // Build transcript section
         let transcriptSection = '';
         if (transcript?.trim()) {
-            // Truncate very long transcripts to avoid token limits
-            const maxLength = 8000;
+            // Truncate very long transcripts to avoid token limits (increased for large context models)
+            const maxLength = 100000;
             const truncatedTranscript = transcript.length > maxLength
                 ? `${transcript.substring(0, maxLength)}... [transcript truncated]`
                 : transcript;
@@ -90,28 +85,16 @@ ANALYSIS INSTRUCTIONS:
                 return this.createBriefPrompt(baseContent, videoUrl, performanceMode);
             case 'transcript':
                 return this.createTranscriptPrompt(baseContent, videoUrl, performanceMode);
+            case 'custom':
+                // For custom format, pass the user's custom prompt into the custom template
+                return this.createCustomFormatPrompt(baseContent, videoData, videoUrl, customPrompt, performanceMode);
             case 'detailed-guide':
             default:
                 return this.createDetailedGuidePrompt(baseContent, videoUrl, performanceMode);
         }
     }
 
-    /**
-     * Apply custom prompt template with placeholder substitution
-     */
-    private applyCustomPrompt(customPrompt: string, videoData: VideoData, videoUrl: string): string {
-        const videoId = ValidationUtils.extractVideoId(videoUrl);
-        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        return customPrompt
-            .replace(/__VIDEO_TITLE__/g, videoData.title || 'Unknown Video')
-            .replace(/__VIDEO_DESCRIPTION__/g, videoData.description || 'No description available')
-            .replace(/__VIDEO_URL__/g, videoUrl)
-            .replace(/__VIDEO_ID__/g, videoId || 'unknown')
-            .replace(/__EMBED_URL__/g, embedUrl)
-            .replace(/__DATE__/g, new Date().toISOString().split('T')[0] ?? '')
-            .replace(/__TIMESTAMP__/g, new Date().toISOString());
-    }
 
     /**
      * Create a brief prompt: Summary + Key Takeaways
@@ -211,9 +194,16 @@ ANALYSIS INSTRUCTIONS:
 
         return `${baseContent}
 
-OUTPUT FORMAT - EXECUTIVE SUMMARY:
+You are an expert content analyst specializing in creating executive transcripts. Your task is to analyze video content and provide a comprehensive yet refined output.
 
-Create a comprehensive executive summary following this EXACT template:
+**Your Analysis Process:**
+1. Carefully review the entire video content, including spoken words, visual elements, and context
+2. Identify the core message, key arguments, and primary value propositions
+3. Extract 3-5 most impactful insights or takeaways
+4. Identify concrete actionable items for the audience
+5. Note all external resources, links, or references mentioned and suggest relevant additional resources
+
+**Required Output Format:**
 
 ---
 title: {{TITLE}}
@@ -230,96 +220,65 @@ ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
 ---
 
-<div style="text-align: center; margin-bottom: 24px;">
-<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+  <iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen title="{{TITLE}}"></iframe>
 </div>
 
 ---
 
-# 📊 Executive Summary
-
-[2-3 paragraph summary capturing the core message and key insights. Focus on the main value proposition and critical takeaways.]
-
-Key concepts include:
-
-- **[Concept 1]:** [Brief definition/explanation]
-- **[Concept 2]:** [Brief definition/explanation]
-- **[Concept 3]:** [Brief definition/explanation]
-
-To implement these insights, consider the following recommendations, risks, and priority actions:
-
-1. **[Action 1]:** [Description]
-2. **[Action 2]:** [Description]
-3. **[Action 3]:** [Description]
-4. **[Action 4]:** [Description]
-
-> **💡 Focus:** Strategic value over narrative recap - prioritize actionable insights.
+### 🔑 Key Takeaways
+Present 3-5 bulleted insights that capture the most important points:
+- **[Takeaway Title]**: Clear, specific insight with supporting detail or context
+- Prioritize insights that are actionable or decision-enabling
+- Include relevant data, quotes, or specific details when applicable
+- Ensure each takeaway stands alone and provides immediate value
 
 ---
 
-## 🎯 Key Strategic Insights
+### 📋 Summary
+> **Core Message:** [The central thesis or main point of the content]
 
-### 🔧 Technical Strategy
-**[One sentence strategic technical insight]**
-
-### 💡 Design Thinking
-**[One sentence strategic design insight]**
-
-### 📚 Continuous Learning
-**[One sentence strategic learning insight]**
+Provide a concise summary (under 250 words) covering:
+- **Key Arguments**: Primary supporting points and reasoning presented
+- **Value Proposition**: What viewers gain from this content and why it matters
+- **Context**: Intended audience, use case, and relevance
+- **Conclusion**: Overall significance or implications
 
 ---
 
-## 🚀 Action Plan & Implementation
+### 🚀 Actionable Items
+List concrete actions the audience can take based on this content:
+- [ ] **[Action 1]**: Specific step, strategy, or implementation
+- [ ] **[Action 2]**: Decision or change to consider
+- [ ] **[Action 3]**: Next step for learning or implementation
+- [ ] **[Action 4]**: Habit, practice, or framework to adopt
 
-### ⚡ Immediate (0-30 days)
-- **Action:** [Specific immediate action]
-- **Success Metric:** [Measurable criteria]
+*(If no explicit actions mentioned, derive implied actions from the content)*
 
-### 📈 Short-term (1-3 months)
-- **Action:** [Specific short-term action]
-- **Success Metric:** [Measurable criteria]
-
-### 🎯 Mid-term (3-6 months)
-- **Action:** [Specific mid-term action]
-- **Success Metric:** [Measurable criteria]
-
-### 🔮 Long-term (6+ months)
-- **Action:** [Specific long-term action]
-- **Success Metric:** [Measurable criteria]
-
-> **✅ Requirement:** Each action item must include clear, measurable success criteria.
 
 ---
 
-## 📚 Curated Resources & References
+### 📚 Resources
 
-### 🎥 Primary Sources
-- **Original Video:** [Watch on YouTube](${videoUrl})
-- **Channel:** [Channel Name](https://youtube.com/channel/[channel-id])
+**Mentioned in Content:**
+- URLs and websites referenced
+- Books, articles, or papers cited
+- Tools, software, or platforms discussed
+- People, companies, or organizations named
 
-### 🛠️ Key Tools & Technologies
-- **[Tool/Technology 1]:** [Brief description]
-- **[Tool/Technology 2]:** [Brief description]
-- **[Tool/Technology 3]:** [Brief description]
+**Suggested for Further Exploration:**
+- Related content that expands on key topics
+- Foundational resources for beginners
+- Advanced materials for deeper understanding
+- Community resources, forums, or documentation
+- Complementary tools or alternatives
 
-### 📖 Official Documentation
-- **[Resource 1]:** [Link]
-- **[Resource 2]:** [Link]
-
-### 🌟 Further Reading
-- **[Article 1]:** [Link]
-- **[Article 2]:** [Link]
-
-IMPORTANT INSTRUCTIONS:
-- Executive Summary should be 2-3 paragraphs (~250 words)
-- Extract 3 key concepts with clear definitions
-- Provide 4 prioritized action items
-- Create 3 strategic insights (Technical Strategy, Design Thinking, Continuous Learning)
-- Develop a 4-phase action plan with measurable success metrics for each phase
-- Include relevant resources (tools, documentation, further reading) with actual links when mentioned in the content
-- Use emojis to make sections visually distinct and scannable
-- Focus on strategic value and actionable insights over narrative recap`;
+**Quality Standards:**
+- Maintain the speaker's voice and intent while improving clarity
+- Ensure accuracy in technical details and proper nouns
+- Create a document that can be read independently without the video
+- Preserve important context that might be lost in pure transcription
+- Make actionable items specific and realistic`;
     }
 
     /**
@@ -362,6 +321,94 @@ IMPORTANT INSTRUCTIONS:
         **Formatting Rules:**
         - Remove time-stamps, filler words, and any unnecessary details.
         - Include external links and resources for further reading and viewing.`;
+    }
+
+    /**
+     * Create custom format prompt: adaptable analysis based on user instructions
+     */
+    private createCustomFormatPrompt(baseContent: string, videoData: VideoData, videoUrl: string, customInstructions?: string, performanceMode: PerformanceMode = 'balanced'): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl);
+        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
+
+        // Determine user instructions for custom template
+        const userInstructions = customInstructions?.trim() 
+            ? `USER'S CUSTOM INSTRUCTIONS:\n${customInstructions}\n\n`
+            : ``; // If no custom instructions, just an empty string
+
+        return `${baseContent}
+
+You are an adaptive content analyst capable of providing customized analysis based on specific user requirements. Your task is to analyze content according to the user's explicit instructions while maintaining high quality standards.
+
+**Your Analysis Process:**
+1. Carefully read and understand the custom requirements provided
+2. Identify the specific analysis type, depth, and format needed
+3. Determine appropriate structure and level of detail
+4. Extract relevant information aligned with the custom objectives
+
+**Default Output Format (if no custom format specified):**
+
+### ANALYSIS OVERVIEW
+- Purpose of this analysis
+- Methodology or approach used
+- Scope and limitations
+
+### CUSTOM CONTENT
+${userInstructions}
+[Deliver analysis according to user specifications, which may include:]
+- Summaries, transcripts, or distillations
+- Specific sections or topic breakdowns
+- Comparative analysis or synthesis
+- Technical deep-dives or explanations
+- Audience-specific adaptations
+- Industry or domain-focused insights
+
+### SUPPLEMENTARY INFORMATION
+If relevant, include:
+- External links and resources
+- Related content or context
+- Recommendations for further exploration
+- Clarifications or caveats
+
+**Adaptation Guidelines:**
+- **Format Flexibility**: Adjust structure to match user needs (narrative, outline, Q&A, etc.)
+- **Depth Control**: Scale detail level from high-level overview to comprehensive deep-dive
+- **Audience Tuning**: Adapt language and complexity for specified audience
+- **Purpose Alignment**: Optimize output for stated use case (learning, decision-making, reference, etc.)
+- **Custom Filtering**: Include/exclude specific types of information as requested
+
+**Quality Standards:**
+- Confirm understanding of custom requirements if ambiguous
+- Maintain accuracy and objectivity regardless of format
+- Preserve citations and attributions
+- Flag when custom requirements conflict with content availability
+- Suggest alternative approaches if original request isn't feasible
+
+**Usage Note:**
+When using this template, provide clear custom instructions such as:
+- Desired output format and structure
+- Specific focus areas or exclusions
+- Target audience and expertise level
+- Intended use case or application
+- Length constraints or expansion needs
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-custom
+format: custom
+tags: [youtube, custom]
+video_id: "${videoId || 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
+
+---
+`;
     }
 
     /**

@@ -240,7 +240,7 @@ export class YouTubeUrlModal extends BaseModal {
         // Header Title
         const titleContainer = topBar.createDiv();
         const title = titleContainer.createEl('h2');
-        title.textContent = 'Process YouTube Video';
+        title.textContent = 'YouTube to Note';
         this.headerEl = title;
 
         const subtitle = titleContainer.createDiv('subtitle');
