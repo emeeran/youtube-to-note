@@ -7,10 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import {
     PipelineContext,
-    PipelineResult,
     PipelineMetrics,
     StageExecution,
-    PipelineError,
 } from './types';
 import { PipelineStage, BaseStage } from './stage';
 import { PipelineMiddleware } from './middleware';
@@ -95,14 +93,13 @@ export class PipelineOrchestrator {
             metadata: {
                 pipelineId,
                 timestamp: Date.now(),
-                source: metadata.source || 'manual',
+                source: metadata.source ?? 'manual',
                 startTime,
                 ...metadata,
             },
         };
 
         const executionHistory: StageExecution[] = [];
-        let errorCount = 0;
 
         try {
             // Execute stages in sequence

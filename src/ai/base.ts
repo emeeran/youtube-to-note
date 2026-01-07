@@ -46,7 +46,7 @@ export abstract class BaseAIProvider implements AIProvider {
 
     protected constructor(protected apiKey: string, initialModel?: string, timeout?: number) {
         // Note: API key validation is now optional - some providers (like Ollama) don't require it
-        this._model = initialModel || '';
+        this._model = initialModel ?? '';
         if (timeout) {
             this._timeout = timeout;
         }
@@ -61,7 +61,7 @@ export abstract class BaseAIProvider implements AIProvider {
      * Process with timeout support
      */
     async processWithTimeout(prompt: string, customTimeout?: number): Promise<string> {
-        const timeoutMs = customTimeout || this._timeout;
+        const timeoutMs = customTimeout ?? this._timeout;
 
         const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => {

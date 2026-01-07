@@ -11,7 +11,7 @@ import { MESSAGES } from '../constants/index';
  */
 function formatGroqError(rawMessage: string): string {
     // Extract retry time if present
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) || rawMessage.match(/(\d+)\s*seconds?/i);
+    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
 
     if (rawMessage.toLowerCase().includes('tokens per minute')) {
@@ -33,7 +33,7 @@ export class GroqProvider extends BaseAIProvider {
     readonly name = 'Groq';
 
     constructor(apiKey: string, model?: string, timeout?: number) {
-        super(apiKey, model || AI_MODELS.GROQ, timeout);
+        super(apiKey, model ?? AI_MODELS.GROQ, timeout);
     }
 
     async process(prompt: string): Promise<string> {

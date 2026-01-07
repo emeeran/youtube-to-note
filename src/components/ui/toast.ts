@@ -46,7 +46,7 @@ class ToastManager {
         return this.show({ message, type: 'warning', duration });
     }
 
-    error(message: string, duration?: number): Notice {
+    error(message: string, _duration?: number): Notice {
         return this.show({ message, type: 'error', duration: 5000 });
     }
 

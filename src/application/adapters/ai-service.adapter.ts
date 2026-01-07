@@ -19,11 +19,6 @@ interface AIResponse {
   model: string;
 }
 
-interface VideoData {
-  title: string;
-  [key: string]: any;
-}
-
 /**
  * Adapter class that mimics the original AIService interface
  * but delegates to the new pipeline architecture
@@ -156,7 +151,7 @@ export class AIServiceAdapter {
    */
     cleanup(): void {
         this.originalAIService.cleanup();
-        this.pipeline.cleanup();
+        void this.pipeline.cleanup();
     }
 
     /**
@@ -183,11 +178,11 @@ export class AIServiceAdapter {
         try {
             const result = await this.pipeline.execute(
                 {
-                    source: params.source || 'manual',
+                    source: params.source ?? 'manual',
                     rawInput: params.url,
                 },
                 {
-                    source: params.source || 'manual',
+                    source: params.source ?? 'manual',
                 }
             );
 

@@ -4,10 +4,8 @@
  */
 
 import { AIService as IAIService, AIProvider, AIResponse, YouTubePluginSettings } from '../../types';
-import { MESSAGES } from '../../constants/index';
 import { ProviderManager } from './provider-manager';
 import { FallbackStrategy } from './fallback-strategy';
-import { logger } from '../../services/logger';
 import { performanceTracker } from '../../services/performance-tracker';
 
 /**
@@ -80,7 +78,7 @@ export class AIOrchestrator implements IAIService {
         return await this.fallbackStrategy.executeWithFallback(
             providerName,
             prompt,
-            async (provider, model) => {
+            async (provider, _model) => {
                 return await this.fallbackStrategy.processWithRetry(provider, prompt, images);
             },
             {
@@ -95,9 +93,10 @@ export class AIOrchestrator implements IAIService {
    * Apply performance settings to providers
    */
     private applyPerformanceSettings(settings: YouTubePluginSettings): void {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { PERFORMANCE_PRESETS } = require('../../performance');
-        const preset = PERFORMANCE_PRESETS[settings.performanceMode] || PERFORMANCE_PRESETS.balanced;
-        const timeouts = settings.customTimeouts || preset.timeouts;
+        const preset = PERFORMANCE_PRESETS[settings.performanceMode] ?? PERFORMANCE_PRESETS.balanced;
+        const timeouts = settings.customTimeouts ?? preset.timeouts;
 
         const providers = this.providerManager.getProviders();
 

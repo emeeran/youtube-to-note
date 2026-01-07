@@ -4,7 +4,7 @@
  */
 
 import { BaseStage } from '../stage';
-import { PipelineContext, StageOutput, ValidationResult } from '../types';
+import { PipelineContext, StageOutput } from '../types';
 
 export interface ValidationInput {
   url: string;
@@ -143,7 +143,7 @@ export class ValidationStage extends BaseStage {
 
     canExecute(context: PipelineContext): boolean {
         const input = context.input as ValidationInput;
-        return !!(input && input.url);
+        return !!(input?.url);
     }
 
     getTimeout(): number {

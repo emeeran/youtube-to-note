@@ -52,7 +52,7 @@ export class PersistenceStage extends BaseStage {
             // For now, we'll use a timestamped filename
             const timestamp = Date.now();
             const pathParts = filePath.split('/');
-            const filename = pathParts.pop() || 'note.md';
+            const filename = pathParts.pop() ?? 'note.md';
             const nameWithoutExt = filename.replace('.md', '');
             const newFilename = `${nameWithoutExt}-${timestamp}.md`;
             pathParts.push(newFilename);
@@ -67,7 +67,7 @@ export class PersistenceStage extends BaseStage {
             await this.fileService.saveToFile(
                 input.videoData.title,
                 formattedContent,
-                input.outputPath || 'YouTube/Processed Videos'
+                input.outputPath ?? 'YouTube/Processed Videos'
             );
         } catch (error) {
             throw new Error(`Failed to save file: ${(error as Error).message}`);
@@ -96,7 +96,7 @@ export class PersistenceStage extends BaseStage {
     }
 
     private async generateFilePath(input: PersistenceInput): Promise<string> {
-        const outputPath = input.outputPath || 'YouTube/Processed Videos';
+        const outputPath = input.outputPath ?? 'YouTube/Processed Videos';
         const sanitizedTitle = this.sanitizeFilename(input.videoData.title);
         return `${outputPath}/${sanitizedTitle}.md`;
     }
@@ -109,9 +109,9 @@ export class PersistenceStage extends BaseStage {
             .substring(0, 100);
     }
 
-    private async checkForConflicts(filePath: string): Promise<string | null> {
-    // This would check if file already exists
-    // For now, return null (no conflict detection)
+    private async checkForConflicts(_filePath: string): Promise<string | null> {
+        // This would check if file already exists
+        // For now, return null (no conflict detection)
         return null;
     }
 
@@ -124,8 +124,8 @@ export class PersistenceStage extends BaseStage {
             tags: this.generateTags(videoData),
             youtube_url: url,
             video_id: this.extractVideoId(url),
-            ...(provider && { ai_provider: provider }),
-            ...(model && { ai_model: model }),
+            ...(provider ? { ai_provider: provider } : {}),
+            ...(model ? { ai_model: model } : {}),
             date: new Date().toISOString(),
         };
 
@@ -186,7 +186,7 @@ export class PersistenceStage extends BaseStage {
 
     canExecute(context: PipelineContext): boolean {
         const input = context.input as PersistenceInput;
-        return !!(input && input.generatedContent && input.videoData);
+        return !!(input?.generatedContent && input?.videoData);
     }
 
     getTimeout(): number {

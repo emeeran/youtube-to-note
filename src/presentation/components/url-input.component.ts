@@ -53,7 +53,7 @@ export class URLInputComponent {
 
         this.input = inputWrapper.createEl('input');
         this.input.type = 'url';
-        this.input.placeholder = this.options.placeholder || 'Paste URL...';
+        this.input.placeholder = this.options.placeholder ?? 'Paste URL...';
         this.input.style.cssText = `
       flex: 1;
       padding: 6px 8px;

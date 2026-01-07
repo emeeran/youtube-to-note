@@ -329,12 +329,12 @@ export const PROVIDER_MODEL_LIST_URLS: Record<string, string> = {
 
 // Simple regex patterns to try to extract model-like tokens from provider pages
 export const PROVIDER_MODEL_REGEX: Record<string, RegExp> = {
-    'Google Gemini': /gemini[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
-    'Groq': /llama[-_\.]?\d+(?:\.\d+)?(?:-[a-z0-9\-]+)?/gi,
+    'Google Gemini': /gemini[-_.]?\d+(?:\.\d+)?(?:-[a-z0-9-]+)?/gi,
+    'Groq': /llama[-_.]?\d+(?:\.\d+)?(?:-[a-z0-9-]+)?/gi,
     'Ollama': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
     'Ollama Cloud': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
-    'Hugging Face': /[\w-]+\/[\w\-\.]+/g,
-    'OpenRouter': /[\w-]+\/[\w\-\.:]+/g,
+    'Hugging Face': /[\w-]+\/[\w-.]+/g,
+    'OpenRouter': /[\w-]+\/[\w-.:]+/g,
 };
 
 export const API_LIMITS = {

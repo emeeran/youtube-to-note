@@ -93,7 +93,7 @@ export class MemoryCacheService implements CacheService {
         const item: CacheItem<T> = {
             data,
             timestamp: Date.now(),
-            ttl: ttl || this.config.defaultTTL,
+            ttl: ttl ?? this.config.defaultTTL,
             hits: 0,
             size: this.estimateSize(data),
         };

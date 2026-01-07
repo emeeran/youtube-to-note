@@ -54,9 +54,9 @@ export class ConfirmationModal extends BaseModal {
         const buttonContainer = this.createButtonContainer();
         buttonContainer.style.marginTop = '20px';
 
-        const confirmText = this.options.confirmText || 'Confirm';
-        const cancelText = this.options.cancelText || 'Cancel';
-        const isDangerous = this.options.isDangerous || false;
+        const confirmText = this.options.confirmText ?? 'Confirm';
+        const cancelText = this.options.cancelText ?? 'Cancel';
+        const isDangerous = this.options.isDangerous ?? false;
 
         if (isDangerous) {
             // Swap: cancel on left, confirm on right (for destructive actions)

@@ -12,7 +12,7 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
  * Extract clean error message from OpenRouter API response
  */
 function formatOpenRouterError(rawMessage: string): string {
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) || rawMessage.match(/(\d+)\s*seconds?/i);
+    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
 
     if (rawMessage.toLowerCase().includes('rate limit')) {
@@ -37,7 +37,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Default to a capable free/cheap model
-        super(apiKey, model || 'meta-llama/llama-3.1-8b-instruct:free', timeout);
+        super(apiKey, model ?? 'meta-llama/llama-3.1-8b-instruct:free', timeout);
         this.siteUrl = 'https://github.com/user/yt-clipper';
         this.siteName = 'YouTube Clipper Obsidian Plugin';
     }

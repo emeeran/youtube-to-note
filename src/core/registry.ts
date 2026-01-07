@@ -3,9 +3,8 @@
  * Handles registration of UI components, commands, and event handlers
  */
 
-import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { Plugin } from 'obsidian';
 import { YouTubeSettingsTab } from '../settings-tab';
-import { YouTubeUrlModal, BatchVideoModal } from '../components/features/youtube';
 import { YouTubePluginSettings } from '../types';
 
 export interface RegistrationConfig {

@@ -76,8 +76,8 @@ export class UserPreferencesService {
                 const parsed = JSON.parse(stored);
                 return { ...this.DEFAULT_PREFERENCES, ...parsed };
             }
-        } catch (error) {
-
+        } catch {
+            // Ignore error
         }
         return { ...this.DEFAULT_PREFERENCES };
     }
@@ -88,8 +88,8 @@ export class UserPreferencesService {
     static savePreferences(preferences: UserPreferences): void {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(preferences));
-        } catch (error) {
-
+        } catch {
+            // Ignore error
         }
     }
 
@@ -128,12 +128,12 @@ export class UserPreferencesService {
 
         if (settings.format) {
             preferences.lastFormat = settings.format;
-            preferences.formatUsage![settings.format] = (preferences.formatUsage![settings.format] || 0) + 1;
+            preferences.formatUsage![settings.format] = (preferences.formatUsage![settings.format] ?? 0) + 1;
         }
 
         if (settings.provider) {
             preferences.lastProvider = settings.provider;
-            preferences.providerUsage![settings.provider] = (preferences.providerUsage![settings.provider] || 0) + 1;
+            preferences.providerUsage![settings.provider] = (preferences.providerUsage![settings.provider] ?? 0) + 1;
         }
 
         if (settings.model) preferences.lastModel = settings.model;
@@ -145,7 +145,7 @@ export class UserPreferencesService {
         if (settings.autoFallback !== undefined) preferences.lastAutoFallback = settings.autoFallback;
 
         preferences.lastUsed = new Date().toISOString();
-        preferences.totalProcessed = (preferences.totalProcessed || 0) + 1;
+        preferences.totalProcessed = (preferences.totalProcessed ?? 0) + 1;
 
         this.savePreferences(preferences);
     }
@@ -162,7 +162,7 @@ export class UserPreferencesService {
         }
 
         // Return most frequently used format
-        const formatUsage = preferences.formatUsage || {};
+        const formatUsage = preferences.formatUsage ?? {};
         let maxUsage = 0;
         let mostUsedFormat: OutputFormat = 'executive-summary';
 
@@ -189,7 +189,7 @@ export class UserPreferencesService {
         }
 
         // Return most frequently used provider
-        const providerUsage = preferences.providerUsage || {};
+        const providerUsage = preferences.providerUsage ?? {};
         let maxUsage = 0;
         let mostUsedProvider: string | undefined;
 
@@ -210,8 +210,8 @@ export class UserPreferencesService {
         const preferences = this.loadPreferences();
 
         return {
-            maxTokens: preferences.lastMaxTokens || 4096,
-            temperature: preferences.lastTemperature || 0.5,
+            maxTokens: preferences.lastMaxTokens ?? 4096,
+            temperature: preferences.lastTemperature ?? 0.5,
         };
     }
 
@@ -227,10 +227,10 @@ export class UserPreferencesService {
         const preferences = this.loadPreferences();
 
         return {
-            mode: preferences.lastPerformanceMode || 'balanced',
-            parallel: preferences.lastParallelProcessing || false,
-            multimodal: preferences.lastMultimodal || true,
-            autoFallback: preferences.lastAutoFallback !== undefined ? preferences.lastAutoFallback : true,
+            mode: preferences.lastPerformanceMode ?? 'balanced',
+            parallel: preferences.lastParallelProcessing ?? false,
+            multimodal: preferences.lastMultimodal ?? true,
+            autoFallback: preferences.lastAutoFallback ?? true,
         };
     }
 
@@ -246,7 +246,7 @@ export class UserPreferencesService {
         }
 
         // Return last used auto-fallback setting
-        return preferences.lastAutoFallback !== undefined ? preferences.lastAutoFallback : true;
+        return preferences.lastAutoFallback ?? true;
     }
 
     /**
@@ -261,8 +261,8 @@ export class UserPreferencesService {
         recommendations: string[];
         } {
         const preferences = this.loadPreferences();
-        const formatUsage = preferences.formatUsage || {};
-        const providerUsage = preferences.providerUsage || {};
+        const formatUsage = preferences.formatUsage ?? {};
+        const providerUsage = preferences.providerUsage ?? {};
 
         // Find favorites
         let favoriteFormat: OutputFormat = 'executive-summary';
@@ -288,7 +288,7 @@ export class UserPreferencesService {
         }
 
         // Determine usage level
-        const totalProcessed = preferences.totalProcessed || 0;
+        const totalProcessed = preferences.totalProcessed ?? 0;
         const usageLevel = totalProcessed < 5 ? 'light' : totalProcessed < 20 ? 'moderate' : 'heavy';
 
         // Generate recommendations
@@ -309,8 +309,8 @@ export class UserPreferencesService {
         return {
             favoriteFormat,
             favoriteProvider,
-            averageTokens: preferences.lastMaxTokens || 4096,
-            averageTemperature: preferences.lastTemperature || 0.5,
+            averageTokens: preferences.lastMaxTokens ?? 4096,
+            averageTemperature: preferences.lastTemperature ?? 0.5,
             usageLevel,
             recommendations,
         };

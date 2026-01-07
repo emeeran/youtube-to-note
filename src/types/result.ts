@@ -14,11 +14,11 @@ export class Ok<T> {
         return false;
     }
 
-    map<U>(fn: (value: T) => U): Result<U, never> {
-        return new Ok(fn(this.value));
+    map<U>(_fn: (value: T) => U): Result<U, never> {
+        return new Ok(_fn(this.value));
     }
 
-    mapErr<U>(fn: (error: never) => U): Result<T, U> {
+    mapErr<U>(_fn: (error: never) => U): Result<T, U> {
         return this as unknown as Result<T, U>;
     }
 
@@ -46,7 +46,7 @@ export class Err<E> {
         return true;
     }
 
-    map<U>(fn: (value: never) => U): Result<U, E> {
+    map<U>(_fn: (value: never) => U): Result<U, E> {
         return this as unknown as Result<U, E>;
     }
 

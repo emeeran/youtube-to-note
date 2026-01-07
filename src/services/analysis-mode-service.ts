@@ -85,7 +85,7 @@ Format as a structured review.`,
     }
 
     getPrompt(mode: AnalysisMode): AnalysisPrompt {
-        return this.prompts.get(mode) || this.prompts.get('general')!;
+        return this.prompts.get(mode) ?? this.prompts.get('general')!;
     }
 
     analyzeWithMode(transcript: string, mode: AnalysisMode): string {

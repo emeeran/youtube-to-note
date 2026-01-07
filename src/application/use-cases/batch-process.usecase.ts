@@ -40,7 +40,7 @@ export class BatchProcessUseCase {
         const results: BatchProcessResponse['results'] = [];
         let completedCount = 0;
 
-        const concurrency = request.concurrency || 3;
+        const concurrency = request.concurrency ?? 3;
         const videos = request.videos;
 
         // Process videos with concurrency control

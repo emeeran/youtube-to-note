@@ -32,7 +32,7 @@ export class SecureConfigService {
 
         // In browser environment, we can only access environment variables
         // that were set during build time or through a secure configuration service
-        return this.getSecureEnvVar(envVarName) || '';
+        return this.getSecureEnvVar(envVarName) ?? '';
     }
 
     /**
@@ -40,7 +40,7 @@ export class SecureConfigService {
      * Note: In Obsidian plugins, environment variables are limited
      * This method can be extended for server-side environments
      */
-    private getSecureEnvVar(varName: string): string | undefined {
+    private getSecureEnvVar(_varName: string): string | undefined {
         // For Obsidian plugin environment, we might need to use a different approach
         // such as reading from a secure configuration file or service
         if (typeof process !== 'undefined' && process.env) {
@@ -54,7 +54,7 @@ export class SecureConfigService {
     /**
      * Get from secure storage (implementation depends on environment)
      */
-    private getFromSecureStorage(varName: string): string | undefined {
+    private getFromSecureStorage(_varName: string): string | undefined {
         // This could be implemented to read from:
         // - Encrypted local storage
         // - System keychain

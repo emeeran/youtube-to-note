@@ -1,8 +1,7 @@
-import { ErrorHandler } from './services/error-handler';
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
-import { App, Plugin, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
 /**
  * Plugin settings tab component
@@ -57,8 +56,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.createAISection();
         this.createOutputSection();
         this.createAdvancedSection();
-        this.createHelpSection();
-        this.createKeyboardShortcutsInfo();
     }
 
     private injectStyles(): void {
@@ -68,218 +65,179 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         style.id = `${CSS_PREFIX}-styles`;
         style.textContent = `
             .${CSS_PREFIX}-container {
-                max-width: 700px;
+                max-width: 800px;
                 margin: 0 auto;
+                padding-bottom: 40px;
             }
 
+            /* Header */
             .${CSS_PREFIX}-header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 16px 20px;
                 margin-bottom: 24px;
-                background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-secondary-alt) 100%);
-                border-radius: 12px;
-                border: 1px solid var(--background-modifier-border);
+                padding-bottom: 16px;
+                border-bottom: 1px solid var(--background-modifier-border);
             }
 
             .${CSS_PREFIX}-title {
                 margin: 0;
-                font-size: 1.5rem;
+                font-size: 1.5em;
                 font-weight: 700;
                 display: flex;
                 align-items: center;
-                gap: 10px;
+                gap: 12px;
+                color: var(--text-normal);
             }
 
             .${CSS_PREFIX}-badge {
-                padding: 6px 14px;
-                border-radius: 20px;
-                font-size: 0.8rem;
+                padding: 4px 10px;
+                border-radius: 4px;
+                font-size: 0.75rem;
                 font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
             }
 
             .${CSS_PREFIX}-badge-ready {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
+                background: rgba(var(--color-green-rgb), 0.15);
+                color: var(--color-green);
             }
 
             .${CSS_PREFIX}-badge-setup {
-                background: #f59e0b;
-                color: white;
+                background: rgba(var(--color-orange-rgb), 0.15);
+                color: var(--color-orange);
             }
 
-            .${CSS_PREFIX}-section {
-                margin-bottom: 24px;
-                padding: 20px;
-                background: var(--background-secondary);
-                border-radius: 12px;
-                border: 1px solid var(--background-modifier-border);
+            /* Search Bar */
+            .${CSS_PREFIX}-search-bar {
+                position: relative;
+                margin-bottom: 20px;
             }
 
-            .${CSS_PREFIX}-section-header {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                margin-bottom: 16px;
-                padding-bottom: 12px;
-                border-bottom: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-section-icon {
-                font-size: 1.3rem;
-            }
-
-            .${CSS_PREFIX}-section-title {
-                margin: 0;
-                font-size: 1.1rem;
-                font-weight: 600;
-            }
-
-            .${CSS_PREFIX}-slider-wrap {
-                margin: 16px 0;
-                padding: 12px;
-                background: var(--background-primary);
-                border-radius: 8px;
-            }
-
-            .${CSS_PREFIX}-slider-top {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 10px;
-            }
-
-            .${CSS_PREFIX}-slider-label {
-                font-weight: 600;
-                font-size: 0.95rem;
-            }
-
-            .${CSS_PREFIX}-slider-value {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-                padding: 4px 12px;
-                border-radius: 6px;
-                font-weight: 600;
-                font-size: 0.85rem;
-                min-width: 60px;
-                text-align: center;
-            }
-
-            .${CSS_PREFIX}-slider-desc {
-                font-size: 0.8rem;
-                color: var(--text-muted);
-                margin-top: 8px;
-            }
-
-            .${CSS_PREFIX}-slider {
+            .${CSS_PREFIX}-search-bar input {
                 width: 100%;
-                height: 8px;
-                border-radius: 4px;
-                background: var(--background-modifier-border);
-                -webkit-appearance: none;
-                appearance: none;
-                cursor: pointer;
-            }
-
-            .${CSS_PREFIX}-slider::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 20px;
-                height: 20px;
-                background: var(--interactive-accent);
-                border-radius: 50%;
-                cursor: pointer;
-                border: 3px solid var(--background-primary);
-                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            }
-
-            .${CSS_PREFIX}-slider::-moz-range-thumb {
-                width: 20px;
-                height: 20px;
-                background: var(--interactive-accent);
-                border-radius: 50%;
-                cursor: pointer;
-                border: 3px solid var(--background-primary);
-            }
-
-            .${CSS_PREFIX}-slider-scale {
-                display: flex;
-                justify-content: space-between;
-                font-size: 0.75rem;
-                color: var(--text-muted);
-                margin-top: 6px;
-            }
-
-            .${CSS_PREFIX}-help-grid {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 12px;
-            }
-
-            .${CSS_PREFIX}-help-card {
-                padding: 14px;
+                padding: 10px 12px 10px 36px;
                 background: var(--background-primary);
-                border-radius: 8px;
                 border: 1px solid var(--background-modifier-border);
-                transition: border-color 0.2s ease;
+                border-radius: 6px;
+                font-size: 0.9rem;
+                transition: all 0.2s ease;
             }
 
-            .${CSS_PREFIX}-help-card:hover {
+            .${CSS_PREFIX}-search-bar input:focus {
                 border-color: var(--interactive-accent);
+                box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.1);
             }
 
-            .${CSS_PREFIX}-help-card h4 {
-                margin: 0 0 6px 0;
-                font-size: 0.95rem;
-            }
-
-            .${CSS_PREFIX}-help-card p {
-                margin: 0;
-                font-size: 0.85rem;
+            .${CSS_PREFIX}-search-icon {
+                position: absolute;
+                left: 12px;
+                top: 50%;
+                transform: translateY(-50%);
                 color: var(--text-muted);
+                font-size: 1rem;
+                pointer-events: none;
             }
 
-            .${CSS_PREFIX}-help-card a {
-                color: var(--link-color);
-            }
-
-            .${CSS_PREFIX}-drawer {
+            /* Status Dashboard (Compact Row) */
+            .${CSS_PREFIX}-status-dashboard {
                 margin-bottom: 24px;
-                border-radius: 12px;
+                background: var(--background-secondary);
+                border-radius: 8px;
+                padding: 12px 16px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                overflow-x: auto;
                 border: 1px solid var(--background-modifier-border);
+            }
+
+            .${CSS_PREFIX}-status-title {
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                white-space: nowrap;
+                margin-right: 8px;
+            }
+
+            .${CSS_PREFIX}-status-grid {
+                display: flex;
+                gap: 8px;
+                flex: 1;
+            }
+
+            .${CSS_PREFIX}-status-chip {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px;
+                background: var(--background-primary);
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 12px;
+                font-size: 0.8rem;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                white-space: nowrap;
+            }
+
+            .${CSS_PREFIX}-status-chip:hover {
+                transform: translateY(-1px);
+                border-color: var(--text-muted);
+            }
+
+            .${CSS_PREFIX}-status-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+            }
+
+            .${CSS_PREFIX}-status-chip.valid .${CSS_PREFIX}-status-dot { background: var(--color-green); box-shadow: 0 0 4px var(--color-green); }
+            .${CSS_PREFIX}-status-chip.invalid .${CSS_PREFIX}-status-dot { background: var(--color-red); }
+            .${CSS_PREFIX}-status-chip.testing .${CSS_PREFIX}-status-dot { background: var(--color-yellow); animation: pulse 1s infinite; }
+            .${CSS_PREFIX}-status-chip.untested .${CSS_PREFIX}-status-dot { background: var(--text-muted); }
+
+            /* Drawers/Sections */
+            .${CSS_PREFIX}-drawer {
+                margin-bottom: 12px;
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 6px;
                 overflow: hidden;
+                background: var(--background-primary);
             }
 
             .${CSS_PREFIX}-drawer-header {
                 display: flex;
                 align-items: center;
-                gap: 10px;
-                padding: 16px 20px;
-                background: var(--background-secondary);
+                gap: 12px;
+                padding: 12px 16px;
+                background: var(--background-primary);
                 cursor: pointer;
-                user-select: none;
-                transition: background 0.2s ease;
+                transition: background 0.15s ease;
             }
 
             .${CSS_PREFIX}-drawer-header:hover {
-                background: var(--background-secondary-alt);
+                background: var(--background-secondary);
             }
 
             .${CSS_PREFIX}-drawer-icon {
-                font-size: 1.3rem;
+                color: var(--text-muted);
+                font-size: 1.1rem;
             }
 
             .${CSS_PREFIX}-drawer-title {
-                margin: 0;
-                font-size: 1.1rem;
-                font-weight: 600;
                 flex: 1;
+                margin: 0;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--text-normal);
             }
 
             .${CSS_PREFIX}-drawer-arrow {
-                font-size: 0.9rem;
-                transition: transform 0.3s ease;
                 color: var(--text-muted);
+                font-size: 0.8rem;
+                transition: transform 0.2s ease;
             }
 
             .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-arrow {
@@ -287,377 +245,92 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
 
             .${CSS_PREFIX}-drawer-content {
-                max-height: 0;
-                overflow: hidden;
-                transition: max-height 0.3s ease;
-                background: var(--background-secondary);
+                display: none;
+                padding: 16px;
+                border-top: 1px solid var(--background-modifier-border);
+                background: var(--background-primary);
             }
 
             .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-content {
-                max-height: 2000px;
+                display: block;
+                animation: fadeIn 0.2s ease;
             }
 
-            .${CSS_PREFIX}-drawer-inner {
-                padding: 0 20px 20px 20px;
+            /* Controls */
+            .${CSS_PREFIX}-password-toggle {
+                background: transparent;
+                border: none;
+                color: var(--text-muted);
+                cursor: pointer;
+                padding: 4px;
             }
-
-            .${CSS_PREFIX}-api-key-row {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .${CSS_PREFIX}-api-key-row .setting-item-control {
-                flex-wrap: nowrap;
+            
+            .${CSS_PREFIX}-password-toggle:hover {
+                color: var(--text-normal);
             }
 
             .${CSS_PREFIX}-validate-btn {
-                padding: 6px 12px;
-                border-radius: 6px;
+                padding: 4px 10px;
+                border-radius: 4px;
                 font-size: 0.8rem;
-                cursor: pointer;
-                border: 1px solid var(--background-modifier-border);
-                background: var(--background-primary);
-                color: var(--text-normal);
-                transition: all 0.2s ease;
-                white-space: nowrap;
+                font-weight: 500;
             }
 
-            .${CSS_PREFIX}-validate-btn:hover {
-                background: var(--background-modifier-hover);
-                border-color: var(--interactive-accent);
-            }
-
-            .${CSS_PREFIX}-validate-btn:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
-            }
-
-            .${CSS_PREFIX}-validate-btn.is-success {
-                background: #22c55e;
-                color: white;
-                border-color: #22c55e;
-            }
-
-            .${CSS_PREFIX}-validate-btn.is-error {
-                background: #ef4444;
-                color: white;
-                border-color: #ef4444;
-            }
-
-            .${CSS_PREFIX}-search-bar {
-                margin-bottom: 20px;
-                padding: 12px 16px;
+            /* Quick Actions Toolbar */
+            .${CSS_PREFIX}-quick-actions {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 24px;
+                padding: 4px;
                 background: var(--background-secondary);
                 border-radius: 8px;
                 border: 1px solid var(--background-modifier-border);
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-
-            .${CSS_PREFIX}-search-bar input {
-                flex: 1;
-                background: transparent;
-                border: none;
-                outline: none;
-                font-size: 0.95rem;
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-search-bar input::placeholder {
-                color: var(--text-muted);
-            }
-
-            .${CSS_PREFIX}-search-icon {
-                font-size: 1.1rem;
-                color: var(--text-muted);
-            }
-
-            .${CSS_PREFIX}-status-dashboard {
-                margin-bottom: 20px;
-                padding: 16px;
-                background: var(--background-secondary);
-                border-radius: 12px;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-status-title {
-                font-size: 0.9rem;
-                font-weight: 600;
-                margin-bottom: 12px;
-                color: var(--text-muted);
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-
-            .${CSS_PREFIX}-status-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-                gap: 8px;
-            }
-
-            .${CSS_PREFIX}-status-card {
-                padding: 8px 10px;
-                background: var(--background-primary);
-                border-radius: 6px;
-                border: 1px solid var(--background-modifier-border);
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                transition: all 0.2s ease;
-                cursor: pointer;
-            }
-
-            .${CSS_PREFIX}-status-card:hover {
-                border-color: var(--interactive-accent);
-                transform: translateY(-1px);
-            }
-
-            .${CSS_PREFIX}-status-card.valid {
-                border-color: #22c55e;
-                background: linear-gradient(135deg, var(--background-primary) 0%, rgba(34, 197, 94, 0.1) 100%);
-            }
-
-            .${CSS_PREFIX}-status-card.invalid {
-                border-color: #ef4444;
-                background: linear-gradient(135deg, var(--background-primary) 0%, rgba(239, 68, 68, 0.1) 100%);
-            }
-
-            .${CSS_PREFIX}-status-card.testing {
-                border-color: #f59e0b;
-                animation: pulse 1.5s infinite;
-            }
-
-            @keyframes pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.7; }
-            }
-
-            .${CSS_PREFIX}-status-name {
-                font-size: 0.75rem;
-                font-weight: 600;
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-status-indicator {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 0.8rem;
-            }
-
-            .${CSS_PREFIX}-status-dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                flex-shrink: 0;
-            }
-
-            .${CSS_PREFIX}-status-dot.valid {
-                background: #22c55e;
-                box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
-            }
-
-            .${CSS_PREFIX}-status-dot.invalid {
-                background: #ef4444;
-            }
-
-            .${CSS_PREFIX}-status-dot.testing {
-                background: #f59e0b;
-                animation: blink 1s infinite;
-            }
-
-            .${CSS_PREFIX}-status-dot.untested {
-                background: var(--text-muted);
-            }
-
-            @keyframes blink {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.3; }
-            }
-
-            .${CSS_PREFIX}-status-text {
-                color: var(--text-muted);
-            }
-
-            .${CSS_PREFIX}-quick-actions {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 20px;
-                flex-wrap: wrap;
             }
 
             .${CSS_PREFIX}-action-btn {
                 flex: 1;
-                min-width: 140px;
-                padding: 12px 16px;
-                background: var(--background-secondary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 8px;
-                font-size: 0.9rem;
-                font-weight: 500;
-                cursor: pointer;
-                transition: all 0.2s ease;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 gap: 8px;
-                color: var(--text-normal);
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: none;
+                background: transparent;
+                color: var(--text-muted);
+                font-size: 0.85rem;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.15s ease;
             }
 
             .${CSS_PREFIX}-action-btn:hover {
                 background: var(--background-modifier-hover);
-                border-color: var(--interactive-accent);
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            }
-
-            .${CSS_PREFIX}-action-btn:active {
-                transform: translateY(0);
+                color: var(--text-normal);
             }
 
             .${CSS_PREFIX}-action-btn.primary {
                 background: var(--interactive-accent);
                 color: var(--text-on-accent);
-                border-color: var(--interactive-accent);
             }
-
+            
             .${CSS_PREFIX}-action-btn.primary:hover {
-                background: var(--interactive-accent-hover);
+                opacity: 0.9;
             }
 
             .${CSS_PREFIX}-action-btn.danger {
-                background: #dc2626;
-                color: white;
-                border-color: #dc2626;
+                color: var(--color-red);
             }
-
+            
             .${CSS_PREFIX}-action-btn.danger:hover {
-                background: #b91c1c;
-                border-color: #b91c1c;
+                background: rgba(var(--color-red-rgb), 0.1);
             }
 
-            .${CSS_PREFIX}-action-btn:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
-                transform: none !important;
-            }
-
-            .${CSS_PREFIX}-password-toggle {
-                padding: 6px 10px;
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 6px;
-                cursor: pointer;
-                font-size: 1.1rem;
-                transition: all 0.2s ease;
-                flex-shrink: 0;
-            }
-
-            .${CSS_PREFIX}-password-toggle:hover {
-                background: var(--background-modifier-hover);
-                border-color: var(--interactive-accent);
-            }
-
-            .${CSS_PREFIX}-shortcuts-info {
-                margin-bottom: 20px;
-                padding: 16px;
-                background: var(--background-secondary);
-                border-radius: 12px;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-shortcuts-title {
-                font-size: 1rem;
-                font-weight: 600;
-                margin-bottom: 12px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .${CSS_PREFIX}-shortcuts-list {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 8px;
-            }
-
-            .${CSS_PREFIX}-shortcut-item {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 8px 12px;
-                background: var(--background-primary);
-                border-radius: 6px;
-                font-size: 0.85rem;
-            }
-
-            .${CSS_PREFIX}-shortcut-key {
-                background: var(--background-modifier-border);
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-family: monospace;
-                font-size: 0.8rem;
-                color: var(--text-muted);
-            }
-
-            .${CSS_PREFIX}-hidden {
-                display: none !important;
-            }
-
-            .${CSS_PREFIX}-spinner {
-                display: inline-block;
-                width: 16px;
-                height: 16px;
-                border: 2px solid var(--background-modifier-border);
-                border-top-color: currentColor;
-                border-radius: 50%;
-                animation: spin 0.6s linear infinite;
-            }
-
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-
-            .${CSS_PREFIX}-toast {
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                padding: 16px 20px;
-                background: var(--background-secondary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                z-index: 1000;
-                animation: slideIn 0.3s ease;
-            }
-
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-
-            .${CSS_PREFIX}-toast.success {
-                border-color: #22c55e;
-            }
-
-            .${CSS_PREFIX}-toast.error {
-                border-color: #ef4444;
-            }
-
-            .${CSS_PREFIX}-toast.info {
-                border-color: var(--interactive-accent);
-            }
+            /* Helpers */
+            .${CSS_PREFIX}-hidden { display: none !important; }
+            
+            @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+            @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         `;
         document.head.appendChild(style);
     }
@@ -718,8 +391,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 return;
             }
 
-            const title = drawer.querySelector(`.${CSS_PREFIX}-drawer-title`)?.textContent?.toLowerCase() || '';
-            const content = drawer.querySelector(`.${CSS_PREFIX}-drawer-inner}`)?.textContent?.toLowerCase() || '';
+            const title = drawer.querySelector(`.${CSS_PREFIX}-drawer-title`)?.textContent?.toLowerCase() ?? '';
+            const content = drawer.querySelector(`.${CSS_PREFIX}-drawer-inner}`)?.textContent?.toLowerCase() ?? '';
 
             if (title.includes(lowerQuery) || content.includes(lowerQuery)) {
                 drawer.removeClass(`${CSS_PREFIX}-hidden`);
@@ -733,14 +406,14 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
     private createProviderStatusDashboard(): void {
         const dashboard = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-status-dashboard` });
-        dashboard.createDiv({ cls: `${CSS_PREFIX}-status-title`, text: 'Provider Status' });
+        dashboard.createDiv({ cls: `${CSS_PREFIX}-status-title`, text: 'Providers' });
 
         const grid = dashboard.createDiv({ cls: `${CSS_PREFIX}-status-grid` });
 
         const providers = [
-            { id: 'gemini', name: 'Google Gemini', key: 'geminiApiKey' },
+            { id: 'gemini', name: 'Gemini', key: 'geminiApiKey' },
             { id: 'groq', name: 'Groq', key: 'groqApiKey' },
-            { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' },
+            { id: 'huggingface', name: 'HuggingFace', key: 'huggingFaceApiKey' },
             { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' },
             { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' },
             { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' },
@@ -748,26 +421,25 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         providers.forEach(provider => {
             const hasKey = Boolean((this.settings[provider.key as keyof YouTubePluginSettings] as string)?.trim());
-            const status = this.providerStatuses.get(provider.id) || (hasKey ? 'untested' : 'untested');
+            const status = this.providerStatuses.get(provider.id) ?? (hasKey ? 'untested' : 'untested');
 
-            const card = grid.createDiv({ cls: `${CSS_PREFIX}-status-card ${status}` });
-            card.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
-
-            const indicator = card.createDiv({ cls: `${CSS_PREFIX}-status-indicator` });
-            indicator.createDiv({ cls: `${CSS_PREFIX}-status-dot ${status}` });
-
-            let statusText = 'Not configured';
-            if (hasKey) {
-                statusText = status === 'valid' ? 'Working' : status === 'invalid' ? 'Invalid' : 'Untested';
-            }
-            indicator.createSpan({ cls: `${CSS_PREFIX}-status-text`, text: statusText });
+            const chip = grid.createDiv({ cls: `${CSS_PREFIX}-status-chip ${status}` });
+            chip.createDiv({ cls: `${CSS_PREFIX}-status-dot ${status}` });
+            chip.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
 
             // Click to re-test
-            card.addEventListener('click', () => {
+            chip.addEventListener('click', () => {
                 if (hasKey) {
-                    this.testProvider(provider.id, provider.name, provider.key);
+                    void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
                 }
             });
+
+            if (!hasKey) {
+                chip.style.opacity = '0.5';
+                chip.style.cursor = 'default';
+            } else {
+                chip.title = 'Click to test connection';
+            }
         });
     }
 
@@ -803,10 +475,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                         headers: { Authorization: `Bearer ${apiKey}` },
                     });
                     break;
-                case 'ollama':
-                    const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
+                case 'ollama': {
+                    const endpoint = this.settings.ollamaEndpoint ?? 'http://localhost:11434';
                     await fetch(`${endpoint}/api/tags`);
                     break;
+                }
                 case 'ollama-cloud':
                     if (!this.settings.ollamaApiKey) {
                         throw new Error('Ollama Cloud requires API key');
@@ -833,67 +506,91 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Test All Keys
         const testAllBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn primary`,
-            text: '🧪 Test All',
         });
+        testAllBtn.innerHTML = '<span>🧪</span> Test Connections';
         testAllBtn.addEventListener('click', () => this.testAllProviders());
 
         // Export/Import dropdown combo
         const settingsBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn`,
-            text: '⚙️ Settings',
         });
-        settingsBtn.addEventListener('click', () => {
-            const exportBtn = document.createElement('button');
-            exportBtn.textContent = '📤 Export';
-            exportBtn.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 8px;';
-            exportBtn.onclick = () => {
-                this.exportSettings();
-                (document.querySelector('.ytc-settings-popup') as HTMLElement)?.remove();
-            };
-
-            const importBtn = document.createElement('button');
-            importBtn.textContent = '📥 Import';
-            importBtn.style.cssText = 'width: 100%; padding: 8px;';
-            importBtn.onclick = () => {
-                this.importSettings();
-                (document.querySelector('.ytc-settings-popup') as HTMLElement)?.remove();
-            };
-
+        settingsBtn.innerHTML = '<span>⚙️</span> Manage Settings';
+        settingsBtn.addEventListener('click', (_e) => {
+            // Simple popup menu logic (could be improved with Obsidian Menu API but keeping it dependency-free for now)
+            // ... (existing popup logic adapted)
             const popup = document.createElement('div');
             popup.className = 'ytc-settings-popup';
             popup.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
+                position: absolute;
+                top: 100%;
+                left: 0;
+                margin-top: 8px;
                 background: var(--background-secondary);
                 border: 1px solid var(--background-modifier-border);
                 border-radius: 8px;
-                padding: 16px;
+                padding: 8px;
                 z-index: 1000;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                min-width: 200px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                min-width: 160px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
             `;
-            popup.appendChild(exportBtn);
-            popup.appendChild(importBtn);
+
+            // Positioning relative to button
+            const rect = settingsBtn.getBoundingClientRect();
+            popup.style.top = `${rect.bottom + 5}px`;
+            popup.style.left = `${rect.left}px`;
+
+            const createItem = (text: string, icon: string, onClick: () => void) => {
+                const btn = document.createElement('button');
+                btn.innerHTML = `<span>${icon}</span> ${text}`;
+                btn.style.cssText = `
+                    text-align: left;
+                    background: transparent;
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    color: var(--text-normal);
+                    font-size: 0.9rem;
+                    display: flex; gap: 8px; align-items: center;
+                    width: 100%;
+                `;
+                btn.onmouseenter = () => btn.style.background = 'var(--background-modifier-hover)';
+                btn.onmouseleave = () => btn.style.background = 'transparent';
+                btn.onclick = onClick;
+                return btn;
+            };
+
+            popup.appendChild(createItem('Export Settings', '📤', () => {
+                this.exportSettings();
+                popup.remove();
+                overlay.remove();
+            }));
+
+            popup.appendChild(createItem('Import Settings', '📥', () => {
+                this.importSettings();
+                popup.remove();
+                overlay.remove();
+            }));
 
             const overlay = document.createElement('div');
             overlay.style.cssText = `
-                position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.5);
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
                 z-index: 999;
             `;
-            overlay.onclick = () => popup.remove();
-            overlay.appendChild(popup);
+            overlay.onclick = () => { popup.remove(); overlay.remove(); };
+
             document.body.appendChild(overlay);
+            document.body.appendChild(popup);
         });
 
         // Reset to Defaults
         const resetBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn danger`,
-            text: '🔄 Reset',
         });
+        resetBtn.innerHTML = '<span>🔄</span> Reset';
         resetBtn.addEventListener('click', () => this.resetToDefaults());
     }
 
@@ -990,7 +687,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             };
 
             this.settings = defaults;
-            this.options.onSettingsChange(defaults);
+            void this.options.onSettingsChange(defaults);
             this.display();
             this.showToast('Settings reset to defaults', 'info');
         }
@@ -1009,34 +706,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         }, 3000);
     }
 
-    private createKeyboardShortcutsInfo(): void {
-        const shortcuts = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-shortcuts-info` });
-
-        const title = shortcuts.createDiv({ cls: `${CSS_PREFIX}-shortcuts-title` });
-        title.createSpan({ text: '⌨️' });
-        title.createSpan({ text: 'Keyboard Shortcuts' });
-
-        const list = shortcuts.createDiv({ cls: `${CSS_PREFIX}-shortcuts-list` });
-
-        const shortcutsData = [
-            { action: 'Focus search', key: 'Ctrl+K' },
-            { action: 'Toggle settings', key: 'Ctrl+,' },
-            { action: 'Save settings', key: 'Ctrl+S' },
-            { action: 'Open command palette', key: 'Ctrl+P' },
-        ];
-
-        shortcutsData.forEach(({ action, key }) => {
-            const item = list.createDiv({ cls: `${CSS_PREFIX}-shortcut-item` });
-            item.createSpan({ text: action });
-            item.createSpan({ cls: `${CSS_PREFIX}-shortcut-key`, text: key });
-        });
-    }
-
     private createHeader(): void {
         const { containerEl } = this;
         const header = containerEl.createDiv({ cls: `${CSS_PREFIX}-header` });
 
-        const title = header.createEl('h2', { cls: `${CSS_PREFIX}-title` });
+        const title = header.createDiv({ cls: `${CSS_PREFIX}-title` });
         title.createSpan({ text: '🎬' });
         title.createSpan({ text: 'YT Clipper' });
 
@@ -1044,7 +718,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.headerBadge = header.createDiv({
             cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`,
         });
-        this.headerBadge.textContent = isReady ? '✓ Ready' : '⚠ Setup Required';
+        this.headerBadge.textContent = isReady ? 'READY' : 'SETUP REQUIRED';
     }
 
     private updateHeaderBadge(isReady: boolean): void {
@@ -1321,39 +995,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     await this.updateSetting('useEnvironmentVariables', value);
                 }));
-    }
-
-    private createHelpSection(): void {
-        const section = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-section` });
-
-        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
-        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: '❓' });
-        header.createEl('h3', { cls: `${CSS_PREFIX}-section-title`, text: 'Help & Resources' });
-
-        const grid = section.createDiv({ cls: `${CSS_PREFIX}-help-grid` });
-
-        // Card 1: Get API Keys
-        const card1 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
-        card1.createEl('h4', { text: '🔑 Get API Keys' });
-        const p1 = card1.createEl('p');
-        p1.innerHTML = '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google Gemini</a> · <a href="https://console.groq.com/keys" target="_blank">Groq</a>';
-
-        // Card 2: Quick Start
-        const card2 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
-        card2.createEl('h4', { text: '🚀 Quick Start' });
-        card2.createEl('p', { text: '1. Add API key → 2. Click 🎬 icon → 3. Paste URL → 4. Process!' });
-
-        // Card 3: Documentation
-        const card3 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
-        card3.createEl('h4', { text: '📖 Documentation' });
-        const p3 = card3.createEl('p');
-        p3.innerHTML = '<a href="https://github.com/emeeran/yt-clipper#readme" target="_blank">View full docs on GitHub</a>';
-
-        // Card 4: Support
-        const card4 = grid.createDiv({ cls: `${CSS_PREFIX}-help-card` });
-        card4.createEl('h4', { text: '🐛 Report Issues' });
-        const p4 = card4.createEl('p');
-        p4.innerHTML = '<a href="https://github.com/emeeran/yt-clipper/issues" target="_blank">Submit bug reports or feature requests</a>';
     }
 
     private createSlider(container: HTMLElement, opts: {

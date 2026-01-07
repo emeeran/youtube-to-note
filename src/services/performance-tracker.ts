@@ -120,7 +120,7 @@ export class PerformanceTracker {
      * Get metrics for a specific service
      */
     getServiceMetrics(service: string): ServicePerformanceMetrics[] {
-        return this.serviceMetrics.get(service) || [];
+        return this.serviceMetrics.get(service) ?? [];
     }
 
     /**
@@ -133,7 +133,7 @@ export class PerformanceTracker {
         max: number;
         successRate: number;
     } {
-        const metrics = this.serviceMetrics.get(category) || [];
+        const metrics = this.serviceMetrics.get(category) ?? [];
 
         if (metrics.length === 0) {
             return { count: 0, average: 0, min: 0, max: 0, successRate: 0 };

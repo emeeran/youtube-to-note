@@ -97,7 +97,7 @@ ANALYSIS INSTRUCTIONS:
     /**
      * Create a brief prompt: Summary + Key Takeaways
      */
-    private createBriefPrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
+    private createBriefPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
@@ -114,7 +114,7 @@ ANALYSIS INSTRUCTIONS:
         type: youtube-note
         format: brief
         tags: [youtube, brief]
-        video_id: "${videoId || 'unknown'}"
+        video_id: "${videoId ?? 'unknown'}"
         ai_provider: "__AI_PROVIDER__"
         ai_model: "__AI_MODEL__"
         ---
@@ -143,7 +143,7 @@ ANALYSIS INSTRUCTIONS:
     /**
      * Create transcript prompt: Summary + Full Transcript
      */
-    private createTranscriptPrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
+    private createTranscriptPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
@@ -160,7 +160,7 @@ ANALYSIS INSTRUCTIONS:
         type: youtube-transcript
         format: transcript
         tags: [youtube, transcript]
-        video_id: "${videoId || 'unknown'}"
+        video_id: "${videoId ?? 'unknown'}"
         ai_provider: "__AI_PROVIDER__"
         ai_model: "__AI_MODEL__"
         ---
@@ -186,7 +186,7 @@ ANALYSIS INSTRUCTIONS:
     /**
      * Create executive summary prompt (structured format with strategic insights)
      */
-    private createExecutiveSummaryPrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
+    private createExecutiveSummaryPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
@@ -213,7 +213,7 @@ format: executive-summary
 tags:
   - youtube
   - executive-summary
-video_id: "${videoId || 'unknown'}"
+video_id: "${videoId ?? 'unknown'}"
 ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
 ---
@@ -282,7 +282,7 @@ List concrete actions the audience can take based on this content:
     /**
      * Create tutorial prompt (Step-by-Step Guide)
      */
-    private createDetailedGuidePrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
+    private createDetailedGuidePrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
@@ -299,7 +299,7 @@ List concrete actions the audience can take based on this content:
         type: youtube-tutorial
         format: tutorial
         tags: [youtube, tutorial]
-        video_id: "${videoId || 'unknown'}"
+        video_id: "${videoId ?? 'unknown'}"
         ai_provider: "__AI_PROVIDER__"
         ai_model: "__AI_MODEL__"
         ---
@@ -324,7 +324,7 @@ List concrete actions the audience can take based on this content:
     /**
      * Create custom format prompt: adaptable analysis based on user instructions
      */
-    private createCustomFormatPrompt(baseContent: string, videoData: VideoData, videoUrl: string, customInstructions?: string, performanceMode: PerformanceMode = 'balanced'): string {
+    private createCustomFormatPrompt(baseContent: string, _videoData: VideoData, videoUrl: string, customInstructions?: string, _performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
@@ -396,7 +396,7 @@ created: "${new Date().toISOString().split('T')[0]}"
 type: youtube-custom
 format: custom
 tags: [youtube, custom]
-video_id: "${videoId || 'unknown'}"
+video_id: "${videoId ?? 'unknown'}"
 ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
 ---
@@ -412,13 +412,13 @@ ai_model: "__AI_MODEL__"
     /**
      * Process AI response and inject provider information
      */
-    processAIResponse(content: string, provider: string, model: string, format?: OutputFormat): string {
+    processAIResponse(content: string, provider: string, model: string, _format?: OutputFormat): string {
         if (!content) {
             return content;
         }
 
-        const providerValue = provider || 'unknown';
-        const modelValue = model || 'unknown';
+        const providerValue = provider ?? 'unknown';
+        const modelValue = model ?? 'unknown';
 
         let updatedContent = content
             .replace(/__AI_PROVIDER__/g, providerValue)
@@ -434,7 +434,7 @@ ai_model: "__AI_MODEL__"
         const pattern = new RegExp(`(${key}\\s*:\\s*)(["'])?([^"'\\n]*)(["'])?`, 'i');
         if (pattern.test(content)) {
             return content.replace(pattern, (_, prefix: string, openingQuote?: string, _existing?: string, closingQuote?: string) => {
-                const quote = openingQuote || closingQuote ? '"' : '';
+                const quote = openingQuote ?? closingQuote ? '"' : '';
                 return `${prefix}${quote}${value}${quote}`;
             });
         }

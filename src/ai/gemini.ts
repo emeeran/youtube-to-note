@@ -31,7 +31,7 @@ export class GeminiProvider extends BaseAIProvider {
     readonly name = 'Google Gemini';
 
     constructor(apiKey: string, model?: string, timeout?: number) {
-        super(apiKey, model || AI_MODELS.GEMINI, timeout);
+        super(apiKey, model ?? AI_MODELS.GEMINI, timeout);
     }
 
     async process(prompt: string): Promise<string> {
@@ -143,14 +143,12 @@ export class GeminiProvider extends BaseAIProvider {
         if (isVideoAnalysis) {
             // Lookup the model entry in PROVIDER_MODEL_OPTIONS to see if it explicitly
             // supports audio/video tokens. This is more reliable than a name heuristic.
-            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] || [] as any[];
-            const currentModelName = String(this.model || '').toLowerCase();
-            const matched = providerModels.find(m => {
+            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? [] as any[];
+            const currentModelName = String(this.model ?? '').toLowerCase();
+            providerModels.find(m => {
                 const name = (typeof m === 'string') ? m : (m?.name ? m.name : '');
                 return String(name).toLowerCase() === currentModelName;
             });
-
-            const supportsAudioVideo = matched && matched.supportsAudioVideo === true;
 
             // Gemini automatically processes YouTube URLs and extracts both audio
             // and video streams. Per Google's official docs, there is no special
@@ -177,7 +175,7 @@ For best results:
 
             // If the prompt contains a Google Cloud Storage URI (gs://...), attach it
             // as a FileData part for additional video analysis capability.
-            const gcsMatch = prompt.match(/(gs:\/\/[\w\-\.\/]+\.(?:mp4|mov|mkv|webm))/i);
+            const gcsMatch = prompt.match(/(gs:\/\/[\w-./]+\.(?:mp4|mov|mkv|webm))/i);
             if (gcsMatch?.[1]) {
                 const gcsUri = gcsMatch[1];
                 // Append a FileData part to contents so Gemini can process the video file

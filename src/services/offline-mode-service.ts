@@ -31,7 +31,7 @@ export class OfflineModeService {
     setOnline(online: boolean): void {
         this.isOnline = online;
         if (online && this.queue.length > 0) {
-            this.processQueue();
+            void this.processQueue();
         }
     }
 
@@ -47,7 +47,7 @@ export class OfflineModeService {
         this.queue.sort((a, b) => b.priority - a.priority);
 
         if (this.isOnline && !this.processing) {
-            this.processQueue();
+            void this.processQueue();
         }
 
         return queuedOp.id;

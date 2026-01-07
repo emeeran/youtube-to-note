@@ -15,7 +15,7 @@ export class OllamaProvider extends BaseAIProvider {
 
     constructor(apiKey: string = '', model?: string, timeout?: number, endpoint?: string) {
         // Ollama doesn't typically require an API key for local, but required for cloud
-        super(apiKey, model || 'llama3.2', timeout);
+        super(apiKey, model ?? 'llama3.2', timeout);
 
         // Normalize endpoint to API base URL
         // Local: http://localhost:11434 -> http://localhost:11434/api
@@ -273,7 +273,7 @@ export class OllamaProvider extends BaseAIProvider {
         return headers;
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(_prompt: string): any {
         // Ollama uses the process() method instead, so this isn't used
         return {};
     }

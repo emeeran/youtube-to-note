@@ -92,7 +92,7 @@ export class DataAnonymizationService {
         } else if (typeof data === 'object' && data !== null) {
             const sanitized: any = Array.isArray(data) ? [] : {};
             for (const key in data) {
-                if (data.hasOwnProperty(key)) {
+                if (Object.prototype.hasOwnProperty.call(data, key)) {
                     if (key.toLowerCase().includes('key') || key.toLowerCase().includes('secret')) {
                         sanitized[key] = '[REDACTED]';
                     } else {

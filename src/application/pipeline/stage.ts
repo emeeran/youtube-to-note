@@ -3,7 +3,7 @@
  * All pipeline stages must implement this interface
  */
 
-import { PipelineContext, StageInput, StageOutput } from './types';
+import { PipelineContext, StageOutput } from './types';
 
 export interface PipelineStage {
   /**
@@ -40,7 +40,7 @@ export abstract class BaseStage implements PipelineStage {
   abstract readonly name: string;
   abstract execute(context: PipelineContext): Promise<StageOutput>;
 
-  canExecute(context: PipelineContext): boolean {
+  canExecute(_context: PipelineContext): boolean {
       return true;
   }
 

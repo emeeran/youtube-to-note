@@ -19,9 +19,10 @@ export class ProviderManager {
     constructor(
     private settings: YouTubePluginSettings
     ) {
-    // Initialize HTTP client
+        // Initialize HTTP client
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { PERFORMANCE_PRESETS } = require('../../performance');
-        const preset = PERFORMANCE_PRESETS[settings.performanceMode] || PERFORMANCE_PRESETS.balanced;
+        const preset = PERFORMANCE_PRESETS[settings.performanceMode] ?? PERFORMANCE_PRESETS.balanced;
 
         this.httpClient = new OptimizedHttpClient({
             timeout: preset.timeouts.geminiTimeout,
@@ -72,7 +73,7 @@ export class ProviderManager {
    * Get available models for a provider
    */
     getProviderModels(providerName: string): string[] {
-        const raw = PROVIDER_MODEL_OPTIONS[providerName] || [] as any[];
+        const raw = PROVIDER_MODEL_OPTIONS[providerName] ?? [] as any[];
         return raw.map(r => typeof r === 'string' ? r : (r?.name ? r.name : String(r)));
     }
 

@@ -39,7 +39,7 @@ export class PluginIntegrationManager {
     }
 
     private hasPlugin(pluginId: string): boolean {
-        return this.app?.plugins?.plugins?.hasOwnProperty(pluginId) || false;
+        return Object.prototype.hasOwnProperty.call(this.app?.plugins?.plugins ?? {}, pluginId);
     }
 
     enableIntegration(name: string): boolean {
@@ -124,9 +124,9 @@ processedAt: "${new Date().toISOString()}"
 }
 
 export class PluginAPI {
-    private callbacks: Map<string, Set<Function>> = new Map();
+    private callbacks: Map<string, Set<(data: unknown) => void>> = new Map();
 
-    on(event: string, callback: Function): () => void {
+    on(event: string, callback: (data: unknown) => void): () => void {
         if (!this.callbacks.has(event)) {
             this.callbacks.set(event, new Set());
         }

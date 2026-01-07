@@ -67,7 +67,7 @@ export class FallbackStrategy {
                 };
             }
 
-            throw new Error(result.error || 'Primary provider failed');
+            throw new Error(result.error ?? 'Primary provider failed');
         } catch (error) {
             const err = error as Error;
 
@@ -188,7 +188,7 @@ export class FallbackStrategy {
         provider: AIProvider,
         prompt: string,
         processFn: (provider: AIProvider, model?: string) => Promise<string>,
-        options?: {
+        _options?: {
       overrideModel?: string;
       images?: (string | ArrayBuffer)[];
     }

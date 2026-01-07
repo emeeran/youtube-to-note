@@ -66,8 +66,8 @@ export class YouTubeVideoService implements VideoDataService {
 
             // Enhanced video data with optimization info
             const result: EnhancedVideoData = {
-                title: metadata.title || 'Unknown Title',
-                description: metadata.description || 'No description available',
+                title: metadata.title ?? 'Unknown Title',
+                description: metadata.description ?? 'No description available',
                 duration: metadata.duration,
                 thumbnail: metadata.thumbnail,
                 channelName: metadata.channelName,
@@ -75,7 +75,7 @@ export class YouTubeVideoService implements VideoDataService {
 
             // Check for transcript availability in background
             if (result.duration && result.duration < 1800) { // Only check for videos < 30 mins
-                this.checkTranscriptAvailability(videoId).then(hasTranscript => {
+                void this.checkTranscriptAvailability(videoId).then(hasTranscript => {
                     result.hasTranscript = hasTranscript;
                     // Cache the enhanced data
                     this.cache?.set(cacheKey, result, this.metadataTTL);
@@ -133,7 +133,7 @@ export class YouTubeVideoService implements VideoDataService {
                     console.warn(`YouTube oEmbed returned 401 for ${videoId}, attempting fallback...`);
                     try {
                         const pageData = await this.scrapeAdditionalMetadata(videoId);
-                        if (pageData.description || pageData.duration) {
+                        if (pageData.description ?? pageData.duration) {
                             return {
                                 title: `YouTube Video (${videoId})`,
                                 description: pageData.description,

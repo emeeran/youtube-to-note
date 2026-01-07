@@ -33,7 +33,7 @@ export function unique<T>(arr: T[]): T[] {
 export function groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
     return arr.reduce((result, item) => {
         const group = String(item[key]);
-        (result[group] = result[group] || []).push(item);
+        (result[group] = result[group] ?? []).push(item);
         return result;
     }, {} as Record<string, T[]>);
 }

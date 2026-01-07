@@ -44,7 +44,7 @@ export class UrlHandler {
     private isTempFile(file: TFile, content: string): boolean {
         try {
             // 1. Contains the hidden marker (most reliable)
-            if (content && content.includes(this.config.noteMarker)) {
+            if (content?.includes(this.config.noteMarker)) {
                 logger.debug('File identified as temp file via marker', 'UrlHandler', {
                     filePath: file.path,
                     hasMarker: true,
@@ -53,7 +53,7 @@ export class UrlHandler {
             }
 
             // 2. File name matches the Chrome extension pattern
-            if (file.name && file.name.startsWith('YouTube Clip -')) {
+            if (file.name?.startsWith('YouTube Clip -')) {
                 logger.debug('File identified as temp file via name', 'UrlHandler', {
                     filePath: file.path,
                     fileName: file.name,
@@ -97,7 +97,7 @@ export class UrlHandler {
      */
     private extractUrl(content: string): string | null {
         try {
-            if (content && content.includes(this.config.noteMarker)) {
+            if (content?.includes(this.config.noteMarker)) {
                 const url = content.replace(this.config.noteMarker, '').trim();
                 return ValidationUtils.isValidYouTubeUrl(url) ? url : null;
             }
@@ -293,7 +293,7 @@ export class UrlHandler {
      */
     public handleProtocol(params: Record<string, string>): void {
         try {
-            const url = params.url || params.content || params.path || '';
+            const url = params.url ?? params.content ?? params.path ?? '';
             if (url && ValidationUtils.isValidYouTubeUrl(url)) {
                 const result: UrlDetectionResult = {
                     url,
@@ -327,10 +327,10 @@ export class UrlHandler {
             try {
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                 // @ts-ignore
-                if (navigator && navigator.clipboard && navigator.clipboard.readText) {
+                if (navigator?.clipboard?.readText) {
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     // @ts-ignore
-                    text = (await navigator.clipboard.readText()) || '';
+                    text = (await navigator.clipboard.readText()) ?? '';
                 }
             } catch (error) {
                 logger.debug('Could not read clipboard', 'UrlHandler', {

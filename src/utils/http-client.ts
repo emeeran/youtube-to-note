@@ -63,7 +63,7 @@ export class OptimizedHttpClient {
             controller,
             startTime: performance.now(),
             url,
-            method: options.method || 'GET',
+            method: options.method ?? 'GET',
         };
 
         this.activeRequests.add(request);
@@ -87,7 +87,7 @@ export class OptimizedHttpClient {
             if (this.config.enableMetrics) {
                 this.recordRequestMetrics({
                     url,
-                    method: options.method || 'GET',
+                    method: options.method ?? 'GET',
                     duration: performance.now() - request.startTime,
                     success: response.ok,
                     statusCode: response.status,
@@ -250,7 +250,7 @@ export class OptimizedHttpClient {
         const activeRequests = this.activeRequests.size;
         const successfulRequests = this.requestMetrics.filter(m => m.success).length;
         const timeoutRequests = this.requestMetrics.filter(m =>
-            m.error?.includes('abort') || m.error?.includes('timeout')
+            m.error?.includes('abort') ?? m.error?.includes('timeout')
         ).length;
 
         const durations = this.requestMetrics
@@ -286,7 +286,7 @@ export class OptimizedHttpClient {
         this.requestMetrics.forEach(metric => {
             if (metric.statusCode) {
                 const status = Math.floor(metric.statusCode / 100) * 100;
-                byStatus[status] = (byStatus[status] || 0) + 1;
+                byStatus[status] = (byStatus[status] ?? 0) + 1;
             }
         });
 

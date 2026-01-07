@@ -35,7 +35,7 @@ export class RetryService {
             }
         }
 
-        throw lastError || new Error('Operation failed after retries');
+        throw lastError ?? new Error('Operation failed after retries');
     }
 }
 

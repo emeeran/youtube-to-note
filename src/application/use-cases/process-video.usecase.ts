@@ -83,7 +83,7 @@ export class ProcessVideoUseCase {
         try {
             const result = await this.pipeline.execute(
                 {
-                    source: request.source || 'manual',
+                    source: request.source ?? 'manual',
                     rawInput: request.url,
                     format: request.format,
                     customPrompt: request.customPrompt,
@@ -94,7 +94,7 @@ export class ProcessVideoUseCase {
                     outputPath: request.outputPath,
                 },
                 {
-                    source: request.source || 'manual',
+                    source: request.source ?? 'manual',
                 }
             );
 

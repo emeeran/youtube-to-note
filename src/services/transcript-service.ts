@@ -75,24 +75,24 @@ export class YouTubeTranscriptService {
         try {
             const transcript = await this.fetchFromYouTubeAPI(videoId);
             if (transcript) return transcript;
-        } catch (error) {
-
+        } catch {
+            // Ignore error and try next method
         }
 
         // Method 2: Try video page scraping
         try {
             const transcript = await this.scrapeTranscriptFromPage(videoId);
             if (transcript) return transcript;
-        } catch (error) {
-
+        } catch {
+            // Ignore error and try next method
         }
 
         // Method 3: Try third-party transcript service
         try {
             const transcript = await this.fetchFromThirdParty(videoId);
             if (transcript) return transcript;
-        } catch (error) {
-
+        } catch {
+            // Ignore error and continue
         }
 
         return null;
@@ -138,7 +138,7 @@ export class YouTubeTranscriptService {
     /**
      * Method 3: Third-party transcript service (optional)
      */
-    private async fetchFromThirdParty(videoId: string): Promise<Transcript | null> {
+    private async fetchFromThirdParty(_videoId: string): Promise<Transcript | null> {
         // Note: This is a placeholder for third-party services
         // You could integrate with services like:
         // - AssemblyAI
@@ -153,7 +153,7 @@ export class YouTubeTranscriptService {
     /**
      * Parse XML transcript from YouTube API
      */
-    private parseXMLTranscript(xmlText: string, videoId: string): Transcript {
+    private parseXMLTranscript(xmlText: string, _videoId: string): Transcript {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
@@ -164,9 +164,9 @@ export class YouTubeTranscriptService {
         for (let i = 0; i < textElements.length; i++) {
             const element = textElements[i];
             if (!element) continue;
-            const text = element.textContent || '';
-            const start = parseFloat(element.getAttribute('start') || '0');
-            const duration = parseFloat(element.getAttribute('dur') || '0');
+            const text = element.textContent ?? '';
+            const start = parseFloat(element.getAttribute('start') ?? '0');
+            const duration = parseFloat(element.getAttribute('dur') ?? '0');
 
             if (text.trim()) {
                 segments.push({ text: text.trim(), start, duration });
@@ -216,12 +216,10 @@ export class YouTubeTranscriptService {
                     return resp.text();
                 })
                 .then((xmlText) => this.parseXMLTranscript(xmlText, '').segments)
-                .catch((err) => {
-
+                .catch(() => {
                     return null;
                 });
-        } catch (error) {
-
+        } catch {
             return null;
         }
     }
@@ -241,7 +239,7 @@ export class YouTubeTranscriptService {
         const normalizedSegments = segments.map(seg => ({
             text: seg.text,
             start: seg.start,
-            duration: seg.duration || 0,
+            duration: seg.duration ?? 0,
         }));
 
         const fullText = normalizedSegments

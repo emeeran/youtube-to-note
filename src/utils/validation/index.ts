@@ -2,8 +2,6 @@
  * Validation utility functions
  */
 
-import { VALID_YOUTUBE_URLS, INVALID_YOUTUBE_URLS } from '../../../tests/fixtures/video-data.fixtures';
-
 // Enhanced YouTube URL regex patterns
 const YOUTUBE_URL_PATTERNS = {
     STANDARD: /^https?:\/\/(www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})/,

@@ -112,9 +112,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
     /**
      * Handle errors with consistent logging and user feedback
      */
-    static handle(error: Error, context: string, showNotice = true): void {
-        const errorMessage = `${context}: ${error.message}`;
-
+    static handle(error: Error, _context: string, showNotice = true): void {
         if (showNotice) {
             new Notice(`Error: ${error.message}`);
         }
@@ -123,7 +121,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
     /**
      * Handle errors with classification and better UX
      */
-    static handleWithGuidance(error: Error, context: string): ErrorResult {
+    static handleWithGuidance(error: Error, _context: string): ErrorResult {
         const result = this.classifyError(error);
 
         // Create notice with guidance
@@ -190,11 +188,11 @@ export class ErrorHandler implements ErrorHandlerInterface {
         provider: string,
         fallbackMessage?: string
     ): Promise<never> {
-        let errorDetails = fallbackMessage || '';
+        let errorDetails = fallbackMessage ?? '';
 
         try {
             const errorData = await response.json();
-            errorDetails = errorData.error?.message || errorData.message || fallbackMessage || '';
+            errorDetails = errorData.error?.message ?? errorData.message ?? fallbackMessage ?? '';
         } catch {
             // Ignore JSON parsing errors
         }

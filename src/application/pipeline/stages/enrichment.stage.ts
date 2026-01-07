@@ -112,7 +112,7 @@ export class EnrichmentStage extends BaseStage {
 
     canExecute(context: PipelineContext): boolean {
         const input = context.input as EnrichmentInput;
-        return !!(input && input.videoId);
+        return !!(input?.videoId);
     }
 
     getTimeout(): number {

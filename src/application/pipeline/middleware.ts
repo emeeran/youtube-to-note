@@ -128,7 +128,7 @@ export class TelemetryMiddleware extends BaseMiddleware {
         const stages = stageName ? [stageName] : Array.from(this.metrics.keys());
 
         for (const stage of stages) {
-            const times = this.metrics.get(stage) || [];
+            const times = this.metrics.get(stage) ?? [];
             if (times.length > 0) {
                 result[stage] = {
                     avg: times.reduce((a, b) => a + b, 0) / times.length,

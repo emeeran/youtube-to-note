@@ -209,7 +209,7 @@ export class MultiLevelCache<K, V> {
     getStats() {
         return {
             l1Size: this.l1Cache.size(),
-            l2Size: this.l2Cache?.size || 0,
+            l2Size: this.l2Cache?.size ?? 0,
             l1Capacity: (this.l1Cache as any).capacity,
         };
     }

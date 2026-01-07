@@ -4,7 +4,7 @@
  */
 
 import { App, Modal, Setting, Notice } from 'obsidian';
-import { OutputFormat, PerformanceMode } from '../../../types';
+import { OutputFormat } from '../../../types';
 import { ValidationUtils } from '../../../validation';
 
 export interface BatchProcessingOptions {
@@ -375,8 +375,6 @@ export class BatchVideoModal extends Modal {
         const total = this.urls.length;
 
         try {
-            const urlStrings = this.urls.map(u => u.url);
-
             // Process one by one to show progress
             for (let i = 0; i < this.urls.length; i++) {
                 this.urls[i].status = 'processing';

@@ -1,5 +1,4 @@
 import { BaseAIProvider } from './base';
-import { MESSAGES } from '../constants/index';
 
 /**
  * Hugging Face Inference API provider implementation
@@ -12,7 +11,7 @@ const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models';
  * Extract clean error message from HuggingFace API response
  */
 function formatHuggingFaceError(rawMessage: string): string {
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) || rawMessage.match(/(\d+)\s*seconds?/i);
+    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
 
     if (rawMessage.toLowerCase().includes('rate limit')) {
@@ -39,7 +38,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
 
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Default to Qwen3-8B which is reliable on HuggingFace inference
-        super(apiKey, model || 'Qwen/Qwen3-8B', timeout);
+        super(apiKey, model ?? 'Qwen/Qwen3-8B', timeout);
     }
 
     async process(prompt: string): Promise<string> {
@@ -54,7 +53,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this._timeout || 60000);
+            const timeoutId = setTimeout(() => controller.abort(), this._timeout ?? 60000);
 
             const response = await fetch(`${HUGGINGFACE_API_URL}/${this._model}`, {
                 method: 'POST',
@@ -66,7 +65,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
             clearTimeout(timeoutId);
 
             // Check if response is HTML (error page) instead of JSON
-            const contentType = response.headers.get('content-type') || '';
+            const contentType = response.headers.get('content-type') ?? '';
             if (contentType.includes('text/html')) {
                 if (response.status === 401) {
                     throw new Error('Hugging Face API key is invalid or expired.');

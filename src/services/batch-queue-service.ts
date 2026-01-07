@@ -45,7 +45,7 @@ export class BatchQueueService {
         };
 
         this.queue.set(id, job);
-        this.processQueue();
+        void this.processQueue();
 
         return id;
     }
@@ -65,7 +65,7 @@ export class BatchQueueService {
         for (let i = 0; i < Math.min(availableSlots, pendingJobs.length); i++) {
             const job = pendingJobs[i];
             this.processing.add(job.id);
-            this.processJob(job);
+            void this.processJob(job);
         }
     }
 
@@ -89,7 +89,7 @@ export class BatchQueueService {
             }
         } finally {
             this.processing.delete(job.id);
-            this.processQueue();
+            void this.processQueue();
         }
     }
 

@@ -14,7 +14,7 @@ export class OllamaCloudProvider extends BaseAIProvider {
 
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Ollama Cloud requires an API key
-        super(apiKey, model || 'deepseek-r1:32b', timeout);
+        super(apiKey, model ?? 'deepseek-r1:32b', timeout);
 
         // Ollama Cloud always uses the official cloud endpoint
         this.apiBaseUrl = 'https://ollama.com/api';
@@ -261,7 +261,7 @@ export class OllamaCloudProvider extends BaseAIProvider {
         return headers;
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(_prompt: string): any {
         // Ollama Cloud uses the process() method instead, so this isn't used
         return {};
     }

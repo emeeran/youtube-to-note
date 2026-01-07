@@ -55,6 +55,7 @@ export class PluginLifecycleManager {
             ErrorHandler.handle(error as Error, 'Plugin initialization');
 
             // Show user-facing error
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const { Notice } = require('obsidian');
             new Notice('Failed to load YoutubeClipper Plugin. Check console for details.');
 

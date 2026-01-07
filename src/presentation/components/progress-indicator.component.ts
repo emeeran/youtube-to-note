@@ -65,7 +65,7 @@ export class ProgressIndicatorComponent {
       gap: 4px;
     `;
 
-        this.stepsList.forEach((step, index) => {
+        this.stepsList.forEach((step, _index) => {
             const li = ul.createEl('li');
             li.style.cssText = `
         display: flex;

@@ -46,11 +46,26 @@ export async function parallel<T>(
     const executing: Promise<any>[] = [];
 
     for (const item of items) {
-        const promise = fn(item).then(() => {
-            executing.splice(executing.indexOf(promise), 1);
-        });
-
+        const promise = fn(item);
         executing.push(promise);
+
+        // Remove from executing when done (fire and forget)
+        /* eslint-disable @typescript-eslint/no-floating-promises */
+        void promise.then(
+            () => {
+                const idx = executing.indexOf(promise);
+                if (idx !== -1) {
+                    executing.splice(idx, 1);
+                }
+            },
+            () => {
+                const idx = executing.indexOf(promise);
+                if (idx !== -1) {
+                    executing.splice(idx, 1);
+                }
+            }
+        );
+        /* eslint-enable @typescript-eslint/no-floating-promises */
 
         if (executing.length >= concurrency) {
             await Promise.race(executing);

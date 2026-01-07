@@ -40,7 +40,7 @@ export class ModalManager {
     public async openModal<T>(
         url: string | undefined,
         openModalFn: () => Promise<T>,
-        onClose?: () => void
+        _onClose?: () => void
     ): Promise<T | null> {
         const callId = Math.random().toString(36).substring(2, 9);
         this.state.lastCallId = callId;
@@ -83,29 +83,6 @@ export class ModalManager {
         });
 
         try {
-            // Create enhanced onClose handler
-            const enhancedOnClose = () => {
-                try {
-                    logger.info('Modal onClose triggered', 'ModalManager', {
-                        callId,
-                        url,
-                    });
-
-                    this.resetModalState();
-
-                    if (onClose) {
-                        onClose();
-                    }
-                } catch (error) {
-                    logger.error('Error in modal onClose handler', 'ModalManager', {
-                        callId,
-                        error: error instanceof Error ? error.message : String(error),
-                    });
-                    // Force reset even if there's an error
-                    this.resetModalState();
-                }
-            };
-
             // Open the modal
             logger.info('About to open modal', 'ModalManager', {
                 callId,

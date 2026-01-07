@@ -33,8 +33,6 @@ export interface YouTubeUrlModalOptions {
     onPerformanceSettingsChange?: (performanceMode: PerformanceMode, enableParallel: boolean, preferMultimodal: boolean) => Promise<void>;
 }
 
-type StepState = 'pending' | 'active' | 'complete' | 'error';
-
 export class YouTubeUrlModal extends BaseModal {
     private url = '';
     private format: OutputFormat = 'executive-summary';
@@ -87,7 +85,7 @@ export class YouTubeUrlModal extends BaseModal {
     ) {
         super(app);
 
-        this.url = options.initialUrl || '';
+        this.url = options.initialUrl ?? '';
 
         // Initialize theme from localStorage
         const savedTheme = localStorage.getItem('ytc-theme-mode');
@@ -95,7 +93,6 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Load smart defaults from user preferences
         const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
-        const smartModelParams = UserPreferencesService.getSmartDefaultModelParameters();
         const lastProvider = UserPreferencesService.getSmartDefaultProvider();
         const lastFormat = UserPreferencesService.getSmartDefaultFormat();
         const smartAutoFallback = UserPreferencesService.getSmartDefaultAutoFallback();
@@ -106,8 +103,8 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Set default provider and model values based on user history
         // Preferred settings take priority over last used
-        this.selectedProvider = lastProvider || 'Google Gemini';
-        this.selectedModel = preferredModel || lastModel || 'gemini-2.5-pro';
+        this.selectedProvider = lastProvider ?? 'Google Gemini';
+        this.selectedModel = preferredModel ?? lastModel ?? 'gemini-2.5-pro';
         this.format = lastFormat;
         this.autoFallbackEnabled = smartAutoFallback;
 
@@ -116,8 +113,8 @@ export class YouTubeUrlModal extends BaseModal {
             format: lastFormat,
             provider: this.selectedProvider,
             model: this.selectedModel,
-            maxTokens: options.defaultMaxTokens || 4096,
-            temperature: options.defaultTemperature || 0.5,
+            maxTokens: options.defaultMaxTokens ?? 4096,
+            temperature: options.defaultTemperature ?? 0.5,
             performanceMode: smartDefaults.mode,
             parallelProcessing: smartDefaults.parallel,
             multimodal: smartDefaults.multimodal,
@@ -135,7 +132,7 @@ export class YouTubeUrlModal extends BaseModal {
             logger.debug('[YT-CLIPPER] Keyboard shortcuts set up', 'Modal');
 
             // Automatically fetch fresh models for the current provider on modal open
-            this.fetchModelsForCurrentProvider();
+            void this.fetchModelsForCurrentProvider();
 
             // If an initial URL was provided, validate and focus the appropriate control
             if (this.options.initialUrl) {
@@ -187,45 +184,45 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Create modal content
      */
-        private createModalContent(): void {
-            logger.debug('[YT-CLIPPER] createModalContent starting', 'Modal');
-            try {
-                this.contentEl.empty();
-                this.contentEl.addClass('ytc-modal-content-wrapper');
-    
-                // 1. Top Bar: Header + Global Actions (Theme, Batch)
-                this.createTopBar();
-                logger.debug('[YT-CLIPPER] Top bar created', 'Modal');
-    
-                // 2. Main Input Area
-                this.createUrlSection();
-                logger.debug('[YT-CLIPPER] URL section created', 'Modal');
-    
-                // 3. Settings Area (Format + Collapsible AI Config)
-                this.createSettingsSection();
-                logger.debug('[YT-CLIPPER] Settings section created', 'Modal');
-    
-                // 4. Progress Area
-                this.createProgressSection();
-                logger.debug('[YT-CLIPPER] Progress section created', 'Modal');
-    
-                // 5. Primary Actions
-                this.createActionButtons();
-                logger.debug('[YT-CLIPPER] Action buttons created', 'Modal');
-    
-                // Initialize state
-                this.updateModelDropdown(this.options.modelOptions);
-                this.applyTheme(this.isLightTheme);
-                
-                // Apply initial visibility states
-                this.toggleCustomPromptVisibility();
-                
-                logger.debug('[YT-CLIPPER] Theme applied', 'Modal');
-            } catch (error) {
-                logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', error);
-                throw error;
-            }
+    private createModalContent(): void {
+        logger.debug('[YT-CLIPPER] createModalContent starting', 'Modal');
+        try {
+            this.contentEl.empty();
+            this.contentEl.addClass('ytc-modal-content-wrapper');
+
+            // 1. Top Bar: Header + Global Actions (Theme, Batch)
+            this.createTopBar();
+            logger.debug('[YT-CLIPPER] Top bar created', 'Modal');
+
+            // 2. Main Input Area
+            this.createUrlSection();
+            logger.debug('[YT-CLIPPER] URL section created', 'Modal');
+
+            // 3. Settings Area (Format + Collapsible AI Config)
+            this.createSettingsSection();
+            logger.debug('[YT-CLIPPER] Settings section created', 'Modal');
+
+            // 4. Progress Area
+            this.createProgressSection();
+            logger.debug('[YT-CLIPPER] Progress section created', 'Modal');
+
+            // 5. Primary Actions
+            this.createActionButtons();
+            logger.debug('[YT-CLIPPER] Action buttons created', 'Modal');
+
+            // Initialize state
+            this.updateModelDropdown(this.options.modelOptions);
+            this.applyTheme(this.isLightTheme);
+
+            // Apply initial visibility states
+            this.toggleCustomPromptVisibility();
+
+            logger.debug('[YT-CLIPPER] Theme applied', 'Modal');
+        } catch (error) {
+            logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', error);
+            throw error;
         }
+    }
     /**
      * Create top bar with header and global controls
      */
@@ -387,7 +384,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.pasteButton.addEventListener('click', (e) => {
             e.preventDefault(); // Prevent focus loss if possible
-            this.handleSmartPaste();
+            void this.handleSmartPaste();
         });
 
         // Validation Message Area - Absolute to prevent jumping
@@ -550,8 +547,8 @@ export class YouTubeUrlModal extends BaseModal {
         let isExpanded = false;
 
         const updateSummary = () => {
-            const provider = this.selectedProvider || 'Google Gemini';
-            const model = this.selectedModel || 'Default';
+            const provider = this.selectedProvider ?? 'Google Gemini';
+            const model = this.selectedModel ?? 'Default';
             // Simplify summary for the button
             aiSummary.textContent = `${provider}`;
             aiSummary.title = `${provider} • ${this.formatModelName(model)}`;
@@ -599,7 +596,7 @@ export class YouTubeUrlModal extends BaseModal {
             el.value = opt.value;
             el.textContent = opt.text;
         });
-        this.providerSelect.value = this.selectedProvider || 'Google Gemini';
+        this.providerSelect.value = this.selectedProvider ?? 'Google Gemini';
 
         // Model Selection
         const modelRow = aiContent.createDiv();
@@ -655,7 +652,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Event Listeners for AI Settings
         this.providerSelect.addEventListener('change', async () => {
-            this.selectedProvider = this.providerSelect?.value || 'Google Gemini';
+            this.selectedProvider = this.providerSelect?.value ?? 'Google Gemini';
             // Trigger model update
             await this.fetchModelsForCurrentProvider();
             updateSummary();
@@ -1110,7 +1107,6 @@ export class YouTubeUrlModal extends BaseModal {
         const currentProvider = this.providerSelect.value;
 
         // Show loading state in dropdown
-        const currentValue = this.modelSelect.value;
         this.modelSelect.innerHTML = '<option value="">Loading models...</option>';
         this.modelSelect.disabled = true;
 
@@ -1577,7 +1573,7 @@ export class YouTubeUrlModal extends BaseModal {
         // Ctrl+O to open processed file
         this.scope.register(['Ctrl'], 'o', () => {
             if (this.openButton && this.openButton.style.display !== 'none') {
-                this.handleOpenFile();
+                void this.handleOpenFile();
             }
             return false;
         });
@@ -1586,7 +1582,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.scope.register(['Ctrl'], 'c', () => {
             // Only copy path if not in input field and file is processed
             if (document.activeElement !== this.urlInput && this.processedFilePath) {
-                this.handleCopyPath();
+                void this.handleCopyPath();
                 return false;
             }
             return true; // Allow default copy behavior in input
@@ -1720,7 +1716,7 @@ export class YouTubeUrlModal extends BaseModal {
             this.updateProgress(75, `Processing with ${providerDisplayName}...`);
 
             // Boost max tokens for transcript format if default is low
-            let maxTokens = this.options.defaultMaxTokens || 4096;
+            let maxTokens = this.options.defaultMaxTokens ?? 4096;
             if (this.format === 'transcript') {
                 // Ensure at least 16k tokens for transcript if possible (provider dependent)
                 maxTokens = Math.max(maxTokens, 16384);
@@ -1733,11 +1729,11 @@ export class YouTubeUrlModal extends BaseModal {
                 this.selectedProvider,
                 this.selectedModel,
                 this.format === 'custom' ? this.customPrompt : undefined,
-                this.options.performanceMode || 'balanced',
-                this.options.enableParallelProcessing || false,
-                this.options.preferMultimodal || false,
+                this.options.performanceMode ?? 'balanced',
+                this.options.enableParallelProcessing ?? false,
+                this.options.preferMultimodal ?? false,
                 maxTokens,
-                this.options.defaultTemperature || 0.5,
+                this.options.defaultTemperature ?? 0.5,
                 this.autoFallbackEnabled
             );
 
@@ -1946,23 +1942,6 @@ export class YouTubeUrlModal extends BaseModal {
      * Setup keyboard shortcuts for enhanced productivity
      */
     private setupKeyboardShortcuts(): void {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-                return;
-            }
-
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                if (this.processButton && !this.processButton.disabled) {
-                    this.processButton.click();
-                }
-            }
-
-            if (e.key === 'Escape') {
-                this.close();
-            }
-        };
-
         this.scope.register(['Ctrl'], 'Enter', () => {
             if (this.processButton && !this.processButton.disabled) {
                 this.processButton.click();
@@ -2027,7 +2006,7 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private updateRefreshButtonTooltip(): void {
         if (this.refreshButton) {
-            const currentProvider = this.selectedProvider || 'Google Gemini';
+            const currentProvider = this.selectedProvider ?? 'Google Gemini';
             const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud'];
 
             if (dynamicProviders.includes(currentProvider)) {

@@ -9,7 +9,7 @@ import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal, BatchVideoModal } from './components/features/youtube';
-import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
@@ -110,13 +110,13 @@ export default class YoutubeClipperPlugin extends Plugin {
         // Register file creation handler
         this.registerEvent(this.app.vault.on('create', (file) => {
             if (file instanceof TFile) {
-                this.safeOperation(() => this.urlHandler!.handleFileCreate(file), 'Handle file create');
+                void this.safeOperation(() => this.urlHandler!.handleFileCreate(file), 'Handle file create');
             }
         }));
 
         // Register active leaf change handler
         this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
-            this.safeOperation(() => this.urlHandler!.handleActiveLeafChange(), 'Handle active leaf change');
+            void this.safeOperation(() => this.urlHandler!.handleActiveLeafChange(), 'Handle active leaf change');
         }));
     }
 
@@ -240,7 +240,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             const aiService = this.serviceContainer.aiService;
             const providers = aiService ? aiService.getProviderNames() : [];
             // Use cached models if available, modal will auto-fetch from API on open
-            const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache || {};
+            const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache ?? {};
 
             const modal = new YouTubeUrlModal(this.app, {
                 onProcess: this.processYouTubeVideo.bind(this),
@@ -293,10 +293,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                         return [];
                     }
                 },
-                performanceMode: this._settings.performanceMode || 'balanced',
-                enableParallelProcessing: this._settings.enableParallelProcessing || false,
+                performanceMode: this._settings.performanceMode ?? 'balanced',
+                enableParallelProcessing: this._settings.enableParallelProcessing ?? false,
                 enableAutoFallback: this._settings.enableAutoFallback ?? true,
-                preferMultimodal: this._settings.preferMultimodal || false,
+                preferMultimodal: this._settings.preferMultimodal ?? false,
                 onPerformanceSettingsChange: async (performanceMode: PerformanceMode, enableParallel: boolean, preferMultimodal: boolean) => {
                     this._settings.performanceMode = performanceMode;
                     this._settings.enableParallelProcessing = enableParallel;
@@ -318,7 +318,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
         const aiService = this.serviceContainer.aiService;
         const providers = aiService ? aiService.getProviderNames() : [];
-        const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache || {};
+        const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache ?? {};
 
         const modal = new BatchVideoModal(this.app, {
             onProcess: this.processYouTubeVideo.bind(this),
@@ -405,10 +405,10 @@ export default class YoutubeClipperPlugin extends Plugin {
             logger.aiService('Processing video', {
                 videoId,
                 format,
-                provider: providerName || 'Auto',
-                model: model || 'Default',
-                maxTokens: maxTokens || 2048,
-                temperature: temperature || 0.7,
+                provider: providerName ?? 'Auto',
+                model: model ?? 'Default',
+                maxTokens: maxTokens ?? 2048,
+                temperature: temperature ?? 0.7,
             });
 
             // Set model parameters on providers if available
@@ -435,7 +435,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 logger.aiService('AI Response received', {
                     provider: aiResponse.provider,
                     model: aiResponse.model,
-                    contentLength: aiResponse.content?.length || 0,
+                    contentLength: aiResponse.content?.length ?? 0,
                 });
             } catch (error) {
                 logger.error('AI Processing failed', 'Plugin', {

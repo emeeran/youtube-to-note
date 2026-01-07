@@ -51,7 +51,7 @@ export class ProcessingStage extends BaseStage {
         const prompt = await this.createPrompt(input);
 
         // Set model parameters if provided
-        if (input.maxTokens || input.temperature !== undefined) {
+        if (input.maxTokens ?? input.temperature !== undefined) {
             this.setModelParameters(input.maxTokens, input.temperature);
         }
 
@@ -94,7 +94,7 @@ export class ProcessingStage extends BaseStage {
             throw new Error('Prompt service not available');
         }
 
-        const format = input.format || 'detailed-guide';
+        const format = input.format ?? 'detailed-guide';
 
         return this.promptService.createAnalysisPrompt(
             input.videoData,

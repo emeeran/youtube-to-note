@@ -133,16 +133,16 @@ export abstract class BaseModal extends Modal {
         const wrappedOnEnter = async () => {
             try {
                 await onEnter();
-            } catch (error) {
-
+            } catch {
+                // Ignore error
             }
         };
 
         const wrappedOnEscape = onEscape ? async () => {
             try {
                 await onEscape();
-            } catch (error) {
-
+            } catch {
+                // Ignore error
             }
         } : undefined;
 
