@@ -60,6 +60,7 @@ export type OutputFormat =
     | 'executive-summary'
     | 'detailed-guide'
     | 'brief'
+    | 'transcript'
     | 'custom';
 
 /** Options for video processing */

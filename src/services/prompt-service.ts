@@ -88,6 +88,8 @@ ANALYSIS INSTRUCTIONS:
                 return this.createExecutiveSummaryPrompt(baseContent, videoUrl, performanceMode);
             case 'brief':
                 return this.createBriefPrompt(baseContent, videoUrl, performanceMode);
+            case 'transcript':
+                return this.createTranscriptPrompt(baseContent, videoUrl, performanceMode);
             case 'detailed-guide':
             default:
                 return this.createDetailedGuidePrompt(baseContent, videoUrl, performanceMode);
@@ -112,7 +114,7 @@ ANALYSIS INSTRUCTIONS:
     }
 
     /**
-     * Create a brief prompt: short description plus resources list
+     * Create a brief prompt: Summary + Key Takeaways
      */
     private createBriefPrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
@@ -120,55 +122,84 @@ ANALYSIS INSTRUCTIONS:
 
         return `${baseContent}
 
-        OUTPUT FORMAT - BRIEF DESCRIPTION + RESOURCES:
+        OUTPUT FORMAT - BRIEF SUMMARY:
 
-        Use this EXACT template:
+        Provide a two-part output following this EXACT structure:
 
         ---
-        title: {Video Title}
+        title: {{TITLE}}
         source: ${videoUrl}
         created: "${new Date().toISOString().split('T')[0]}"
-        modified: "${new Date().toISOString().split('T')[0]}"
-        description: "One short paragraph (3-4 sentences) summarizing the video"
         type: youtube-note
         format: brief
-        tags:
-          - youtube
-          - brief
-        status: processed
-        duration: "[Extract video duration]"
-        channel: "[Extract channel name]"
+        tags: [youtube, brief]
         video_id: "${videoId || 'unknown'}"
-        processing_date: "${new Date().toISOString()}"
-    ai_provider: "__AI_PROVIDER__"
-    ai_model: "__AI_MODEL__"
+        ai_provider: "__AI_PROVIDER__"
+        ai_model: "__AI_MODEL__"
         ---
 
-        <iframe width="640" height="360" src="${embedUrl}" title="{Video Title}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <div style="text-align: center; margin-bottom: 24px;">
+        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
 
         ---
 
-        ## Brief Description
-        [Provide a concise 3-4 sentence description that captures the core message of the video]
+        ## Summary
+        [Under 250 words, distilling the core message and value of the video.]
 
         ## Key Takeaways
-        - **[Takeaway 1]**: [Core insight or lesson from the video]
-        - **[Takeaway 2]**: [Core insight or lesson from the video]
-        - **[Takeaway 3]**: [Core insight or lesson from the video]
+        - [Takeaway 1]
+        - [Takeaway 2]
+        - [Takeaway 3]
+        - [Takeaway 4]
+        - [Takeaway 5]
 
-        ## Quick Actions
-        1. **[Immediate Action]**: [Specific action you can take right away]
-        2. **[Next Step]**: [Follow-up action to apply what you learned]
+        **Formatting Rules:**
+        - Remove time-stamps, filler words, and any unnecessary details.
+        - Include external links and resources for further reading and viewing.`;
+    }
 
-        ## Resources
-        - **Original Video:** [Watch on YouTube](${videoUrl})
-        - **Channel:** [Creator's Channel](https://youtube.com/channel/[extract-channel-id])
-        - **Top resources mentioned or related (links):**
-          - [Resource 1]
-          - [Resource 2]
-          - [Resource 3]
+    /**
+     * Create transcript prompt: Summary + Full Transcript
+     */
+    private createTranscriptPrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl);
+        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        IMPORTANT: Keep the Brief Description short and focused. Provide 2-3 high-quality resource links that help the reader explore the topic further. Action items should be simple and immediately applicable.`;
+        return `${baseContent}
+
+        OUTPUT FORMAT - TRANSCRIPT NOTE:
+
+        Provide a two-part output following this EXACT structure:
+
+        ---
+        title: {{TITLE}}
+        source: ${videoUrl}
+        created: "${new Date().toISOString().split('T')[0]}"
+        type: youtube-transcript
+        format: transcript
+        tags: [youtube, transcript]
+        video_id: "${videoId || 'unknown'}"
+        ai_provider: "__AI_PROVIDER__"
+        ai_model: "__AI_MODEL__"
+        ---
+
+        <div style="text-align: center; margin-bottom: 24px;">
+        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+
+        ---
+
+        ## 1. Summary
+        [Under 250 words, distilling the core message and value of the video.]
+
+        ## 2. Full Transcript
+        [Cleaned up transcript content]
+
+        **Formatting Rules:**
+        - Remove time-stamps, filler words, and any unnecessary details.
+        - Include external links and resources for further reading and viewing found in the content.
+        - Use clear paragraph breaks for readability.`;
     }
 
     /**
@@ -292,7 +323,7 @@ IMPORTANT INSTRUCTIONS:
     }
 
     /**
-     * Create detailed guide prompt
+     * Create tutorial prompt (Step-by-Step Guide)
      */
     private createDetailedGuidePrompt(baseContent: string, videoUrl: string, performanceMode: PerformanceMode = 'balanced'): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
@@ -300,19 +331,17 @@ IMPORTANT INSTRUCTIONS:
 
         return `${baseContent}
 
-        OUTPUT FORMAT - EFFICIENT STEP-BY-STEP TUTORIAL:
+        OUTPUT FORMAT - TUTORIAL / STEP-BY-STEP GUIDE:
 
-        Create a concise step-by-step tutorial following this structure:
+        Provide a two-part output following this EXACT structure:
 
         ---
         title: {{TITLE}}
         source: ${videoUrl}
         created: "${new Date().toISOString().split('T')[0]}"
         type: youtube-tutorial
-        format: step-by-step
-        tags: [youtube, tutorial, implementation, practical]
-        status: processed
-        channel: "[Extract channel name]"
+        format: tutorial
+        tags: [youtube, tutorial]
         video_id: "${videoId || 'unknown'}"
         ai_provider: "__AI_PROVIDER__"
         ai_model: "__AI_MODEL__"
@@ -324,60 +353,15 @@ IMPORTANT INSTRUCTIONS:
 
         ---
 
-        # [Title] - Practical Tutorial
+        ## 1. Summary
+        [Under 250 words, distilling the core message and value of the video.]
 
-        ## Overview
-        **Goal:** [Main learning objective]
-        **Duration:** [Estimated time]
-        **Level:** [Difficulty]
+        ## 2. Step-by-Step Guide
+        [A sequential, detailed, and actionable tutorial that stands alone.]
 
-        **Video:** [{{TITLE}}](${videoUrl})
-
-        ## Prerequisites
-        - [Requirement 1]
-        - [Requirement 2]
-        - [Requirement 3]
-
-        ## Step-by-Step Guide
-
-        ### Step 1: [Action/Setup]
-        **Objective:** [Clear goal]
-
-        **Actions:**
-        1. [Specific instruction]
-        2. [Follow-up instruction]
-        3. [Verification step]
-
-        ✅ **Success:** [How to confirm it worked]
-
-        ### Step 2: [Core Implementation]
-        **Objective:** [Clear goal]
-
-        [Continue with remaining steps...]
-
-        ### Step 3: [Final Touches]
-        **Objective:** [Clear goal]
-
-        ## Learning Outcomes
-        Upon completion, you will:
-- [Achieved skill 1]
-- [Achieved skill 2]
-- [Achieved skill 3]
-
-        ## Required Tools
-        - **[Tool/Resource 1]:** [Where to get it]
-        - **[Tool/Resource 2]:** [Where to get it]
-
-        ## Pro Tips
-        💡 **Tip 1:** [Key insight from video]
-        💡 **Tip 2:** [Best practice]
-        ⚠️ **Avoid:** [Common mistake]
-
-        ## Verification
-        **Final Check:** [How to verify complete success]
-        **Expected Result:** [What you should see/accomplish]
-
-              *Generated from YouTube video content*`;
+        **Formatting Rules:**
+        - Remove time-stamps, filler words, and any unnecessary details.
+        - Include external links and resources for further reading and viewing.`;
     }
 
     /**

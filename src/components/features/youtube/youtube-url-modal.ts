@@ -246,13 +246,51 @@ export class YouTubeUrlModal extends BaseModal {
         const subtitle = titleContainer.createDiv('subtitle');
         subtitle.textContent = 'Generate AI summaries & notes';
 
-        // Global Controls (Batch, Theme)
+        // Global Controls (Auto-Fallback, Batch, Theme)
         const controls = topBar.createDiv();
         controls.style.cssText = `
             display: flex;
             gap: 6px;
             align-items: center;
         `;
+
+        // Auto Fallback Toggle (Icon only)
+        const fallbackBtn = controls.createEl('button');
+        const updateFallbackIcon = () => {
+            fallbackBtn.innerHTML = '<span style="font-size: 1.1em">🔄</span>';
+            fallbackBtn.style.opacity = this.autoFallbackEnabled ? '1' : '0.4';
+            fallbackBtn.style.borderColor = this.autoFallbackEnabled ? 'var(--ytc-accent)' : 'var(--ytc-border)';
+            fallbackBtn.title = `Auto Fallback: ${this.autoFallbackEnabled ? 'ON' : 'OFF'}`;
+        };
+        fallbackBtn.setAttribute('aria-label', 'Toggle Auto Fallback');
+        fallbackBtn.style.cssText = `
+            background: transparent;
+            border: 1px solid var(--ytc-border);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ytc-text-secondary);
+        `;
+        updateFallbackIcon();
+        
+        fallbackBtn.onclick = () => {
+            this.autoFallbackEnabled = !this.autoFallbackEnabled;
+            updateFallbackIcon();
+            UserPreferencesService.updateLastUsed({ autoFallback: this.autoFallbackEnabled });
+        };
+        fallbackBtn.onmouseenter = () => {
+            fallbackBtn.style.background = 'var(--ytc-bg-tertiary)';
+            fallbackBtn.style.color = 'var(--ytc-text-primary)';
+        };
+        fallbackBtn.onmouseleave = () => {
+            fallbackBtn.style.background = 'transparent';
+            fallbackBtn.style.color = 'var(--ytc-text-secondary)';
+        };
 
         // Batch Mode Button
         const batchBtn = controls.createEl('button');
@@ -391,12 +429,21 @@ export class YouTubeUrlModal extends BaseModal {
         container.style.cssText = `
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
             margin-bottom: 24px;
         `;
 
-        // 1. Output Format (Primary Decision)
-        const formatWrapper = container.createDiv();
+        // Controls Row (Output Format + AI Toggle)
+        const controlsRow = container.createDiv();
+        controlsRow.style.cssText = `
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        `;
+
+        // 1. Output Format (Left)
+        const formatWrapper = controlsRow.createDiv();
+        formatWrapper.style.flex = '1';
         
         // Compact Label
         const formatLabel = formatWrapper.createEl('label');
@@ -417,8 +464,9 @@ export class YouTubeUrlModal extends BaseModal {
 
         const formatOptions = [
             { value: 'executive-summary', text: '📊 Executive Summary' },
-            { value: 'detailed-guide', text: '📖 Comprehensive Guide' },
+            { value: 'detailed-guide', text: '📘 Tutorial / Guide' },
             { value: 'brief', text: '⚡ Brief Summary' },
+            { value: 'transcript', text: '📝 Transcript Note' },
             { value: 'custom', text: '✏️ Custom Format' },
         ];
 
@@ -435,38 +483,72 @@ export class YouTubeUrlModal extends BaseModal {
             UserPreferencesService.setPreference('lastFormat', this.format);
         });
 
-        // Custom Prompt Container (Hidden by default, shown if Custom Format selected)
-        this.createCustomPromptSection(container);
+        // 2. AI Config Toggle (Right)
+        const aiToggleWrapper = controlsRow.createDiv();
+        aiToggleWrapper.style.flex = '1';
 
-        // 2. Advanced AI Settings (Collapsible)
-        const aiSettings = container.createDiv('ytc-ai-settings');
-        // CSS handles styling
+        const aiLabel = aiToggleWrapper.createEl('label');
+        aiLabel.textContent = 'AI CONFIGURATION';
+        aiLabel.style.cssText = `
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--ytc-text-muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+            display: block;
+        `;
 
-        // Header (Always visible)
-        const aiHeader = aiSettings.createDiv('ytc-ai-header');
-        aiHeader.setAttribute('role', 'button');
-        aiHeader.setAttribute('aria-expanded', 'false');
-        aiHeader.setAttribute('tabindex', '0');
-        
-        const aiTitleGroup = aiHeader.createDiv();
-        aiTitleGroup.style.cssText = `display: flex; align-items: center; gap: 8px; flex: 1;`;
-        aiTitleGroup.innerHTML = `<span style="font-size: 1.1em">🤖</span> <span style="font-weight: 600; font-size: 0.9rem;">AI Configuration</span>`;
-        
-        const aiSummary = aiHeader.createDiv();
-        aiSummary.style.cssText = `color: var(--ytc-text-muted); font-size: 0.8rem; display: flex; align-items: center; gap: 6px;`;
-        
-        // Chevron
-        const chevron = aiHeader.createDiv();
+        const aiToggleBtn = aiToggleWrapper.createDiv();
+        aiToggleBtn.addClass('ytc-ai-toggle-btn');
+        aiToggleBtn.setAttribute('role', 'button');
+        aiToggleBtn.setAttribute('tabindex', '0');
+        aiToggleBtn.style.cssText = `
+            background: var(--ytc-bg-input);
+            border: 1px solid var(--ytc-border);
+            border-radius: 8px;
+            height: 38px;
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        `;
+
+        const aiSummary = aiToggleBtn.createDiv();
+        aiSummary.style.cssText = `
+            font-size: 0.9rem;
+            color: var(--ytc-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        `;
+
+        const chevron = aiToggleBtn.createDiv();
         chevron.innerHTML = `<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>`;
-        chevron.style.cssText = `transition: transform 0.2s ease; opacity: 0.5; margin-left: 8px; color: var(--ytc-text-secondary);`;
+        chevron.style.cssText = `
+            transition: transform 0.2s ease;
+            opacity: 0.5;
+            margin-left: 8px;
+            flex-shrink: 0;
+            color: var(--ytc-text-secondary);
+        `;
 
-        // Content (Collapsible)
-        const aiContent = aiSettings.createDiv('ytc-ai-content');
+        // AI Content Panel (Collapsible, Full Width)
+        const aiContent = container.createDiv('ytc-ai-content');
         aiContent.style.cssText = `
+            background: var(--ytc-bg-secondary);
+            border: 1px solid var(--ytc-border);
+            border-radius: 8px;
             padding: 16px;
             display: none;
+            margin-top: -4px;
             animation: fadeIn 0.15s ease-out;
         `;
+
+        // Custom Prompt Container (Hidden by default)
+        this.createCustomPromptSection(container);
 
         // Toggle Logic
         let isExpanded = false;
@@ -474,20 +556,21 @@ export class YouTubeUrlModal extends BaseModal {
         const updateSummary = () => {
             const provider = this.selectedProvider || 'Google Gemini';
             const model = this.selectedModel || 'Default';
-            const formattedModel = this.formatModelName(model).replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim(); // Remove emojis for summary
-            aiSummary.textContent = `${provider} • ${formattedModel}`;
+            // Simplify summary for the button
+            aiSummary.textContent = `${provider}`; 
+            aiSummary.title = `${provider} • ${this.formatModelName(model)}`;
         };
 
         const toggleAI = () => {
             isExpanded = !isExpanded;
             aiContent.style.display = isExpanded ? 'block' : 'none';
-            aiHeader.classList.toggle('expanded', isExpanded);
-            aiHeader.setAttribute('aria-expanded', String(isExpanded));
+            aiToggleBtn.classList.toggle('active', isExpanded);
+            aiToggleBtn.style.borderColor = isExpanded ? 'var(--ytc-accent)' : 'var(--ytc-border)';
             chevron.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
         };
 
-        aiHeader.addEventListener('click', toggleAI);
-        aiHeader.addEventListener('keydown', (e) => {
+        aiToggleBtn.addEventListener('click', toggleAI);
+        aiToggleBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 toggleAI();
@@ -526,32 +609,33 @@ export class YouTubeUrlModal extends BaseModal {
         const modelRow = aiContent.createDiv();
         modelRow.style.cssText = `margin-top: 16px;`;
         
-        const modelLabelRow = modelRow.createDiv();
-        modelLabelRow.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;`;
-        
-        const modelLabel = modelLabelRow.createEl('label');
+        const modelLabel = modelRow.createEl('label');
         modelLabel.textContent = 'MODEL';
         modelLabel.htmlFor = 'ytc-model-select';
-        modelLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em;`;
+        modelLabel.style.cssText = `font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 6px;`;
 
-        // Model Actions (Refresh, Star)
-        const modelActions = modelLabelRow.createDiv();
-        modelActions.style.cssText = `display: flex; gap: 4px;`;
+        const modelInputGroup = modelRow.createDiv();
+        modelInputGroup.style.cssText = `display: flex; gap: 8px; align-items: center;`;
+
+        this.modelSelect = modelInputGroup.createEl('select');
+        this.modelSelect.id = 'ytc-model-select';
+        this.modelSelect.style.cssText = `
+            flex: 1;
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: var(--background-primary);
+            height: 42px;
+            cursor: pointer;
+        `;
 
         // Refresh Button
-        const refreshBtn = modelActions.createEl('button');
+        const refreshBtn = modelInputGroup.createEl('button', { cls: 'ytc-icon-btn' });
         refreshBtn.innerHTML = '🔄';
         refreshBtn.title = 'Refresh Models';
         refreshBtn.setAttribute('aria-label', 'Refresh Models');
-        refreshBtn.style.cssText = `
-            padding: 2px 6px;
-            font-size: 0.8rem;
-            background: transparent;
-            border: 1px solid var(--ytc-border);
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--ytc-text-secondary);
-        `;
         refreshBtn.onclick = async (e) => {
             e.stopPropagation();
             refreshBtn.innerHTML = '⏳';
@@ -561,19 +645,10 @@ export class YouTubeUrlModal extends BaseModal {
         };
 
         // Star Button
-        const starBtn = modelActions.createEl('button');
+        const starBtn = modelInputGroup.createEl('button', { cls: 'ytc-icon-btn' });
         starBtn.innerHTML = '⭐';
         starBtn.title = 'Save as Default Preference';
         starBtn.setAttribute('aria-label', 'Save as Default Preference');
-        starBtn.style.cssText = `
-            padding: 2px 6px;
-            font-size: 0.8rem;
-            background: transparent;
-            border: 1px solid var(--ytc-border);
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--ytc-text-secondary);
-        `;
         starBtn.onclick = (e) => {
             e.stopPropagation();
             if (this.selectedModel) {
@@ -581,13 +656,6 @@ export class YouTubeUrlModal extends BaseModal {
                 new Notice('⭐ Model saved as default!');
             }
         };
-
-        this.modelSelect = modelRow.createEl('select');
-        this.modelSelect.id = 'ytc-model-select';
-        // CSS handles styling
-
-        // Auto Fallback Toggle
-        this.createFallbackToggle(aiContent);
 
         // Event Listeners for AI Settings
         this.providerSelect.addEventListener('change', async () => {
@@ -1578,6 +1646,31 @@ export class YouTubeUrlModal extends BaseModal {
             css += '.ytc-ai-content {';
             css += 'border-top: 1px solid var(--ytc-border) !important;';
             css += '}';
+            
+            // Icon Buttons (Refresh, Star)
+            css += '.ytc-icon-btn {';
+            css += 'background: transparent !important;';
+            css += 'border: 1px solid var(--ytc-border) !important;';
+            css += 'color: var(--ytc-text-secondary) !important;';
+            css += 'border-radius: 6px !important;';
+            css += 'width: 32px !important;';
+            css += 'height: 38px !important;';
+            css += 'display: flex !important;';
+            css += 'align-items: center !important;';
+            css += 'justify-content: center !important;';
+            css += 'cursor: pointer !important;';
+            css += 'transition: all 0.2s ease !important;';
+            css += 'font-size: 1rem !important;';
+            css += 'padding: 0 !important;';
+            css += 'flex-shrink: 0 !important;';
+            css += '}';
+            css += '.ytc-icon-btn:hover {';
+            css += 'background: var(--ytc-bg-tertiary) !important;';
+            css += 'color: var(--ytc-text-primary) !important;';
+            css += 'border-color: var(--ytc-text-muted) !important;';
+            css += 'transform: translateY(-1px) !important;';
+            css += 'box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;';
+            css += '}';
 
             themeStyle.innerHTML = css;
 
@@ -1629,8 +1722,11 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create ultra-compact progress section
+     * Create ultra-compact progress section with timer
      */
+    private timerInterval?: number;
+    private timerEl?: HTMLSpanElement;
+
     private createProgressSection(): void {
         this.progressContainer = this.contentEl.createDiv();
         this.progressContainer.setAttribute('role', 'region');
@@ -1639,14 +1735,32 @@ export class YouTubeUrlModal extends BaseModal {
         this.progressContainer.style.marginTop = '6px';
         this.progressContainer.style.display = 'none';
 
-        // Progress text (ultra compact)
-        this.progressText = this.progressContainer.createDiv();
+        // Info Row (Text + Timer)
+        const infoRow = this.progressContainer.createDiv();
+        infoRow.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        `;
+
+        // Progress text
+        this.progressText = infoRow.createDiv();
         this.progressText.id = 'progress-text';
-        this.progressText.style.marginBottom = '6px';
         this.progressText.style.fontWeight = '500';
-        this.progressText.style.fontSize = '14px';
+        this.progressText.style.fontSize = '13px';
         this.progressText.style.color = '#00b894';
-        this.progressText.textContent = 'Processing with Google Gemini...';
+        this.progressText.textContent = 'Processing...';
+
+        // Timer
+        this.timerEl = infoRow.createSpan();
+        this.timerEl.style.cssText = `
+            font-family: monospace;
+            font-variant-numeric: tabular-nums;
+            font-size: 12px;
+            color: var(--ytc-text-muted);
+        `;
+        this.timerEl.textContent = '0.0s';
 
         // Progress bar container
         const progressBarContainer = this.progressContainer.createDiv();
@@ -1655,19 +1769,61 @@ export class YouTubeUrlModal extends BaseModal {
         progressBarContainer.setAttribute('aria-valuemin', '0');
         progressBarContainer.setAttribute('aria-valuemax', '100');
         progressBarContainer.setAttribute('aria-labelledby', 'progress-text');
-        progressBarContainer.style.width = '100%';
-        progressBarContainer.style.height = '6px';
-        progressBarContainer.style.backgroundColor = '#e0e0e0';
-        progressBarContainer.style.borderRadius = '3px';
-        progressBarContainer.style.overflow = 'hidden';
+        progressBarContainer.style.cssText = `
+            width: 100%;
+            height: 6px;
+            background-color: var(--ytc-bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        `;
 
-        // Progress bar
+        // Animated Progress bar
         this.progressBar = progressBarContainer.createDiv();
-        this.progressBar.style.height = '100%';
-        this.progressBar.style.backgroundColor = '#00b894';
-        this.progressBar.style.borderRadius = '3px';
-        this.progressBar.style.width = '0%';
-        this.progressBar.style.transition = 'width 0.3s ease';
+        this.progressBar.style.cssText = `
+            height: 100%;
+            background: linear-gradient(90deg, var(--ytc-accent), #34d399);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        `;
+        
+        // Add shimmer effect
+        const shimmer = this.progressBar.createDiv();
+        shimmer.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background-image: linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.15) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.15) 50%,
+                rgba(255, 255, 255, 0.15) 75%,
+                transparent 75%,
+                transparent
+            );
+            background-size: 20px 20px;
+            animation: ytc-progress-stripe 1s linear infinite;
+            opacity: 0.6;
+        `;
+
+        // Add keyframes for animation if not exists
+        if (!document.getElementById('ytc-progress-anim')) {
+            const style = document.createElement('style');
+            style.id = 'ytc-progress-anim';
+            style.textContent = `
+                @keyframes ytc-progress-stripe {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 20px 20px; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 
     /**
@@ -1678,56 +1834,56 @@ export class YouTubeUrlModal extends BaseModal {
         const container = this.contentEl.createDiv();
         container.style.cssText = `
             display: flex;
-            flex-direction: column;
-            gap: 16px;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
             margin-top: 24px;
-            padding-top: 24px;
+            padding-top: 20px;
             border-top: 1px solid var(--ytc-border);
         `;
 
-        // Primary action row (Process)
-        const primaryRow = container.createDiv();
-        primaryRow.style.cssText = `
-            display: flex;
-            gap: 12px;
-        `;
+        // Cancel button (Left)
+        const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn ytc-ghost-btn' });
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => this.close());
 
-        this.processButton = primaryRow.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
-        this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
-        this.processButton.addEventListener('click', () => this.handleProcess());
+        // Spacer to push primary actions to the right
+        const spacer = container.createDiv();
+        spacer.style.flex = '1';
 
-        // Secondary actions row (initially hidden)
-        const secondaryRow = container.createDiv();
-        secondaryRow.style.cssText = `
+        // Secondary actions wrapper (Hidden initially)
+        this.secondaryActionsRow = container.createDiv();
+        this.secondaryActionsRow.style.cssText = `
             display: none;
-            gap: 12px;
+            gap: 8px;
         `;
-        this.secondaryActionsRow = secondaryRow;
+
+        // Copy Path button
+        this.copyPathButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
+        this.copyPathButton.innerHTML = '📋';
+        this.copyPathButton.title = 'Copy Path';
+        this.copyPathButton.style.width = '40px'; // Compact icon button
+        this.copyPathButton.style.padding = '0';
+        this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
+
+        // Open Note button
+        this.openButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
+        this.openButton.innerHTML = '📄 Open';
+        this.openButton.addEventListener('click', () => this.handleOpenFile());
 
         // Process Another button
-        const processAnotherBtn = secondaryRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
-        processAnotherBtn.innerHTML = '🔄 Process Another';
-        processAnotherBtn.style.flex = '1';
+        const processAnotherBtn = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
+        processAnotherBtn.innerHTML = '🔄 New';
         processAnotherBtn.addEventListener('click', () => {
             this.showInputState();
         });
         this.processAnotherButton = processAnotherBtn;
 
-        // Open Note button
-        this.openButton = secondaryRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
-        this.openButton.innerHTML = '📄 Open Note';
-        this.openButton.style.flex = '1';
-        this.openButton.addEventListener('click', () => this.handleOpenFile());
-
-        // Copy Path button
-        this.copyPathButton = secondaryRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
-        this.copyPathButton.innerHTML = '📋 Copy';
-        this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
-
-        // Cancel button (always visible but smaller)
-        const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn ytc-ghost-btn' });
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', () => this.close());
+        // Primary Process Button (Right)
+        this.processButton = container.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
+        this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
+        this.processButton.style.minWidth = '120px';
+        this.processButton.addEventListener('click', () => this.handleProcess());
 
         this.updateProcessButtonState();
     }
@@ -1739,6 +1895,7 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.processButton) {
             this.processButton.style.display = 'flex';
             this.processButton.disabled = false;
+            this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
         }
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.style.display = 'none';
@@ -1747,12 +1904,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.urlInput.disabled = false;
             this.urlInput.value = '';
             this.url = '';
-        }
-        if (this.openButton) {
-            this.openButton.style.display = 'none';
-        }
-        if (this.copyPathButton) {
-            this.copyPathButton.style.display = 'none';
         }
         if (this.headerEl) {
             this.headerEl.textContent = MESSAGES.MODALS.PROCESS_VIDEO;
@@ -1926,6 +2077,13 @@ export class YouTubeUrlModal extends BaseModal {
                 : 'AI';
             this.updateProgress(75, `Processing with ${providerDisplayName}...`);
 
+            // Boost max tokens for transcript format if default is low
+            let maxTokens = this.options.defaultMaxTokens || 4096;
+            if (this.format === 'transcript') {
+                // Ensure at least 16k tokens for transcript if possible (provider dependent)
+                maxTokens = Math.max(maxTokens, 16384);
+            }
+
             // Call the process function
             const filePath = await this.options.onProcess(
                 trimmedUrl,
@@ -1936,7 +2094,7 @@ export class YouTubeUrlModal extends BaseModal {
                 this.options.performanceMode || 'balanced',
                 this.options.enableParallelProcessing || false,
                 this.options.preferMultimodal || false,
-                this.options.defaultMaxTokens || 4096,
+                maxTokens,
                 this.options.defaultTemperature || 0.5,
                 this.autoFallbackEnabled
             );
@@ -1964,15 +2122,25 @@ export class YouTubeUrlModal extends BaseModal {
             this.urlInput.disabled = true;
         }
         if (this.processButton) {
+            this.processButton.style.display = 'flex';
             this.processButton.disabled = true;
-            this.processButton.textContent = 'Processing...';
+            this.processButton.innerHTML = '<span>⏳</span> Processing...';
         }
-        if (this.openButton) {
-            this.openButton.style.display = 'none';
+        if (this.secondaryActionsRow) {
+            this.secondaryActionsRow.style.display = 'none';
         }
-        if (this.copyPathButton) {
-            this.copyPathButton.style.display = 'none';
-        }
+
+        // Start timer
+        if (this.timerInterval) window.clearInterval(this.timerInterval);
+        const startTime = Date.now();
+        if (this.timerEl) this.timerEl.textContent = '0.0s';
+        
+        this.timerInterval = window.setInterval(() => {
+            if (this.timerEl) {
+                const elapsed = (Date.now() - startTime) / 1000;
+                this.timerEl.textContent = `${elapsed.toFixed(1)}s`;
+            }
+        }, 100);
     }
 
     /**
@@ -1992,24 +2160,25 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private showCompletionState(): void {
         this.isProcessing = false;
+        if (this.timerInterval) {
+            window.clearInterval(this.timerInterval);
+            this.timerInterval = undefined;
+        }
+
         if (this.urlInput) {
             this.urlInput.disabled = false;
             this.urlInput.value = '';
             this.url = '';
         }
-        // Use the new layout - hide process button, show secondary actions
+        
+        // Single row layout logic: Hide process button, show secondary row
         if (this.processButton) {
             this.processButton.style.display = 'none';
         }
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.style.display = 'flex';
         }
-        if (this.openButton) {
-            this.openButton.style.display = 'flex';
-        }
-        if (this.copyPathButton) {
-            this.copyPathButton.style.display = 'flex';
-        }
+        
         if (this.headerEl) {
             this.headerEl.textContent = '✅ Video Processed Successfully!';
         }
@@ -2022,6 +2191,11 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private showErrorState(error: Error): void {
         this.isProcessing = false;
+        if (this.timerInterval) {
+            window.clearInterval(this.timerInterval);
+            this.timerInterval = undefined;
+        }
+
         if (this.urlInput) {
             this.urlInput.disabled = false;
         }
