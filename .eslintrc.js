@@ -112,5 +112,6 @@ module.exports = {
         'src/services/optimized-ai-service.ts',
         'main-original.ts',
         'main-refactored.ts',
+        'tests/**/*',
     ],
 };
