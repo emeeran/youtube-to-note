@@ -1,5 +1,2 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
 # Run full test suite before pushing
 npm test 2>/dev/null || echo "Tests failed - pushing anyway"

@@ -35,7 +35,7 @@ export class UrlHandler {
             urlHandlerDelay: 500,
             maxHandledFiles: 100,
             tempFileAgeThreshold: 5000,
-        }
+        },
     ) {}
 
     /**
@@ -105,12 +105,12 @@ export class UrlHandler {
 
             // Try to find the first YouTube URL anywhere in the content
             const trimmed = content.trim();
-            const ytRegex = /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}/i;
-            const ytbeRegex = /https?:\/\/(?:www\.)?youtu\.be\/[A-Za-z0-9_-]{6,}/i;
+            const ytRegex = /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[A-Za-z0-9_-]+(?:&[^/\s]*)?/i;
+            const ytbeRegex = /https?:\/\/(?:www\.)?youtu\.be\/[A-Za-z0-9_-]+(?:\?[^/\s]*)?/i;
             const match = trimmed.match(ytRegex) ?? trimmed.match(ytbeRegex);
 
-            if (match?.[1]) {
-                const url = match[1].trim();
+            if (match?.[0]) {
+                const url = match[0].trim();
                 return ValidationUtils.isValidYouTubeUrl(url) ? url : null;
             }
 
@@ -229,7 +229,6 @@ export class UrlHandler {
 
             logger.info('CREATE EVENT - detected temp note', 'UrlHandler', { ...result });
             this.handleUrlSafely(result);
-
         } catch (error) {
             logger.error('Error handling file create', 'UrlHandler', {
                 filePath: file.path,
@@ -282,7 +281,6 @@ export class UrlHandler {
 
             logger.info('ACTIVE-LEAF-CHANGE EVENT - detected temp note', 'UrlHandler', { ...result });
             this.handleUrlSafely(result);
-
         } catch (error) {
             logger.error('Error handling active leaf change', 'UrlHandler', {
                 error: error instanceof Error ? error.message : String(error),

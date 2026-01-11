@@ -8,6 +8,7 @@ import { ProviderManager } from './provider-manager';
 import { FallbackStrategy } from './fallback-strategy';
 import { performanceTracker } from '../../services/performance-tracker';
 import type { JsonObject } from '../../types/api-responses';
+import { MESSAGES } from '../../constants/messages';
 
 /**
  * AI Orchestrator - Main facade for AI operations
@@ -36,45 +37,44 @@ export class AIOrchestrator implements IAIService {
     }
 
     /**
-   * Process prompt with automatic provider selection
-   */
+     * Process prompt with automatic provider selection
+     */
     async process(prompt: string, images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
         if (!prompt || typeof prompt !== 'string') {
             throw new Error('Valid prompt is required');
         }
 
-        return await performanceTracker.measureOperation('ai-service', 'ai-process', async () => {
-            const providers = this.providerManager.getProviders();
+        return await performanceTracker.measureOperation(
+            'ai-service',
+            'ai-process',
+            async () => {
+                const providers = this.providerManager.getProviders();
 
-            if (providers.length === 0) {
-                throw new Error('No AI providers available');
-            }
+                if (providers.length === 0) {
+                    throw new Error('No AI providers available');
+                }
 
-            // Try first provider with fallback
-            const primaryProvider = providers[0];
-            return await this.processWith(
-                primaryProvider.name,
-                prompt,
-                undefined,
-                images,
-                true
-            );
-        }, {
-            promptLength: prompt.length,
-            hasImages: images && images.length > 0,
-            processingMode: 'sequential',
-        });
+                // Try first provider with fallback
+                const primaryProvider = providers[0];
+                return await this.processWith(primaryProvider.name, prompt, undefined, images, true);
+            },
+            {
+                promptLength: prompt.length,
+                hasImages: images && images.length > 0,
+                processingMode: 'sequential',
+            },
+        );
     }
 
     /**
-   * Process with specific provider
-   */
+     * Process with specific provider
+     */
     async processWith(
         providerName: string,
         prompt: string,
         overrideModel?: string,
         images?: (string | ArrayBuffer)[],
-        enableFallback: boolean = true
+        enableFallback: boolean = true,
     ): Promise<AIResponse> {
         return await this.fallbackStrategy.executeWithFallback(
             providerName,
@@ -86,13 +86,13 @@ export class AIOrchestrator implements IAIService {
                 overrideModel,
                 images,
                 enableFallback,
-            }
+            },
         );
     }
 
     /**
-   * Apply performance settings to providers
-   */
+     * Apply performance settings to providers
+     */
     private applyPerformanceSettings(settings: YouTubePluginSettings): void {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { PERFORMANCE_PRESETS } = require('../../performance');
@@ -111,8 +111,8 @@ export class AIOrchestrator implements IAIService {
     }
 
     /**
-   * Update settings
-   */
+     * Update settings
+     */
     updateSettings(newSettings: YouTubePluginSettings): void {
         this.providerManager.updateSettings(newSettings);
         this.applyPerformanceSettings(newSettings);
@@ -125,50 +125,50 @@ export class AIOrchestrator implements IAIService {
     }
 
     /**
-   * Get provider models
-   */
+     * Get provider models
+     */
     getProviderModels(providerName: string): string[] {
         return this.providerManager.getProviderModels(providerName);
     }
 
     /**
-   * Fetch latest models for all providers
-   */
+     * Fetch latest models for all providers
+     */
     async fetchLatestModels(): Promise<Record<string, string[]>> {
         return await this.providerManager.fetchLatestModels();
     }
 
     /**
-   * Fetch latest models for specific provider
-   */
+     * Fetch latest models for specific provider
+     */
     async fetchLatestModelsForProvider(providerName: string, bypassCache?: boolean): Promise<string[]> {
         return await this.providerManager.fetchLatestModelsForProvider(providerName, bypassCache);
     }
 
     /**
-   * Check if providers are available
-   */
+     * Check if providers are available
+     */
     hasAvailableProviders(): boolean {
         return this.providerManager.hasProviders();
     }
 
     /**
-   * Get provider names
-   */
+     * Get provider names
+     */
     getProviderNames(): string[] {
         return this.providerManager.getProviderNames();
     }
 
     /**
-   * Add a provider
-   */
+     * Add a provider
+     */
     addProvider(provider: AIProvider): void {
         this.providerManager.registerProvider(provider);
     }
 
     /**
-   * Remove a provider
-   */
+     * Remove a provider
+     */
     removeProvider(providerName: string): boolean {
         const provider = this.providerManager.getProvider(providerName);
         if (provider) {
@@ -180,8 +180,8 @@ export class AIOrchestrator implements IAIService {
     }
 
     /**
-   * Get performance metrics
-   */
+     * Get performance metrics
+     */
     getPerformanceMetrics(): JsonObject {
         const providerMetrics = this.providerManager.getMetrics();
         const aiProcessingMetrics = performanceTracker.getMetricsSummary('ai-service');
@@ -194,8 +194,8 @@ export class AIOrchestrator implements IAIService {
     }
 
     /**
-   * Cleanup
-   */
+     * Cleanup
+     */
     cleanup(): void {
         this.providerManager.cleanup();
     }
