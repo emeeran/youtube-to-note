@@ -59,7 +59,9 @@ export class ValidationUtils {
      */
     // eslint-disable-next-line complexity
     static extractVideoId(url: string): string | null {
-        if (!url || typeof url !== 'string') return null;
+        if (!url || typeof url !== 'string') {
+            return null;
+        }
 
         // Check cache first (O(1) for repeated URLs)
         if (this.URL_CACHE.has(url)) {
@@ -199,8 +201,6 @@ export class ValidationUtils {
             .replace(/\\n/g, '\n')
             .replace(/\\"/g, '"')
             .replace(/\\'/g, "'")
-            .replace(/\\u([0-9a-fA-F]{4})/g, (match, code) =>
-                String.fromCharCode(parseInt(code, 16))
-            );
+            .replace(/\\u([0-9a-fA-F]{4})/g, (match, code) => String.fromCharCode(parseInt(code, 16)));
     }
 }

@@ -1,10 +1,9 @@
-
 /**
  * API endpoints and configuration constants
  */
 
 export const API_ENDPOINTS = {
-    GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent',
+    GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
     GROQ: 'https://api.groq.com/openai/v1/chat/completions',
     HUGGINGFACE: 'https://api-inference.huggingface.co/models',
     OPENROUTER: 'https://openrouter.ai/api/v1/chat/completions',
@@ -13,7 +12,7 @@ export const API_ENDPOINTS = {
 } as const;
 
 export const AI_MODELS = {
-    GEMINI: 'gemini-2.5-pro',
+    GEMINI: 'gemini-2.0-flash',
     GROQ: 'llama-3.3-70b-versatile',
     HUGGINGFACE: 'Qwen/Qwen3-8B',
     OPENROUTER: 'meta-llama/llama-3.1-8b-instruct:free',
@@ -74,7 +73,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'gemini-exp-1206', supportsAudioVideo: true },
         { name: 'gemini-exp-latest', supportsAudioVideo: true },
     ],
-    'Groq': [
+    Groq: [
         // Llama 3.3 Series (latest)
         { name: 'llama-3.3-70b-versatile' },
         { name: 'llama-3.3-8b-instant' },
@@ -98,7 +97,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'qwen-2.5-32b' },
         { name: 'qwen-2.5-coder-32b' },
     ],
-    'Ollama': [
+    Ollama: [
         // DeepSeek v3.2 Series (NEW - Latest reasoning models)
         { name: 'deepseek-v3.2', supportsAudioVideo: true },
         { name: 'deepseek-v3.2:latest', supportsAudioVideo: true },
@@ -280,7 +279,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'llava-hf/llava-1.5-7b', supportsAudioVideo: true },
         { name: 'llava-hf/llava-1.5-13b', supportsAudioVideo: true },
     ],
-    'OpenRouter': [
+    OpenRouter: [
         // Free tier models
         { name: 'meta-llama/llama-3.1-8b-instruct:free' },
         { name: 'google/gemma-2-9b-it:free' },
@@ -320,25 +319,25 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
 // Optional: provider pages to attempt to scrape for latest model names (best-effort)
 export const PROVIDER_MODEL_LIST_URLS: Record<string, string> = {
     'Google Gemini': 'https://developers.generativeai.google/models',
-    'Groq': 'https://groq.com',
-    'Ollama': 'http://localhost:11434',
+    Groq: 'https://groq.com',
+    Ollama: 'http://localhost:11434',
     'Ollama Cloud': 'https://ollama.com',
     'Hugging Face': 'https://huggingface.co/models',
-    'OpenRouter': 'https://openrouter.ai/models',
+    OpenRouter: 'https://openrouter.ai/models',
 };
 
 // Simple regex patterns to try to extract model-like tokens from provider pages
 export const PROVIDER_MODEL_REGEX: Record<string, RegExp> = {
     'Google Gemini': /gemini[-_.]?\d+(?:\.\d+)?(?:-[a-z0-9-]+)?/gi,
-    'Groq': /llama[-_.]?\d+(?:\.\d+)?(?:-[a-z0-9-]+)?/gi,
-    'Ollama': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
+    Groq: /llama[-_.]?\d+(?:\.\d+)?(?:-[a-z0-9-]+)?/gi,
+    Ollama: /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
     'Ollama Cloud': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
     'Hugging Face': /[\w-]+\/[\w-.]+/g,
-    'OpenRouter': /[\w-]+\/[\w-.:]+/g,
+    OpenRouter: /[\w-]+\/[\w-.:]+/g,
 };
 
 export const API_LIMITS = {
-    MAX_TOKENS: 8000,  // Increased from 2000 to handle comprehensive tutorials
+    MAX_TOKENS: 8000, // Increased from 2000 to handle comprehensive tutorials
     TEMPERATURE: 0.7,
     DESCRIPTION_MAX_LENGTH: 1000,
     TITLE_MAX_LENGTH: 100,
