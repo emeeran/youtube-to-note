@@ -4,36 +4,17 @@
  */
 
 import { AIService as IAIService, AIProvider, AIResponse, YouTubePluginSettings } from '../../types';
-import { ProviderManager } from './provider-manager';
-import { FallbackStrategy } from './fallback-strategy';
-import { performanceTracker } from '../../services/performance-tracker';
-import type { JsonObject } from '../../types/api-responses';
+import { logger } from '../../services/logger';
 import { MESSAGES } from '../../constants/messages';
 
 /**
  * AI Orchestrator - Main facade for AI operations
  */
 export class AIOrchestrator implements IAIService {
-    private providerManager: ProviderManager;
-    private fallbackStrategy: FallbackStrategy;
-
-    constructor(providers: AIProvider[], settings: YouTubePluginSettings) {
+    constructor(private providers: AIProvider[], private settings: YouTubePluginSettings) {
         if (!providers || providers.length === 0) {
             throw new Error(MESSAGES.ERRORS.MISSING_API_KEYS);
         }
-
-        // Initialize provider manager
-        this.providerManager = new ProviderManager(settings);
-        this.providerManager.registerProviders(providers);
-
-        // Initialize fallback strategy
-        this.fallbackStrategy = new FallbackStrategy(this.providerManager, {
-            enableModelFallback: settings.enableAutoFallback ?? true,
-            enableProviderFallback: settings.enableAutoFallback ?? true,
-            maxFallbackAttempts: 3,
-        });
-
-        this.applyPerformanceSettings(settings);
     }
 
     /**
@@ -44,26 +25,18 @@ export class AIOrchestrator implements IAIService {
             throw new Error('Valid prompt is required');
         }
 
-        return await performanceTracker.measureOperation(
-            'ai-service',
-            'ai-process',
-            async () => {
-                const providers = this.providerManager.getProviders();
+        if (this.providers.length === 0) {
+            throw new Error('No AI providers available');
+        }
 
-                if (providers.length === 0) {
-                    throw new Error('No AI providers available');
-                }
-
-                // Try first provider with fallback
-                const primaryProvider = providers[0];
-                return await this.processWith(primaryProvider.name, prompt, undefined, images, true);
-            },
-            {
-                promptLength: prompt.length,
-                hasImages: images && images.length > 0,
-                processingMode: 'sequential',
-            },
-        );
+        // Use the first available provider
+        const provider = this.providers[0];
+        const content = await provider.process(prompt);
+        return {
+            content,
+            provider: provider.name,
+            model: provider.model || 'default',
+        };
     }
 
     /**
@@ -76,120 +49,134 @@ export class AIOrchestrator implements IAIService {
         images?: (string | ArrayBuffer)[],
         enableFallback: boolean = true,
     ): Promise<AIResponse> {
-        return await this.fallbackStrategy.executeWithFallback(
-            providerName,
-            prompt,
-            async (provider, _model) => {
-                return await this.fallbackStrategy.processWithRetry(provider, prompt, images);
-            },
-            {
-                overrideModel,
-                images,
-                enableFallback,
-            },
-        );
-    }
-
-    /**
-     * Apply performance settings to providers
-     */
-    private applyPerformanceSettings(settings: YouTubePluginSettings): void {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { PERFORMANCE_PRESETS } = require('../../performance');
-        const preset = PERFORMANCE_PRESETS[settings.performanceMode] ?? PERFORMANCE_PRESETS.balanced;
-        const timeouts = settings.customTimeouts ?? preset.timeouts;
-
-        const providers = this.providerManager.getProviders();
-
-        providers.forEach(provider => {
-            if (provider.name === 'Google Gemini' && provider.setTimeout) {
-                provider.setTimeout(timeouts.geminiTimeout);
-            } else if (provider.name === 'Groq' && provider.setTimeout) {
-                provider.setTimeout(timeouts.groqTimeout);
+        if (!enableFallback) {
+            const provider = this.providers.find(p => p.name === providerName);
+            if (!provider) {
+                throw new Error(`Provider ${providerName} not found`);
             }
-        });
+
+            if (overrideModel && provider.setModel) {
+                provider.setModel(overrideModel);
+            }
+
+            const content = await provider.process(prompt);
+            return {
+                content,
+                provider: provider.name,
+                model: provider.model || 'default',
+            };
+        }
+
+        // Try the requested provider first
+        const primaryProvider = this.providers.find(p => p.name === providerName);
+        if (!primaryProvider) {
+            throw new Error(`Provider ${providerName} not found`);
+        }
+
+        if (overrideModel && primaryProvider.setModel) {
+            primaryProvider.setModel(overrideModel);
+        }
+
+        try {
+            const content = await primaryProvider.process(prompt);
+            return {
+                content,
+                provider: primaryProvider.name,
+                model: primaryProvider.model || 'default',
+            };
+        } catch (error) {
+            // If fallback is enabled, try other providers
+            if (enableFallback) {
+                // Try other available providers as fallback
+                for (const fallbackProvider of this.providers) {
+                    if (fallbackProvider.name !== providerName) {
+                        try {
+                            const content = await fallbackProvider.process(prompt);
+                            return {
+                                content,
+                                provider: fallbackProvider.name,
+                                model: fallbackProvider.model || 'default',
+                            };
+                        } catch (fallbackError) {
+                            // Continue to next provider
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            // If all attempts failed, throw the original error
+            throw error;
+        }
     }
 
     /**
      * Update settings
      */
     updateSettings(newSettings: YouTubePluginSettings): void {
-        this.providerManager.updateSettings(newSettings);
-        this.applyPerformanceSettings(newSettings);
-
-        // Update fallback config
-        this.fallbackStrategy.updateConfig({
-            enableModelFallback: newSettings.enableAutoFallback ?? true,
-            enableProviderFallback: newSettings.enableAutoFallback ?? true,
-        });
+        this.settings = newSettings;
     }
 
     /**
      * Get provider models
      */
     getProviderModels(providerName: string): string[] {
-        return this.providerManager.getProviderModels(providerName);
+        // Return empty array as default - providers should implement their own model listing
+        return [];
     }
 
     /**
      * Fetch latest models for all providers
      */
     async fetchLatestModels(): Promise<Record<string, string[]>> {
-        return await this.providerManager.fetchLatestModels();
+        // Return empty object as default
+        return {};
     }
 
     /**
      * Fetch latest models for specific provider
      */
     async fetchLatestModelsForProvider(providerName: string, bypassCache?: boolean): Promise<string[]> {
-        return await this.providerManager.fetchLatestModelsForProvider(providerName, bypassCache);
+        // Return empty array as default
+        return [];
     }
 
     /**
      * Check if providers are available
      */
     hasAvailableProviders(): boolean {
-        return this.providerManager.hasProviders();
+        return this.providers.length > 0;
     }
 
     /**
      * Get provider names
      */
     getProviderNames(): string[] {
-        return this.providerManager.getProviderNames();
+        return this.providers.map(provider => provider.name);
     }
 
     /**
      * Add a provider
      */
     addProvider(provider: AIProvider): void {
-        this.providerManager.registerProvider(provider);
+        this.providers.push(provider);
     }
 
     /**
      * Remove a provider
      */
     removeProvider(providerName: string): boolean {
-        const provider = this.providerManager.getProvider(providerName);
-        if (provider) {
-            // For simplicity, we're not implementing removal in this version
-            // as it would require recreating the providers array
-            return true;
-        }
-        return false;
+        const initialLength = this.providers.length;
+        this.providers = this.providers.filter(provider => provider.name !== providerName);
+        return this.providers.length < initialLength;
     }
 
     /**
      * Get performance metrics
      */
-    getPerformanceMetrics(): JsonObject {
-        const providerMetrics = this.providerManager.getMetrics();
-        const aiProcessingMetrics = performanceTracker.getMetricsSummary('ai-service');
-
+    getPerformanceMetrics(): Record<string, unknown> {
         return {
-            httpMetrics: providerMetrics.httpMetrics,
-            aiProcessingMetrics,
-            modelFetchMetrics: providerMetrics.modelFetchMetrics,
+            providerCount: this.providers.length,
         };
     }
 
@@ -197,7 +184,7 @@ export class AIOrchestrator implements IAIService {
      * Cleanup
      */
     cleanup(): void {
-        this.providerManager.cleanup();
+        // Nothing to clean up by default
     }
 }
 
