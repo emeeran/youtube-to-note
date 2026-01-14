@@ -56,12 +56,7 @@ export interface ModelStrategy {
 }
 
 /** Output formats for video analysis */
-export type OutputFormat =
-    | 'executive-summary'
-    | 'detailed-guide'
-    | 'brief'
-    | 'transcript'
-    | 'custom';
+export type OutputFormat = 'executive-summary' | 'detailed-guide' | 'brief' | 'transcript' | 'custom' | '3c-concept';
 
 /** Options for video processing */
 export interface ProcessingOptions {
@@ -153,7 +148,7 @@ export interface PromptService {
         model: string,
         format?: OutputFormat,
         videoData?: VideoData,
-        videoUrl?: string
+        videoUrl?: string,
     ): string;
 }
 
@@ -168,7 +163,7 @@ export interface DOMUtilsInterface {
         container: HTMLElement,
         text: string,
         isPrimary?: boolean,
-        onClick?: () => void
+        onClick?: () => void,
     ): HTMLButtonElement;
 }
 
@@ -194,7 +189,7 @@ export interface AIService {
         providerName: string,
         prompt: string,
         overrideModel?: string,
-        images?: (string | ArrayBuffer)[]
+        images?: (string | ArrayBuffer)[],
     ): Promise<AIResponse>;
     getProviderNames(): string[];
     getProviderModels(providerName: string): string[];

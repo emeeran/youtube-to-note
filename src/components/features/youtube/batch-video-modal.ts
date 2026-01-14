@@ -35,7 +35,7 @@ export class BatchVideoModal extends Modal {
 
     constructor(
         app: App,
-        private options: BatchProcessingOptions
+        private options: BatchProcessingOptions,
     ) {
         super(app);
         this.selectedProvider = options.defaultProvider;
@@ -211,7 +211,8 @@ export class BatchVideoModal extends Modal {
         this.urlInput = container.createEl('textarea', {
             cls: 'ytc-batch-textarea',
             attr: {
-                placeholder: 'https://youtube.com/watch?v=video1\nhttps://youtube.com/watch?v=video2\nhttps://youtu.be/video3',
+                placeholder:
+                    'https://youtube.com/watch?v=video1\nhttps://youtube.com/watch?v=video2\nhttps://youtu.be/video3',
             },
         });
 
@@ -225,32 +226,27 @@ export class BatchVideoModal extends Modal {
         const container = this.contentEl.createDiv({ cls: 'ytc-batch-options' });
 
         // Format selection
-        new Setting(container)
-            .setName('Output Format')
-            .addDropdown(dropdown => {
-                dropdown
-                    .addOption('executive-summary', 'Executive Summary')
-                    .addOption('step-by-step-tutorial', 'Step-by-Step Tutorial')
-                    .addOption('brief', 'Brief Overview')
-                    .setValue(this.selectedFormat)
-                    .onChange((value: OutputFormat) => {
-                        this.selectedFormat = value;
-                    });
-            });
+        new Setting(container).setName('Output Format').addDropdown(dropdown => {
+            dropdown
+                .addOption('executive-summary', 'Executive Summary')
+                .addOption('step-by-step-tutorial', 'Step-by-Step Tutorial')
+                .addOption('brief', 'Brief Overview')
+                .addOption('3c-concept', '3C Concept')
+                .setValue(this.selectedFormat)
+                .onChange((value: OutputFormat) => {
+                    this.selectedFormat = value;
+                });
+        });
 
         // Provider selection
-        new Setting(container)
-            .setName('AI Provider')
-            .addDropdown(dropdown => {
-                this.options.providers.forEach(provider => {
-                    dropdown.addOption(provider, provider);
-                });
-                dropdown
-                    .setValue(this.selectedProvider)
-                    .onChange(value => {
-                        this.selectedProvider = value;
-                    });
+        new Setting(container).setName('AI Provider').addDropdown(dropdown => {
+            this.options.providers.forEach(provider => {
+                dropdown.addOption(provider, provider);
             });
+            dropdown.setValue(this.selectedProvider).onChange(value => {
+                this.selectedProvider = value;
+            });
+        });
     }
 
     private createItemsList(): void {
@@ -342,10 +338,14 @@ export class BatchVideoModal extends Modal {
 
     private getStatusIcon(status: BatchItem['status']): string {
         switch (status) {
-            case 'pending': return '⏳';
-            case 'processing': return '🔄';
-            case 'completed': return '✅';
-            case 'failed': return '❌';
+            case 'pending':
+                return '⏳';
+            case 'processing':
+                return '🔄';
+            case 'completed':
+                return '✅';
+            case 'failed':
+                return '❌';
         }
     }
 
@@ -382,14 +382,14 @@ export class BatchVideoModal extends Modal {
                 this.renderItems();
 
                 progressText.textContent = `Processing ${i + 1} of ${total}...`;
-                progressFill.style.width = `${((i) / total) * 100}%`;
+                progressFill.style.width = `${(i / total) * 100}%`;
 
                 try {
                     const results = await this.options.onProcess(
                         [this.urls[i].url],
                         this.selectedFormat,
                         this.selectedProvider,
-                        this.selectedModel
+                        this.selectedModel,
                     );
 
                     this.urls[i].status = 'completed';
@@ -411,7 +411,6 @@ export class BatchVideoModal extends Modal {
             } else {
                 new Notice(`⚠️ Processed ${completed}/${total} videos. Some failed.`);
             }
-
         } catch (error) {
             new Notice(`❌ Batch processing failed: ${error instanceof Error ? error.message : String(error)}`);
         } finally {

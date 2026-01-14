@@ -10,16 +10,18 @@ export class ValidationUtils {
      * Enhanced patterns to handle various YouTube URL formats
      */
     private static readonly URL_PATTERNS = [
-        // Standard youtube.com/watch?v= format (most common)
-        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&.*)?$/,
-        // youtu.be short format (second most common)
-        /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:\?.*)?$/,
+        // Standard youtube.com/watch?v= format (most common) - handles any position of v param and hash fragments
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})(?:[&?#].*)?$/,
+        // youtu.be short format (second most common) - handles params and hash
+        /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?#].*)?$/,
         // youtube.com/embed format
-        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:\?.*)?$/,
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?#].*)?$/,
         // youtube.com/v format
-        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})(?:\?.*)?$/,
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})(?:[?#].*)?$/,
         // Mobile youtube.com format
-        /(?:https?:\/\/)?(?:m\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(?:&.*)?$/,
+        /(?:https?:\/\/)?(?:m\.)?youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})(?:[&?#].*)?$/,
+        // youtube.com/shorts format (handling Shorts URLs)
+        /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:[?#].*)?$/,
     ];
 
     // Memoized regex for video ID validation (hot path optimization)

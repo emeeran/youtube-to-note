@@ -32,7 +32,8 @@ Description: {{DESCRIPTION}}
 
 Extract insights from the content, focusing on practical information.`;
 
-    private static readonly COMPREHENSIVE_BASE_TEMPLATE = `Analyze this YouTube video comprehensively:
+    private static readonly COMPREHENSIVE_BASE_TEMPLATE =
+        `Analyze this YouTube video comprehensively:
 Title: {{TITLE}}
 URL: {{URL}}
 Description: {{DESCRIPTION}}
@@ -42,8 +43,7 @@ ANALYSIS INSTRUCTIONS:
 1. Analyze the transcript content thoroughly
 2. Extract key insights, themes, and practical information
 3. Focus on action-oriented information with specific examples
-4. Maintain accuracy and cite specific examples from the content ` +
-            'when relevant';
+4. Maintain accuracy and cite specific examples from the content ` + 'when relevant';
 
     /**
      * Create analysis prompt for YouTube video content with performance optimization
@@ -75,9 +75,10 @@ ANALYSIS INSTRUCTIONS:
         if (transcript?.trim()) {
             // Truncate very long transcripts to avoid token limits (increased for large context models)
             const maxLength = 100000;
-            const truncatedTranscript = transcript.length > maxLength
-                ? `${transcript.substring(0, maxLength)}... [transcript truncated]`
-                : transcript;
+            const truncatedTranscript =
+                transcript.length > maxLength
+                    ? `${transcript.substring(0, maxLength)}... [transcript truncated]`
+                    : transcript;
             transcriptSection = `VIDEO CONTENT/TRANSCRIPT:\n${truncatedTranscript}`;
         }
 
@@ -96,6 +97,8 @@ ANALYSIS INSTRUCTIONS:
                 return this.createBriefPrompt(baseContent, videoUrl, performanceMode);
             case 'transcript':
                 return this.createTranscriptPrompt(baseContent, videoUrl, performanceMode);
+            case '3c-concept':
+                return this.create3CConceptPrompt(baseContent, videoUrl, performanceMode);
             case 'custom':
                 // For custom format, pass the user's custom prompt into the custom template
                 return this.createCustomFormatPrompt(baseContent, videoData, videoUrl, customPrompt, performanceMode);
@@ -108,11 +111,16 @@ ANALYSIS INSTRUCTIONS:
     /**
      * Create a brief prompt: Summary + Key Takeaways
      */
-    private createBriefPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
+    private createBriefPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        return `${baseContent}
+        return (
+            `${baseContent}
 
         OUTPUT FORMAT - BRIEF SUMMARY:
 
@@ -151,17 +159,23 @@ ANALYSIS INSTRUCTIONS:
 
         **Formatting Rules:**
         - Remove time-stamps, filler words, and any unnecessary details.
-        - Include external links and resources for further reading and viewing.`;
+        - Include external links and resources for further reading and viewing.`
+        );
     }
 
     /**
      * Create transcript prompt: Summary + Full Transcript
      */
-    private createTranscriptPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
+    private createTranscriptPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        return `${baseContent}
+        return (
+            `${baseContent}
 
         OUTPUT FORMAT - TRANSCRIPT NOTE:
 
@@ -197,18 +211,115 @@ ANALYSIS INSTRUCTIONS:
         **Formatting Rules:**
         - Remove time-stamps, filler words, and any unnecessary details.
         - Include external links and resources for further reading and viewing found in the content.
-        - Use clear paragraph breaks for readability.`;
+        - Use clear paragraph breaks for readability.`
+        );
+    }
+
+    /**
+     * Create 3C Concept prompt (Compress -> Compile -> Consolidate)
+     */
+    // eslint-disable-next-line max-lines-per-function
+    private create3CConceptPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl);
+        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
+
+        return (
+            `${baseContent}
+
+# 3C
+  Protocol – YouTube Video Summarisation:
+You are an expert knowledge distillation system.
+
+Your task is to summarise a **YouTube video** using the **3C Protocol: Compress → Compile → Consolidate**.
+
+Base your work on:
+- **Watching and listening to the video**, and
+- **Video captions, transcript, or supplied notes** (if available)
+
+Prioritise meaning conveyed through **speech, emphasis, demonstrations, and structure**, not raw transcription.
+
+**Required Output Format:**
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-note
+format: 3c-concept
+tags: [youtube, 3c-concept]
+video_id: "${videoId ?? 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
+</div>
+
+---
+
+## COMPRESS
+- Identify the **main thesis or objective** of the video
+- Extract the **key insights, arguments, or demonstrations**
+- Reduce the content to **no more than 8–10 high-leverage points**
+- Remove filler, repetition, tangents, sponsor messages, and verbal padding
+
+---
+
+## COMPILE
+Convert the compressed insights into **executable knowledge**:
+- Clear principles or takeaways
+- Frameworks, workflows, or step-by-step methods
+- Tools, techniques, or best practices explicitly demonstrated or explained
+
+The output should allow a reader to **gain the full value without watching the video**.
+
+---
+
+## CONSOLIDATE
+Improve retention and transfer:
+- A **short mental model** explaining how the ideas connect
+- **5–8 recall questions** to test understanding
+- **2–3 practical applications** or real-world use cases
+
+---
+
+## OPTIONAL (if timestamps are available)
+- Map major ideas to **approximate timestamps** (e.g., 03:10–06:45)
+
+---
+
+## OUTPUT RULES
+- Markdown only
+- Concise bullet points, no transcript dumping
+- Do not invent content; state assumptions if audio/captions are unclear
+- Prioritise clarity, structure, and usefulness
+
+Begin once the video or supporting material is provided.`
+        );
     }
 
     /**
      * Create executive summary prompt (structured format with strategic insights)
      */
     // eslint-disable-next-line max-lines-per-function
-    private createExecutiveSummaryPrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
+    private createExecutiveSummaryPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        return `${baseContent}
+        return (
+            `${baseContent}
 
 You are an expert content analyst specializing in creating executive transcripts. ` +
             `Your task is to analyze video content and provide a comprehensive yet refined output.
@@ -299,17 +410,23 @@ List concrete actions the audience can take based on this content:
 - Ensure accuracy in technical details and proper nouns
 - Create a document that can be read independently without the video
 - Preserve important context that might be lost in pure transcription
-- Make actionable items specific and realistic`;
+- Make actionable items specific and realistic`
+        );
     }
 
     /**
      * Create tutorial prompt (Step-by-Step Guide)
      */
-    private createDetailedGuidePrompt(baseContent: string, videoUrl: string, _performanceMode: PerformanceMode = 'balanced'): string {
+    private createDetailedGuidePrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
-        return `${baseContent}
+        return (
+            `${baseContent}
 
         OUTPUT FORMAT - TUTORIAL / STEP-BY-STEP GUIDE:
 
@@ -344,14 +461,21 @@ List concrete actions the audience can take based on this content:
 
         **Formatting Rules:**
         - Remove time-stamps, filler words, and any unnecessary details.
-        - Include external links and resources for further reading and viewing.`;
+        - Include external links and resources for further reading and viewing.`
+        );
     }
 
     /**
      * Create custom format prompt: adaptable analysis based on user instructions
      */
     // eslint-disable-next-line max-lines-per-function
-    private createCustomFormatPrompt(baseContent: string, _videoData: VideoData, videoUrl: string, customInstructions?: string, _performanceMode: PerformanceMode = 'balanced'): string {
+    private createCustomFormatPrompt(
+        baseContent: string,
+        _videoData: VideoData,
+        videoUrl: string,
+        customInstructions?: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
         const videoId = ValidationUtils.extractVideoId(videoUrl);
         const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
 
@@ -360,10 +484,11 @@ List concrete actions the audience can take based on this content:
             ? `USER'S CUSTOM INSTRUCTIONS:\n${customInstructions}\n\n`
             : ''; // If no custom instructions, just an empty string
 
-        return `${baseContent}
+        return (
+            `${baseContent}
 
 You are an adaptive content analyst capable of providing customized analysis based on ` +
-            'specific user requirements. Your task is to analyze content according to the user\'s ' +
+            "specific user requirements. Your task is to analyze content according to the user's " +
             `explicit instructions while maintaining high quality standards.
 
 **Your Analysis Process:**
@@ -432,13 +557,14 @@ ai_model: "__AI_MODEL__"
 
 <div style="text-align: center; margin-bottom: 24px;">
 <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
-    'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
-    'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
-    `allowfullscreen></iframe>
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
 </div>
 
 ---
-`;
+`
+        );
     }
 
     /**
@@ -452,9 +578,7 @@ ai_model: "__AI_MODEL__"
         const providerValue = provider ?? 'unknown';
         const modelValue = model ?? 'unknown';
 
-        let updatedContent = content
-            .replace(/__AI_PROVIDER__/g, providerValue)
-            .replace(/__AI_MODEL__/g, modelValue);
+        let updatedContent = content.replace(/__AI_PROVIDER__/g, providerValue).replace(/__AI_MODEL__/g, modelValue);
 
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_provider', providerValue);
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_model', modelValue);
@@ -468,9 +592,10 @@ ai_model: "__AI_MODEL__"
             return content.replace(
                 pattern,
                 (_: string, prefix: string, openingQuote?: string, _existing?: string, closingQuote?: string) => {
-                    const quote = openingQuote ?? closingQuote ? '"' : '';
+                    const quote = (openingQuote ?? closingQuote) ? '"' : '';
                     return `${prefix}${quote}${value}${quote}`;
-                });
+                },
+            );
         }
 
         if (content.startsWith('---')) {
@@ -502,9 +627,6 @@ ai_model: "__AI_MODEL__"
      * Validate prompt length and content
      */
     validatePrompt(prompt: string): boolean {
-        return Boolean(prompt) &&
-               typeof prompt === 'string' &&
-               prompt.trim().length > 10 &&
-               prompt.length < 50000; // Reasonable upper limit
+        return Boolean(prompt) && typeof prompt === 'string' && prompt.trim().length > 10 && prompt.length < 50000; // Reasonable upper limit
     }
 }

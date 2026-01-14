@@ -25,7 +25,7 @@ export interface YouTubeUrlModalOptions {
         preferMultimodal?: boolean,
         maxTokens?: number,
         temperature?: number,
-        enableAutoFallback?: boolean
+        enableAutoFallback?: boolean,
     ) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
     onOpenBatchModal?: () => void;
@@ -46,7 +46,7 @@ export interface YouTubeUrlModalOptions {
     onPerformanceSettingsChange?: (
         performanceMode: PerformanceMode,
         enableParallel: boolean,
-        preferMultimodal: boolean
+        preferMultimodal: boolean,
     ) => Promise<void>;
 }
 
@@ -98,7 +98,7 @@ export class YouTubeUrlModal extends BaseModal {
 
     constructor(
         app: App,
-        private options: YouTubeUrlModalOptions
+        private options: YouTubeUrlModalOptions,
     ) {
         super(app);
 
@@ -400,7 +400,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.pasteButton.setAttribute('aria-label', 'Paste URL from clipboard');
         this.pasteButton.title = 'Paste from clipboard';
 
-        this.pasteButton.addEventListener('click', (e) => {
+        this.pasteButton.addEventListener('click', e => {
             e.preventDefault(); // Prevent focus loss if possible
             void this.handleSmartPaste();
         });
@@ -478,6 +478,7 @@ export class YouTubeUrlModal extends BaseModal {
             { value: 'executive-summary', text: '📊 Executive Summary' },
             { value: 'detailed-guide', text: '📘 Tutorial / Guide' },
             { value: 'brief', text: '⚡ Brief Summary' },
+            { value: '3c-concept', text: '💡 3C Concept' },
             { value: 'transcript', text: '📝 Transcript Note' },
             { value: 'custom', text: '✏️ Custom Format' },
         ];
@@ -491,7 +492,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.formatSelect.value = this.format;
         this.formatSelect.addEventListener('change', () => {
-            this.format = this.formatSelect?.value as OutputFormat ?? 'executive-summary';
+            this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
             this.toggleCustomPromptVisibility();
             UserPreferencesService.setPreference('lastFormat', this.format);
         });
@@ -539,7 +540,8 @@ export class YouTubeUrlModal extends BaseModal {
         `;
 
         const chevron = aiToggleBtn.createDiv();
-        chevron.innerHTML = '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>';
+        chevron.innerHTML =
+            '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>';
         chevron.style.cssText = `
             transition: transform 0.2s ease;
             opacity: 0.5;
@@ -583,7 +585,7 @@ export class YouTubeUrlModal extends BaseModal {
         };
 
         aiToggleBtn.addEventListener('click', toggleAI);
-        aiToggleBtn.addEventListener('keydown', (e) => {
+        aiToggleBtn.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 toggleAI();
@@ -596,7 +598,8 @@ export class YouTubeUrlModal extends BaseModal {
         const providerLabel = providerRow.createEl('label');
         providerLabel.textContent = 'AI PROVIDER';
         providerLabel.htmlFor = 'ytc-provider-select';
-        providerLabel.style.cssText = 'font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block;';
+        providerLabel.style.cssText =
+            'font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block;';
 
         this.providerSelect = providerRow.createEl('select');
         this.providerSelect.id = 'ytc-provider-select';
@@ -626,7 +629,8 @@ export class YouTubeUrlModal extends BaseModal {
         const modelLabel = modelRow.createEl('label');
         modelLabel.textContent = 'MODEL';
         modelLabel.htmlFor = 'ytc-model-select';
-        modelLabel.style.cssText = 'font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 6px;';
+        modelLabel.style.cssText =
+            'font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 6px;';
 
         const modelInputGroup = modelRow.createDiv();
         modelInputGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
@@ -650,7 +654,7 @@ export class YouTubeUrlModal extends BaseModal {
         refreshBtn.innerHTML = '🔄';
         refreshBtn.title = 'Refresh Models';
         refreshBtn.setAttribute('aria-label', 'Refresh Models');
-        refreshBtn.onclick = async (e) => {
+        refreshBtn.onclick = async e => {
             e.stopPropagation();
             refreshBtn.innerHTML = '⏳';
             await this.fetchModelsForCurrentProvider();
@@ -663,7 +667,7 @@ export class YouTubeUrlModal extends BaseModal {
         starBtn.innerHTML = '⭐';
         starBtn.title = 'Save as Default Preference';
         starBtn.setAttribute('aria-label', 'Save as Default Preference');
-        starBtn.onclick = (e) => {
+        starBtn.onclick = e => {
             e.stopPropagation();
             if (this.selectedModel) {
                 UserPreferencesService.setPreference('preferredModel', this.selectedModel);
@@ -689,7 +693,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Hook into updateModelDropdown to keep summary fresh
         const originalUpdateDropdown = this.updateModelDropdown.bind(this);
-        this.updateModelDropdown = (options) => {
+        this.updateModelDropdown = options => {
             originalUpdateDropdown(options);
             updateSummary();
         };
@@ -834,7 +838,9 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Fetch video metadata (using oEmbed)
         try {
-            const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+            const response = await fetch(
+                `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+            );
             if (response.ok) {
                 const data = await response.json();
                 if (this.videoTitleEl) {
@@ -1152,7 +1158,7 @@ export class YouTubeUrlModal extends BaseModal {
             // Fallback to PROVIDER_MODEL_OPTIONS (single source of truth)
             const providerModels = PROVIDER_MODEL_OPTIONS[currentProvider];
             if (providerModels) {
-                models = providerModels.map(m => typeof m === 'string' ? m : m.name);
+                models = providerModels.map(m => (typeof m === 'string' ? m : m.name));
                 sourceInfo = ' (cached)';
             } else {
                 models = [];
@@ -1546,7 +1552,9 @@ export class YouTubeUrlModal extends BaseModal {
         this.openButton.addEventListener('click', () => this.handleOpenFile());
 
         // Process Another button
-        const processAnotherBtn = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
+        const processAnotherBtn = this.secondaryActionsRow.createEl('button', {
+            cls: 'ytc-action-btn ytc-primary-btn',
+        });
         processAnotherBtn.innerHTML = '🔄 New';
         processAnotherBtn.addEventListener('click', () => {
             this.showInputState();
@@ -1769,7 +1777,7 @@ export class YouTubeUrlModal extends BaseModal {
                 this.options.preferMultimodal ?? false,
                 maxTokens,
                 this.options.defaultTemperature ?? 0.5,
-                this.autoFallbackEnabled
+                this.autoFallbackEnabled,
             );
 
             // Update progress to 100% (complete)
@@ -1972,7 +1980,6 @@ export class YouTubeUrlModal extends BaseModal {
                 this.focusUrlInput();
             }
         } catch (error) {
-
             new Notice('Could not access clipboard');
         }
     }
@@ -2023,14 +2030,24 @@ export class YouTubeUrlModal extends BaseModal {
     private isMultimodalModel(provider: string, model: string): boolean {
         // Known multimodal model patterns
         const multimodalPatterns = [
-            'vision', 'vl', 'v-', 'multimodal', 'pixtral', 'fuyu', 'llava', 'moondream',
-            'gemini-2.5', 'gemini-2.0', 'claude-3.5', 'gpt-4o', 'phi-3.5-vision', 'qwen2-vl',
+            'vision',
+            'vl',
+            'v-',
+            'multimodal',
+            'pixtral',
+            'fuyu',
+            'llava',
+            'moondream',
+            'gemini-2.5',
+            'gemini-2.0',
+            'claude-3.5',
+            'gpt-4o',
+            'phi-3.5-vision',
+            'qwen2-vl',
         ];
 
         // Check if model name contains any multimodal indicators
-        return multimodalPatterns.some(pattern =>
-            model.toLowerCase().includes(pattern.toLowerCase())
-        );
+        return multimodalPatterns.some(pattern => model.toLowerCase().includes(pattern.toLowerCase()));
     }
 
     /**

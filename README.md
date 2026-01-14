@@ -50,16 +50,16 @@ YouTube Clipper is a powerful Obsidian plugin that transforms YouTube videos int
 ### Initial Setup
 
 1. **Configure API Keys:**
-   - Go to **Settings → YouTube Clipper**
-   - Enter your API keys for preferred AI providers
+    - Go to **Settings → YouTube Clipper**
+    - Enter your API keys for preferred AI providers
 
 2. **Set Default Output Path:**
-   - Choose where to save generated notes
-   - Use template variables like `{{date}}` and `{{title}}`
+    - Choose where to save generated notes
+    - Use template variables like `{{date}}` and `{{title}}`
 
 3. **Test Configuration:**
-   - Use the built-in test feature to verify API connections
-   - Check provider availability and model options
+    - Use the built-in test feature to verify API connections
+    - Check provider availability and model options
 
 ### Basic Usage
 
@@ -76,45 +76,58 @@ YouTube Clipper is a powerful Obsidian plugin that transforms YouTube videos int
 ### AI Provider Setup
 
 #### Google Gemini
+
 ```typescript
 // Required: Gemini API key
 // Get from: https://makersuite.google.com/app/apikey
-geminiApiKey: "AIzaSyYour-Gemini-API-Key-Here"
+geminiApiKey: 'AIzaSyYour-Gemini-API-Key-Here';
 ```
 
 #### Groq
+
 ```typescript
 // Required: Groq API key
 // Get from: https://console.groq.com/keys
-groqApiKey: "gsk_Your-Groq-API-Key-Here"
+groqApiKey: 'gsk_Your-Groq-API-Key-Here';
 ```
 
 #### Ollama (Local)
+
 ```typescript
 // Optional: Local Ollama instance
 // Default: http://localhost:11434
-ollamaEndpoint: "http://localhost:11434"
-ollamaModel: "llama3.2"
+ollamaEndpoint: 'http://localhost:11434';
+ollamaModel: 'llama3.2';
 ```
 
 ### Output Formats
 
 #### Executive Summary
+
 - **Length:** ≤250 words
 - **Best for:** Quick overviews and decision-making
 - **Content:** Key insights, main points, and recommendations
 
 #### Step-by-Step Tutorial
+
 - **Length:** Up to 8,000 words
 - **Best for:** Learning and implementation
 - **Content:** Detailed instructions with actionable steps
 
 #### Brief Overview
+
 - **Length:** ≤100 words
 - **Best for:** Quick summaries and social media
 - **Content:** Essential points and key takeaways
 
+#### 3C Concept
+
+- **Length:** Medium
+- **Best for:** Knowledge distillation and retention
+- **Content:** Compress (insights), Compile (actionable), Consolidate (mental models & recall)
+
 #### Custom Prompt
+
 - **Length:** Configurable (default: 2,000 tokens)
 - **Best for:** Specialized analysis needs
 - **Content:** Based on your custom prompt
@@ -144,11 +157,11 @@ customTimeouts: {
 
 ```typescript
 // Encrypted storage (enabled by default)
-useSecureStorage: true
+useSecureStorage: true;
 
 // Environment variables
-useEnvironmentVariables: true
-environmentPrefix: "YTC_"
+useEnvironmentVariables: true;
+environmentPrefix: 'YTC_';
 ```
 
 ---
@@ -187,9 +200,9 @@ import { YouTubeClipperAPI } from 'youtube-clipper-api';
 const clipper = new YouTubeClipperAPI();
 
 const videos = [
-  { url: 'https://youtube.com/watch?v=video1', format: 'executive-summary' },
-  { url: 'https://youtube.com/watch?v=video2', format: 'tutorial' },
-  { url: 'https://youtube.com/watch?v=video3', format: 'brief' }
+    { url: 'https://youtube.com/watch?v=video1', format: 'executive-summary' },
+    { url: 'https://youtube.com/watch?v=video2', format: 'tutorial' },
+    { url: 'https://youtube.com/watch?v=video3', format: 'brief' },
 ];
 
 const results = await clipper.processBatch(videos);
@@ -201,16 +214,56 @@ Use dynamic variables in output paths and filenames:
 
 ```typescript
 // Available variables:
-{{title}}        // Video title (sanitized)
-{{videoId}}      // YouTube video ID
-{{date}}         // Current date (YYYY-MM-DD)
-{{time}}         // Current time (HH-MM-SS)
-{{format}}       // Output format name
-{{provider}}     // AI provider used
-{{timestamp}}    // Unix timestamp
-{{year}}         // Current year
-{{month}}        // Current month
-{{day}}          // Current day
+{
+    {
+        title;
+    }
+} // Video title (sanitized)
+{
+    {
+        videoId;
+    }
+} // YouTube video ID
+{
+    {
+        date;
+    }
+} // Current date (YYYY-MM-DD)
+{
+    {
+        time;
+    }
+} // Current time (HH-MM-SS)
+{
+    {
+        format;
+    }
+} // Output format name
+{
+    {
+        provider;
+    }
+} // AI provider used
+{
+    {
+        timestamp;
+    }
+} // Unix timestamp
+{
+    {
+        year;
+    }
+} // Current year
+{
+    {
+        month;
+    }
+} // Current month
+{
+    {
+        day;
+    }
+} // Current day
 ```
 
 ### Environment Variables
@@ -233,48 +286,51 @@ export YTC_OUTPUT_PATH="/path/to/output"
 ### Core Classes
 
 #### YouTubeClipperPlugin
+
 ```typescript
 class YouTubeClipperPlugin extends Plugin {
-  // Process a single video
-  async processVideo(options: VideoProcessingOptions): Promise<ProcessingResult>
+    // Process a single video
+    async processVideo(options: VideoProcessingOptions): Promise<ProcessingResult>;
 
-  // Process multiple videos in parallel
-  async processBatch(options: BatchProcessingOptions): Promise<ProcessingResult[]>
+    // Process multiple videos in parallel
+    async processBatch(options: BatchProcessingOptions): Promise<ProcessingResult[]>;
 
-  // Get available models from all providers
-  async getAvailableModels(): Promise<ProviderModels>
+    // Get available models from all providers
+    async getAvailableModels(): Promise<ProviderModels>;
 
-  // Validate configuration
-  validateConfiguration(): ValidationResult
+    // Validate configuration
+    validateConfiguration(): ValidationResult;
 }
 ```
 
 #### VideoProcessingOptions
+
 ```typescript
 interface VideoProcessingOptions {
-  url: string                    // YouTube video URL
-  format: OutputFormat          // Analysis format
-  customPrompt?: string         // Optional custom prompt
-  provider?: string             // AI provider to use
-  model?: string               // Specific model to use
-  outputPath?: string           // Custom output path
-  maxTokens?: number           // Token limit
-  temperature?: number         // Creativity level
-  timeout?: number             // Request timeout
+    url: string; // YouTube video URL
+    format: OutputFormat; // Analysis format
+    customPrompt?: string; // Optional custom prompt
+    provider?: string; // AI provider to use
+    model?: string; // Specific model to use
+    outputPath?: string; // Custom output path
+    maxTokens?: number; // Token limit
+    temperature?: number; // Creativity level
+    timeout?: number; // Request timeout
 }
 ```
 
 #### ProcessingResult
+
 ```typescript
 interface ProcessingResult {
-  success: boolean
-  filePath?: string           // Path to generated note
-  videoId?: string            // YouTube video ID
-  videoData?: VideoData       // Extracted video metadata
-  error?: string              // Error message if failed
-  processingTime?: number     // Time taken in milliseconds
-  provider?: string           // AI provider used
-  model?: string              // Model used
+    success: boolean;
+    filePath?: string; // Path to generated note
+    videoId?: string; // YouTube video ID
+    videoData?: VideoData; // Extracted video metadata
+    error?: string; // Error message if failed
+    processingTime?: number; // Time taken in milliseconds
+    provider?: string; // AI provider used
+    model?: string; // Model used
 }
 ```
 
@@ -284,18 +340,18 @@ Listen to plugin events:
 
 ```typescript
 // Video processing started
-plugin.on('video:process-start', (data) => {
-  console.log('Processing started:', data.videoId);
+plugin.on('video:process-start', data => {
+    console.log('Processing started:', data.videoId);
 });
 
 // Video processing completed
-plugin.on('video:process-complete', (result) => {
-  console.log('Processing complete:', result.filePath);
+plugin.on('video:process-complete', result => {
+    console.log('Processing complete:', result.filePath);
 });
 
 // Error occurred
-plugin.on('video:error', (error) => {
-  console.error('Processing error:', error);
+plugin.on('video:error', error => {
+    console.error('Processing error:', error);
 });
 ```
 
@@ -387,14 +443,17 @@ youtube-clipper/
 ### Common Issues
 
 #### API Key Problems
+
 - **"Invalid API key"**: Verify key is correct and active
 - **Keys not saving**: Check secure storage settings
 
 #### Video Processing Issues
+
 - **"Failed to extract video ID"**: Verify YouTube URL format
 - **Processing timeout**: Increase timeout or try faster provider
 
 #### Performance Issues
+
 - **Slow processing**: Enable parallel processing and caching
 - **High memory usage**: Clear cache and restart Obsidian
 
@@ -412,18 +471,21 @@ youtube-clipper/
 ### Version 1.3.5 (December 2024)
 
 #### 🚀 Major Features
+
 - **Security Overhaul:** Complete security implementation with encrypted storage
 - **Performance Optimization:** 50-75% faster processing with intelligent caching
 - **Multi-Provider Support:** Enhanced support for Gemini, Groq, and Ollama
 - **Advanced AI Features:** Multimodal analysis and custom prompts
 
 #### 🔒 Security Improvements
+
 - Encrypted API key storage with master password
 - XSS prevention with comprehensive input sanitization
 - Secure HTTP client with proper headers and rate limiting
 - Secure logging with automatic data redaction
 
 #### ⚡ Performance Improvements
+
 - Intelligent caching system with 60-80% hit rates
 - Parallel processing for multiple videos
 - Bundle optimization reducing initial load size by 60%
