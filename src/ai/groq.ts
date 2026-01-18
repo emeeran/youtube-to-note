@@ -88,7 +88,7 @@ export class GroqProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): OpenAICompatibleRequestBody {
+    protected createRequestBody(prompt: string): any {
         return {
             model: this.model,
             messages: [

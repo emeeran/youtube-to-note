@@ -4,7 +4,7 @@ import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
 import { MESSAGES } from './constants/index';
 import { ModalManager } from './services/modal-manager';
-import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types';
+import { OutputFormat, YouTubePluginSettings, PerformanceMode, AIResponse } from './types';
 import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
@@ -285,7 +285,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                         model,
                         customPrompt,
                         performanceMode,
-                        enableParallelProcessing: enableParallel,
+                        enableParallel: enableParallel,
                         preferMultimodal,
                         maxTokens,
                         temperature,
@@ -462,15 +462,17 @@ export default class YoutubeClipperPlugin extends Plugin {
             // Fetch transcript to provide actual video content to AI
             let transcript: string | undefined;
             try {
-                const transcriptData = await youtubeService.getTranscript(videoId);
-                if (transcriptData?.fullText) {
-                    transcript = transcriptData.fullText;
-                    logger.info('Transcript fetched successfully', 'Plugin', {
-                        videoId,
-                        transcriptLength: transcript.length,
-                    });
-                } else {
-                    logger.debug('No transcript available for this video', 'Plugin', { videoId });
+                if (youtubeService.getTranscript) {
+                    const transcriptData = await youtubeService.getTranscript(videoId);
+                    if (transcriptData?.fullText) {
+                        transcript = transcriptData.fullText;
+                        logger.info('Transcript fetched successfully', 'Plugin', {
+                            videoId,
+                            transcriptLength: transcript.length,
+                        });
+                    } else {
+                        logger.debug('No transcript available for this video', 'Plugin', { videoId });
+                    }
                 }
             } catch (error) {
                 logger.debug('Could not fetch transcript, continuing without it', 'Plugin', {
@@ -514,7 +516,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 }
             }
 
-            let aiResponse;
+            let aiResponse: AIResponse;
             try {
                 if (providerName) {
                     // Pass enableAutoFallback to control fallback behavior
@@ -527,7 +529,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                                 model?: string,
                                 images?: string[],
                                 enableFallback?: boolean,
-                            ): Promise<string>;
+                            ): Promise<AIResponse>;
                         }
                     ).processWith(providerName, prompt, model, undefined, shouldFallback);
                 } else {

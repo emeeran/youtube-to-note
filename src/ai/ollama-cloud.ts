@@ -213,71 +213,12 @@ export class OllamaCloudProvider extends BaseAIProvider {
         const bytes = new Uint8Array(buffer);
         let binary = '';
         for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
+            binary += String.fromCharCode(bytes[i]!);
         }
         return btoa(binary);
     }
 
-    /**
-     * Check if Ollama Cloud server is accessible
-     */
-    async checkAvailability(): Promise<boolean> {
-        try {
-            const response = await fetch(this.getApiUrl('/tags'), {
-                method: 'GET',
-                headers: this.createHeaders(),
-            });
-
-            return response.ok;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    /**
-     * Check if a specific model is available in Ollama Cloud
-     */
-    async checkModelAvailability(modelName: string): Promise<boolean> {
-        try {
-            const response = await fetch(this.getApiUrl('/tags'), {
-                method: 'GET',
-                headers: this.createHeaders(),
-            });
-
-            if (!response.ok) {
-                return false;
-            }
-
-            const data = (await response.json()) as OllamaModelsResponse;
-            if (!data?.models) {
-                return false;
-            }
-
-            // Check if the model exists in the list (both name and id)
-            return data.models.some((model) =>
-                model.name === modelName ||
-                model.name.startsWith(`${modelName}:`) ||
-                (model.id?.includes(modelName) ?? false)
-            );
-        } catch (error) {
-            return false;
-        }
-    }
-
-    protected createHeaders(): Record<string, string> {
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-        };
-
-        // Add Authorization header with API key (required for Ollama Cloud)
-        if (this.apiKey) {
-            headers['Authorization'] = `Bearer ${this.apiKey}`;
-        }
-
-        return headers;
-    }
-
-    protected createRequestBody(_prompt: string): OllamaGenerateRequestBody {
+    protected createRequestBody(_prompt: string): any {
         // Ollama Cloud uses the process() method instead, so this isn't used
         return {
             model: this._model,

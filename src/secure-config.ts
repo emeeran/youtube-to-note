@@ -41,25 +41,20 @@ export class SecureConfigService {
      * This method can be extended for server-side environments
      */
     private getSecureEnvVar(_varName: string): string | undefined {
-        // For Obsidian plugin environment, we might need to use a different approach
-        // such as reading from a secure configuration file or service
-        if (typeof process !== 'undefined' && process.env) {
-            return process.env[varName];
+        // In a real implementation, this would access secure environment variables
+        // For Obsidian plugins, we rely on user-provided settings
+        if (this.settings.useEnvironmentVariables && this.settings.environmentPrefix) {
+            // Placeholder: Environment variables are not directly accessible in Obsidian mobile/desktop
+            // this way without specific setup. This is a stub for future enhancement.
+            // return process.env[varName];
+            return undefined;
         }
-
-        // For browser/Obsidian environment, implement secure storage access
-        return this.getFromSecureStorage(varName);
+        return undefined;
     }
 
-    /**
-     * Get from secure storage (implementation depends on environment)
-     */
     private getFromSecureStorage(_varName: string): string | undefined {
-        // This could be implemented to read from:
-        // - Encrypted local storage
-        // - System keychain
-        // - Secure configuration service
-        // For now, return undefined to fall back to direct configuration
+        // Placeholder for platform-specific secure storage (keychain, etc.)
+        // return keytar.getPassword(...)
         return undefined;
     }
 

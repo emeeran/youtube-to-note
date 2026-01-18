@@ -13,7 +13,7 @@ const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models';
  */
 function formatHuggingFaceError(rawMessage: string): string {
     const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
+    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
 
     if (rawMessage.toLowerCase().includes('rate limit')) {
         return `Hugging Face rate limit reached.${retryInfo}`;
@@ -80,7 +80,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             if (response.status === 400) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const errorMessage = errorData?.error || '';
                 throw new Error(formatHuggingFaceError(errorMessage));
             }
@@ -94,19 +94,19 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const errorMessage = errorData?.error || '';
                 throw new Error(formatHuggingFaceError(errorMessage));
             }
 
             if (response.status === 503) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const estimatedTime = errorData?.estimated_time || 20;
                 throw new Error(`Model is loading. Wait ${Math.ceil(estimatedTime)}s and try again.`);
             }
 
             if (!response.ok) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const errorMsg = errorData?.error || response.statusText;
 
                 // Check for redirect message
@@ -137,7 +137,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): HuggingFaceRequestBody {
+    protected createRequestBody(prompt: string): any {
         return {
             inputs: prompt,
             parameters: {

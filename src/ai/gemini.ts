@@ -14,7 +14,7 @@ import type { ProviderModelEntry } from '../constants/index';
 function formatQuotaError(rawMessage: string, provider: string): string {
     // Extract retry time if present
     const retryMatch = rawMessage.match(/retry in ([\d.]+)s/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
+    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
 
     // Check for free tier exhaustion
     if (rawMessage.includes('limit: 0') || rawMessage.includes('free_tier')) {
@@ -52,7 +52,7 @@ export class GeminiProvider extends BaseAIProvider {
 
             // Handle specific Gemini errors with better messages
             if (response.status === 400) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const errorMessage = errorData?.error?.message || 'Bad request';
                 throw new Error(`Gemini API error: ${errorMessage}. Try checking the model configuration.`);
             }
@@ -62,7 +62,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (response.status === 403) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const errorMessage = errorData?.error?.message || '';
                 if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('billing')) {
                     throw new Error(formatQuotaError(errorMessage, 'Gemini'));
@@ -71,7 +71,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = await this.safeJsonParse(response);
+                const errorData = await this.safeJsonParse(response) as any;
                 const errorMessage = errorData?.error?.message || errorData?.message || '';
                 throw new Error(formatQuotaError(errorMessage, 'Gemini'));
             }
@@ -87,7 +87,7 @@ export class GeminiProvider extends BaseAIProvider {
                 throw new Error('No response candidates returned from Gemini API');
             }
 
-            if (data.candidates[0].finishReason === 'SAFETY') {
+            if (data.candidates[0]!.finishReason === 'SAFETY') {
                 throw new Error('Response blocked by Gemini safety filters. Try rephrasing.');
             }
 
@@ -111,7 +111,7 @@ export class GeminiProvider extends BaseAIProvider {
     }
 
     // eslint-disable-next-line max-lines-per-function
-    protected createRequestBody(prompt: string): GeminiRequestBody {
+    protected createRequestBody(prompt: string): any {
         // Detect YouTube prompts by scanning for common markers instead of brittle literals
         const normalizedPrompt = prompt.toLowerCase();
         const isVideoAnalysis =

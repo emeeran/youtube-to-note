@@ -77,6 +77,9 @@ export interface ProcessingOptions {
 export interface VideoData {
     title: string;
     description: string;
+    duration?: number;
+    thumbnail?: string;
+    channelName?: string;
 }
 
 /** Response from AI provider */

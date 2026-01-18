@@ -4,6 +4,7 @@ import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './services/logger';
+import { ErrorHandler } from './services/error-handler';
 
 /**
  * Plugin settings tab component
@@ -675,15 +676,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
                 // Confirm import using ConfirmationModal
                 const { ConfirmationModal } = await import('./components/common/confirmation-modal');
-                const confirmed = await new Promise<boolean>((resolve) => {
-                    const modal = new ConfirmationModal(this.app, {
-                        title: 'Import Settings',
-                        message: 'This will overwrite your current settings.',
-                        onConfirm: () => resolve(true),
-                        onCancel: () => resolve(false),
-                    });
-                    modal.open();
+                const modal = new ConfirmationModal(this.app, {
+                    title: 'Import Settings',
+                    message: 'This will overwrite your current settings.',
                 });
+                const confirmed = await modal.openAndWait();
 
                 if (confirmed) {
                     await this.options.onSettingsChange(imported);
@@ -701,17 +698,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private async resetToDefaults(): Promise<void> {
         // Confirm reset using ConfirmationModal
         const { ConfirmationModal } = await import('./components/common/confirmation-modal');
-        const confirmed = await new Promise<boolean>((resolve) => {
-            const modal = new ConfirmationModal(this.app, {
-                title: 'Reset to Defaults',
-                message: 'This action cannot be undone.',
-                confirmText: 'Reset',
-                isDangerous: true,
-                onConfirm: () => resolve(true),
-                onCancel: () => resolve(false),
-            });
-            modal.open();
+        const modal = new ConfirmationModal(this.app, {
+            title: 'Reset to Defaults',
+            message: 'This action cannot be undone.',
+            confirmText: 'Reset',
+            isDangerous: true,
         });
+        const confirmed = await modal.openAndWait();
 
         if (confirmed) {
             // Keep API keys, reset everything else
@@ -1104,7 +1097,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         value: string | boolean | number | 'fast' | 'balanced' | 'quality'
     ): Promise<void> {
         try {
-            (this.settings as Record<string, unknown>)[key] = value;
+            (this.settings as unknown as Record<string, unknown>)[key] = value;
             await this.validateAndSaveSettings();
         } catch (error) {
             ErrorHandler.handle(error as Error, `Settings update: ${key}`);
@@ -1112,7 +1105,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private async validateAndSaveSettings(): Promise<void> {
-        const validation = ValidationUtils.validateSettings(this.settings);
+        const validation = ValidationUtils.validateSettings(this.settings as unknown as Record<string, unknown>);
         const hadErrors = this.validationErrors.length > 0;
         const hasErrors = validation.errors.length > 0;
 

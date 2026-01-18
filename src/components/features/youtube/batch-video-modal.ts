@@ -9,6 +9,7 @@ import { ValidationUtils } from '../../../validation';
 
 export interface BatchProcessingOptions {
     onProcess: (urls: string[], format: OutputFormat, provider?: string, model?: string) => Promise<string[]>;
+    onOpenFile?: (filePath: string) => Promise<void>;
     providers: string[];
     defaultProvider: string;
     defaultModel: string;
@@ -233,8 +234,8 @@ export class BatchVideoModal extends Modal {
                 .addOption('brief', 'Brief Overview')
                 .addOption('3c-concept', '3C Concept')
                 .setValue(this.selectedFormat)
-                .onChange((value: OutputFormat) => {
-                    this.selectedFormat = value;
+                .onChange((value: string) => {
+                    this.selectedFormat = value as OutputFormat;
                 });
         });
 
@@ -314,6 +315,7 @@ export class BatchVideoModal extends Modal {
 
         for (let i = 0; i < this.urls.length; i++) {
             const item = this.urls[i];
+            if (!item) continue;
             const itemEl = this.itemsContainer.createDiv({ cls: 'ytc-batch-item' });
 
             // Status icon
@@ -378,7 +380,8 @@ export class BatchVideoModal extends Modal {
         try {
             // Process one by one to show progress
             for (let i = 0; i < this.urls.length; i++) {
-                this.urls[i].status = 'processing';
+                if (!this.urls[i]) continue;
+                this.urls[i]!.status = 'processing';
                 this.renderItems();
 
                 progressText.textContent = `Processing ${i + 1} of ${total}...`;
@@ -386,18 +389,18 @@ export class BatchVideoModal extends Modal {
 
                 try {
                     const results = await this.options.onProcess(
-                        [this.urls[i].url],
+                        [this.urls[i]!.url],
                         this.selectedFormat,
                         this.selectedProvider,
                         this.selectedModel,
                     );
 
-                    this.urls[i].status = 'completed';
-                    this.urls[i].result = results[0];
+                    this.urls[i]!.status = 'completed';
+                    this.urls[i]!.result = results[0];
                     completed++;
                 } catch (error) {
-                    this.urls[i].status = 'failed';
-                    this.urls[i].error = error instanceof Error ? error.message : String(error);
+                    this.urls[i]!.status = 'failed';
+                    this.urls[i]!.error = error instanceof Error ? error.message : String(error);
                 }
 
                 this.renderItems();

@@ -62,6 +62,11 @@ export class UserPreferencesService {
             'executive-summary': 0,
             'detailed-guide': 0,
             custom: 0,
+            transcript: 0,
+            '3c-concept': 0,
+            'technical-analysis': 0,
+            'accelerated-learning': 0,
+            'executive-briefing': 0,
         },
         providerUsage: {},
     };

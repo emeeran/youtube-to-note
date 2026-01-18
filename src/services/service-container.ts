@@ -154,8 +154,8 @@ export class ServiceContainer implements IServiceContainer {
         serviceName: string,
         factory: () => T
     ): T {
-        const serviceProperty = `_${serviceName}` as keyof this;
-        const service = (this as Record<string, T>)[serviceProperty];
+        const serviceProperty = `_${serviceName}`;
+        const service = (this as any)[serviceProperty];
 
         if (service) {
             // Update usage metrics
@@ -170,7 +170,7 @@ export class ServiceContainer implements IServiceContainer {
         // Create new service instance
         const startTime = performance.now();
         const newService = factory();
-        (this as Record<string, T>)[serviceProperty] = newService;
+        (this as any)[serviceProperty] = newService;
 
         // Track metrics asynchronously (non-blocking)
         performanceTracker.trackOperation(
@@ -234,19 +234,19 @@ export class ServiceContainer implements IServiceContainer {
      * Clear a specific service
      */
     private clearService(serviceName: string): void {
-        const serviceProperty = `_${serviceName}` as keyof this;
-        const service = (this as Record<string, unknown>)[serviceProperty];
+        const serviceProperty = `_${serviceName}`;
+        const service = (this as any)[serviceProperty];
 
         // Call cleanup method if it exists
         if (service && typeof (service as Record<string, unknown>).cleanup === 'function') {
             try {
                 (service as Record<string, () => void>).cleanup();
             } catch (error) {
-                logger.warn(`Error during cleanup of ${serviceName}:`, 'ServiceContainer', error);
+                logger.warn(`Error during cleanup of ${serviceName}:`, 'ServiceContainer', { error: String(error) });
             }
         }
 
-        (this as Record<string, unknown>)[serviceProperty] = undefined;
+        (this as any)[serviceProperty] = undefined;
     }
 
     /**
@@ -362,10 +362,7 @@ export class ServiceContainer implements IServiceContainer {
      */
     getPerformanceReport(): JsonObject {
         const serviceMetrics = this.getServiceMetrics();
-        const performanceReport = performanceTracker.generateReport() as JsonObject & {
-            services: JsonObject;
-            systemMetrics: JsonObject;
-        };
+        const performanceReport = performanceTracker.generateReport() as any;
 
         // Add service-specific metrics
         const aiService = this._aiService;
