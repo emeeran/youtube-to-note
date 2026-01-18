@@ -56,7 +56,16 @@ export interface ModelStrategy {
 }
 
 /** Output formats for video analysis */
-export type OutputFormat = 'executive-summary' | 'detailed-guide' | 'brief' | 'transcript' | 'custom' | '3c-concept';
+export type OutputFormat =
+    | 'executive-summary'
+    | 'detailed-guide'
+    | 'brief'
+    | 'transcript'
+    | 'custom'
+    | '3c-concept'
+    | 'technical-analysis'
+    | 'accelerated-learning'
+    | 'executive-briefing';
 
 /** Options for video processing */
 export interface ProcessingOptions {

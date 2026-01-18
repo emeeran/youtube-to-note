@@ -99,6 +99,12 @@ ANALYSIS INSTRUCTIONS:
                 return this.createTranscriptPrompt(baseContent, videoUrl, performanceMode);
             case '3c-concept':
                 return this.create3CConceptPrompt(baseContent, videoUrl, performanceMode);
+            case 'technical-analysis':
+                return this.createTechnicalAnalysisPrompt(baseContent, videoUrl, performanceMode);
+            case 'accelerated-learning':
+                return this.createAcceleratedLearningPrompt(baseContent, videoUrl, performanceMode);
+            case 'executive-briefing':
+                return this.createExecutiveBriefingPrompt(baseContent, videoUrl, performanceMode);
             case 'custom':
                 // For custom format, pass the user's custom prompt into the custom template
                 return this.createCustomFormatPrompt(baseContent, videoData, videoUrl, customPrompt, performanceMode);
@@ -122,44 +128,74 @@ ANALYSIS INSTRUCTIONS:
         return (
             `${baseContent}
 
-        OUTPUT FORMAT - BRIEF SUMMARY:
+# Rapid Insight Digest
+You are a precision content analyst creating ultra-concise, high-value summaries that capture the essential insights from video content.
 
-        Provide a two-part output following this EXACT structure:
+## MISSION
+Extract the absolute core value from the video into a brief, actionable summary that delivers maximum information density with minimum fluff.
 
-        ---
-        title: {{TITLE}}
-        source: ${videoUrl}
-        created: "${new Date().toISOString().split('T')[0]}"
-        type: youtube-note
-        format: brief
-        tags: [youtube, brief]
-        video_id: "${videoId ?? 'unknown'}"
-        ai_provider: "__AI_PROVIDER__"
-        ai_model: "__AI_MODEL__"
-        ---
+## ANALYTICAL FOCUS
+- **Essential Value**: What is the single most important thing the viewer gains?
+- **Actionable Intelligence**: Insights that can be immediately applied
+- **Efficiency**: Maximum insight per word of summary
+- **Clarity**: Complex concepts distilled to their essence
 
-        <div style="text-align: center; margin-bottom: 24px;">
-        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+## DELIVERABLE STRUCTURE
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-note
+format: brief
+tags: [youtube, brief, rapid-insight]
+video_id: "${videoId ?? 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
             'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
             'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
             `allowfullscreen></iframe>
-        </div>
+</div>
 
-        ---
+---
 
-        ## Summary
-        [Under 250 words, distilling the core message and value of the video.]
+## 🔥 Core Summary (Under 150 words)
+**The essential value proposition and key insight:**
+- **Primary Benefit**: What the viewer gains from this content
+- **Core Message**: The fundamental concept or idea
+- **Immediate Application**: How this can be used right away
+- **Differentiator**: What makes this content unique or valuable
 
-        ## Key Takeaways
-        - [Takeaway 1]
-        - [Takeaway 2]
-        - [Takeaway 3]
-        - [Takeaway 4]
-        - [Takeaway 5]
+---
 
-        **Formatting Rules:**
-        - Remove time-stamps, filler words, and any unnecessary details.
-        - Include external links and resources for further reading and viewing.`
+## 🎯 Power Takeaways (5 high-impact points)
+**Concentrated insights for instant implementation:**
+- **[Key Point 1]**: Specific, actionable insight with immediate relevance
+- **[Key Point 2]**: Strategic or tactical advantage opportunity
+- **[Key Point 3]**: Process improvement or efficiency gain
+- **[Key Point 4]**: Resource or tool recommendation
+- **[Key Point 5]**: Mindset shift or perspective change
+
+---
+
+## 📌 Rapid Application
+**Next action items (pick 1-2 for immediate impact):**
+- [ ] **[Action 1]**: Quick implementation step
+- [ ] **[Action 2]**: Resource to explore or tool to try
+- [ ] **[Action 3]**: Concept to research further
+
+## QUALITY METRICS
+- **Brevity**: Under 150 words for core summary
+- **Actionability**: Each takeaway has clear implementation path
+- **Value Density**: Every word delivers meaningful insight
+- **Clarity**: Complex ideas expressed simply
+- **Relevance**: Focus on immediately applicable insights
+
+Deliver concentrated value now.`
         );
     }
 
@@ -230,19 +266,18 @@ ANALYSIS INSTRUCTIONS:
         return (
             `${baseContent}
 
-# 3C
-  Protocol – YouTube Video Summarisation:
-You are an expert knowledge distillation system.
+# 3C Protocol – Advanced Knowledge Distillation
+You are an elite knowledge distillation specialist with expertise in cognitive science and learning optimization.
 
-Your task is to summarise a **YouTube video** using the **3C Protocol: Compress → Compile → Consolidate**.
+## MISSION
+Transform the YouTube video into a **structured knowledge artifact** using the proven **3C Framework: Compress → Compile → Consolidate**.
 
-Base your work on:
-- **Watching and listening to the video**, and
-- **Video captions, transcript, or supplied notes** (if available)
+## INPUT ANALYSIS
+- Process both **audio content** (spoken words, emphasis, tone) and **visual elements** (demonstrations, slides, graphics)
+- Prioritize **meaning and actionable insights** over literal transcription
+- Identify **core concepts**, **supporting evidence**, and **practical applications**
 
-Prioritise meaning conveyed through **speech, emphasis, demonstrations, and structure**, not raw transcription.
-
-**Required Output Format:**
+## OUTPUT STRUCTURE
 
 ---
 title: {{TITLE}}
@@ -250,7 +285,7 @@ source: ${videoUrl}
 created: "${new Date().toISOString().split('T')[0]}"
 type: youtube-note
 format: 3c-concept
-tags: [youtube, 3c-concept]
+tags: [youtube, 3c-concept, knowledge-distillation]
 video_id: "${videoId ?? 'unknown'}"
 ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
@@ -265,44 +300,72 @@ ai_model: "__AI_MODEL__"
 
 ---
 
-## COMPRESS
-- Identify the **main thesis or objective** of the video
-- Extract the **key insights, arguments, or demonstrations**
-- Reduce the content to **no more than 8–10 high-leverage points**
-- Remove filler, repetition, tangents, sponsor messages, and verbal padding
+## 🔹 COMPRESS (Essential Extraction)
+Synthesize the video into **8-10 high-impact insights**:
+- **Core thesis**: What is the fundamental message or argument?
+- **Key concepts**: 5-7 foundational ideas with precise definitions
+- **Critical evidence**: Supporting data, examples, or proof points
+- **Action triggers**: Moments that prompt behavioral change
+- **Remove**: Redundancy, tangents, promotional content, and filler words
+
+**Deliverable**: Concise, principle-based bullets that capture the essence.
 
 ---
 
-## COMPILE
-Convert the compressed insights into **executable knowledge**:
-- Clear principles or takeaways
-- Frameworks, workflows, or step-by-step methods
-- Tools, techniques, or best practices explicitly demonstrated or explained
+## 🔸 COMPILE (Knowledge Assembly)
+Transform compressed insights into **actionable intelligence**:
+- **Frameworks**: Organized structures for understanding concepts
+- **Workflows**: Sequential steps for implementation
+- **Mental models**: Cognitive tools for decision-making
+- **Connections**: Relationships between ideas and external concepts
+- **Applications**: How to use this knowledge practically
 
-The output should allow a reader to **gain the full value without watching the video**.
-
----
-
-## CONSOLIDATE
-Improve retention and transfer:
-- A **short mental model** explaining how the ideas connect
-- **5–8 recall questions** to test understanding
-- **2–3 practical applications** or real-world use cases
+**Deliverable**: Structured knowledge ready for implementation.
 
 ---
 
-## OPTIONAL (if timestamps are available)
-- Map major ideas to **approximate timestamps** (e.g., 03:10–06:45)
+## 🔹 CONSOLIDATE (Retention & Transfer)
+Optimize for **long-term retention and practical application**:
+- **Master Mental Model**: A unifying framework that integrates all key concepts coherently
+- **Recall Anchors**: 6-8 specific, challenging questions that test deep comprehension
+- **Implementation Roadmap**: 4-6 concrete, measurable next steps with timelines
+- **Cross-Reference Network**: Connections to related concepts, prior knowledge, and adjacent fields
+- **Success Metrics**: Quantifiable indicators to measure application effectiveness and impact
+
+### Transfer Acceleration:
+- **Contextual Adaptation**: How to modify applications for different scenarios
+- **Obstacle Navigation**: Anticipated challenges and proven mitigation strategies
+- **Feedback Loops**: Methods for continuous refinement and improvement
+- **Compound Effect Mapping**: How small changes create disproportionate results
+
+**Deliverable**: Knowledge that rapidly transfers to long-term memory and consistently applies to real-world situations.
 
 ---
 
-## OUTPUT RULES
-- Markdown only
-- Concise bullet points, no transcript dumping
-- Do not invent content; state assumptions if audio/captions are unclear
-- Prioritise clarity, structure, and usefulness
+## COGNITIVE QUALITY STANDARDS
+- **Precision**: Every concept serves the learning and application objectives
+- **Hierarchy**: Clear, logical structure with explicit relationships between elements
+- **Actionability**: Focus on knowledge that drives measurable behavioral change
+- **Completeness**: Reader gains full cognitive value without requiring video access
+- **Accessibility**: Complex ideas expressed with maximum clarity and minimum jargon
+- **Verification**: All claims are grounded in provided content with transparency about uncertainties
 
-Begin once the video or supporting material is provided.`
+## INTELLIGENCE QUALITY CONTROLS
+- **Fidelity**: Maintain intellectual honesty and accuracy to source material
+- **Bias Detection**: Flag assumptions, limitations, and potential blind spots
+- **Evidence Grading**: Distinguish between proven facts, strong evidence, and speculation
+- **Application Relevance**: Prioritize insights with clear practical utility
+- **Cognitive Load**: Optimize for efficient processing and retention
+
+## FINAL INTEGRATION CHECK
+Before delivering, ensure:
+- [ ] Each insight builds toward a coherent understanding
+- [ ] Action steps are specific, measurable, and achievable
+- [ ] Mental models are simple but powerful enough for broad application
+- [ ] Questions probe deep understanding, not surface memorization
+- [ ] The entire artifact can stand alone without the source video
+
+Execute comprehensive knowledge distillation now.`
         );
     }
 
@@ -321,17 +384,19 @@ Begin once the video or supporting material is provided.`
         return (
             `${baseContent}
 
-You are an expert content analyst specializing in creating executive transcripts. ` +
-            `Your task is to analyze video content and provide a comprehensive yet refined output.
+# Executive Intelligence Report
+You are a strategic intelligence analyst synthesizing critical insights from video content for executive decision-making.
 
-**Your Analysis Process:**
-1. Carefully review the entire video content, including spoken words, visual elements, and context
-2. Identify the core message, key arguments, and primary value propositions
-3. Extract 3-5 most impactful insights or takeaways
-4. Identify concrete actionable items for the audience
-5. Note all external resources, links, or references mentioned and suggest relevant additional resources
+## MISSION
+Extract and synthesize the most strategically valuable information from the video into an executive-ready summary that enables rapid comprehension and actionable decision-making.
 
-**Required Output Format:**
+## ANALYTICAL FRAMEWORK
+- **Strategic Lens**: Focus on implications for business, technology, or personal development
+- **Evidence-Based**: Ground insights in specific data, examples, or demonstrations
+- **Action-Oriented**: Emphasize practical applications and next steps
+- **Risk/Reward**: Identify potential benefits and challenges
+
+## DELIVERABLE STRUCTURE
 
 ---
 title: {{TITLE}}
@@ -343,6 +408,7 @@ format: executive-summary
 tags:
   - youtube
   - executive-summary
+  - strategic-insights
 video_id: "${videoId ?? 'unknown'}"
 ai_provider: "__AI_PROVIDER__"
 ai_model: "__AI_MODEL__"
@@ -358,59 +424,57 @@ ai_model: "__AI_MODEL__"
 
 ---
 
-### 🔑 Key Takeaways
-Present 3-5 bulleted insights that capture the most important points:
-- **[Takeaway Title]**: Clear, specific insight with supporting detail or context
-- Prioritize insights that are actionable or decision-enabling
-- Include relevant data, quotes, or specific details when applicable
-- Ensure each takeaway stands alone and provides immediate value
+## 🎯 Strategic Insights
+**3-5 high-impact takeaways with immediate strategic value:**
+- **[Insight Category]**: Specific, actionable intelligence with quantifiable impact
+- **Business Implication**: How this affects competitive positioning or operational efficiency
+- **Risk Factor**: Potential challenges or obstacles to consider
+- **Opportunity Window**: Timing-sensitive opportunities or trends
 
 ---
 
-### 📋 Summary
-> **Core Message:** [The central thesis or main point of the content]
+## 📊 Executive Summary
+> **Core Value Proposition:** [Central thesis and primary benefit]
 
-Provide a concise summary (under 250 words) covering:
-- **Key Arguments**: Primary supporting points and reasoning presented
-- **Value Proposition**: What viewers gain from this content and why it matters
-- **Context**: Intended audience, use case, and relevance
-- **Conclusion**: Overall significance or implications
-
----
-
-### 🚀 Actionable Items
-List concrete actions the audience can take based on this content:
-- [ ] **[Action 1]**: Specific step, strategy, or implementation
-- [ ] **[Action 2]**: Decision or change to consider
-- [ ] **[Action 3]**: Next step for learning or implementation
-- [ ] **[Action 4]**: Habit, practice, or framework to adopt
-
-*(If no explicit actions mentioned, derive implied actions from the content)*
-
+**Strategic Analysis (200-250 words):**
+- **Market Context**: How this content fits into broader industry trends
+- **Competitive Advantage**: Unique insights that differentiate from common knowledge
+- **Implementation Feasibility**: Practical considerations for adoption
+- **Success Metrics**: How to measure the impact of applying these insights
 
 ---
 
-### 📚 Resources
+## 🚀 Strategic Action Plan
+**Priority initiatives for immediate consideration:**
+- [ ] **[Strategic Initiative 1]**: Specific implementation with timeline and resources
+- [ ] **[Strategic Initiative 2]**: Risk mitigation or opportunity capture strategy
+- [ ] **[Strategic Initiative 3]**: Capability building or partnership opportunity
+- [ ] **[Monitoring Item]**: Key indicators to track for success/failure
 
-**Mentioned in Content:**
-- URLs and websites referenced
-- Books, articles, or papers cited
-- Tools, software, or platforms discussed
-- People, companies, or organizations named
+---
 
-**Suggested for Further Exploration:**
-- Related content that expands on key topics
-- Foundational resources for beginners
-- Advanced materials for deeper understanding
-- Community resources, forums, or documentation
-- Complementary tools or alternatives
+## 📚 Intelligence Repository
 
-**Quality Standards:**
-- Maintain the speaker's voice and intent while improving clarity
-- Ensure accuracy in technical details and proper nouns
-- Create a document that can be read independently without the video
-- Preserve important context that might be lost in pure transcription
-- Make actionable items specific and realistic`
+### **Cited Resources**
+- **Technology/Tools**: Platforms, frameworks, or methodologies mentioned
+- **Research/Data**: Studies, statistics, or evidence cited
+- **Expert Sources**: Thought leaders, organizations, or institutions referenced
+- **External Links**: Direct resources for deeper investigation
+
+### **Strategic Expansion**
+- **Adjacent Opportunities**: Related fields or applications worth exploring
+- **Competitive Landscape**: How competitors might leverage similar insights
+- **Future Trends**: Emerging developments that build on these concepts
+- **Network Effects**: Communities, forums, or ecosystems for continued learning
+
+## QUALITY ASSURANCE
+- **Accuracy**: Verify all claims against provided content
+- **Relevance**: Focus on insights with direct strategic application
+- **Clarity**: Complex concepts explained for non-specialist executives
+- **Independence**: Document stands alone without requiring video access
+- **Actionability**: Every insight includes clear implementation guidance
+
+Deliver comprehensive strategic intelligence now.`
         );
     }
 
@@ -428,40 +492,295 @@ List concrete actions the audience can take based on this content:
         return (
             `${baseContent}
 
-        OUTPUT FORMAT - TUTORIAL / STEP-BY-STEP GUIDE:
+# Implementation Mastery Guide
+You are a process optimization expert transforming instructional video content into a comprehensive, actionable implementation guide.
 
-        Provide a two-part output following this EXACT structure:
+## MISSION
+Convert the video content into a detailed, step-by-step tutorial that enables immediate implementation without requiring access to the original video.
 
-        ---
-        title: {{TITLE}}
-        source: ${videoUrl}
-        created: "${new Date().toISOString().split('T')[0]}"
-        type: youtube-tutorial
-        format: tutorial
-        tags: [youtube, tutorial]
-        video_id: "${videoId ?? 'unknown'}"
-        ai_provider: "__AI_PROVIDER__"
-        ai_model: "__AI_MODEL__"
-        ---
+## ANALYTICAL APPROACH
+- **Process Decomposition**: Break down complex procedures into discrete, executable steps
+- **Prerequisite Identification**: Identify required tools, knowledge, or resources
+- **Failure Prevention**: Highlight common mistakes and how to avoid them
+- **Verification Points**: Include checkpoints to confirm successful completion
 
-        <div style="text-align: center; margin-bottom: 24px;">
-        <iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+## DELIVERABLE STRUCTURE
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-tutorial
+format: tutorial
+tags: [youtube, tutorial, implementation-guide]
+video_id: "${videoId ?? 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
             'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
             'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
             `allowfullscreen></iframe>
-        </div>
+</div>
 
-        ---
+---
 
-        ## 1. Summary
-        [Under 250 words, distilling the core message and value of the video.]
+## 📋 Core Summary
+**Essential overview (200-250 words):**
+- **Objective**: What this tutorial will help you accomplish
+- **Scope**: What is covered and what is not
+- **Expected Outcome**: What you will have achieved upon completion
+- **Time Investment**: Estimated duration for full implementation
 
-        ## 2. Step-by-Step Guide
-        [A sequential, detailed, and actionable tutorial that stands alone.]
+---
 
-        **Formatting Rules:**
-        - Remove time-stamps, filler words, and any unnecessary details.
-        - Include external links and resources for further reading and viewing.`
+## 🛠️ Prerequisites & Preparation
+**Before you begin, ensure you have:**
+- **Tools Required**: Software, hardware, or physical tools needed
+- **Knowledge Base**: Prerequisites or foundational concepts to understand
+- **Environment Setup**: Configuration or preparation steps
+- **Resources**: Links, templates, or materials to download beforehand
+
+---
+
+## 📝 Step-by-Step Implementation
+**Sequential, actionable instructions:**
+
+### Phase 1: Foundation Setup
+1. **[Step Number]**: Detailed action with specific parameters
+   - **Expected Result**: What success looks like at this stage
+   - **Troubleshooting**: Common issues and solutions
+   - **Alternative Path**: Different approaches for different contexts
+
+### Phase 2: Core Implementation
+2. **[Step Number]**: Next critical action with dependencies noted
+   - **Verification**: How to confirm this step was successful
+   - **Adjustments**: Variables that may need tweaking
+   - **Integration**: How this connects to previous steps
+
+### Phase 3: Optimization & Refinement
+3. **[Step Number]**: Fine-tuning and enhancement procedures
+   - **Quality Checks**: Validation methods to ensure optimal results
+   - **Performance Indicators**: Metrics to monitor
+   - **Scaling Considerations**: How to expand or adapt for different use cases
+
+---
+
+## ⚠️ Critical Success Factors
+- **Common Pitfalls**: Mistakes that derail implementation
+- **Key Decisions**: Points where choices significantly impact outcomes
+- **Timing Considerations**: When certain actions should or shouldn't be taken
+- **Resource Allocation**: How to distribute effort and attention effectively
+
+---
+
+## 📎 Resources & References
+- **External Links**: Tools, documentation, or additional resources
+- **Templates**: Downloadable assets or reusable components
+- **Further Learning**: Advanced topics or related skills to develop
+- **Community**: Forums or groups for ongoing support
+
+## QUALITY STANDARDS
+- **Actionability**: Every step is executable with available information
+- **Completeness**: No gaps that require referencing the original video
+- **Clarity**: Complex concepts explained in accessible terms
+- **Verification**: Clear indicators of successful completion
+- **Scalability**: Guidance for adapting to different contexts
+
+Begin creating the comprehensive implementation guide now.`
+        );
+    }
+
+    /**
+     * Create Technical Video Analysis prompt
+     */
+    private createTechnicalAnalysisPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl);
+        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
+
+        return (
+            `${baseContent}
+
+**Role:** You are a Senior Staff Engineer and Technical Lead.
+
+**Task:** specific technical implementation details from the provided video transcript. Ignore engagement fluff (e.g., "Like and Subscribe," sponsor reads) and high-level theory unless necessary for context.
+
+**1. The Tech Stack & Tools**
+* List all languages, frameworks, libraries, and tools demonstrated or mentioned.
+* Capture specific versions if stated (e.g., "Next.js 14" vs "Next.js 13").
+* Note any hardware or environment configurations (e.g., "Running on AWS Lambda," "Local Docker setup").
+
+**2. Architecture & System Design**
+* Reconstruct the architecture described or drawn (whiteboard sessions) in the video.
+* Identify specific design patterns used (e.g., CQRS, Event Sourcing, Singleton).
+* Explain the data flow: How does data move from the client to the database?
+
+**3. The "Code" (Implementation Details)**
+* Extract specific commands, configuration settings, or code snippets mentioned.
+* If actual code isn't provided in text, generate *accurate pseudo-code* based on the speaker's explanation of the logic.
+* **Refactoring:** If the video shows a "Before vs. After" optimization, clearly describe the specific changes made.
+
+**4. Engineering Trade-offs & "Hot Takes"**
+* What specific problem is the creator trying to solve?
+* Capture any "Hot Takes" or strong technical opinions (e.g., "Why I stopped using Redux").
+* List the specific trade-offs mentioned (e.g., "This approach is faster but uses more memory").
+
+**5. Reproduction Steps / Tutorial Guide**
+* Convert the video into a concise, numbered step-by-step guide to reproduce the result.
+* **Step 1:** [Action]
+* **Step 2:** [Action]
+
+**Output Format:** Technical, precise, and high-signal. Use code blocks for all commands and syntax.
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-note
+format: technical-analysis
+tags: [youtube, technical, engineering]
+video_id: "${videoId ?? 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
+</div>
+
+---
+`
+        );
+    }
+
+    /**
+     * Create Accelerated Learning prompt
+     */
+    private createAcceleratedLearningPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl);
+        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
+
+        return (
+            `${baseContent}
+
+**Role:** You are an expert instructional designer and "Super-Learning" coach.
+
+**Task:** Analyze the provided video transcript and generate a comprehensive learning summary based on the **3C Protocol**.
+
+**Constraint:** Aggressively filter out "YouTuber fluff" (intros, sponsor reads, "like and subscribe" reminders, and merchandise plugs). Focus strictly on the educational content.
+
+**1. COMPRESS (Efficient Reduction)**
+* **The 80/20 Rule:** What is the "Vital 20%" of this video that provides 80% of the value?
+* **Mental Models & Visuals:** Describe the core analogies or metaphors the speaker uses. If they describe a specific visual or diagram to explain a concept, describe it clearly here.
+* **Key Concept Definitions:** Define the core terms introduced in the video.
+
+**2. COMPILE (Active Application)**
+* **The "How-To" Checklist:** Convert the speaker's narrative into a numbered, step-by-step action plan.
+* **Tools & Resources:** List every specific app, website, book, or hardware mentioned in the video.
+* **The "Quiz" Mode:** Create 3 specific scenario-based questions that test if I actually understood the video's lesson (include the answers at the very bottom).
+
+**3. CONSOLIDATE (Retention & Review)**
+* **The Big Picture:** How does this video connect to broader topics in this niche?
+* **The "Cheat Sheet":** Provide a bulleted summary of the "Golden Nuggets"—the exact facts or quotes worth memorizing.
+
+**Output Format:** Educational, encouraging, and structured for quick study.
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-note
+format: accelerated-learning
+tags: [youtube, learning, education]
+video_id: "${videoId ?? 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
+</div>
+
+---
+`
+        );
+    }
+
+    /**
+     * Create Executive Briefing prompt
+     */
+    private createExecutiveBriefingPrompt(
+        baseContent: string,
+        videoUrl: string,
+        _performanceMode: PerformanceMode = 'balanced',
+    ): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl);
+        const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : videoUrl;
+
+        return (
+            `${baseContent}
+
+**Role:** You are a Media Analyst and Strategy Consultant.
+
+**Task:** Provide a high-level executive briefing of the provided video transcript.
+
+**Constraint:** Treat this as intelligence gathering. Ignore engagement metrics and focus on the claims and facts.
+
+**1. BLUF (Bottom Line Up Front)**
+* **The Headline:** A 1-sentence summary of the video's main argument.
+* **The Verdict:** If this is a review or analysis, what is the speaker's final verdict? (e.g., "Buy," "Sell," "Wait," "Broken").
+
+**2. Strategic Insights & Market Impact**
+* **The "So What?":** Why does this video matter to the industry? (e.g., "This product launch threatens Company X's market share").
+* **Key Data Points:** Extract specific benchmarks, prices, dates, or statistics mentioned.
+* **Competitor Landscape:** Who are the main competitors or alternatives mentioned.
+
+**3. Critical Analysis (Hype Check)**
+* **Bias Detection:** Does the transcript indicate this is a sponsored segment? Is the speaker overly optimistic or critical?
+* **The "Hype vs. Reality" Check:** Strip away the excitement—what are the actual downsides or limitations mentioned (often hidden at the end)?
+
+**4. Recommended Actions**
+* Based on this video, what action should be taken? (e.g., "Adopt this tool," "Monitor this trend," "Avoid this product").
+
+**Output Format:** Professional, objective, and scannable.
+
+---
+title: {{TITLE}}
+source: ${videoUrl}
+created: "${new Date().toISOString().split('T')[0]}"
+type: youtube-note
+format: executive-briefing
+tags: [youtube, briefing, strategy]
+video_id: "${videoId ?? 'unknown'}"
+ai_provider: "__AI_PROVIDER__"
+ai_model: "__AI_MODEL__"
+---
+
+<div style="text-align: center; margin-bottom: 24px;">
+<iframe width="640" height="360" src="${embedUrl}" title="{{TITLE}}" frameborder="0" ` +
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; ' +
+            'picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" ' +
+            `allowfullscreen></iframe>
+</div>
+
+---
+`
         );
     }
 

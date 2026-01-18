@@ -476,8 +476,11 @@ export class YouTubeUrlModal extends BaseModal {
 
         const formatOptions = [
             { value: 'executive-summary', text: '📊 Executive Summary' },
+            { value: 'technical-analysis', text: '⚙️ Technical Analysis' },
             { value: 'detailed-guide', text: '📘 Tutorial / Guide' },
+            { value: 'accelerated-learning', text: '🧠 Accelerated Learning' },
             { value: 'brief', text: '⚡ Brief Summary' },
+            { value: 'executive-briefing', text: '📰 Executive Briefing (News)' },
             { value: '3c-concept', text: '💡 3C Concept' },
             { value: 'transcript', text: '📝 Transcript Note' },
             { value: 'custom', text: '✏️ Custom Format' },
