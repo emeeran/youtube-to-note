@@ -30,7 +30,8 @@ URL: {{URL}}
 Description: {{DESCRIPTION}}
 {{TRANSCRIPT_SECTION}}
 
-Extract insights from the content, focusing on practical information.`;
+Extract insights from the content, focusing on practical information.
+**MULTIMODAL INSTRUCTION:** Ensure the analysis is comprehensive by "watching" the video (processing visual and audio streams) to extract key insights, on-screen text, and non-verbal cues.`;
 
     private static readonly COMPREHENSIVE_BASE_TEMPLATE =
         `Analyze this YouTube video comprehensively:
@@ -43,7 +44,10 @@ ANALYSIS INSTRUCTIONS:
 1. Analyze the transcript content thoroughly
 2. Extract key insights, themes, and practical information
 3. Focus on action-oriented information with specific examples
-4. Maintain accuracy and cite specific examples from the content ` + 'when relevant';
+4. Maintain accuracy and cite specific examples from the content ` +
+        'when relevant' +
+        `
+5. **Multimodal Analysis:** Ensure the analysis is comprehensive by "watching" the video (processing visual and audio streams) to extract key insights, on-screen text, and non-verbal cues.`;
 
     /**
      * Create analysis prompt for YouTube video content with performance optimization
