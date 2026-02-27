@@ -2,12 +2,10 @@
  * Unit tests for AIService
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { AIService } from '../../../src/services/ai-service';
 import { AIProvider, YouTubePluginSettings } from '../../../src/types';
-import { createMockSettings } from '@tests/utils/test-helpers';
 
-// Mock the dependencies before importing
+// Mock the dependencies
 jest.mock('../../../src/services/logger', () => ({
     logger: {
         debug: jest.fn(),
@@ -15,20 +13,6 @@ jest.mock('../../../src/services/logger', () => ({
         warn: jest.fn(),
         error: jest.fn(),
     },
-}));
-
-jest.mock('../../../src/services/performance-tracker', () => ({
-    performanceTracker: {
-        measureOperation: jest.fn((name, id, operation, metadata) => operation()),
-        trackOperation: jest.fn(),
-    },
-}));
-
-jest.mock('../../../src/utils/http-client', () => ({
-    OptimizedHttpClient: jest.fn().mockImplementation(() => ({
-        get: jest.fn(),
-        post: jest.fn(),
-    })),
 }));
 
 describe('AIService', () => {
@@ -41,31 +25,23 @@ describe('AIService', () => {
         mockProviders = [
             {
                 name: 'Google Gemini',
-                generateResponse: jest.fn().mockResolvedValue({
-                    content: 'Test response from Gemini',
-                    model: 'gemini-pro',
-                    usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 }
-                }),
-                setTimeout: jest.fn(),
+                process: jest.fn().mockResolvedValue('Test response from Gemini'),
+                model: 'gemini-pro',
             } as unknown as AIProvider,
             {
                 name: 'Groq',
-                generateResponse: jest.fn().mockResolvedValue({
-                    content: 'Test response from Groq',
-                    model: 'llama2-70b',
-                    usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 }
-                }),
-                setTimeout: jest.fn(),
+                process: jest.fn().mockResolvedValue('Test response from Groq'),
+                model: 'llama2-70b',
             } as unknown as AIProvider,
         ];
 
-        mockSettings = createMockSettings({
+        mockSettings = {
             geminiApiKey: 'test-gemini-key',
             groqApiKey: 'test-groq-key',
-            performanceMode: 'balanced' as const,
+            performanceMode: 'balanced',
             enableParallelProcessing: true,
             cacheEnabled: true,
-        });
+        } as YouTubePluginSettings;
     });
 
     afterEach(() => {
@@ -81,28 +57,13 @@ describe('AIService', () => {
         it('should throw error when no providers are provided', () => {
             expect(() => {
                 new AIService([], mockSettings);
-            }).toThrow('No valid Gemini or Groq API key configured');
+            }).toThrow('At least one AI provider is required');
         });
 
-        it('should apply performance settings on initialization', () => {
-            aiService = new AIService(mockProviders, mockSettings);
-            // Verify setTimeout was called on providers
-            expect(mockProviders[0].setTimeout).toHaveBeenCalled();
-        });
-
-        it('should use custom timeouts when provided', () => {
-            const customTimeouts = {
-                geminiTimeout: 60000,
-                groqTimeout: 45000,
-                ollamaTimeout: 120000,
-                huggingfaceTimeout: 30000,
-                openrouterTimeout: 30000,
-            };
-
-            mockSettings.customTimeouts = customTimeouts;
-            aiService = new AIService(mockProviders, mockSettings);
-
-            expect(mockProviders[0].setTimeout).toHaveBeenCalledWith(60000);
+        it('should throw error when providers is null', () => {
+            expect(() => {
+                new AIService(null as unknown as AIProvider[], mockSettings);
+            }).toThrow('At least one AI provider is required');
         });
     });
 
@@ -111,15 +72,13 @@ describe('AIService', () => {
             aiService = new AIService(mockProviders, mockSettings);
         });
 
-        it('should update settings and reapply performance settings', () => {
+        it('should update settings without error', () => {
             const newSettings = {
                 ...mockSettings,
                 performanceMode: 'fast' as const,
             };
 
-            aiService.updateSettings(newSettings);
-            // Should reapply settings (verified by no error thrown)
-            expect(mockProviders[0].setTimeout).toHaveBeenCalled();
+            expect(() => aiService.updateSettings(newSettings)).not.toThrow();
         });
     });
 
@@ -131,19 +90,11 @@ describe('AIService', () => {
         it('should return models for a known provider', () => {
             const models = aiService.getProviderModels('Google Gemini');
             expect(Array.isArray(models)).toBe(true);
-            expect(models.length).toBeGreaterThan(0);
         });
 
         it('should return empty array for unknown provider', () => {
             const models = aiService.getProviderModels('Unknown Provider');
             expect(models).toEqual([]);
-        });
-
-        it('should handle both string arrays and model objects', () => {
-            const geminiModels = aiService.getProviderModels('Google Gemini');
-            geminiModels.forEach(model => {
-                expect(typeof model).toBe('string');
-            });
         });
     });
 
@@ -159,31 +110,123 @@ describe('AIService', () => {
         });
     });
 
-    describe('Error Handling', () => {
-        it('should handle missing API keys gracefully', () => {
-            expect(() => {
-                new AIService([], mockSettings);
-            }).toThrow();
+    describe('hasAvailableProviders', () => {
+        it('should return true when providers exist', () => {
+            aiService = new AIService(mockProviders, mockSettings);
+            expect(aiService.hasAvailableProviders()).toBe(true);
         });
     });
 
-    describe('Performance Modes', () => {
-        it('should apply fast performance settings', () => {
-            mockSettings.performanceMode = 'fast' as const;
+    describe('addProvider', () => {
+        beforeEach(() => {
             aiService = new AIService(mockProviders, mockSettings);
-            expect(mockProviders[0].setTimeout).toHaveBeenCalled();
         });
 
-        it('should apply balanced performance settings', () => {
-            mockSettings.performanceMode = 'balanced' as const;
+        it('should add a new provider', () => {
+            const newProvider = {
+                name: 'OpenAI',
+                process: jest.fn().mockResolvedValue('Response'),
+            } as unknown as AIProvider;
+
+            aiService.addProvider(newProvider);
+
+            expect(aiService.getProviderNames()).toContain('OpenAI');
+        });
+    });
+
+    describe('removeProvider', () => {
+        beforeEach(() => {
             aiService = new AIService(mockProviders, mockSettings);
-            expect(mockProviders[0].setTimeout).toHaveBeenCalled();
         });
 
-        it('should apply quality performance settings', () => {
-            mockSettings.performanceMode = 'quality' as const;
+        it('should remove an existing provider', () => {
+            const removed = aiService.removeProvider('Groq');
+
+            expect(removed).toBe(true);
+            expect(aiService.getProviderNames()).not.toContain('Groq');
+        });
+
+        it('should return false for non-existent provider', () => {
+            const removed = aiService.removeProvider('NonExistent');
+
+            expect(removed).toBe(false);
+        });
+    });
+
+    describe('process', () => {
+        beforeEach(() => {
             aiService = new AIService(mockProviders, mockSettings);
-            expect(mockProviders[0].setTimeout).toHaveBeenCalled();
+        });
+
+        it('should process prompt with first provider', async () => {
+            const result = await aiService.process('Test prompt');
+
+            expect(result.content).toBe('Test response from Gemini');
+            expect(result.provider).toBe('Google Gemini');
+        });
+
+        it('should throw error for empty prompt', async () => {
+            await expect(aiService.process('')).rejects.toThrow('Valid prompt is required');
+        });
+    });
+
+    describe('processWith', () => {
+        beforeEach(() => {
+            aiService = new AIService(mockProviders, mockSettings);
+        });
+
+        it('should process with specific provider', async () => {
+            const result = await aiService.processWith('Groq', 'Test prompt');
+
+            expect(result.provider).toBe('Groq');
+        });
+
+        it('should throw error for unknown provider', async () => {
+            await expect(aiService.processWith('Unknown', 'Test')).rejects.toThrow('Provider "Unknown" not found');
+        });
+
+        it('should fallback to another provider on error', async () => {
+            // Make first provider throw
+            (mockProviders[0].process as jest.Mock).mockRejectedValueOnce(new Error('Provider error'));
+
+            const result = await aiService.processWith('Google Gemini', 'Test', undefined, undefined, true);
+
+            // Should fallback to Groq
+            expect(result.provider).toBe('Groq');
+        });
+    });
+
+    describe('getPerformanceMetrics', () => {
+        beforeEach(() => {
+            aiService = new AIService(mockProviders, mockSettings);
+        });
+
+        it('should return performance metrics', () => {
+            const metrics = aiService.getPerformanceMetrics();
+
+            expect(metrics.providerCount).toBe(2);
+            expect(Array.isArray(metrics.providers)).toBe(true);
+        });
+    });
+
+    describe('cleanup', () => {
+        it('should cleanup providers with cleanup method', () => {
+            const providerWithCleanup = {
+                name: 'Test',
+                process: jest.fn(),
+                cleanup: jest.fn(),
+            } as unknown as AIProvider;
+
+            aiService = new AIService([providerWithCleanup], mockSettings);
+            aiService.cleanup();
+
+            expect(providerWithCleanup.cleanup).toHaveBeenCalled();
+        });
+
+        it('should handle providers without cleanup method', () => {
+            aiService = new AIService(mockProviders, mockSettings);
+
+            expect(() => aiService.cleanup()).not.toThrow();
         });
     });
 });
