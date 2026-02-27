@@ -3,11 +3,12 @@
  * Allows processing multiple YouTube videos at once
  */
 
-import { App, Modal, Setting, Notice } from 'obsidian';
+import { App, Notice, Setting } from 'obsidian';
+import { BaseVideoModal, BaseVideoModalOptions, FORMAT_OPTIONS } from '../../common/base-video-modal';
 import { OutputFormat } from '../../../types';
 import { ValidationUtils } from '../../../validation';
 
-export interface BatchProcessingOptions {
+export interface BatchProcessingOptions extends BaseVideoModalOptions {
     onProcess: (urls: string[], format: OutputFormat, provider?: string, model?: string) => Promise<string[]>;
     onOpenFile?: (filePath: string) => Promise<void>;
     providers: string[];
@@ -23,24 +24,23 @@ interface BatchItem {
     error?: string;
 }
 
-export class BatchVideoModal extends Modal {
+export class BatchVideoModal extends BaseVideoModal {
     private urls: BatchItem[] = [];
     private urlInput!: HTMLTextAreaElement;
     private itemsContainer!: HTMLElement;
-    private progressContainer!: HTMLElement;
+    private batchProgressContainer!: HTMLElement;
     private processButton!: HTMLButtonElement;
-    private selectedFormat: OutputFormat = 'executive-summary';
-    private selectedProvider: string;
-    private selectedModel: string;
-    private isProcessing = false;
 
     constructor(
         app: App,
-        private options: BatchProcessingOptions,
+        private batchOptions: BatchProcessingOptions,
     ) {
-        super(app);
-        this.selectedProvider = options.defaultProvider;
-        this.selectedModel = options.defaultModel;
+        super(app, {
+            providers: batchOptions.providers,
+            defaultProvider: batchOptions.defaultProvider,
+            defaultModel: batchOptions.defaultModel,
+            modelOptions: batchOptions.modelOptionsMap,
+        });
     }
 
     onOpen(): void {
@@ -66,7 +66,7 @@ export class BatchVideoModal extends Modal {
         // URL Input Area
         this.createUrlInput();
 
-        // Options
+        // Options (using base class methods)
         this.createOptions();
 
         // Items list
@@ -202,6 +202,21 @@ export class BatchVideoModal extends Modal {
             .ytc-batch-options {
                 margin: 16px 0;
             }
+            .ytc-select-container {
+                margin-bottom: 12px;
+            }
+            .ytc-select-container label {
+                display: block;
+                margin-bottom: 4px;
+                font-weight: 500;
+            }
+            .ytc-video-select {
+                width: 100%;
+                padding: 8px;
+                border-radius: 6px;
+                border: 1px solid var(--background-modifier-border);
+                background: var(--background-secondary);
+            }
         `;
         this.contentEl.appendChild(style);
     }
@@ -226,28 +241,14 @@ export class BatchVideoModal extends Modal {
     private createOptions(): void {
         const container = this.contentEl.createDiv({ cls: 'ytc-batch-options' });
 
-        // Format selection
-        new Setting(container).setName('Output Format').addDropdown(dropdown => {
-            dropdown
-                .addOption('executive-summary', 'Executive Summary')
-                .addOption('step-by-step-tutorial', 'Step-by-Step Tutorial')
-                .addOption('brief', 'Brief Overview')
-                .addOption('3c-concept', '3C Concept')
-                .setValue(this.selectedFormat)
-                .onChange((value: string) => {
-                    this.selectedFormat = value as OutputFormat;
-                });
-        });
+        // Format selection using base class dropdown
+        this.createFormatSelect(container, 'Output Format');
 
-        // Provider selection
-        new Setting(container).setName('AI Provider').addDropdown(dropdown => {
-            this.options.providers.forEach(provider => {
-                dropdown.addOption(provider, provider);
-            });
-            dropdown.setValue(this.selectedProvider).onChange(value => {
-                this.selectedProvider = value;
-            });
-        });
+        // Provider selection using base class dropdown
+        this.createProviderSelect(container, 'AI Provider');
+
+        // Model selection using base class dropdown
+        this.createModelSelect(container, 'Model');
     }
 
     private createItemsList(): void {
@@ -256,12 +257,12 @@ export class BatchVideoModal extends Modal {
     }
 
     private createProgressSection(): void {
-        this.progressContainer = this.contentEl.createDiv({ cls: 'ytc-batch-progress' });
+        this.batchProgressContainer = this.contentEl.createDiv({ cls: 'ytc-batch-progress' });
 
-        const progressBar = this.progressContainer.createDiv({ cls: 'ytc-batch-progress-bar' });
+        const progressBar = this.batchProgressContainer.createDiv({ cls: 'ytc-batch-progress-bar' });
         progressBar.createDiv({ cls: 'ytc-batch-progress-fill' });
 
-        this.progressContainer.createDiv({ cls: 'ytc-batch-progress-text' });
+        this.batchProgressContainer.createDiv({ cls: 'ytc-batch-progress-text' });
     }
 
     private createActionButtons(): void {
@@ -291,7 +292,7 @@ export class BatchVideoModal extends Modal {
 
         for (const line of lines) {
             const url = line.trim();
-            if (ValidationUtils.isValidYouTubeUrl(url)) {
+            if (this.isValidVideoUrl(url)) {
                 this.urls.push({
                     url,
                     status: 'pending',
@@ -367,12 +368,12 @@ export class BatchVideoModal extends Modal {
     private async processVideos(): Promise<void> {
         if (this.urls.length === 0 || this.isProcessing) return;
 
-        this.isProcessing = true;
+        this.setProcessing(true);
         this.updateProcessButton();
-        this.progressContainer.classList.add('visible');
+        this.batchProgressContainer.classList.add('visible');
 
-        const progressFill = this.progressContainer.querySelector('.ytc-batch-progress-fill') as HTMLElement;
-        const progressText = this.progressContainer.querySelector('.ytc-batch-progress-text') as HTMLElement;
+        const progressFill = this.batchProgressContainer.querySelector('.ytc-batch-progress-fill') as HTMLElement;
+        const progressText = this.batchProgressContainer.querySelector('.ytc-batch-progress-text') as HTMLElement;
 
         let completed = 0;
         const total = this.urls.length;
@@ -388,7 +389,7 @@ export class BatchVideoModal extends Modal {
                 progressFill.style.width = `${(i / total) * 100}%`;
 
                 try {
-                    const results = await this.options.onProcess(
+                    const results = await this.batchOptions.onProcess(
                         [this.urls[i]!.url],
                         this.selectedFormat,
                         this.selectedProvider,
@@ -410,14 +411,14 @@ export class BatchVideoModal extends Modal {
             progressText.textContent = `Completed: ${completed}/${total} videos processed`;
 
             if (completed === total) {
-                new Notice(`✅ Successfully processed ${completed} videos!`);
+                this.showNotice(`Successfully processed ${completed} videos!`, 'success');
             } else {
-                new Notice(`⚠️ Processed ${completed}/${total} videos. Some failed.`);
+                this.showNotice(`Processed ${completed}/${total} videos. Some failed.`, 'error');
             }
         } catch (error) {
-            new Notice(`❌ Batch processing failed: ${error instanceof Error ? error.message : String(error)}`);
+            this.showNotice(`Batch processing failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
         } finally {
-            this.isProcessing = false;
+            this.setProcessing(false);
             this.updateProcessButton();
         }
     }
