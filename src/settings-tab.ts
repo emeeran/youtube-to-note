@@ -3,15 +3,8 @@ import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { logger } from './services/logger';
 import { ErrorHandler } from './services/error-handler';
-import {
-    SettingsDrawer,
-    ProviderCard,
-    createInfoIcon,
-    hideTooltip,
-    type ProviderStatus
-} from './components/settings';
+import { SettingsDrawer, ProviderCard, createInfoIcon, hideTooltip, type ProviderStatus } from './components/settings';
 
 /**
  * Plugin settings tab component
@@ -40,7 +33,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
     constructor(
         app: App,
-        private options: SettingsTabOptions
+        private options: SettingsTabOptions,
     ) {
         super(app, options.plugin);
         this.settings = { ...options.plugin.settings };
@@ -94,9 +87,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
     private updateHeaderBadge(isReady: boolean): void {
         if (this.headerBadge) {
-            const badgeClass = isReady ?
-                `${CSS_PREFIX}-badge-ready` :
-                `${CSS_PREFIX}-badge-setup`;
+            const badgeClass = isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`;
             this.headerBadge.className = `${CSS_PREFIX}-badge ${badgeClass}`;
             this.headerBadge.textContent = isReady ? '\u2713 Ready' : '\u26A0 Setup Required';
         }
@@ -114,22 +105,37 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 icon: '\u26A1', // ⚡
                 label: 'Fast',
                 desc: 'Quick results',
-                settings: { performanceMode: 'fast', defaultMaxTokens: 2048, defaultTemperature: 0.3, enableParallelProcessing: true }
+                settings: {
+                    performanceMode: 'fast',
+                    defaultMaxTokens: 2048,
+                    defaultTemperature: 0.3,
+                    enableParallelProcessing: true,
+                },
             },
             {
                 id: 'balanced',
                 icon: '\u2696\uFE0F', // ⚖️
                 label: 'Balanced',
                 desc: 'Good speed & quality',
-                settings: { performanceMode: 'balanced', defaultMaxTokens: 4096, defaultTemperature: 0.5, enableParallelProcessing: true }
+                settings: {
+                    performanceMode: 'balanced',
+                    defaultMaxTokens: 4096,
+                    defaultTemperature: 0.5,
+                    enableParallelProcessing: true,
+                },
             },
             {
                 id: 'quality',
                 icon: '\u2728', // ✨
                 label: 'Quality',
                 desc: 'Best results',
-                settings: { performanceMode: 'quality', defaultMaxTokens: 8192, defaultTemperature: 0.7, enableParallelProcessing: false }
-            }
+                settings: {
+                    performanceMode: 'quality',
+                    defaultMaxTokens: 8192,
+                    defaultTemperature: 0.7,
+                    enableParallelProcessing: false,
+                },
+            },
         ];
 
         const currentMode = this.settings.performanceMode ?? 'balanced';
@@ -139,8 +145,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 cls: `${CSS_PREFIX}-preset-btn${currentMode === preset.id ? ' active' : ''}`,
                 attr: {
                     type: 'button',
-                    'aria-pressed': String(currentMode === preset.id)
-                }
+                    'aria-pressed': String(currentMode === preset.id),
+                },
             });
 
             btn.createSpan({ cls: 'preset-icon', text: preset.icon });
@@ -167,7 +173,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.searchInput = searchBar.createEl('input', {
             attr: {
                 placeholder: 'Search settings... (Ctrl+K)',
-                'aria-label': 'Search settings'
+                'aria-label': 'Search settings',
             },
         });
 
@@ -176,7 +182,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         });
 
         // Keyboard shortcut for search focus
-        this.searchInput.addEventListener('keydown', (e) => {
+        this.searchInput.addEventListener('keydown', e => {
             if (e.key === 'k' && e.ctrlKey) {
                 e.preventDefault();
                 this.searchInput?.focus();
@@ -215,8 +221,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 attr: {
                     role: 'button',
                     tabindex: hasKey ? '0' : '-1',
-                    'aria-label': `${provider.name}: ${hasKey ? status : 'not configured'}`
-                }
+                    'aria-label': `${provider.name}: ${hasKey ? status : 'not configured'}`,
+                },
             });
             chip.createDiv({ cls: `${CSS_PREFIX}-status-dot` });
             chip.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
@@ -231,7 +237,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
                 });
 
-                chip.addEventListener('keydown', (e) => {
+                chip.addEventListener('keydown', e => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
@@ -298,7 +304,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Test All Keys
         const testAllBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn primary`,
-            attr: { type: 'button', 'aria-label': 'Test all provider connections' }
+            attr: { type: 'button', 'aria-label': 'Test all provider connections' },
         });
         testAllBtn.innerHTML = '<span>\uD83E\uDDEA</span> Test Connections'; // 🧪
         testAllBtn.addEventListener('click', () => this.testAllProviders());
@@ -306,15 +312,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Export/Import dropdown
         const settingsBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn`,
-            attr: { type: 'button', 'aria-label': 'Manage settings' }
+            attr: { type: 'button', 'aria-label': 'Manage settings' },
         });
         settingsBtn.innerHTML = '<span>\u2699\uFE0F</span> Manage Settings'; // ⚙️
-        settingsBtn.addEventListener('click', (e) => this.showSettingsPopup(e));
+        settingsBtn.addEventListener('click', e => this.showSettingsPopup(e));
 
         // Reset to Defaults
         const resetBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn danger`,
-            attr: { type: 'button', 'aria-label': 'Reset settings to defaults' }
+            attr: { type: 'button', 'aria-label': 'Reset settings to defaults' },
         });
         resetBtn.innerHTML = '<span>\uD83D\uDD04</span> Reset'; // 🔄
         resetBtn.addEventListener('click', async () => this.resetToDefaults());
@@ -401,7 +407,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'application/json';
-        input.addEventListener('change', async (e) => {
+        input.addEventListener('change', async e => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file) return;
 
@@ -501,7 +507,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             title: 'API Keys',
             icon: '\uD83D\uDD11', // 🔑
             description: 'Configure your API keys for AI providers. Keys are stored securely and encrypted.',
-            isOpen: false
+            isOpen: false,
         });
 
         this.containerEl.appendChild(drawer.render());
@@ -593,28 +599,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .setName('Ollama Endpoint')
             .setDesc('Ollama API endpoint. Local: http://localhost:11434 | Cloud: https://ollama.com')
             .addText(text => {
-                text
-                    .setPlaceholder('http://localhost:11434')
+                text.setPlaceholder('http://localhost:11434')
                     .setValue(this.settings.ollamaEndpoint || 'http://localhost:11434')
-                    .onChange(async (value) => {
+                    .onChange(async value => {
                         await this.updateSetting('ollamaEndpoint', value.trim());
                     });
             });
     }
 
     // eslint-disable-next-line max-lines-per-function
-    private createAPIKeySetting(container: HTMLElement, opts: {
-        name: string;
-        desc: string;
-        placeholder: string;
-        settingKey: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
-        infoTooltip: string;
-        optional?: boolean;
-        validateFn: (key: string) => Promise<void>;
-    }): void {
-        const setting = new Setting(container)
-            .setName(opts.name)
-            .setDesc(opts.desc);
+    private createAPIKeySetting(
+        container: HTMLElement,
+        opts: {
+            name: string;
+            desc: string;
+            placeholder: string;
+            settingKey: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
+            infoTooltip: string;
+            optional?: boolean;
+            validateFn: (key: string) => Promise<void>;
+        },
+    ): void {
+        const setting = new Setting(container).setName(opts.name).setDesc(opts.desc);
 
         // Add info icon with tooltip
         const infoIcon = createInfoIcon(opts.infoTooltip);
@@ -626,16 +632,14 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             text.inputEl.style.width = '300px';
 
             // Get the actual API key (de-obfuscated) or empty string - async
-            this.secureConfig.getApiKey(opts.settingKey).then(async (actualKey) => {
+            void this.secureConfig.getApiKey(opts.settingKey).then(async actualKey => {
                 const displayValue = actualKey ? await this.secureConfig.getMaskedApiKey(opts.settingKey) : '';
                 text.setValue(displayValue);
             });
 
-            text
-                .setPlaceholder(opts.placeholder)
-                .onChange(async (value) => {
-                    await this.updateSetting(opts.settingKey, value.trim());
-                });
+            text.setPlaceholder(opts.placeholder).onChange(async value => {
+                await this.updateSetting(opts.settingKey, value.trim());
+            });
         });
 
         const controlEl = setting.controlEl;
@@ -647,8 +651,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             attr: {
                 type: 'button',
                 title: 'Toggle visibility',
-                'aria-label': 'Toggle password visibility'
-            }
+                'aria-label': 'Toggle password visibility',
+            },
         });
 
         let isVisible = false;
@@ -682,8 +686,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             text: '\u2713 Test', // ✓ Test
             attr: {
                 type: 'button',
-                'aria-label': `Test ${opts.name}`
-            }
+                'aria-label': `Test ${opts.name}`,
+            },
         });
 
         validateBtn.addEventListener('click', async () => {
@@ -728,7 +732,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             title: 'AI Configuration',
             icon: '\uD83E\uDD16', // 🤖
             description: 'Configure AI model behavior and output settings.',
-            isOpen: false
+            isOpen: false,
         });
 
         this.containerEl.appendChild(drawer.render());
@@ -745,7 +749,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             step: 256,
             value: this.settings.defaultMaxTokens || 4096,
             key: 'defaultMaxTokens',
-            format: (v) => v.toLocaleString(),
+            format: v => v.toLocaleString(),
             scale: ['Short (512)', 'Long (8192)'],
         });
 
@@ -758,21 +762,23 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             step: 0.1,
             value: this.settings.defaultTemperature ?? 0.5,
             key: 'defaultTemperature',
-            format: (v) => v.toFixed(1),
+            format: v => v.toFixed(1),
             scale: ['Precise (0)', 'Creative (1)'],
         });
 
         new Setting(content)
             .setName('Performance Mode')
             .setDesc('Choose processing speed vs output quality tradeoff.')
-            .addDropdown(dd => dd
-                .addOption('fast', '\u26A1 Fast \u2014 Quick results, basic analysis') // ⚡ —
-                .addOption('balanced', '\u2696\uFE0F Balanced \u2014 Good speed & quality') // ⚖️ —
-                .addOption('quality', '\u2728 Quality \u2014 Best results, slower') // ✨ —
-                .setValue(this.settings.performanceMode || 'balanced')
-                .onChange(async (value) => {
-                    await this.updateSetting('performanceMode', value as 'fast' | 'balanced' | 'quality');
-                }));
+            .addDropdown(dd =>
+                dd
+                    .addOption('fast', '\u26A1 Fast \u2014 Quick results, basic analysis') // ⚡ —
+                    .addOption('balanced', '\u2696\uFE0F Balanced \u2014 Good speed & quality') // ⚖️ —
+                    .addOption('quality', '\u2728 Quality \u2014 Best results, slower') // ✨ —
+                    .setValue(this.settings.performanceMode || 'balanced')
+                    .onChange(async value => {
+                        await this.updateSetting('performanceMode', value as 'fast' | 'balanced' | 'quality');
+                    }),
+            );
     }
 
     private createOutputSection(): void {
@@ -781,7 +787,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             title: 'Output Settings',
             icon: '\uD83D\uDC1B', // 🐛
             description: 'Configure where processed video notes are saved.',
-            isOpen: false
+            isOpen: false,
         });
 
         this.containerEl.appendChild(drawer.render());
@@ -792,12 +798,14 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         new Setting(content)
             .setName('Output Folder')
             .setDesc('Folder path where processed video notes will be saved.')
-            .addText(text => text
-                .setPlaceholder('YouTube/Processed Videos')
-                .setValue(this.settings.outputPath || 'YouTube/Processed Videos')
-                .onChange(async (value) => {
-                    await this.updateSetting('outputPath', value.trim() || 'YouTube/Processed Videos');
-                }));
+            .addText(text =>
+                text
+                    .setPlaceholder('YouTube/Processed Videos')
+                    .setValue(this.settings.outputPath || 'YouTube/Processed Videos')
+                    .onChange(async value => {
+                        await this.updateSetting('outputPath', value.trim() || 'YouTube/Processed Videos');
+                    }),
+            );
     }
 
     private async createAdvancedSection(): Promise<void> {
@@ -806,7 +814,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             title: 'Advanced Settings',
             icon: '\u2699\uFE0F', // ⚙️
             description: 'Advanced configuration options for power users.',
-            isOpen: false
+            isOpen: false,
         });
 
         this.containerEl.appendChild(drawer.render());
@@ -816,7 +824,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         // Security Status Section
         const securityDesc = content.createDiv({ cls: `${CSS_PREFIX}-security-status` });
-        const securityTitle = securityDesc.createEl('h3', { text: '\uD83D\uDD12 Security Status' }); // 🔒
+        securityDesc.createEl('h3', { text: '\uD83D\uDD12 Security Status' }); // 🔒
         const securityContent = securityDesc.createDiv();
 
         // Run security validation
@@ -825,7 +833,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         if (securityResult.warnings.length > 0 || securityResult.suggestions.length > 0) {
             if (securityResult.warnings.length > 0) {
                 const warningEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-security-warnings`
+                    cls: `${CSS_PREFIX}-security-warnings`,
                 });
                 securityResult.warnings.forEach((warning: string) => {
                     const item = warningEl.createEl('div');
@@ -836,7 +844,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
             if (securityResult.suggestions.length > 0) {
                 const suggestionEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-security-suggestions`
+                    cls: `${CSS_PREFIX}-security-suggestions`,
                 });
                 securityResult.suggestions.forEach((suggestion: string) => {
                     const item = suggestionEl.createEl('div');
@@ -851,10 +859,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
             if (needsRotation.length > 0) {
                 const rotationEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-rotation-alert`
+                    cls: `${CSS_PREFIX}-rotation-alert`,
                 });
                 const rotationTitle = rotationEl.createEl('div', {
-                    text: '\uD83D\uDD04 Key Rotation Recommended' // 🔄
+                    text: '\uD83D\uDD04 Key Rotation Recommended', // 🔄
                 });
                 rotationTitle.style.fontWeight = 'bold';
                 rotationTitle.style.margin = '8px 0 4px 0';
@@ -868,20 +876,20 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
         } else {
             const secureEl = securityContent.createEl('div', {
-                cls: `${CSS_PREFIX}-security-secure`
+                cls: `${CSS_PREFIX}-security-secure`,
             });
             secureEl.textContent = '\u2705 All API keys are properly secured'; // ✅
         }
 
         // Security actions
         const actionsDiv = securityContent.createDiv({
-            cls: `${CSS_PREFIX}-security-actions`
+            cls: `${CSS_PREFIX}-security-actions`,
         });
         actionsDiv.style.marginTop = '12px';
 
         const clearKeysBtn = actionsDiv.createEl('button', {
             text: '\uD83D\uDDD1\uFE0F Clear All API Keys', // 🗑️
-            cls: 'mod-warning'
+            cls: 'mod-warning',
         });
         clearKeysBtn.style.marginRight = '8px';
         clearKeysBtn.addEventListener('click', () => {
@@ -893,7 +901,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         });
 
         const exportBtn = actionsDiv.createEl('button', {
-            text: '\uD83D\uDCE4 Export Settings (Masked)' // 📤
+            text: '\uD83D\uDCE4 Export Settings (Masked)', // 📤
         });
         exportBtn.addEventListener('click', () => {
             const safeSettings = this.secureConfig.exportSafeSettings();
@@ -913,29 +921,29 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         new Setting(content)
             .setName('Parallel Processing')
             .setDesc('Query multiple AI providers simultaneously for faster results.')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.enableParallelProcessing ?? false)
-                .onChange(async (value) => {
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.enableParallelProcessing ?? false).onChange(async value => {
                     await this.updateSetting('enableParallelProcessing', value);
-                }));
+                }),
+            );
 
         new Setting(content)
             .setName('Multimodal Video Analysis')
             .setDesc('Enable audio + visual analysis for supported models (Gemini 2.5+).')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.preferMultimodal ?? false)
-                .onChange(async (value) => {
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.preferMultimodal ?? false).onChange(async value => {
                     await this.updateSetting('preferMultimodal', value);
-                }));
+                }),
+            );
 
         new Setting(content)
             .setName('Use Environment Variables')
             .setDesc('Load API keys from environment variables (YTC_GEMINI_API_KEY, etc.).')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.useEnvironmentVariables ?? false)
-                .onChange(async (value) => {
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.useEnvironmentVariables ?? false).onChange(async value => {
                     await this.updateSetting('useEnvironmentVariables', value);
-                }));
+                }),
+            );
 
         // Environment variable template button
         new Setting(content)
@@ -946,26 +954,32 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 button.onClick(() => {
                     const template = this.secureConfig.getEnvironmentTemplate();
 
-                    navigator.clipboard.writeText(template).then(() => {
-                        this.showToast('Environment template copied to clipboard!', 'success');
-                    }).catch(() => {
-                        this.showToast('Failed to copy template', 'error');
-                    });
+                    navigator.clipboard
+                        .writeText(template)
+                        .then(() => {
+                            this.showToast('Environment template copied to clipboard!', 'success');
+                        })
+                        .catch(() => {
+                            this.showToast('Failed to copy template', 'error');
+                        });
                 });
             });
     }
 
-    private createSlider(container: HTMLElement, opts: {
-        label: string;
-        desc: string;
-        min: number;
-        max: number;
-        step: number;
-        value: number;
-        key: string;
-        format: (v: number) => string;
-        scale: [string, string];
-    }): void {
+    private createSlider(
+        container: HTMLElement,
+        opts: {
+            label: string;
+            desc: string;
+            min: number;
+            max: number;
+            step: number;
+            value: number;
+            key: string;
+            format: (v: number) => string;
+            scale: [string, string];
+        },
+    ): void {
         const wrap = container.createDiv({ cls: `${CSS_PREFIX}-slider-wrap` });
 
         const top = wrap.createDiv({ cls: `${CSS_PREFIX}-slider-top` });
@@ -979,8 +993,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 'aria-label': opts.label,
                 'aria-valuemin': String(opts.min),
                 'aria-valuemax': String(opts.max),
-                'aria-valuenow': String(opts.value)
-            }
+                'aria-valuenow': String(opts.value),
+            },
         });
         slider.min = String(opts.min);
         slider.max = String(opts.max);
@@ -1013,14 +1027,22 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
     private async updateSetting(
         key: keyof YouTubePluginSettings,
-        value: string | boolean | number | 'fast' | 'balanced' | 'quality'
+        value: string | boolean | number | 'fast' | 'balanced' | 'quality',
     ): Promise<void> {
         try {
             // Use secure storage for API keys
             if (this.isApiKeyField(key) && typeof value === 'string') {
                 if (value && value !== '') {
                     try {
-                        const obfuscated = this.secureConfig.setApiKey(key as 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey', value);
+                        const obfuscated = this.secureConfig.setApiKey(
+                            key as
+                                | 'geminiApiKey'
+                                | 'groqApiKey'
+                                | 'ollamaApiKey'
+                                | 'huggingFaceApiKey'
+                                | 'openRouterApiKey',
+                            value,
+                        );
                         (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
                     } catch (error) {
                         ErrorHandler.handle(error as Error, `API Key Validation: ${key}`, true);
@@ -1047,7 +1069,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             'groqApiKey',
             'ollamaApiKey',
             'huggingFaceApiKey',
-            'openRouterApiKey'
+            'openRouterApiKey',
         ];
         return apiKeyFields.includes(key);
     }
