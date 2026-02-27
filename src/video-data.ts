@@ -115,7 +115,7 @@ export class YouTubeVideoService implements VideoDataService {
         try {
             // Create timeout controller for the request
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for oEmbed API
 
             const response = await fetch(oembedUrl, {
                 headers: {
@@ -292,14 +292,22 @@ export class YouTubeVideoService implements VideoDataService {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=` +
             `${encodeURIComponent(videoUrl)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for page scraping
 
-        const response = await fetch(proxyUrl);
+        try {
+            const response = await fetch(proxyUrl, { signal: controller.signal });
 
-        if (!response.ok) {
-            throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
+            }
+
+            return response.text();
+        } finally {
+            clearTimeout(timeoutId);
         }
-
-        return response.text();
     }
 
     /**

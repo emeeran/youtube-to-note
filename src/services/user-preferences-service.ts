@@ -47,6 +47,22 @@ export interface UserPreferences {
     lastUsed?: string;
 }
 
+/**
+ * Migrate old format names to new format names
+ */
+function migrateFormatName(oldFormat: string): string | null {
+    const migrationMap: Record<string, string> = {
+        'brief': 'concise-summary',
+        'detailed-guide': 'step-by-step-tutorial',
+        'transcript': 'complete-transcription',
+        '3c-concept': '3c-accelerated-learning',
+        'accelerated-learning': '3c-accelerated-learning',
+        'executive-briefing': 'executive-summary',
+        'custom': 'concise-summary', // Default to concise-summary for custom
+    };
+    return migrationMap[oldFormat] ?? null;
+}
+
 export class UserPreferencesService {
     private static readonly STORAGE_KEY = 'yt-clipper-user-preferences';
     private static readonly DEFAULT_PREFERENCES: UserPreferences = {
@@ -58,15 +74,12 @@ export class UserPreferencesService {
         showAdvancedSettings: false,
         compactMode: false,
         formatUsage: {
-            brief: 0,
+            'concise-summary': 0,
             'executive-summary': 0,
-            'detailed-guide': 0,
-            custom: 0,
-            transcript: 0,
-            '3c-concept': 0,
+            'step-by-step-tutorial': 0,
+            'complete-transcription': 0,
+            '3c-accelerated-learning': 0,
             'technical-analysis': 0,
-            'accelerated-learning': 0,
-            'executive-briefing': 0,
         },
         providerUsage: {},
     };
@@ -79,6 +92,23 @@ export class UserPreferencesService {
             const stored = localStorage.getItem(this.STORAGE_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored);
+                // Migrate old format names to new ones
+                const formatUsage = parsed.formatUsage ?? {};
+                const migratedFormatUsage: Record<string, number> = {};
+                for (const [key, value] of Object.entries(formatUsage)) {
+                    const newKey = migrateFormatName(key);
+                    if (newKey) {
+                        migratedFormatUsage[newKey] = (migratedFormatUsage[newKey] ?? 0) + (value as number);
+                    }
+                }
+                parsed.formatUsage = migratedFormatUsage as Record<OutputFormat, number>;
+                // Also migrate lastFormat if needed
+                if (parsed.lastFormat) {
+                    const migratedLastFormat = migrateFormatName(parsed.lastFormat);
+                    if (migratedLastFormat) {
+                        parsed.lastFormat = migratedLastFormat as OutputFormat;
+                    }
+                }
                 return { ...this.DEFAULT_PREFERENCES, ...parsed };
             }
         } catch {
@@ -135,7 +165,7 @@ export class UserPreferencesService {
         if (settings.format) {
             preferences.lastFormat = settings.format;
             if (!preferences.formatUsage) {
-                preferences.formatUsage = {};
+                preferences.formatUsage = {} as Record<OutputFormat, number>;
             }
             preferences.formatUsage[settings.format] = (preferences.formatUsage[settings.format] ?? 0) + 1;
         }
@@ -235,7 +265,7 @@ export class UserPreferencesService {
         parallel: boolean;
         multimodal: boolean;
         autoFallback: boolean;
-        } {
+    } {
         const preferences = this.loadPreferences();
 
         return {

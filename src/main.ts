@@ -4,29 +4,17 @@ import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
 import { MESSAGES } from './constants/index';
 import { ModalManager } from './services/modal-manager';
-import { OutputFormat, YouTubePluginSettings, PerformanceMode, AIResponse } from './types';
+import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types';
 import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
-import { YouTubeUrlModal, BatchVideoModal } from './components/features/youtube';
 import { Notice, Plugin, TFile } from 'obsidian';
+import { VideoProcessor, ProcessVideoOptions } from './services/video-processor';
+import { ModalFactory } from './services/modal-factory';
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
-
-interface ProcessVideoOptions {
-    url: string;
-    format?: OutputFormat;
-    providerName?: string;
-    model?: string;
-    performanceMode?: PerformanceMode;
-    enableParallel?: boolean;
-    preferMultimodal?: boolean;
-    maxTokens?: number;
-    temperature?: number;
-    enableAutoFallback?: boolean;
-}
 
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
@@ -54,9 +42,10 @@ export default class YoutubeClipperPlugin extends Plugin {
     private operationCount = 0;
     private urlHandler?: UrlHandler;
     private modalManager?: ModalManager;
+    private videoProcessor?: VideoProcessor;
+    private modalFactory?: ModalFactory;
 
     async onload(): Promise<void> {
-        // Set plugin version
         this.manifest.version = PLUGIN_VERSION;
         logger.info(`Initializing YoutubeClipper Plugin v${PLUGIN_VERSION}...`);
 
@@ -98,7 +87,6 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private setupLogger(): void {
-        // Configure logger based on settings or environment
         const isDev = process.env.NODE_ENV === 'development';
         logger.updateConfig({
             level: isDev ? LogLevel.DEBUG : LogLevel.INFO,
@@ -113,6 +101,19 @@ export default class YoutubeClipperPlugin extends Plugin {
         await this.serviceContainer.initialize();
         this.modalManager = new ModalManager();
         this.urlHandler = new UrlHandler(this.app, this._settings, this.handleUrlDetection.bind(this));
+
+        // Initialize extracted services
+        this.videoProcessor = new VideoProcessor(
+            () => this._settings,
+            () => this.serviceContainer!,
+            () => this.isUnloading,
+        );
+
+        this.modalFactory = new ModalFactory(
+            this.app,
+            () => this._settings,
+            () => this.serviceContainer!,
+        );
     }
 
     private setupUrlHandling(): void {
@@ -120,7 +121,6 @@ export default class YoutubeClipperPlugin extends Plugin {
 
         const urlHandler = this.urlHandler;
 
-        // Register file creation handler
         this.registerEvent(
             this.app.vault.on('create', file => {
                 if (file instanceof TFile) {
@@ -129,7 +129,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             }),
         );
 
-        // Register active leaf change handler
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', () => {
                 void this.safeOperation(() => urlHandler.handleActiveLeafChange(), 'Handle active leaf change');
@@ -213,7 +212,6 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             await this.urlHandler.handleClipboardUrl();
 
-            // If no URL found in clipboard, prompt user
             // eslint-disable-next-line no-alert
             const manual = window.prompt('Paste YouTube URL to open in YouTube Clipper:');
             if (manual && ValidationUtils.isValidYouTubeUrl(manual.trim())) {
@@ -231,7 +229,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             initialUrl,
             hasModalManager: !!this.modalManager,
             hasServiceContainer: !!this.serviceContainer,
-            modalState: this.modalManager?.getState?.(),
         });
 
         if (!this.modalManager || !this.serviceContainer) {
@@ -239,7 +236,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             return;
         }
 
-        // Direct modal opening for reliability
         try {
             await this.openYouTubeUrlModal(initialUrl);
         } catch (error) {
@@ -247,7 +243,6 @@ export default class YoutubeClipperPlugin extends Plugin {
         }
     }
 
-    // eslint-disable-next-line max-lines-per-function
     private async openYouTubeUrlModal(initialUrl?: string): Promise<void> {
         logger.debug('[YT-CLIPPER] openYouTubeUrlModal called', 'Plugin', { initialUrl });
         if (this.isUnloading) {
@@ -255,28 +250,15 @@ export default class YoutubeClipperPlugin extends Plugin {
             return;
         }
 
-        // eslint-disable-next-line max-lines-per-function
         ConflictPrevention.safeOperation(async () => {
-            if (!this.serviceContainer) return;
+            if (!this.serviceContainer || !this.modalFactory) return;
 
-            const aiService = this.serviceContainer.aiService;
-            const providers = aiService ? aiService.getProviderNames() : [];
-            // Use cached models if available, modal will auto-fetch from API on open
-            const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache ?? {};
+            // Update factory with current references
+            this.modalFactory.updateSettings(this._settings);
+            this.modalFactory.updateServiceContainer(this.serviceContainer);
 
-            const modal = new YouTubeUrlModal(this.app, {
-                onProcess: async (
-                    url: string,
-                    format: OutputFormat,
-                    provider?: string,
-                    model?: string,
-                    performanceMode?: PerformanceMode,
-                    enableParallel?: boolean,
-                    preferMultimodal?: boolean,
-                    maxTokens?: number,
-                    temperature?: number,
-                    enableAutoFallback?: boolean,
-                ) => {
+            const modal = this.modalFactory.createYouTubeUrlModal({
+                onProcess: async (url, format, provider, model, performanceMode, enableParallel, preferMultimodal, maxTokens, temperature, enableAutoFallback) => {
                     return this.processYouTubeVideo({
                         url,
                         format,
@@ -291,76 +273,8 @@ export default class YoutubeClipperPlugin extends Plugin {
                     });
                 },
                 onOpenFile: this.openFileByPath.bind(this),
-                ...(initialUrl && { initialUrl }),
-                providers,
-                defaultProvider: 'Google Gemini', // Prefer Gemini as default provider
-                defaultModel: 'gemini-2.0-flash', // Use free tier model
-                defaultMaxTokens: this._settings.defaultMaxTokens,
-                defaultTemperature: this._settings.defaultTemperature,
-                modelOptions: modelOptionsMap,
-                fetchModels: async () => {
-                    try {
-                        if (!this.serviceContainer) {
-                            return modelOptionsMap;
-                        }
-                        const aiService = this.serviceContainer.aiService as {
-                            fetchLatestModels(): Promise<Record<string, string[]>>;
-                        };
-                        const map = await aiService.fetchLatestModels();
-                        this._settings.modelOptionsCache = map;
-
-                        // Update timestamps for all providers
-                        const now = Date.now();
-                        const timestamps: Record<string, number> = {};
-                        Object.keys(map).forEach(provider => {
-                            timestamps[provider] = now;
-                        });
-                        this._settings.modelCacheTimestamps = timestamps;
-
-                        await this.saveSettings();
-                        return map;
-                    } catch (error) {
-                        return modelOptionsMap;
-                    }
-                },
-                fetchModelsForProvider: async (provider: string, forceRefresh = false) => {
-                    try {
-                        if (!this.serviceContainer) {
-                            return [];
-                        }
-                        const aiService = this.serviceContainer.aiService as {
-                            fetchLatestModelsForProvider(providerName: string, bypassCache: boolean): Promise<string[]>;
-                        };
-                        const models = await aiService.fetchLatestModelsForProvider(provider, forceRefresh);
-                        if (models && models.length > 0) {
-                            // Update model cache
-                            this._settings.modelOptionsCache = {
-                                ...this._settings.modelOptionsCache,
-                                [provider]: models,
-                            };
-
-                            // Update timestamp for provider (especially for OpenRouter)
-                            this._settings.modelCacheTimestamps = {
-                                ...this._settings.modelCacheTimestamps,
-                                [provider]: Date.now(),
-                            };
-
-                            await this.saveSettings();
-                        }
-                        return models;
-                    } catch (error) {
-                        return [];
-                    }
-                },
-                performanceMode: this._settings.performanceMode ?? 'balanced',
-                enableParallelProcessing: this._settings.enableParallelProcessing ?? false,
-                enableAutoFallback: this._settings.enableAutoFallback ?? true,
-                preferMultimodal: this._settings.preferMultimodal ?? false,
-                onPerformanceSettingsChange: async (
-                    performanceMode: PerformanceMode,
-                    enableParallel: boolean,
-                    preferMultimodal: boolean,
-                ) => {
+                initialUrl,
+                onPerformanceSettingsChange: async (performanceMode, enableParallel, preferMultimodal) => {
                     this._settings.performanceMode = performanceMode;
                     this._settings.enableParallelProcessing = enableParallel;
                     this._settings.preferMultimodal = preferMultimodal;
@@ -378,15 +292,13 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async openBatchModal(): Promise<void> {
-        if (this.isUnloading || !this.serviceContainer) return;
+        if (this.isUnloading || !this.serviceContainer || !this.modalFactory) return;
 
-        const aiService = this.serviceContainer.aiService;
-        const providers = aiService ? aiService.getProviderNames() : [];
-        const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache ?? {};
+        this.modalFactory.updateSettings(this._settings);
+        this.modalFactory.updateServiceContainer(this.serviceContainer);
 
-        const modal = new BatchVideoModal(this.app, {
-            onProcess: async (urls: string[], format: OutputFormat, provider?: string, model?: string) => {
-                // Process each URL and return array of file paths
+        const modal = this.modalFactory.createBatchVideoModal({
+            onProcess: async (urls, format, provider, model) => {
                 const results: string[] = [];
                 for (const url of urls) {
                     const filePath = await this.processYouTubeVideo({
@@ -400,166 +312,16 @@ export default class YoutubeClipperPlugin extends Plugin {
                 return results;
             },
             onOpenFile: this.openFileByPath.bind(this),
-            providers,
-            defaultProvider: 'Google Gemini',
-            defaultModel: 'gemini-2.0-flash',
-            modelOptionsMap: modelOptionsMap,
         });
+
         modal.open();
     }
 
-    // eslint-disable-next-line max-lines-per-function
     private async processYouTubeVideo(options: ProcessVideoOptions): Promise<string> {
-        const {
-            url,
-            format = 'step-by-step-tutorial',
-            providerName,
-            model,
-            maxTokens,
-            temperature,
-            enableAutoFallback,
-        } = options;
-        if (this.isUnloading) {
-            ConflictPrevention.log('Plugin is unloading, cancelling video processing');
-            throw new Error('Plugin is shutting down');
+        if (!this.videoProcessor) {
+            throw new Error('Video processor not initialized');
         }
-
-        // eslint-disable-next-line complexity, max-lines-per-function
-        const result = await ConflictPrevention.safeOperation(async () => {
-            new Notice(MESSAGES.PROCESSING);
-
-            const validation = ValidationUtils.validateSettings(this._settings);
-            if (!validation.isValid) {
-                throw new Error(`Configuration invalid: ${validation.errors.join(', ')}`);
-            }
-
-            if (!this.serviceContainer) throw new Error('Service container not initialized');
-
-            const youtubeService = this.serviceContainer.videoService;
-            const aiService = this.serviceContainer.aiService;
-            const fileService = this.serviceContainer.fileService;
-            const promptService = this.serviceContainer.promptService;
-
-            const videoId = youtubeService.extractVideoId(url);
-            if (!videoId) {
-                throw new Error(MESSAGES.ERRORS.VIDEO_ID_EXTRACTION);
-            }
-
-            const videoData = await youtubeService.getVideoData(videoId);
-
-            // Fetch transcript to provide actual video content to AI
-            let transcript: string | undefined;
-            try {
-                if (youtubeService.getTranscript) {
-                    const transcriptData = await youtubeService.getTranscript(videoId);
-                    if (transcriptData?.fullText) {
-                        transcript = transcriptData.fullText;
-                        logger.info('Transcript fetched successfully', 'Plugin', {
-                            videoId,
-                            transcriptLength: transcript.length,
-                        });
-                    } else {
-                        logger.debug('No transcript available for this video', 'Plugin', { videoId });
-                    }
-                }
-            } catch (error) {
-                logger.debug('Could not fetch transcript, continuing without it', 'Plugin', {
-                    error: error instanceof Error ? error.message : String(error),
-                });
-            }
-
-            const prompt = promptService.createAnalysisPrompt({
-                videoData,
-                videoUrl: url,
-                format,
-                transcript,
-            });
-
-            logger.aiService('Processing video', {
-                videoId,
-                format,
-                provider: providerName ?? 'Auto',
-                model: model ?? 'Default',
-                maxTokens: maxTokens ?? 2048,
-                temperature: temperature ?? 0.7,
-            });
-
-            // Set model parameters on providers if available
-            const providers =
-                (
-                    aiService as {
-                        providers?: Array<{
-                            setMaxTokens?(tokens: number): void;
-                            setTemperature?(temp: number): void;
-                        }>;
-                    }
-                ).providers ?? [];
-            for (const provider of providers) {
-                if (maxTokens && provider.setMaxTokens) {
-                    provider.setMaxTokens(maxTokens);
-                }
-                if (temperature !== undefined && provider.setTemperature) {
-                    provider.setTemperature(temperature);
-                }
-            }
-
-            let aiResponse: AIResponse;
-            try {
-                if (providerName) {
-                    // Pass enableAutoFallback to control fallback behavior
-                    const shouldFallback = enableAutoFallback ?? true;
-                    aiResponse = await (
-                        aiService as {
-                            processWith(
-                                provider: string,
-                                prompt: string,
-                                model?: string,
-                                images?: string[],
-                                enableFallback?: boolean,
-                            ): Promise<AIResponse>;
-                        }
-                    ).processWith(providerName, prompt, model, undefined, shouldFallback);
-                } else {
-                    aiResponse = await aiService.process(prompt);
-                }
-
-                logger.aiService('AI Response received', {
-                    provider: aiResponse.provider,
-                    model: aiResponse.model,
-                    contentLength: aiResponse.content?.length ?? 0,
-                });
-            } catch (error) {
-                logger.error('AI Processing failed', 'Plugin', {
-                    error: error instanceof Error ? error.message : String(error),
-                });
-
-                // Use enhanced error handling for quota issues
-                if (error instanceof Error) {
-                    ErrorHandler.handleEnhanced(error, 'AI Processing');
-                }
-                throw error;
-            }
-
-            const formattedContent = promptService.processAIResponse(
-                aiResponse.content,
-                aiResponse.provider,
-                aiResponse.model,
-                format,
-                videoData,
-                url,
-            );
-
-            const filePath = await fileService.saveToFile(videoData.title, formattedContent, this._settings.outputPath);
-
-            new Notice(MESSAGES.SUCCESS(videoData.title));
-            return filePath;
-        }, 'YouTube Video Processing');
-
-        if (!result) {
-            throw new Error('Failed to process YouTube video');
-        }
-
-        return result;
+        return this.videoProcessor.process(options);
     }
 
     private async openFileByPath(filePath: string): Promise<void> {
@@ -603,6 +365,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             await this.saveSettings();
             await this.serviceContainer?.updateSettings(this._settings);
             this.urlHandler?.updateSettings(this._settings);
+            this.modalFactory?.updateSettings(this._settings);
         } catch (error) {
             ErrorHandler.handle(error as Error, 'Settings update');
             throw error;
@@ -613,12 +376,6 @@ export default class YoutubeClipperPlugin extends Plugin {
         const loadedData = await this.loadData();
         logger.debug('[YT-CLIPPER] Settings loaded from data.json:', 'Plugin', loadedData);
         this._settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-        logger.debug('[YT-CLIPPER] Final settings after merge:', 'Plugin', {
-            hasGeminiKey: !!this._settings.geminiApiKey,
-            geminiKeyLength: this._settings.geminiApiKey?.length,
-            hasGroqKey: !!this._settings.groqApiKey,
-            groqKeyLength: this._settings.groqApiKey?.length,
-        });
     }
 
     private async saveSettings(): Promise<void> {
@@ -647,11 +404,11 @@ export default class YoutubeClipperPlugin extends Plugin {
         }
     }
 
+    // Public getters for external access
     getServiceContainer(): ServiceContainer | undefined {
         return this.serviceContainer;
     }
 
-    // Expose services for testing and external access
     getUrlHandler(): UrlHandler | undefined {
         return this.urlHandler;
     }
@@ -660,12 +417,10 @@ export default class YoutubeClipperPlugin extends Plugin {
         return this.modalManager;
     }
 
-    // Public method to get current settings
     getCurrentSettings(): YouTubePluginSettings {
         return { ...this._settings };
     }
 
-    // Public getter for settings (used by settings tab)
     get settings(): YouTubePluginSettings {
         return this._settings;
     }
