@@ -6,15 +6,11 @@
  * Extract retry time from error message
  */
 function extractRetryTime(message: string): string {
-    const patterns = [
-        /retry in ([\d.]+)s/i,
-        /retry in ([\d.]+) seconds?/i,
-        /(\d+)\s*seconds?/i,
-    ];
+    const patterns = [/retry in ([\d.]+)s/i, /retry in ([\d.]+) seconds?/i, /(\d+)\s*seconds?/i];
 
     for (const pattern of patterns) {
         const match = message.match(pattern);
-        if (match && match[1]) {
+        if (match?.[1]) {
             return ` Retry in ${Math.ceil(parseFloat(match[1]))}s.`;
         }
     }

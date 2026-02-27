@@ -1,5 +1,5 @@
 import { BaseAIProvider } from './base';
-import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
+import type { OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
  * OpenRouter API provider implementation
@@ -69,7 +69,7 @@ export class OpenRouterProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = errorData?.error?.message || '';
                 throw new Error(formatOpenRouterError(errorMessage));
             }
@@ -95,7 +95,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
     protected createHeaders(): Record<string, string> {
         return {
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
             'HTTP-Referer': this.siteUrl,
             'X-Title': this.siteName,
@@ -108,7 +108,8 @@ export class OpenRouterProvider extends BaseAIProvider {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability.',
+                    content:
+                        'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability.',
                 },
                 {
                     role: 'user',

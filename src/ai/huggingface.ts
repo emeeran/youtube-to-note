@@ -1,5 +1,4 @@
 import { BaseAIProvider } from './base';
-import type { HuggingFaceRequestBody } from '../types/api-responses';
 
 /**
  * Hugging Face Inference API provider implementation
@@ -80,7 +79,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             if (response.status === 400) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = errorData?.error || '';
                 throw new Error(formatHuggingFaceError(errorMessage));
             }
@@ -94,19 +93,19 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = errorData?.error || '';
                 throw new Error(formatHuggingFaceError(errorMessage));
             }
 
             if (response.status === 503) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const estimatedTime = errorData?.estimated_time || 20;
                 throw new Error(`Model is loading. Wait ${Math.ceil(estimatedTime)}s and try again.`);
             }
 
             if (!response.ok) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMsg = errorData?.error || response.statusText;
 
                 // Check for redirect message
@@ -132,7 +131,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
 
     protected createHeaders(): Record<string, string> {
         return {
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
         };
     }
