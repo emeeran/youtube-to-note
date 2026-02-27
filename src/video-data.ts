@@ -205,7 +205,7 @@ export class YouTubeVideoService implements VideoDataService {
             if (pageData.description ?? pageData.duration) {
                 return {
                     title: `YouTube Video (${videoId})`,
-                    description: pageData.description,
+                    description: pageData.description ?? '',
                     duration: pageData.duration,
                     thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
                     channelName: undefined,

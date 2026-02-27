@@ -65,10 +65,10 @@ export class VideoProcessor {
         const settings = this.getSettings();
         const serviceContainer = this.getServiceContainer();
 
-        return ConflictPrevention.safeOperation(async () => {
+        const result = await ConflictPrevention.safeOperation(async () => {
             new Notice(MESSAGES.PROCESSING);
 
-            const validation = ValidationUtils.validateSettings(settings);
+            const validation = ValidationUtils.validateSettings(settings as unknown as Record<string, unknown>);
             if (!validation.isValid) {
                 throw new Error(`Configuration invalid: ${validation.errors.join(', ')}`);
             }
@@ -80,6 +80,12 @@ export class VideoProcessor {
             const result = await this.doProcess(options, settings, serviceContainer);
             return result;
         }, 'YouTube Video Processing');
+
+        if (result === null) {
+            throw new Error('Video processing was interrupted');
+        }
+
+        return result;
     }
 
     /**
@@ -219,26 +225,25 @@ export class VideoProcessor {
      * Get AI response with proper error handling
      */
     private async getAIResponse(
-        aiService: { process(prompt: string): Promise<AIResponse> },
+        aiService: {
+            process(prompt: string): Promise<AIResponse>;
+            processWith?(
+                provider: string,
+                prompt: string,
+                model?: string,
+                images?: string[],
+                enableFallback?: boolean,
+            ): Promise<AIResponse>;
+        },
         prompt: string,
         providerName?: string,
         model?: string,
         enableAutoFallback?: boolean,
     ): Promise<AIResponse> {
         try {
-            if (providerName) {
+            if (providerName && aiService.processWith) {
                 const shouldFallback = enableAutoFallback ?? true;
-                return await (
-                    aiService as {
-                        processWith(
-                            provider: string,
-                            prompt: string,
-                            model?: string,
-                            images?: string[],
-                            enableFallback?: boolean,
-                        ): Promise<AIResponse>;
-                    }
-                ).processWith(providerName, prompt, model, undefined, shouldFallback);
+                return await aiService.processWith(providerName, prompt, model, undefined, shouldFallback);
             } else {
                 return await aiService.process(prompt);
             }

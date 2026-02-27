@@ -218,7 +218,14 @@ export class OllamaCloudProvider extends BaseAIProvider {
         return btoa(binary);
     }
 
-    protected createRequestBody(_prompt: string): any {
+    protected createHeaders(): Record<string, string> {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+        };
+    }
+
+    protected createRequestBody(_prompt: string): object {
         // Ollama Cloud uses the process() method instead, so this isn't used
         return {
             model: this._model,

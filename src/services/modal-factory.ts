@@ -12,18 +12,18 @@ import { ConflictPrevention } from '../conflict-prevention';
 import { ErrorHandler } from './error-handler';
 
 /** Process callback for URL modal */
-export type ProcessCallback = (options: {
-    url: string;
-    format: OutputFormat;
-    provider?: string;
-    model?: string;
-    performanceMode?: PerformanceMode;
-    enableParallel?: boolean;
-    preferMultimodal?: boolean;
-    maxTokens?: number;
-    temperature?: number;
-    enableAutoFallback?: boolean;
-}) => Promise<string>;
+export type ProcessCallback = (
+    url: string,
+    format: OutputFormat,
+    provider?: string,
+    model?: string,
+    performanceMode?: PerformanceMode,
+    enableParallel?: boolean,
+    preferMultimodal?: boolean,
+    maxTokens?: number,
+    temperature?: number,
+    enableAutoFallback?: boolean,
+) => Promise<string>;
 
 /** Batch process callback */
 export type BatchProcessCallback = (

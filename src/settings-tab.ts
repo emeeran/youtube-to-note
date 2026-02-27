@@ -1086,9 +1086,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     cls: `${CSS_PREFIX}-rotation-alert`
                 });
                 const rotationTitle = rotationEl.createEl('div', {
-                    text: '🔄 Key Rotation Recommended',
-                    style: { 'font-weight': 'bold', 'margin': '8px 0 4px 0' }
+                    text: '🔄 Key Rotation Recommended'
                 });
+                rotationTitle.style.fontWeight = 'bold';
+                rotationTitle.style.margin = '8px 0 4px 0';
                 rotationEl.appendChild(rotationTitle);
 
                 needsRotation.forEach(rec => {
@@ -1177,7 +1178,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .setDesc('Get a template file showing how to set up environment variables for secure key management.')
             .addButton(button => {
                 button.setButtonText('📋 Copy Template');
-                button.setClick(() => {
+                button.onClick(() => {
                     const template = this.secureConfig.getEnvironmentTemplate();
 
                     navigator.clipboard.writeText(template).then(() => {
@@ -1244,7 +1245,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 // Only set the key if it's not empty or user is intentionally clearing it
                 if (value && value !== '') {
                     try {
-                        const obfuscated = this.secureConfig.setApiKey(key, value);
+                        const obfuscated = this.secureConfig.setApiKey(key as 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey', value);
                         (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
                     } catch (error) {
                         // Show validation error for invalid keys

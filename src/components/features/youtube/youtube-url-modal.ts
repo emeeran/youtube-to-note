@@ -185,13 +185,13 @@ export class YouTubeUrlModal extends BaseModal {
             } else {
                 logger.warn('[YT-CLIPPER] No models returned from API, using fallback', 'Modal');
                 // Still update with whatever we got (empty array) to trigger fallback
-                this.updateModelDropdown(this.options.modelOptions);
+                this.updateModelDropdown(this.options.modelOptions ?? {});
             }
         } catch (error) {
             // Log error and still try to update dropdown
             logger.error('[YT-CLIPPER] Auto-fetch models failed:', 'Modal', error);
             logger.warn('[YT-CLIPPER] Falling back to cached or static models', 'Modal');
-            this.updateModelDropdown(this.options.modelOptions);
+            this.updateModelDropdown(this.options.modelOptions ?? {});
         }
     }
 
@@ -225,7 +225,7 @@ export class YouTubeUrlModal extends BaseModal {
             logger.debug('[YT-CLIPPER] Action buttons created', 'Modal');
 
             // Initialize state
-            this.updateModelDropdown(this.options.modelOptions);
+            this.updateModelDropdown(this.options.modelOptions ?? {});
             this.applyTheme(this.isLightTheme);
 
             logger.debug('[YT-CLIPPER] Theme applied', 'Modal');

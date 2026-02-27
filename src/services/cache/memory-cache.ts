@@ -184,7 +184,7 @@ export class MemoryCacheService implements CacheService {
     /**
      * Remove expired items
      */
-    private cleanup(): void {
+    cleanup(): void {
         const now = Date.now();
         const expiredKeys: string[] = [];
 

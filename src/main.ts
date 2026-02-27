@@ -258,14 +258,25 @@ export default class YoutubeClipperPlugin extends Plugin {
             this.modalFactory.updateServiceContainer(this.serviceContainer);
 
             const modal = this.modalFactory.createYouTubeUrlModal({
-                onProcess: async (url, format, provider, model, performanceMode, enableParallel, preferMultimodal, maxTokens, temperature, enableAutoFallback) => {
+                onProcess: async (
+                    url,
+                    format,
+                    provider,
+                    model,
+                    performanceMode,
+                    enableParallel,
+                    preferMultimodal,
+                    maxTokens,
+                    temperature,
+                    enableAutoFallback,
+                ) => {
                     return this.processYouTubeVideo({
                         url,
                         format,
                         providerName: provider,
                         model,
                         performanceMode,
-                        enableParallel: enableParallel,
+                        enableParallel,
                         preferMultimodal,
                         maxTokens,
                         temperature,

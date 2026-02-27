@@ -115,7 +115,7 @@ export abstract class BaseAIProvider implements AIProvider {
     /**
      * Create request body
      */
-    protected abstract createRequestBody(prompt: string): JsonObject;
+    protected abstract createRequestBody(prompt: string): object;
 
     /**
      * Extract content from API response

@@ -5,6 +5,17 @@
 
 import { logger } from './logger';
 
+// Extend Performance interface for Chrome/Node.js memory API
+declare global {
+    interface Performance {
+        memory?: {
+            usedJSHeapSize: number;
+            totalJSHeapSize: number;
+            jsHeapSizeLimit: number;
+        };
+    }
+}
+
 export interface ServicePerformanceMetrics {
     service: string;
     operation: string;

@@ -111,20 +111,20 @@ export class Logger {
         }
     }
 
-    public debug(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.DEBUG, message, context, data);
+    public debug(message: string, context?: string, data?: unknown): void {
+        this.addLogEntry(LogLevel.DEBUG, message, context, data as Record<string, unknown> | undefined);
     }
 
-    public info(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.INFO, message, context, data);
+    public info(message: string, context?: string, data?: unknown): void {
+        this.addLogEntry(LogLevel.INFO, message, context, data as Record<string, unknown> | undefined);
     }
 
-    public warn(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.WARN, message, context, data);
+    public warn(message: string, context?: string, data?: unknown): void {
+        this.addLogEntry(LogLevel.WARN, message, context, data as Record<string, unknown> | undefined);
     }
 
-    public error(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.ERROR, message, context, data);
+    public error(message: string, context?: string, data?: unknown): void {
+        this.addLogEntry(LogLevel.ERROR, message, context, data as Record<string, unknown> | undefined);
     }
 
     public getLogs(level?: LogLevel, context?: string): LogEntry[] {

@@ -106,6 +106,7 @@ export interface AIProvider {
     setTemperature?(temperature: number): void;
     maxTokens?: number;
     temperature?: number;
+    cleanup?(): void;
 }
 
 /** Video data service interface */
