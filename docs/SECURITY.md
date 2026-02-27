@@ -4,6 +4,37 @@ This document outlines security best practices for using and developing the YouT
 
 ## API Key Security
 
+### Encryption at Rest (v2.0+)
+
+API keys are now encrypted using **AES-GCM** (Advanced Encryption Standard - Galois/Counter Mode):
+
+- **Key Derivation**: PBKDF2 with 100,000 iterations
+- **Key Length**: 256-bit
+- **Device-Specific Salt**: Generated from device characteristics for unique encryption
+- **Random IV**: Each encryption uses a unique initialization vector
+
+#### Encryption Version History
+
+| Version | Method | Status |
+|---------|--------|--------|
+| 1 | XOR obfuscation | Deprecated, auto-migrated |
+| 2 | AES-GCM with PBKDF2 | Current |
+
+#### Migration from Legacy Encryption
+
+Keys encrypted with the legacy XOR obfuscation method are automatically detected and migrated to AES-GCM encryption on first access. No user action required.
+
+### Security Audit Logging
+
+The plugin maintains an internal security audit log that tracks:
+
+- API key access attempts
+- Decryption success/failure events
+- Key migration events
+- Suspicious access patterns
+
+This helps detect potential security issues early.
+
 ### User-Facing Security
 
 #### Storing API Keys Securely

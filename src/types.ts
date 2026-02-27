@@ -17,14 +17,15 @@ export interface YouTubePluginSettings {
     environmentPrefix: string;
     modelOptionsCache?: Record<string, string[]>;
     modelCacheTimestamps?: Record<string, number>; // Cache timestamps for each provider
-    customPrompts?: Record<OutputFormat, string>;
     performanceMode: PerformanceMode;
     customTimeouts?: CustomTimeoutSettings;
+    customPrompts?: Record<string, string>; // Custom prompts for different formats
     enableParallelProcessing: boolean;
     enableAutoFallback: boolean;
     preferMultimodal: boolean;
     defaultMaxTokens: number;
     defaultTemperature: number;
+    encryptionVersion?: number; // Version of encryption used for API keys
 }
 
 /** Performance mode options */
@@ -58,14 +59,11 @@ export interface ModelStrategy {
 /** Output formats for video analysis */
 export type OutputFormat =
     | 'executive-summary'
-    | 'detailed-guide'
-    | 'brief'
-    | 'transcript'
-    | 'custom'
-    | '3c-concept'
+    | 'step-by-step-tutorial'
+    | 'concise-summary'
     | 'technical-analysis'
-    | 'accelerated-learning'
-    | 'executive-briefing';
+    | '3c-accelerated-learning'
+    | 'complete-transcription';
 
 /** Options for video processing */
 export interface ProcessingOptions {
@@ -151,7 +149,6 @@ export interface PromptService {
         videoData: VideoData;
         videoUrl: string;
         format?: OutputFormat;
-        customPrompt?: string;
         transcript?: string;
     }): string;
     processAIResponse(

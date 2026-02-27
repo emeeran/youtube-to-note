@@ -10,9 +10,7 @@ import { OllamaProvider } from '../ai/ollama';
 import { OllamaCloudProvider } from '../ai/ollama-cloud';
 import { OpenRouterProvider } from '../ai/openrouter';
 import { YouTubeVideoService } from '../video-data';
-import { performanceTracker } from './performance-tracker';
-import { logger } from './logger';
-import type { JsonObject } from '../types/api-responses';
+import { SecureConfigService } from '../secure-config';
 import {
     ServiceContainer as IServiceContainer,
     YouTubePluginSettings,
@@ -24,386 +22,148 @@ import {
     PromptService,
 } from '../types';
 
-// Chrome-specific memory API type extension
-declare global {
-    interface Performance {
-        memory?: {
-            usedJSHeapSize: number;
-            totalJSHeapSize: number;
-            jsHeapSizeLimit: number;
-        };
-    }
-}
-
 /**
- * Performance-optimized service container with memory management
+ * Simplified service container for the YouTube to Note plugin
  */
-interface ServiceMetrics {
-    creationTime: number;
-    lastUsed: number;
-    usageCount: number;
-}
-
 export class ServiceContainer implements IServiceContainer {
     private _aiService?: IAIService;
     private _videoService?: VideoDataService;
     private _fileService?: FileService;
     private _cacheService?: CacheService;
     private _promptService?: PromptService;
-
-    // Performance optimization: Service metrics tracking
-    private serviceMetrics: Map<string, ServiceMetrics> = new Map();
-    private cleanupInterval?: NodeJS.Timeout;
-    private readonly SERVICE_TTL = 5 * 60 * 1000; // 5 minutes
+    private _secureConfig?: SecureConfigService;
+    private _initialized = false;
 
     constructor(
         private settings: YouTubePluginSettings,
         private app: App
-    ) {
-        this.setupPeriodicCleanup();
-        this.trackMemoryUsage();
+    ) {}
+
+    /**
+     * Get the secure config service
+     */
+    private get secureConfig(): SecureConfigService {
+        if (!this._secureConfig) {
+            this._secureConfig = new SecureConfigService(this.settings);
+        }
+        return this._secureConfig;
+    }
+
+    /**
+     * Initialize AI service asynchronously
+     * Must be called before accessing aiService property
+     */
+    async initialize(): Promise<void> {
+        if (this._initialized) return;
+
+        const providers: AIProvider[] = [];
+
+        // Use secure config to get decrypted API keys
+        const geminiKey = await this.secureConfig.getApiKey('geminiApiKey');
+        if (geminiKey) {
+            providers.push(new GeminiProvider(geminiKey));
+        }
+
+        const groqKey = await this.secureConfig.getApiKey('groqApiKey');
+        if (groqKey) {
+            providers.push(new GroqProvider(groqKey));
+        }
+
+        const huggingFaceKey = await this.secureConfig.getApiKey('huggingFaceApiKey');
+        if (huggingFaceKey) {
+            providers.push(new HuggingFaceProvider(huggingFaceKey));
+        }
+
+        const openRouterKey = await this.secureConfig.getApiKey('openRouterApiKey');
+        if (openRouterKey) {
+            providers.push(new OpenRouterProvider(openRouterKey));
+        }
+
+        const ollamaKey = await this.secureConfig.getApiKey('ollamaApiKey');
+
+        // Ollama local (always available)
+        providers.push(new OllamaProvider(
+            ollamaKey ?? '',
+            undefined,
+            undefined,
+            this.settings.ollamaEndpoint ?? 'http://localhost:11434'
+        ));
+
+        if (ollamaKey) {
+            providers.push(new OllamaCloudProvider(
+                ollamaKey,
+                'deepseek-r1:32b'
+            ));
+        }
+
+        this._aiService = new AIService(providers, this.settings);
+        this._initialized = true;
     }
 
     get aiService(): IAIService {
-        return this.getService('aiService', () => {
-            const startTime = performance.now();
-            const providers: AIProvider[] = [];
-
-            // Add Gemini provider if API key is available
-            if (this.settings.geminiApiKey) {
-                providers.push(new GeminiProvider(this.settings.geminiApiKey));
-            }
-
-            // Add Groq provider if API key is available
-            if (this.settings.groqApiKey) {
-                providers.push(new GroqProvider(this.settings.groqApiKey));
-            }
-
-            // Add Hugging Face provider if API key is available
-            if (this.settings.huggingFaceApiKey) {
-                providers.push(new HuggingFaceProvider(this.settings.huggingFaceApiKey));
-            }
-
-            // Add OpenRouter provider if API key is available
-            if (this.settings.openRouterApiKey) {
-                providers.push(new OpenRouterProvider(this.settings.openRouterApiKey));
-            }
-
-            // Add Ollama provider (local instances)
-            providers.push(new OllamaProvider(
-                this.settings.ollamaApiKey || '',
-                undefined,
-                undefined,
-                this.settings.ollamaEndpoint || 'http://localhost:11434'
-            ));
-
-            // Add Ollama Cloud provider (requires API key)
-            if (this.settings.ollamaApiKey) {
-                providers.push(new OllamaCloudProvider(
-                    this.settings.ollamaApiKey,
-                    'deepseek-r1:32b' // Default model for Ollama Cloud
-                ));
-            }
-
-            const service = new AIService(providers, this.settings);
-            this.recordServiceMetrics('aiService', performance.now() - startTime);
-            return service;
-        });
+        if (!this._initialized || !this._aiService) {
+            throw new Error('ServiceContainer not initialized. Call initialize() first.');
+        }
+        return this._aiService;
     }
 
     get videoService(): VideoDataService {
-        return this.getService('videoService', () => {
-            const startTime = performance.now();
-            const service = new YouTubeVideoService(this.cacheService);
-            this.recordServiceMetrics('videoService', performance.now() - startTime);
-            return service;
-        });
+        if (!this._videoService) {
+            this._videoService = new YouTubeVideoService(this.cacheService);
+        }
+        return this._videoService;
     }
 
     get fileService(): FileService {
-        return this.getService('fileService', () => {
-            const startTime = performance.now();
-            const service = new ObsidianFileService(this.app);
-            this.recordServiceMetrics('fileService', performance.now() - startTime);
-            return service;
-        });
+        if (!this._fileService) {
+            this._fileService = new ObsidianFileService(this.app);
+        }
+        return this._fileService;
     }
 
     get cacheService(): CacheService {
-        return this.getService('cacheService', () => {
-            const startTime = performance.now();
-            const service = new MemoryCacheService();
-            this.recordServiceMetrics('cacheService', performance.now() - startTime);
-            return service;
-        });
+        if (!this._cacheService) {
+            this._cacheService = new MemoryCacheService();
+        }
+        return this._cacheService;
     }
 
     get promptService(): PromptService {
-        return this.getService('promptService', () => {
-            const startTime = performance.now();
-            const service = new AIPromptService();
-            this.recordServiceMetrics('promptService', performance.now() - startTime);
-            return service;
-        });
-    }
-
-    /**
-     * Generic service getter with performance tracking
-     */
-    private getService<T>(
-        serviceName: string,
-        factory: () => T
-    ): T {
-        const serviceProperty = `_${serviceName}`;
-        const service = (this as any)[serviceProperty];
-
-        if (service) {
-            // Update usage metrics
-            const metrics = this.serviceMetrics.get(serviceName);
-            if (metrics) {
-                metrics.lastUsed = Date.now();
-                metrics.usageCount++;
-            }
-            return service;
+        if (!this._promptService) {
+            this._promptService = new AIPromptService();
         }
-
-        // Create new service instance
-        const startTime = performance.now();
-        const newService = factory();
-        (this as any)[serviceProperty] = newService;
-
-        // Track metrics asynchronously (non-blocking)
-        performanceTracker.trackOperation(
-            'ServiceContainer',
-            `getService-${serviceName}`,
-            performance.now() - startTime,
-            true,
-            { serviceName }
-        );
-
-        return newService;
+        return this._promptService;
     }
 
     /**
-     * Record service creation metrics
-     */
-    private recordServiceMetrics(serviceName: string, creationTime: number): void {
-        this.serviceMetrics.set(serviceName, {
-            creationTime,
-            lastUsed: Date.now(),
-            usageCount: 0,
-        });
-    }
-
-    /**
-     * Setup periodic cleanup of unused services
-     */
-    private setupPeriodicCleanup(): void {
-        // Check every 2 minutes for services that haven't been used recently
-        this.cleanupInterval = setInterval(() => {
-            this.performCleanup();
-        }, 2 * 60 * 1000);
-    }
-
-    /**
-     * Perform cleanup of unused services
-     */
-    private performCleanup(): void {
-        const now = Date.now();
-        const servicesToCleanup: string[] = [];
-
-        this.serviceMetrics.forEach((metrics, serviceName) => {
-            // Clean up services that haven't been used for 5 minutes
-            if (now - metrics.lastUsed > this.SERVICE_TTL) {
-                servicesToCleanup.push(serviceName);
-            }
-        });
-
-        servicesToCleanup.forEach(serviceName => {
-            this.clearService(serviceName);
-            this.serviceMetrics.delete(serviceName);
-        });
-
-        // Also check memory usage and clean up if necessary
-        if (this.isMemoryUsageHigh()) {
-            this.performAggressiveCleanup();
-        }
-    }
-
-    /**
-     * Clear a specific service
-     */
-    private clearService(serviceName: string): void {
-        const serviceProperty = `_${serviceName}`;
-        const service = (this as any)[serviceProperty];
-
-        // Call cleanup method if it exists
-        if (service && typeof (service as Record<string, unknown>).cleanup === 'function') {
-            try {
-                (service as Record<string, () => void>).cleanup();
-            } catch (error) {
-                logger.warn(`Error during cleanup of ${serviceName}:`, 'ServiceContainer', { error: String(error) });
-            }
-        }
-
-        (this as any)[serviceProperty] = undefined;
-    }
-
-    /**
-     * Check if memory usage is high
-     */
-    private isMemoryUsageHigh(): boolean {
-        if (performance.memory) {
-            const usedMemory = performance.memory.usedJSHeapSize;
-            const totalMemory = performance.memory.jsHeapSizeLimit;
-            const usageRatio = usedMemory / totalMemory;
-            return usageRatio > 0.8; // 80% threshold
-        }
-        return false;
-    }
-
-    /**
-     * Perform aggressive cleanup when memory is high
-     */
-    private performAggressiveCleanup(): void {
-        logger.warn('High memory usage detected, performing aggressive cleanup', 'ServiceContainer');
-
-        // Clear all services except the most recently used one
-        const sortedServices = Array.from(this.serviceMetrics.entries())
-            .sort((a, b) => b[1].lastUsed - a[1].lastUsed);
-
-        // Keep only the most recently used service
-        const [keepService] = sortedServices;
-
-        this.serviceMetrics.forEach((_, serviceName) => {
-            if (serviceName !== keepService?.[0]) {
-                this.clearService(serviceName);
-            }
-        });
-
-        // Clear all metrics except for the kept service
-        this.serviceMetrics.clear();
-        if (keepService) {
-            this.serviceMetrics.set(keepService[0], keepService[1]);
-        }
-
-        // Suggest garbage collection
-        if (window.gc) {
-            window.gc();
-        }
-    }
-
-    /**
-     * Track memory usage for monitoring
-     */
-    private trackMemoryUsage(): void {
-        // Log memory usage every minute for debugging
-        setInterval(() => {
-            if (performance.memory) {
-                const memory = performance.memory;
-                const usageMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
-                const totalMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
-
-                // Only log if memory usage is significant
-                if (usageMB > 50) {
-                    logger.debug(`Memory usage: ${usageMB}MB / ${totalMB}MB`, 'ServiceContainer');
-                }
-            }
-        }, 60 * 1000);
-    }
-
-    /**
-     * Update settings and refresh services that depend on them
+     * Update settings and recreate dependent services
      */
     async updateSettings(newSettings: YouTubePluginSettings): Promise<void> {
         this.settings = newSettings;
 
+        // Reset secure config to pick up new settings
+        this._secureConfig = undefined;
+
         // Clear AI service to pick up new API keys
-        this.clearService('aiService');
-        this.serviceMetrics.delete('aiService');
-
-        // Also clear services that might depend on settings
-        this.clearService('videoService');
-        this.serviceMetrics.delete('videoService');
-    }
-
-    /**
-     * Clear all cached services
-     */
-    clearServices(): void {
-        // Clear all services
-        Object.keys(this.serviceMetrics).forEach(serviceName => {
-            this.clearService(serviceName);
-        });
-
         this._aiService = undefined;
         this._videoService = undefined;
-        this._fileService = undefined;
-        this._cacheService = undefined;
-        this._promptService = undefined;
+        this._initialized = false;
 
-        // Clear metrics
-        this.serviceMetrics.clear();
+        // Re-initialize with new settings
+        await this.initialize();
     }
 
     /**
-     * Get performance metrics for monitoring
+     * Check if the service container is initialized
      */
-    getServiceMetrics(): Record<string, ServiceMetrics> {
-        const result: Record<string, ServiceMetrics> = {};
-        this.serviceMetrics.forEach((metrics, name) => {
-            result[name] = { ...metrics };
-        });
-        return result;
+    isInitialized(): boolean {
+        return this._initialized;
     }
 
     /**
-     * Get comprehensive performance report
+     * Clear all services (called on plugin unload)
      */
-    getPerformanceReport(): JsonObject {
-        const serviceMetrics = this.getServiceMetrics();
-        const performanceReport = performanceTracker.generateReport() as any;
-
-        // Add service-specific metrics
-        const aiService = this._aiService;
-        if (aiService && typeof aiService.getPerformanceMetrics === 'function') {
-            performanceReport.services.aiService = {
-                ...(performanceReport.services.aiService as JsonObject),
-                ...aiService.getPerformanceMetrics(),
-            };
-        }
-
-        const videoService = this._videoService;
-        if (videoService && typeof videoService.getPerformanceMetrics === 'function') {
-            performanceReport.services.videoService = {
-                ...(performanceReport.services.videoService as JsonObject),
-                ...videoService.getPerformanceMetrics(),
-            };
-        }
-
-        const cacheService = this._cacheService;
-        if (cacheService && typeof cacheService.getMetrics === 'function') {
-            performanceReport.systemMetrics.cacheMetrics = cacheService.getMetrics();
-        }
-
-        return {
-            ...performanceReport,
-            containerMetrics: {
-                uptime: performanceTracker.getUptime(),
-                services: Object.keys(serviceMetrics),
-                memoryUsage: this.isMemoryUsageHigh(),
-            },
-        };
-    }
-
-    /**
-     * Cleanup method to be called when plugin is unloaded
-     */
-    cleanup(): void {
-        if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
-        }
-
+    clearServices(): void {
         // Cleanup individual services
         if (this._aiService && typeof this._aiService.cleanup === 'function') {
             this._aiService.cleanup();
@@ -415,7 +175,17 @@ export class ServiceContainer implements IServiceContainer {
             this._cacheService.destroy();
         }
 
+        this._aiService = undefined;
+        this._videoService = undefined;
+        this._fileService = undefined;
+        this._cacheService = undefined;
+        this._promptService = undefined;
+    }
+
+    /**
+     * Cleanup method to be called when plugin is unloaded
+     */
+    cleanup(): void {
         this.clearServices();
-        performanceTracker.clearMetrics();
     }
 }

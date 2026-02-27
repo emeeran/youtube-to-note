@@ -1,34 +1,12 @@
 import { API_ENDPOINTS, AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
-import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
+import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse, GroqErrorResponse } from '../types/api-responses';
+import { formatQuotaError, formatHttpError } from './error-utils';
 
 /**
  * Groq AI provider implementation
  */
-
-/**
- * Extract clean error message from verbose API response
- */
-function formatGroqError(rawMessage: string): string {
-    // Extract retry time if present
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
-
-    if (rawMessage.toLowerCase().includes('tokens per minute')) {
-        return `Groq token limit reached.${retryInfo} Try a shorter video or wait.`;
-    }
-
-    if (rawMessage.toLowerCase().includes('requests per')) {
-        return `Groq request limit reached.${retryInfo}`;
-    }
-
-    if (rawMessage.toLowerCase().includes('quota')) {
-        return `Groq quota exceeded.${retryInfo} Check your plan at console.groq.com`;
-    }
-
-    return `Groq API limit reached.${retryInfo}`;
-}
 
 export class GroqProvider extends BaseAIProvider {
     readonly name = 'Groq';
@@ -60,16 +38,16 @@ export class GroqProvider extends BaseAIProvider {
         if (response.status === 429) {
             let errorMessage = '';
             try {
-                const errorData = await response.json() as { error?: { message?: string }; message?: string };
+                const errorData = await response.json() as GroqErrorResponse;
                 errorMessage = errorData?.error?.message ?? errorData?.message ?? '';
             } catch {
                 // Ignore JSON parse errors
             }
-            throw new Error(formatGroqError(errorMessage));
+            throw new Error(formatQuotaError(errorMessage, 'Groq'));
         }
 
         if (!response.ok) {
-            await this.handleAPIError(response);
+            throw new Error(formatHttpError(response.status, 'Groq'));
         }
 
         const data = (await response.json()) as OpenAICompatibleResponse;
@@ -88,7 +66,7 @@ export class GroqProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string): OpenAICompatibleRequestBody {
         return {
             model: this.model,
             messages: [

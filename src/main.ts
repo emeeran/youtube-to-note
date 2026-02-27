@@ -20,7 +20,6 @@ interface ProcessVideoOptions {
     format?: OutputFormat;
     providerName?: string;
     model?: string;
-    customPrompt?: string;
     performanceMode?: PerformanceMode;
     enableParallel?: boolean;
     preferMultimodal?: boolean;
@@ -111,6 +110,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private async initializeServices(): Promise<void> {
         this.serviceContainer = new ServiceContainer(this._settings, this.app);
+        await this.serviceContainer.initialize();
         this.modalManager = new ModalManager();
         this.urlHandler = new UrlHandler(this.app, this._settings, this.handleUrlDetection.bind(this));
     }
@@ -270,7 +270,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                     format: OutputFormat,
                     provider?: string,
                     model?: string,
-                    customPrompt?: string,
                     performanceMode?: PerformanceMode,
                     enableParallel?: boolean,
                     preferMultimodal?: boolean,
@@ -283,7 +282,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                         format,
                         providerName: provider,
                         model,
-                        customPrompt,
                         performanceMode,
                         enableParallel: enableParallel,
                         preferMultimodal,
@@ -368,6 +366,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                     this._settings.preferMultimodal = preferMultimodal;
                     await this.saveSettings();
                     this.serviceContainer = new ServiceContainer(this._settings, this.app);
+                    await this.serviceContainer.initialize();
                 },
                 onOpenBatchModal: this.openBatchModal.bind(this),
             });
@@ -404,9 +403,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             providers,
             defaultProvider: 'Google Gemini',
             defaultModel: 'gemini-2.0-flash',
-            modelOptions: modelOptionsMap,
-            defaultMaxTokens: this._settings.defaultMaxTokens,
-            defaultTemperature: this._settings.defaultTemperature,
+            modelOptionsMap: modelOptionsMap,
         });
         modal.open();
     }
@@ -415,10 +412,9 @@ export default class YoutubeClipperPlugin extends Plugin {
     private async processYouTubeVideo(options: ProcessVideoOptions): Promise<string> {
         const {
             url,
-            format = 'detailed-guide',
+            format = 'step-by-step-tutorial',
             providerName,
             model,
-            customPrompt,
             maxTokens,
             temperature,
             enableAutoFallback,
@@ -451,14 +447,6 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             const videoData = await youtubeService.getVideoData(videoId);
 
-            // Determine prompt to use
-            let promptToUse: string | undefined;
-            if (format === 'custom') {
-                promptToUse = customPrompt;
-            } else {
-                promptToUse = this._settings.customPrompts?.[format];
-            }
-
             // Fetch transcript to provide actual video content to AI
             let transcript: string | undefined;
             try {
@@ -484,7 +472,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                 videoData,
                 videoUrl: url,
                 format,
-                customPrompt: promptToUse,
                 transcript,
             });
 

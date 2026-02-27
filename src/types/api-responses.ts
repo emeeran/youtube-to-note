@@ -16,6 +16,90 @@ export interface ApiErrorResponse {
     message?: string;
 }
 
+/** Gemini API error response structure */
+export interface GeminiErrorResponse {
+    error: {
+        message: string;
+        code: number;
+        status?: string;
+        details?: Array<{
+            '@type'?: string;
+            reason?: string;
+            domain?: string;
+            metadata?: Record<string, unknown>;
+        }>;
+    };
+}
+
+/** Groq API error response structure */
+export interface GroqErrorResponse {
+    error?: {
+        message?: string;
+        type?: string;
+        code?: string;
+    };
+    message?: string;
+}
+
+/** OpenRouter API error response structure */
+export interface OpenRouterErrorResponse {
+    error?: {
+        message?: string;
+        type?: string;
+        code?: number;
+        metadata?: Record<string, unknown>;
+    };
+}
+
+/** Hugging Face API error response structure */
+export interface HuggingFaceErrorResponse {
+    error?: string;
+    estimated_time?: number;
+    message?: string;
+}
+
+/** Type guard for Gemini error response */
+export function isGeminiError(value: unknown): value is GeminiErrorResponse {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        'error' in value &&
+        typeof (value as GeminiErrorResponse).error === 'object' &&
+        (value as GeminiErrorResponse).error !== null &&
+        'message' in (value as GeminiErrorResponse).error
+    );
+}
+
+/** Type guard for Groq error response */
+export function isGroqError(value: unknown): value is GroqErrorResponse {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        (('error' in value &&
+            typeof (value as GroqErrorResponse).error === 'object') ||
+            'message' in value)
+    );
+}
+
+/** Type guard for OpenRouter error response */
+export function isOpenRouterError(value: unknown): value is OpenRouterErrorResponse {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        'error' in value &&
+        typeof (value as OpenRouterErrorResponse).error === 'object'
+    );
+}
+
+/** Type guard for Hugging Face error response */
+export function isHuggingFaceError(value: unknown): value is HuggingFaceErrorResponse {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        ('error' in value || 'estimated_time' in value)
+    );
+}
+
 /** Gemini API request body structure */
 export interface GeminiRequestBody {
     contents: Array<{
