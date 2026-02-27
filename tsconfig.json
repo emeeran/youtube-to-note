@@ -18,6 +18,8 @@
         "moduleResolution": "node",
         "importHelpers": true,
         "isolatedModules": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
         "types": ["jest", "node"],
         "lib": [
             "DOM",
