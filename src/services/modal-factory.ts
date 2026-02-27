@@ -88,7 +88,7 @@ export class ModalFactory {
         return new YouTubeUrlModal(this.app, {
             onProcess: options.onProcess,
             onOpenFile: options.onOpenFile,
-            ...(options.initialUrl && { initialUrl }),
+            ...(options.initialUrl && { initialUrl: options.initialUrl }),
             providers,
             defaultProvider: 'Google Gemini',
             defaultModel: 'gemini-2.0-flash',
