@@ -5,6 +5,13 @@ import { YouTubePluginSettings } from './types';
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './services/logger';
 import { ErrorHandler } from './services/error-handler';
+import {
+    SettingsDrawer,
+    ProviderCard,
+    createInfoIcon,
+    hideTooltip,
+    type ProviderStatus
+} from './components/settings';
 
 /**
  * Plugin settings tab component
@@ -26,10 +33,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private settings: YouTubePluginSettings;
     private validationErrors: string[] = [];
     private secureConfig: SecureConfigService;
-    private drawerStates: Map<string, boolean> = new Map();
-    private readonly DRAWER_STATES_KEY = 'ytc-settings-drawer-states';
     private searchInput?: HTMLInputElement;
-    private providerStatuses: Map<string, 'valid' | 'invalid' | 'testing' | 'untested'> = new Map();
+    private providerStatuses: Map<string, ProviderStatus> = new Map();
+    private drawers: Map<string, SettingsDrawer> = new Map();
+    private providerCards: Map<string, ProviderCard> = new Map();
 
     constructor(
         app: App,
@@ -38,7 +45,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         super(app, options.plugin);
         this.settings = { ...options.plugin.settings };
         this.secureConfig = new SecureConfigService(this.settings);
-        this.loadDrawerStates();
     }
 
     display(): void {
@@ -46,352 +52,123 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.addClass(`${CSS_PREFIX}-container`);
 
+        // Hide any existing tooltips
+        hideTooltip();
+
         // Refresh settings from plugin to ensure we have the latest data
         this.settings = { ...this.options.plugin.settings };
         this.secureConfig = new SecureConfigService(this.settings);
 
-        this.injectStyles();
+        // Clear references
+        this.drawers.clear();
+        this.providerCards.clear();
+
         this.createHeader();
+        this.createPresets();
         this.createSearchBar();
         this.createProviderStatusDashboard();
         this.createQuickActions();
         this.createAPISection();
         this.createAISection();
         this.createOutputSection();
-        // Create advanced section asynchronously since it needs async validation
+        // Create advanced section asynchronously
         void this.createAdvancedSection();
-    }
-
-    // eslint-disable-next-line max-lines-per-function
-    private injectStyles(): void {
-        if (document.getElementById(`${CSS_PREFIX}-styles`)) return;
-
-        const style = document.createElement('style');
-        style.id = `${CSS_PREFIX}-styles`;
-        style.textContent = `
-            .${CSS_PREFIX}-container {
-                max-width: 800px;
-                margin: 0 auto;
-                padding-bottom: 40px;
-            }
-
-            /* Header */
-            .${CSS_PREFIX}-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                margin-bottom: 24px;
-                padding-bottom: 16px;
-                border-bottom: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-title {
-                margin: 0;
-                font-size: 1.5em;
-                font-weight: 700;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-badge {
-                padding: 4px 10px;
-                border-radius: 4px;
-                font-size: 0.75rem;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-
-            .${CSS_PREFIX}-badge-ready {
-                background: rgba(var(--color-green-rgb), 0.15);
-                color: var(--color-green);
-            }
-
-            .${CSS_PREFIX}-badge-setup {
-                background: rgba(var(--color-orange-rgb), 0.15);
-                color: var(--color-orange);
-            }
-
-            /* Search Bar */
-            .${CSS_PREFIX}-search-bar {
-                position: relative;
-                margin-bottom: 20px;
-            }
-
-            .${CSS_PREFIX}-search-bar input {
-                width: 100%;
-                padding: 10px 12px 10px 36px;
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 6px;
-                font-size: 0.9rem;
-                transition: all 0.2s ease;
-            }
-
-            .${CSS_PREFIX}-search-bar input:focus {
-                border-color: var(--interactive-accent);
-                box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.1);
-            }
-
-            .${CSS_PREFIX}-search-icon {
-                position: absolute;
-                left: 12px;
-                top: 50%;
-                transform: translateY(-50%);
-                color: var(--text-muted);
-                font-size: 1rem;
-                pointer-events: none;
-            }
-
-            /* Status Dashboard (Compact Row) */
-            .${CSS_PREFIX}-status-dashboard {
-                margin-bottom: 24px;
-                background: var(--background-secondary);
-                border-radius: 8px;
-                padding: 12px 16px;
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                overflow-x: auto;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-status-title {
-                font-size: 0.8rem;
-                font-weight: 600;
-                color: var(--text-muted);
-                text-transform: uppercase;
-                white-space: nowrap;
-                margin-right: 8px;
-            }
-
-            .${CSS_PREFIX}-status-grid {
-                display: flex;
-                gap: 8px;
-                flex: 1;
-            }
-
-            .${CSS_PREFIX}-status-chip {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                padding: 4px 10px;
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 12px;
-                font-size: 0.8rem;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                white-space: nowrap;
-            }
-
-            .${CSS_PREFIX}-status-chip:hover {
-                transform: translateY(-1px);
-                border-color: var(--text-muted);
-            }
-
-            .${CSS_PREFIX}-status-dot {
-                width: 6px;
-                height: 6px;
-                border-radius: 50%;
-            }
-
-            .${CSS_PREFIX}-status-chip.valid .${CSS_PREFIX}-status-dot {
-                background: var(--color-green);
-                box-shadow: 0 0 4px var(--color-green);
-            }
-            .${CSS_PREFIX}-status-chip.invalid .${CSS_PREFIX}-status-dot {
-                background: var(--color-red);
-            }
-            .${CSS_PREFIX}-status-chip.testing .${CSS_PREFIX}-status-dot {
-                background: var(--color-yellow);
-                animation: pulse 1s infinite;
-            }
-            .${CSS_PREFIX}-status-chip.untested .${CSS_PREFIX}-status-dot {
-                background: var(--text-muted);
-            }
-
-            /* Drawers/Sections */
-            .${CSS_PREFIX}-drawer {
-                margin-bottom: 12px;
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 6px;
-                overflow: hidden;
-                background: var(--background-primary);
-            }
-
-            .${CSS_PREFIX}-drawer-header {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 12px 16px;
-                background: var(--background-primary);
-                cursor: pointer;
-                transition: background 0.15s ease;
-            }
-
-            .${CSS_PREFIX}-drawer-header:hover {
-                background: var(--background-secondary);
-            }
-
-            .${CSS_PREFIX}-drawer-icon {
-                color: var(--text-muted);
-                font-size: 1.1rem;
-            }
-
-            .${CSS_PREFIX}-drawer-title {
-                flex: 1;
-                margin: 0;
-                font-size: 0.95rem;
-                font-weight: 600;
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-drawer-arrow {
-                color: var(--text-muted);
-                font-size: 0.8rem;
-                transition: transform 0.2s ease;
-            }
-
-            .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-arrow {
-                transform: rotate(180deg);
-            }
-
-            .${CSS_PREFIX}-drawer-content {
-                display: none;
-                padding: 16px;
-                border-top: 1px solid var(--background-modifier-border);
-                background: var(--background-primary);
-            }
-
-            .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-content {
-                display: block;
-                animation: fadeIn 0.2s ease;
-            }
-
-            /* Controls */
-            .${CSS_PREFIX}-password-toggle {
-                background: transparent;
-                border: none;
-                color: var(--text-muted);
-                cursor: pointer;
-                padding: 4px;
-            }
-            
-            .${CSS_PREFIX}-password-toggle:hover {
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-validate-btn {
-                padding: 4px 10px;
-                border-radius: 4px;
-                font-size: 0.8rem;
-                font-weight: 500;
-            }
-
-            /* Quick Actions Toolbar */
-            .${CSS_PREFIX}-quick-actions {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 24px;
-                padding: 4px;
-                background: var(--background-secondary);
-                border-radius: 8px;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-action-btn {
-                flex: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                padding: 8px 12px;
-                border-radius: 6px;
-                border: none;
-                background: transparent;
-                color: var(--text-muted);
-                font-size: 0.85rem;
-                font-weight: 500;
-                cursor: pointer;
-                transition: all 0.15s ease;
-            }
-
-            .${CSS_PREFIX}-action-btn:hover {
-                background: var(--background-modifier-hover);
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-action-btn.primary {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-            }
-            
-            .${CSS_PREFIX}-action-btn.primary:hover {
-                opacity: 0.9;
-            }
-
-            .${CSS_PREFIX}-action-btn.danger {
-                color: var(--color-red);
-            }
-            
-            .${CSS_PREFIX}-action-btn.danger:hover {
-                background: rgba(var(--color-red-rgb), 0.1);
-            }
-
-            /* Helpers */
-            .${CSS_PREFIX}-hidden { display: none !important; }
-
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.5; }
-                100% { opacity: 1; }
-            }
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-5px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    private createDrawer(
-        title: string,
-        icon: string,
-        isOpenByDefault = false
-    ): { drawer: HTMLElement; content: HTMLElement } {
-        const drawerKey = title; // Use title as unique identifier
-        const savedState = this.drawerStates.get(drawerKey) ?? isOpenByDefault;
-
-        const drawer = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-drawer${savedState ? ' is-open' : ''}` });
-
-        const header = drawer.createDiv({ cls: `${CSS_PREFIX}-drawer-header` });
-        header.createSpan({ cls: `${CSS_PREFIX}-drawer-icon`, text: icon });
-        header.createEl('h3', { cls: `${CSS_PREFIX}-drawer-title`, text: title });
-        header.createSpan({ cls: `${CSS_PREFIX}-drawer-arrow`, text: '▼' });
-
-        const contentWrapper = drawer.createDiv({ cls: `${CSS_PREFIX}-drawer-content` });
-        const content = contentWrapper.createDiv({ cls: `${CSS_PREFIX}-drawer-inner` });
-
-        header.addEventListener('click', () => {
-            const isOpen = drawer.classList.toggle('is-open');
-            this.drawerStates.set(drawerKey, isOpen);
-            this.saveDrawerStates();
-        });
-
-        return { drawer, content };
     }
 
     private headerBadge?: HTMLDivElement;
 
+    private createHeader(): void {
+        const { containerEl } = this;
+        const header = containerEl.createDiv({ cls: `${CSS_PREFIX}-header` });
+
+        const title = header.createDiv({ cls: `${CSS_PREFIX}-title` });
+        title.createSpan({ text: '\uD83C\uDFAC' }); // 🎬
+        title.createSpan({ text: 'YT Clipper' });
+
+        const isReady = this.validateConfiguration();
+        this.headerBadge = header.createDiv({
+            cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`,
+        });
+        this.headerBadge.textContent = isReady ? 'READY' : 'SETUP REQUIRED';
+    }
+
+    private updateHeaderBadge(isReady: boolean): void {
+        if (this.headerBadge) {
+            const badgeClass = isReady ?
+                `${CSS_PREFIX}-badge-ready` :
+                `${CSS_PREFIX}-badge-setup`;
+            this.headerBadge.className = `${CSS_PREFIX}-badge ${badgeClass}`;
+            this.headerBadge.textContent = isReady ? '\u2713 Ready' : '\u26A0 Setup Required';
+        }
+    }
+
+    /**
+     * Create settings presets section
+     */
+    private createPresets(): void {
+        const presetsContainer = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-presets` });
+
+        const presets = [
+            {
+                id: 'fast',
+                icon: '\u26A1', // ⚡
+                label: 'Fast',
+                desc: 'Quick results',
+                settings: { performanceMode: 'fast', defaultMaxTokens: 2048, defaultTemperature: 0.3, enableParallelProcessing: true }
+            },
+            {
+                id: 'balanced',
+                icon: '\u2696\uFE0F', // ⚖️
+                label: 'Balanced',
+                desc: 'Good speed & quality',
+                settings: { performanceMode: 'balanced', defaultMaxTokens: 4096, defaultTemperature: 0.5, enableParallelProcessing: true }
+            },
+            {
+                id: 'quality',
+                icon: '\u2728', // ✨
+                label: 'Quality',
+                desc: 'Best results',
+                settings: { performanceMode: 'quality', defaultMaxTokens: 8192, defaultTemperature: 0.7, enableParallelProcessing: false }
+            }
+        ];
+
+        const currentMode = this.settings.performanceMode ?? 'balanced';
+
+        presets.forEach(preset => {
+            const btn = presetsContainer.createEl('button', {
+                cls: `${CSS_PREFIX}-preset-btn${currentMode === preset.id ? ' active' : ''}`,
+                attr: {
+                    type: 'button',
+                    'aria-pressed': String(currentMode === preset.id)
+                }
+            });
+
+            btn.createSpan({ cls: 'preset-icon', text: preset.icon });
+            btn.createSpan({ cls: 'preset-label', text: preset.label });
+            btn.createSpan({ cls: 'preset-desc', text: preset.desc });
+
+            btn.addEventListener('click', async () => {
+                // Apply preset settings
+                Object.entries(preset.settings).forEach(([key, value]) => {
+                    (this.settings as unknown as Record<string, unknown>)[key] = value;
+                });
+
+                await this.validateAndSaveSettings();
+                this.display();
+                this.showToast(`Applied ${preset.label} preset`, 'success');
+            });
+        });
+    }
+
     private createSearchBar(): void {
         const searchBar = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-search-bar` });
-        searchBar.createSpan({ cls: `${CSS_PREFIX}-search-icon`, text: '🔍' });
+        searchBar.createSpan({ cls: `${CSS_PREFIX}-search-icon`, text: '\uD83D\uDD0D' }); // 🔍
 
         this.searchInput = searchBar.createEl('input', {
-            attr: { placeholder: 'Search settings... (Ctrl+K)' },
+            attr: {
+                placeholder: 'Search settings... (Ctrl+K)',
+                'aria-label': 'Search settings'
+            },
         });
 
         this.searchInput.addEventListener('input', () => {
@@ -408,25 +185,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private filterSettings(query: string): void {
-        const drawers = this.containerEl.querySelectorAll(`.${CSS_PREFIX}-drawer`);
         const lowerQuery = query.toLowerCase().trim();
 
-        drawers.forEach(drawer => {
-            if (!lowerQuery) {
-                drawer.removeClass(`${CSS_PREFIX}-hidden`);
-                return;
-            }
-
-            const title = drawer.querySelector(`.${CSS_PREFIX}-drawer-title`)?.textContent?.toLowerCase() ?? '';
-            const content = drawer.querySelector(`.${CSS_PREFIX}-drawer-inner}`)?.textContent?.toLowerCase() ?? '';
-
-            if (title.includes(lowerQuery) || content.includes(lowerQuery)) {
-                drawer.removeClass(`${CSS_PREFIX}-hidden`);
-                // Auto-expand matching drawer
-                drawer.addClass('is-open');
-            } else {
-                drawer.addClass(`${CSS_PREFIX}-hidden`);
-            }
+        this.drawers.forEach((drawer, _id) => {
+            drawer.filterByQuery(lowerQuery);
         });
     }
 
@@ -442,29 +204,39 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             { id: 'huggingface', name: 'HuggingFace', key: 'huggingFaceApiKey' },
             { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' },
             { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' },
-            { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' },
         ];
 
         providers.forEach(provider => {
             const hasKey = Boolean((this.settings[provider.key as keyof YouTubePluginSettings] as string)?.trim());
-            const status = this.providerStatuses.get(provider.id) ?? (hasKey ? 'untested' : 'untested');
+            const status = this.providerStatuses.get(provider.id) ?? 'untested';
 
-            const chip = grid.createDiv({ cls: `${CSS_PREFIX}-status-chip ${status}` });
-            chip.createDiv({ cls: `${CSS_PREFIX}-status-dot ${status}` });
-            chip.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
-
-            // Click to re-test
-            chip.addEventListener('click', () => {
-                if (hasKey) {
-                    void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
+            const chip = grid.createDiv({
+                cls: `${CSS_PREFIX}-status-chip ${hasKey ? status : 'untested'}`,
+                attr: {
+                    role: 'button',
+                    tabindex: hasKey ? '0' : '-1',
+                    'aria-label': `${provider.name}: ${hasKey ? status : 'not configured'}`
                 }
             });
+            chip.createDiv({ cls: `${CSS_PREFIX}-status-dot` });
+            chip.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
 
             if (!hasKey) {
                 chip.style.opacity = '0.5';
                 chip.style.cursor = 'default';
             } else {
                 chip.title = 'Click to test connection';
+
+                chip.addEventListener('click', () => {
+                    void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
+                });
+
+                chip.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
+                    }
+                });
             }
         });
     }
@@ -476,7 +248,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         const apiKey = (this.settings[key] as string)?.trim();
         if (!apiKey) {
-            this.providerStatuses.set(id, 'invalid');
+            this.providerStatuses.set(id, 'untested');
             this.display();
             return;
         }
@@ -507,14 +279,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     await fetch(`${endpoint}/api/tags`);
                     break;
                 }
-                case 'ollama-cloud':
-                    if (!this.settings.ollamaApiKey) {
-                        throw new Error('Ollama Cloud requires API key');
-                    }
-                    await fetch('https://ollama.com/api/tags', {
-                        headers: { Authorization: `Bearer ${this.settings.ollamaApiKey}` },
-                    });
-                    break;
             }
 
             this.providerStatuses.set(id, 'valid');
@@ -534,93 +298,71 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Test All Keys
         const testAllBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn primary`,
+            attr: { type: 'button', 'aria-label': 'Test all provider connections' }
         });
-        testAllBtn.innerHTML = '<span>🧪</span> Test Connections';
+        testAllBtn.innerHTML = '<span>\uD83E\uDDEA</span> Test Connections'; // 🧪
         testAllBtn.addEventListener('click', () => this.testAllProviders());
 
-        // Export/Import dropdown combo
+        // Export/Import dropdown
         const settingsBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn`,
+            attr: { type: 'button', 'aria-label': 'Manage settings' }
         });
-        settingsBtn.innerHTML = '<span>⚙️</span> Manage Settings';
-        // eslint-disable-next-line max-lines-per-function
-        settingsBtn.addEventListener('click', (_e) => {
-            // Simple popup menu logic (could be improved with Obsidian Menu API but keeping it dependency-free for now)
-            // ... (existing popup logic adapted)
-            const popup = document.createElement('div');
-            popup.className = 'ytc-settings-popup';
-            popup.style.cssText = `
-                position: absolute;
-                top: 100%;
-                left: 0;
-                margin-top: 8px;
-                background: var(--background-secondary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 8px;
-                padding: 8px;
-                z-index: 1000;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                min-width: 160px;
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-            `;
-
-            // Positioning relative to button
-            const rect = settingsBtn.getBoundingClientRect();
-            popup.style.top = `${rect.bottom + 5}px`;
-            popup.style.left = `${rect.left}px`;
-
-            const createItem = (text: string, icon: string, onClick: () => void) => {
-                const btn = document.createElement('button');
-                btn.innerHTML = `<span>${icon}</span> ${text}`;
-                btn.style.cssText = `
-                    text-align: left;
-                    background: transparent;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    color: var(--text-normal);
-                    font-size: 0.9rem;
-                    display: flex; gap: 8px; align-items: center;
-                    width: 100%;
-                `;
-                btn.onmouseenter = () => btn.style.background = 'var(--background-modifier-hover)';
-                btn.onmouseleave = () => btn.style.background = 'transparent';
-                btn.onclick = onClick;
-                return btn;
-            };
-
-            popup.appendChild(createItem('Export Settings', '📤', () => {
-                this.exportSettings();
-                popup.remove();
-                overlay.remove();
-            }));
-
-            popup.appendChild(createItem('Import Settings', '📥', () => {
-                this.importSettings();
-                popup.remove();
-                overlay.remove();
-            }));
-
-            const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                z-index: 999;
-            `;
-            overlay.onclick = () => { popup.remove(); overlay.remove(); };
-
-            document.body.appendChild(overlay);
-            document.body.appendChild(popup);
-        });
+        settingsBtn.innerHTML = '<span>\u2699\uFE0F</span> Manage Settings'; // ⚙️
+        settingsBtn.addEventListener('click', (e) => this.showSettingsPopup(e));
 
         // Reset to Defaults
         const resetBtn = actions.createEl('button', {
             cls: `${CSS_PREFIX}-action-btn danger`,
+            attr: { type: 'button', 'aria-label': 'Reset settings to defaults' }
         });
-        resetBtn.innerHTML = '<span>🔄</span> Reset';
+        resetBtn.innerHTML = '<span>\uD83D\uDD04</span> Reset'; // 🔄
         resetBtn.addEventListener('click', async () => this.resetToDefaults());
+    }
+
+    // eslint-disable-next-line max-lines-per-function
+    private showSettingsPopup(e: MouseEvent): void {
+        const settingsBtn = e.currentTarget as HTMLElement;
+
+        const popup = document.createElement('div');
+        popup.className = `${CSS_PREFIX}-popup`;
+        popup.setAttribute('role', 'menu');
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 999;
+        `;
+
+        const createItem = (text: string, icon: string, onClick: () => void): HTMLElement => {
+            const btn = document.createElement('button');
+            btn.className = `${CSS_PREFIX}-popup-item`;
+            btn.setAttribute('role', 'menuitem');
+            btn.innerHTML = `<span>${icon}</span> ${text}`;
+            btn.onclick = () => {
+                onClick();
+                popup.remove();
+                overlay.remove();
+            };
+            return btn;
+        };
+
+        popup.appendChild(createItem('Export Settings', '\uD83D\uDCE4', () => this.exportSettings())); // 📤
+        popup.appendChild(createItem('Import Settings', '\uD83D\uDCE5', () => this.importSettings())); // 📥
+
+        // Position popup
+        const rect = settingsBtn.getBoundingClientRect();
+        popup.style.top = `${rect.bottom + 5}px`;
+        popup.style.left = `${rect.left}px`;
+        popup.style.position = 'fixed';
+
+        overlay.onclick = () => {
+            popup.remove();
+            overlay.remove();
+        };
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(popup);
     }
 
     private async testAllProviders(): Promise<void> {
@@ -630,7 +372,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' as keyof YouTubePluginSettings },
             { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' as keyof YouTubePluginSettings },
             { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' as keyof YouTubePluginSettings },
-            { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' as keyof YouTubePluginSettings },
         ];
 
         for (const provider of providers) {
@@ -742,61 +483,50 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private showToast(message: string, type: 'success' | 'error' | 'info'): void {
         const toast = document.createElement('div');
         toast.className = `${CSS_PREFIX}-toast ${type}`;
-        toast.createSpan({ text: type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️' });
-        toast.createSpan({ text: message });
+        const icon = type === 'success' ? '\u2705' : type === 'error' ? '\u274C' : '\u2139\uFE0F'; // ✅ ❌ ℹ️
+        toast.createSpan({ text: icon });
+        toast.createSpan({ text: ` ${message}` });
         document.body.appendChild(toast);
 
         setTimeout(() => {
-            toast.style.animation = 'slideIn 0.3s ease reverse';
+            toast.style.animation = 'ytc-settings-slideIn 0.3s ease reverse';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
 
-    private createHeader(): void {
-        const { containerEl } = this;
-        const header = containerEl.createDiv({ cls: `${CSS_PREFIX}-header` });
-
-        const title = header.createDiv({ cls: `${CSS_PREFIX}-title` });
-        title.createSpan({ text: '🎬' });
-        title.createSpan({ text: 'YT Clipper' });
-
-        const isReady = this.validateConfiguration();
-        this.headerBadge = header.createDiv({
-            cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`,
-        });
-        this.headerBadge.textContent = isReady ? 'READY' : 'SETUP REQUIRED';
-    }
-
-    private updateHeaderBadge(isReady: boolean): void {
-        if (this.headerBadge) {
-            const badgeClass = isReady ?
-                `${CSS_PREFIX}-badge-ready` :
-                `${CSS_PREFIX}-badge-setup`;
-            this.headerBadge.className = `${CSS_PREFIX}-badge ${badgeClass}`;
-            this.headerBadge.textContent = isReady ? '✓ Ready' : '⚠ Setup Required';
-        }
-    }
-
     // eslint-disable-next-line max-lines-per-function
     private createAPISection(): void {
-        const { content: section } = this.createDrawer('API Keys', '🔑', false);
+        const drawer = new SettingsDrawer({
+            id: 'api-keys',
+            title: 'API Keys',
+            icon: '\uD83D\uDD11', // 🔑
+            description: 'Configure your API keys for AI providers. Keys are stored securely and encrypted.',
+            isOpen: false
+        });
 
-        this.createAPIKeySetting(section, {
+        this.containerEl.appendChild(drawer.render());
+        this.drawers.set('api-keys', drawer);
+
+        const content = drawer.getContentElement();
+
+        this.createAPIKeySetting(content, {
             name: 'Google Gemini API Key',
-            desc: 'Primary AI provider for video analysis. Get free key from Google AI Studio.',
+            desc: 'Primary AI provider for video analysis.',
             placeholder: 'Enter your Gemini API key (AIzaSy...)',
             settingKey: 'geminiApiKey',
+            infoTooltip: 'Get a free API key from Google AI Studio (aistudio.google.com)',
             validateFn: async (key: string) => {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
             },
         });
 
-        this.createAPIKeySetting(section, {
+        this.createAPIKeySetting(content, {
             name: 'Groq API Key',
-            desc: 'Fast alternative AI provider. Get free key from Groq Console.',
+            desc: 'Fast alternative AI provider.',
             placeholder: 'Enter your Groq API key (gsk_...)',
             settingKey: 'groqApiKey',
+            infoTooltip: 'Get a free API key from Groq Console (console.groq.com)',
             validateFn: async (key: string) => {
                 const res = await fetch('https://api.groq.com/openai/v1/models', {
                     headers: { Authorization: `Bearer ${key}` },
@@ -805,11 +535,12 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             },
         });
 
-        this.createAPIKeySetting(section, {
+        this.createAPIKeySetting(content, {
             name: 'Hugging Face API Key',
-            desc: 'Get from huggingface.co/settings/tokens (free tier available)',
+            desc: 'Alternative AI provider with free tier.',
             placeholder: 'hf_...',
             settingKey: 'huggingFaceApiKey',
+            infoTooltip: 'Get a token from huggingface.co/settings/tokens',
             validateFn: async (key: string) => {
                 const res = await fetch('https://huggingface.co/api/whoami-v2', {
                     headers: { Authorization: `Bearer ${key}` },
@@ -818,11 +549,12 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             },
         });
 
-        this.createAPIKeySetting(section, {
+        this.createAPIKeySetting(content, {
             name: 'OpenRouter API Key',
-            desc: 'Get from openrouter.ai/keys (free models available)',
+            desc: 'Access multiple AI models through one API.',
             placeholder: 'sk-or-...',
             settingKey: 'openRouterApiKey',
+            infoTooltip: 'Get a key from openrouter.ai/keys',
             validateFn: async (key: string) => {
                 const res = await fetch('https://openrouter.ai/api/v1/models', {
                     headers: { Authorization: `Bearer ${key}` },
@@ -831,14 +563,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             },
         });
 
-        this.createAPIKeySetting(section, {
+        this.createAPIKeySetting(content, {
             name: 'Ollama API Key',
-            desc: 'Required for Ollama Cloud (https://ollama.com). Get API key from ollama.com/settings. Not required for local instances.',
+            desc: 'Required for Ollama Cloud. Not needed for local instances.',
             placeholder: 'Optional - required for cloud only',
             settingKey: 'ollamaApiKey',
+            infoTooltip: 'Get a key from ollama.com/settings (cloud only)',
+            optional: true,
             validateFn: async (key: string) => {
                 const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
-                // Determine if this is cloud or local
                 const isCloud = endpoint.includes('ollama.com') || endpoint.includes('cloud');
                 const apiBaseUrl = isCloud ? 'https://ollama.com/api' : `${endpoint}/api`;
 
@@ -856,7 +589,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         });
 
         // Ollama Endpoint setting
-        new Setting(section)
+        new Setting(content)
             .setName('Ollama Endpoint')
             .setDesc('Ollama API endpoint. Local: http://localhost:11434 | Cloud: https://ollama.com')
             .addText(text => {
@@ -875,37 +608,48 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         desc: string;
         placeholder: string;
         settingKey: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
+        infoTooltip: string;
+        optional?: boolean;
         validateFn: (key: string) => Promise<void>;
     }): void {
         const setting = new Setting(container)
             .setName(opts.name)
-            .setDesc(opts.desc)
-            .addText(text => {
-                text.inputEl.type = 'password';
-                text.inputEl.autocomplete = 'off';
-                text.inputEl.style.width = '300px';
+            .setDesc(opts.desc);
 
-                // Get the actual API key (de-obfuscated) or empty string - async
-                this.secureConfig.getApiKey(opts.settingKey).then(async (actualKey) => {
-                    const displayValue = actualKey ? await this.secureConfig.getMaskedApiKey(opts.settingKey) : '';
-                    text.setValue(displayValue);
-                });
+        // Add info icon with tooltip
+        const infoIcon = createInfoIcon(opts.infoTooltip);
+        setting.nameEl.appendChild(infoIcon);
 
-                text
-                    .setPlaceholder(opts.placeholder)
-                    .onChange(async (value) => {
-                        await this.updateSetting(opts.settingKey, value.trim());
-                    });
+        setting.addText(text => {
+            text.inputEl.type = 'password';
+            text.inputEl.autocomplete = 'off';
+            text.inputEl.style.width = '300px';
+
+            // Get the actual API key (de-obfuscated) or empty string - async
+            this.secureConfig.getApiKey(opts.settingKey).then(async (actualKey) => {
+                const displayValue = actualKey ? await this.secureConfig.getMaskedApiKey(opts.settingKey) : '';
+                text.setValue(displayValue);
             });
+
+            text
+                .setPlaceholder(opts.placeholder)
+                .onChange(async (value) => {
+                    await this.updateSetting(opts.settingKey, value.trim());
+                });
+        });
 
         const controlEl = setting.controlEl;
 
         // Password visibility toggle
         const toggleBtn = controlEl.createEl('button', {
             cls: `${CSS_PREFIX}-password-toggle`,
-            text: '👁️',
+            text: '\uD83D\uDC41\uFE0F', // 👁️
+            attr: {
+                type: 'button',
+                title: 'Toggle visibility',
+                'aria-label': 'Toggle password visibility'
+            }
         });
-        toggleBtn.title = 'Toggle visibility';
 
         let isVisible = false;
         let originalValue = '';
@@ -916,19 +660,17 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
             if (textInput) {
                 if (isVisible) {
-                    // Show actual key temporarily
                     originalValue = textInput.value;
                     const actualKey = await this.secureConfig.getApiKey(opts.settingKey);
                     textInput.value = actualKey || '';
                     textInput.type = 'text';
-                    toggleBtn.textContent = '🙈';
+                    toggleBtn.textContent = '\uD83D\uDE48'; // 🙈
                     toggleBtn.title = 'Hide key';
                 } else {
-                    // Revert to masked display
                     const maskedKey = await this.secureConfig.getMaskedApiKey(opts.settingKey);
                     textInput.value = originalValue || maskedKey || '';
                     textInput.type = 'password';
-                    toggleBtn.textContent = '👁️';
+                    toggleBtn.textContent = '\uD83D\uDC41\uFE0F'; // 👁️
                     toggleBtn.title = 'Show key';
                 }
             }
@@ -937,47 +679,43 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Validate button
         const validateBtn = controlEl.createEl('button', {
             cls: `${CSS_PREFIX}-validate-btn`,
-            text: '✓ Test',
+            text: '\u2713 Test', // ✓ Test
+            attr: {
+                type: 'button',
+                'aria-label': `Test ${opts.name}`
+            }
         });
 
         validateBtn.addEventListener('click', async () => {
-            // Get actual de-obfuscated API key for validation
             const key = await this.secureConfig.getApiKey(opts.settingKey);
-            if (!key && opts.settingKey !== 'ollamaApiKey') {
+            if (!key && !opts.optional) {
                 this.showToast(`No ${opts.name} configured`, 'info');
                 return;
             }
 
             validateBtn.disabled = true;
-            validateBtn.textContent = '...';
+            validateBtn.innerHTML = '<span class="ytc-settings-spinner"></span>';
             validateBtn.removeClass('is-success', 'is-error');
-
-            // Add spinner
-            const spinner = validateBtn.createEl('span', { cls: `${CSS_PREFIX}-spinner` });
 
             try {
                 await opts.validateFn(key);
-                spinner.remove();
-                validateBtn.textContent = '✓ Valid';
+                validateBtn.textContent = '\u2713 Valid'; // ✓ Valid
                 validateBtn.addClass('is-success');
                 this.showToast(`${opts.name} is valid!`, 'success');
 
-                // Update provider status
                 const providerId = opts.settingKey.replace('ApiKey', '').toLowerCase();
                 this.providerStatuses.set(providerId, 'valid');
             } catch (err) {
-                spinner.remove();
-                validateBtn.textContent = '✗ Invalid';
+                validateBtn.textContent = '\u2717 Invalid'; // ✗ Invalid
                 validateBtn.addClass('is-error');
                 this.showToast(`${opts.name} failed: ${(err as Error).message}`, 'error');
 
-                // Update provider status
                 const providerId = opts.settingKey.replace('ApiKey', '').toLowerCase();
                 this.providerStatuses.set(providerId, 'invalid');
             }
 
             setTimeout(() => {
-                validateBtn.textContent = '✓ Test';
+                validateBtn.textContent = '\u2713 Test'; // ✓ Test
                 validateBtn.removeClass('is-success', 'is-error');
                 validateBtn.disabled = false;
             }, 3000);
@@ -985,10 +723,21 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private createAISection(): void {
-        const { content: section } = this.createDrawer('AI Configuration', '🤖', false);
+        const drawer = new SettingsDrawer({
+            id: 'ai-config',
+            title: 'AI Configuration',
+            icon: '\uD83E\uDD16', // 🤖
+            description: 'Configure AI model behavior and output settings.',
+            isOpen: false
+        });
+
+        this.containerEl.appendChild(drawer.render());
+        this.drawers.set('ai-config', drawer);
+
+        const content = drawer.getContentElement();
 
         // Max Tokens slider
-        this.createSlider(section, {
+        this.createSlider(content, {
             label: 'Maximum Output Tokens',
             desc: 'Controls the length of generated notes. Higher values produce more detailed output.',
             min: 512,
@@ -1001,7 +750,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         });
 
         // Temperature slider
-        this.createSlider(section, {
+        this.createSlider(content, {
             label: 'Temperature',
             desc: 'Controls AI creativity. Lower = more focused/factual, Higher = more creative.',
             min: 0,
@@ -1013,13 +762,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             scale: ['Precise (0)', 'Creative (1)'],
         });
 
-        new Setting(section)
+        new Setting(content)
             .setName('Performance Mode')
             .setDesc('Choose processing speed vs output quality tradeoff.')
             .addDropdown(dd => dd
-                .addOption('fast', '⚡ Fast — Quick results, basic analysis')
-                .addOption('balanced', '⚖️ Balanced — Good speed & quality')
-                .addOption('quality', '✨ Quality — Best results, slower')
+                .addOption('fast', '\u26A1 Fast \u2014 Quick results, basic analysis') // ⚡ —
+                .addOption('balanced', '\u2696\uFE0F Balanced \u2014 Good speed & quality') // ⚖️ —
+                .addOption('quality', '\u2728 Quality \u2014 Best results, slower') // ✨ —
                 .setValue(this.settings.performanceMode || 'balanced')
                 .onChange(async (value) => {
                     await this.updateSetting('performanceMode', value as 'fast' | 'balanced' | 'quality');
@@ -1027,9 +776,20 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private createOutputSection(): void {
-        const { content: section } = this.createDrawer('Output Settings', '📁', false);
+        const drawer = new SettingsDrawer({
+            id: 'output',
+            title: 'Output Settings',
+            icon: '\uD83D\uDC1B', // 🐛
+            description: 'Configure where processed video notes are saved.',
+            isOpen: false
+        });
 
-        new Setting(section)
+        this.containerEl.appendChild(drawer.render());
+        this.drawers.set('output', drawer);
+
+        const content = drawer.getContentElement();
+
+        new Setting(content)
             .setName('Output Folder')
             .setDesc('Folder path where processed video notes will be saved.')
             .addText(text => text
@@ -1041,30 +801,39 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private async createAdvancedSection(): Promise<void> {
-        const { content: section } = this.createDrawer('Advanced Settings', '⚙️', false);
+        const drawer = new SettingsDrawer({
+            id: 'advanced',
+            title: 'Advanced Settings',
+            icon: '\u2699\uFE0F', // ⚙️
+            description: 'Advanced configuration options for power users.',
+            isOpen: false
+        });
+
+        this.containerEl.appendChild(drawer.render());
+        this.drawers.set('advanced', drawer);
+
+        const content = drawer.getContentElement();
 
         // Security Status Section
-        const securityDesc = section.createDiv({ cls: `${CSS_PREFIX}-security-status` });
-        const securityTitle = securityDesc.createEl('h3', { text: '🔒 Security Status' });
+        const securityDesc = content.createDiv({ cls: `${CSS_PREFIX}-security-status` });
+        const securityTitle = securityDesc.createEl('h3', { text: '\uD83D\uDD12 Security Status' }); // 🔒
         const securityContent = securityDesc.createDiv();
 
         // Run security validation
         const securityResult = await this.secureConfig.validateSecurityConfiguration();
 
         if (securityResult.warnings.length > 0 || securityResult.suggestions.length > 0) {
-            // Show warnings
             if (securityResult.warnings.length > 0) {
                 const warningEl = securityContent.createEl('div', {
                     cls: `${CSS_PREFIX}-security-warnings`
                 });
                 securityResult.warnings.forEach((warning: string) => {
                     const item = warningEl.createEl('div');
-                    item.textContent = `⚠️ ${warning}`;
+                    item.textContent = `\u26A0\uFE0F ${warning}`; // ⚠️
                     item.style.margin = '4px 0';
                 });
             }
 
-            // Show suggestions
             if (securityResult.suggestions.length > 0) {
                 const suggestionEl = securityContent.createEl('div', {
                     cls: `${CSS_PREFIX}-security-suggestions`
@@ -1077,7 +846,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 });
             }
 
-            // Show rotation recommendations if keys are getting old
             const recommendations = this.secureConfig.getRotationRecommendations();
             const needsRotation = recommendations.filter(r => r.shouldRotate);
 
@@ -1086,7 +854,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     cls: `${CSS_PREFIX}-rotation-alert`
                 });
                 const rotationTitle = rotationEl.createEl('div', {
-                    text: '🔄 Key Rotation Recommended'
+                    text: '\uD83D\uDD04 Key Rotation Recommended' // 🔄
                 });
                 rotationTitle.style.fontWeight = 'bold';
                 rotationTitle.style.margin = '8px 0 4px 0';
@@ -1095,15 +863,14 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 needsRotation.forEach(rec => {
                     const item = rotationEl.createEl('div');
                     item.style.marginLeft = '16px';
-                    item.textContent = `• ${rec.keyType}: ${rec.reason}`;
+                    item.textContent = `\u2022 ${rec.keyType}: ${rec.reason}`; // •
                 });
             }
         } else {
-            // All secure
             const secureEl = securityContent.createEl('div', {
                 cls: `${CSS_PREFIX}-security-secure`
             });
-            secureEl.textContent = '✅ All API keys are properly secured';
+            secureEl.textContent = '\u2705 All API keys are properly secured'; // ✅
         }
 
         // Security actions
@@ -1112,9 +879,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         });
         actionsDiv.style.marginTop = '12px';
 
-        // Clear all keys button
         const clearKeysBtn = actionsDiv.createEl('button', {
-            text: '🗑️ Clear All API Keys',
+            text: '\uD83D\uDDD1\uFE0F Clear All API Keys', // 🗑️
             cls: 'mod-warning'
         });
         clearKeysBtn.style.marginRight = '8px';
@@ -1126,9 +892,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
         });
 
-        // Export settings (with masked keys) button
         const exportBtn = actionsDiv.createEl('button', {
-            text: '📤 Export Settings (Masked)'
+            text: '\uD83D\uDCE4 Export Settings (Masked)' // 📤
         });
         exportBtn.addEventListener('click', () => {
             const safeSettings = this.secureConfig.exportSafeSettings();
@@ -1145,7 +910,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             this.showToast('Settings exported (API keys are masked)', 'success');
         });
 
-        new Setting(section)
+        new Setting(content)
             .setName('Parallel Processing')
             .setDesc('Query multiple AI providers simultaneously for faster results.')
             .addToggle(toggle => toggle
@@ -1154,7 +919,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     await this.updateSetting('enableParallelProcessing', value);
                 }));
 
-        new Setting(section)
+        new Setting(content)
             .setName('Multimodal Video Analysis')
             .setDesc('Enable audio + visual analysis for supported models (Gemini 2.5+).')
             .addToggle(toggle => toggle
@@ -1163,7 +928,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     await this.updateSetting('preferMultimodal', value);
                 }));
 
-        new Setting(section)
+        new Setting(content)
             .setName('Use Environment Variables')
             .setDesc('Load API keys from environment variables (YTC_GEMINI_API_KEY, etc.).')
             .addToggle(toggle => toggle
@@ -1173,11 +938,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 }));
 
         // Environment variable template button
-        new Setting(section)
+        new Setting(content)
             .setName('Get Environment Variable Template')
             .setDesc('Get a template file showing how to set up environment variables for secure key management.')
             .addButton(button => {
-                button.setButtonText('📋 Copy Template');
+                button.setButtonText('\uD83D\uDCCB Copy Template'); // 📋
                 button.onClick(() => {
                     const template = this.secureConfig.getEnvironmentTemplate();
 
@@ -1207,7 +972,16 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         top.createSpan({ cls: `${CSS_PREFIX}-slider-label`, text: opts.label });
         const valueEl = top.createSpan({ cls: `${CSS_PREFIX}-slider-value`, text: opts.format(opts.value) });
 
-        const slider = wrap.createEl('input', { type: 'range', cls: `${CSS_PREFIX}-slider` });
+        const slider = wrap.createEl('input', {
+            type: 'range',
+            cls: `${CSS_PREFIX}-slider`,
+            attr: {
+                'aria-label': opts.label,
+                'aria-valuemin': String(opts.min),
+                'aria-valuemax': String(opts.max),
+                'aria-valuenow': String(opts.value)
+            }
+        });
         slider.min = String(opts.min);
         slider.max = String(opts.max);
         slider.step = String(opts.step);
@@ -1220,7 +994,9 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         wrap.createDiv({ cls: `${CSS_PREFIX}-slider-desc`, text: opts.desc });
 
         slider.addEventListener('input', () => {
-            valueEl.textContent = opts.format(parseFloat(slider.value));
+            const val = parseFloat(slider.value);
+            valueEl.textContent = opts.format(val);
+            slider.setAttribute('aria-valuenow', String(val));
         });
 
         slider.addEventListener('change', async () => {
@@ -1242,18 +1018,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         try {
             // Use secure storage for API keys
             if (this.isApiKeyField(key) && typeof value === 'string') {
-                // Only set the key if it's not empty or user is intentionally clearing it
                 if (value && value !== '') {
                     try {
                         const obfuscated = this.secureConfig.setApiKey(key as 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey', value);
                         (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
                     } catch (error) {
-                        // Show validation error for invalid keys
                         ErrorHandler.handle(error as Error, `API Key Validation: ${key}`, true);
-                        return; // Don't save invalid keys
+                        return;
                     }
                 } else {
-                    // Clear API key
                     (this.settings as unknown as Record<string, unknown>)[key] = '';
                 }
             } else {
@@ -1293,8 +1066,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             this.updateHeaderBadge(false);
         }
 
-        // Only refresh display if validation state changed (errors appeared/disappeared)
-        // This prevents drawers from closing on every setting change
         if (hadErrors !== hasErrors) {
             this.display();
         }
@@ -1307,33 +1078,5 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     updateSettings(newSettings: YouTubePluginSettings): void {
         this.settings = { ...newSettings };
         this.display();
-    }
-
-    private loadDrawerStates(): void {
-        try {
-            const stored = localStorage.getItem(this.DRAWER_STATES_KEY);
-            if (stored) {
-                const states = JSON.parse(stored);
-                Object.entries(states).forEach(([key, value]) => {
-                    this.drawerStates.set(key, Boolean(value));
-                });
-            }
-        } catch (error) {
-            // Silently fail and use defaults
-            logger.debug('Could not load drawer states:', 'SettingsTab', { error });
-        }
-    }
-
-    private saveDrawerStates(): void {
-        try {
-            const states: Record<string, boolean> = {};
-            this.drawerStates.forEach((value, key) => {
-                states[key] = value;
-            });
-            localStorage.setItem(this.DRAWER_STATES_KEY, JSON.stringify(states));
-        } catch (error) {
-            // Silently fail
-            logger.debug('Could not save drawer states:', 'SettingsTab', { error });
-        }
     }
 }

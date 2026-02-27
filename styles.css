@@ -464,3 +464,931 @@
     font-size: 0.75rem !important;
     color: var(--ytc-accent) !important;
 }
+
+/* ============================================================================
+   SETTINGS TAB STYLES
+   ============================================================================ */
+
+/* CSS Custom Properties for Settings */
+.ytc-settings-container {
+    --ytc-spacing-xs: 4px;
+    --ytc-spacing-sm: 8px;
+    --ytc-spacing-md: 16px;
+    --ytc-spacing-lg: 24px;
+    --ytc-spacing-xl: 32px;
+    --ytc-radius-sm: 4px;
+    --ytc-radius-md: 8px;
+    --ytc-radius-lg: 12px;
+    --ytc-transition-fast: 0.15s ease;
+    --ytc-transition-normal: 0.2s ease;
+    --ytc-transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Settings Container */
+.ytc-settings-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+}
+
+/* Header */
+.ytc-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--ytc-spacing-lg);
+    padding-bottom: var(--ytc-spacing-md);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ytc-settings-title {
+    margin: 0;
+    font-size: 1.5em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-normal);
+}
+
+.ytc-settings-badge {
+    padding: var(--ytc-spacing-xs) 10px;
+    border-radius: var(--ytc-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.ytc-settings-badge-ready {
+    background: rgba(var(--color-green-rgb), 0.15);
+    color: var(--color-green);
+}
+
+.ytc-settings-badge-setup {
+    background: rgba(var(--color-orange-rgb), 0.15);
+    color: var(--color-orange);
+}
+
+/* Search Bar */
+.ytc-settings-search-bar {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.ytc-settings-search-bar input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--ytc-radius-md);
+    font-size: 0.9rem;
+    transition: all var(--ytc-transition-normal);
+}
+
+.ytc-settings-search-bar input:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.1);
+    outline: none;
+}
+
+.ytc-settings-search-bar input::placeholder {
+    color: var(--text-muted);
+}
+
+.ytc-settings-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 1rem;
+    pointer-events: none;
+}
+
+/* Search Results Highlight */
+.ytc-settings-search-highlight {
+    background: rgba(var(--color-yellow-rgb), 0.3);
+    border-radius: 2px;
+    padding: 0 2px;
+}
+
+/* Status Dashboard (Compact Row) */
+.ytc-settings-status-dashboard {
+    margin-bottom: var(--ytc-spacing-lg);
+    background: var(--background-secondary);
+    border-radius: var(--ytc-radius-md);
+    padding: 12px var(--ytc-spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--ytc-spacing-md);
+    overflow-x: auto;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.ytc-settings-status-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+    margin-right: var(--ytc-spacing-sm);
+}
+
+.ytc-settings-status-grid {
+    display: flex;
+    gap: var(--ytc-spacing-sm);
+    flex: 1;
+}
+
+.ytc-settings-status-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: var(--ytc-spacing-xs) 10px;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--ytc-transition-fast);
+    white-space: nowrap;
+}
+
+.ytc-settings-status-chip:hover {
+    transform: translateY(-1px);
+    border-color: var(--text-muted);
+}
+
+.ytc-settings-status-chip:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+.ytc-settings-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.ytc-settings-status-chip.valid .ytc-settings-status-dot {
+    background: var(--color-green);
+    box-shadow: 0 0 4px var(--color-green);
+}
+
+.ytc-settings-status-chip.invalid .ytc-settings-status-dot {
+    background: var(--color-red);
+}
+
+.ytc-settings-status-chip.testing .ytc-settings-status-dot {
+    background: var(--color-yellow);
+    animation: ytc-settings-pulse 1s infinite;
+}
+
+.ytc-settings-status-chip.untested .ytc-settings-status-dot {
+    background: var(--text-muted);
+}
+
+/* Drawers/Sections */
+.ytc-settings-drawer {
+    margin-bottom: 12px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--ytc-radius-md);
+    overflow: hidden;
+    background: var(--background-primary);
+    transition: box-shadow var(--ytc-transition-normal);
+}
+
+.ytc-settings-drawer:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.ytc-settings-drawer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px var(--ytc-spacing-md);
+    background: var(--background-primary);
+    cursor: pointer;
+    transition: background var(--ytc-transition-fast);
+    user-select: none;
+}
+
+.ytc-settings-drawer-header:hover {
+    background: var(--background-secondary);
+}
+
+.ytc-settings-drawer-header:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: -2px;
+}
+
+.ytc-settings-drawer-icon {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.ytc-settings-drawer-title {
+    flex: 1;
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.ytc-settings-drawer-arrow {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform var(--ytc-transition-normal);
+    flex-shrink: 0;
+}
+
+.ytc-settings-drawer.is-open .ytc-settings-drawer-arrow {
+    transform: rotate(180deg);
+}
+
+.ytc-settings-drawer-content {
+    display: none;
+    padding: var(--ytc-spacing-md);
+    border-top: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+}
+
+.ytc-settings-drawer.is-open .ytc-settings-drawer-content {
+    display: block;
+    animation: ytc-settings-fadeIn var(--ytc-transition-normal);
+}
+
+.ytc-settings-drawer-inner {
+    /* Inner container for content */
+}
+
+/* Section Description */
+.ytc-settings-section-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: var(--ytc-spacing-md);
+    padding-bottom: var(--ytc-spacing-sm);
+    border-bottom: 1px dashed var(--background-modifier-border);
+}
+
+/* Controls */
+.ytc-settings-password-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--ytc-spacing-xs);
+    transition: color var(--ytc-transition-fast);
+}
+
+.ytc-settings-password-toggle:hover {
+    color: var(--text-normal);
+}
+
+.ytc-settings-password-toggle:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+    border-radius: var(--ytc-radius-sm);
+}
+
+.ytc-settings-validate-btn {
+    padding: var(--ytc-spacing-xs) 10px;
+    border-radius: var(--ytc-radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all var(--ytc-transition-fast);
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+}
+
+.ytc-settings-validate-btn:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--text-muted);
+}
+
+.ytc-settings-validate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ytc-settings-validate-btn.is-success {
+    background: rgba(var(--color-green-rgb), 0.15);
+    border-color: var(--color-green);
+    color: var(--color-green);
+}
+
+.ytc-settings-validate-btn.is-error {
+    background: rgba(var(--color-red-rgb), 0.15);
+    border-color: var(--color-red);
+    color: var(--color-red);
+}
+
+/* Quick Actions Toolbar */
+.ytc-settings-quick-actions {
+    display: flex;
+    gap: var(--ytc-spacing-sm);
+    margin-bottom: var(--ytc-spacing-lg);
+    padding: var(--ytc-spacing-xs);
+    background: var(--background-secondary);
+    border-radius: var(--ytc-radius-md);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.ytc-settings-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ytc-spacing-sm);
+    padding: var(--ytc-spacing-sm) 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--ytc-transition-fast);
+}
+
+.ytc-settings-action-btn:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.ytc-settings-action-btn:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+.ytc-settings-action-btn.primary {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.ytc-settings-action-btn.primary:hover {
+    opacity: 0.9;
+    filter: brightness(1.05);
+}
+
+.ytc-settings-action-btn.danger {
+    color: var(--color-red);
+}
+
+.ytc-settings-action-btn.danger:hover {
+    background: rgba(var(--color-red-rgb), 0.1);
+}
+
+/* Popup Menu */
+.ytc-settings-popup {
+    position: absolute;
+    margin-top: var(--ytc-spacing-sm);
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--ytc-radius-md);
+    padding: var(--ytc-spacing-sm);
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ytc-spacing-xs);
+}
+
+.ytc-settings-popup-item {
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: var(--ytc-spacing-sm) 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-normal);
+    font-size: 0.9rem;
+    display: flex;
+    gap: var(--ytc-spacing-sm);
+    align-items: center;
+    width: 100%;
+    transition: background var(--ytc-transition-fast);
+}
+
+.ytc-settings-popup-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.ytc-settings-popup-item:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: -2px;
+}
+
+/* Slider Styles */
+.ytc-settings-slider-wrap {
+    margin-bottom: var(--ytc-spacing-lg);
+}
+
+.ytc-settings-slider-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--ytc-spacing-sm);
+}
+
+.ytc-settings-slider-label {
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+.ytc-settings-slider-value {
+    font-weight: 600;
+    color: var(--interactive-accent);
+    font-size: 0.9rem;
+    min-width: 60px;
+    text-align: right;
+}
+
+.ytc-settings-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--background-modifier-border);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.ytc-settings-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--interactive-accent);
+    cursor: pointer;
+    transition: transform var(--ytc-transition-fast), box-shadow var(--ytc-transition-fast);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.ytc-settings-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.ytc-settings-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--interactive-accent);
+    cursor: pointer;
+    border: none;
+    transition: transform var(--ytc-transition-fast), box-shadow var(--ytc-transition-fast);
+}
+
+.ytc-settings-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
+}
+
+.ytc-settings-slider:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+.ytc-settings-slider-scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--ytc-spacing-xs);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.ytc-settings-slider-desc {
+    margin-top: var(--ytc-spacing-sm);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* Toast Notifications */
+.ytc-settings-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px var(--ytc-spacing-md);
+    border-radius: var(--ytc-radius-md);
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: var(--ytc-spacing-sm);
+    z-index: 10000;
+    animation: ytc-settings-slideIn 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.ytc-settings-toast.success {
+    border-left: 3px solid var(--color-green);
+}
+
+.ytc-settings-toast.error {
+    border-left: 3px solid var(--color-red);
+}
+
+.ytc-settings-toast.info {
+    border-left: 3px solid var(--color-blue);
+}
+
+/* Spinner */
+.ytc-settings-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--background-modifier-border);
+    border-top-color: var(--interactive-accent);
+    border-radius: 50%;
+    animation: ytc-settings-spin 0.8s linear infinite;
+}
+
+/* Helper Classes */
+.ytc-settings-hidden {
+    display: none !important;
+}
+
+/* Provider Card */
+.ytc-settings-provider-card {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--ytc-radius-md);
+    padding: var(--ytc-spacing-md);
+    margin-bottom: var(--ytc-spacing-md);
+    transition: all var(--ytc-transition-normal);
+}
+
+.ytc-settings-provider-card:hover {
+    border-color: var(--text-muted);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.ytc-settings-provider-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ytc-spacing-sm);
+    margin-bottom: var(--ytc-spacing-sm);
+}
+
+.ytc-settings-provider-icon {
+    font-size: 1.2rem;
+}
+
+.ytc-settings-provider-name {
+    font-weight: 600;
+    color: var(--text-normal);
+    flex: 1;
+}
+
+.ytc-settings-provider-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    padding: 2px var(--ytc-spacing-sm);
+    border-radius: 10px;
+}
+
+.ytc-settings-provider-status.valid {
+    background: rgba(var(--color-green-rgb), 0.15);
+    color: var(--color-green);
+}
+
+.ytc-settings-provider-status.invalid {
+    background: rgba(var(--color-red-rgb), 0.15);
+    color: var(--color-red);
+}
+
+.ytc-settings-provider-status.testing {
+    background: rgba(var(--color-yellow-rgb), 0.15);
+    color: var(--color-yellow);
+}
+
+.ytc-settings-provider-status.untested {
+    background: var(--background-modifier-border);
+    color: var(--text-muted);
+}
+
+.ytc-settings-provider-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: var(--ytc-spacing-md);
+}
+
+.ytc-settings-provider-input-group {
+    display: flex;
+    gap: var(--ytc-spacing-sm);
+    align-items: center;
+}
+
+.ytc-settings-provider-input-group input {
+    flex: 1;
+}
+
+/* Key Strength Indicator */
+.ytc-settings-key-strength {
+    display: flex;
+    gap: 2px;
+    margin-top: var(--ytc-spacing-xs);
+}
+
+.ytc-settings-key-strength-bar {
+    height: 3px;
+    flex: 1;
+    border-radius: 1px;
+    background: var(--background-modifier-border);
+    transition: background var(--ytc-transition-fast);
+}
+
+.ytc-settings-key-strength.weak .ytc-settings-key-strength-bar:nth-child(-n+1) {
+    background: var(--color-red);
+}
+
+.ytc-settings-key-strength.medium .ytc-settings-key-strength-bar:nth-child(-n+2) {
+    background: var(--color-orange);
+}
+
+.ytc-settings-key-strength.strong .ytc-settings-key-strength-bar {
+    background: var(--color-green);
+}
+
+/* Tooltip */
+.ytc-settings-tooltip {
+    position: absolute;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--ytc-radius-sm);
+    padding: var(--ytc-spacing-sm) 10px;
+    font-size: 0.8rem;
+    color: var(--text-normal);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10001;
+    max-width: 250px;
+    pointer-events: none;
+    animation: ytc-settings-tooltipFadeIn 0.15s ease;
+}
+
+.ytc-settings-tooltip-arrow {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--background-primary);
+    border-left: 1px solid var(--background-modifier-border);
+    border-top: 1px solid var(--background-modifier-border);
+    transform: rotate(45deg);
+}
+
+.ytc-settings-tooltip[data-placement="top"] .ytc-settings-tooltip-arrow {
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-135deg);
+}
+
+.ytc-settings-tooltip[data-placement="bottom"] .ytc-settings-tooltip-arrow {
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+/* Info Icon (for tooltips) */
+.ytc-settings-info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 0.7rem;
+    background: var(--background-modifier-border);
+    border-radius: 50%;
+    color: var(--text-muted);
+    cursor: help;
+    margin-left: var(--ytc-spacing-xs);
+    transition: all var(--ytc-transition-fast);
+}
+
+.ytc-settings-info-icon:hover {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+/* Settings Presets */
+.ytc-settings-presets {
+    display: flex;
+    gap: var(--ytc-spacing-sm);
+    margin-bottom: var(--ytc-spacing-lg);
+}
+
+.ytc-settings-preset-btn {
+    flex: 1;
+    padding: var(--ytc-spacing-sm) var(--ytc-spacing-md);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--ytc-radius-md);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--ytc-transition-fast);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.ytc-settings-preset-btn:hover {
+    border-color: var(--interactive-accent);
+    background: var(--background-primary);
+}
+
+.ytc-settings-preset-btn:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 2px;
+}
+
+.ytc-settings-preset-btn.active {
+    border-color: var(--interactive-accent);
+    background: rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+.ytc-settings-preset-btn .preset-icon {
+    font-size: 1.2rem;
+}
+
+.ytc-settings-preset-btn .preset-label {
+    font-weight: 600;
+}
+
+.ytc-settings-preset-btn .preset-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: normal;
+}
+
+/* Form Input Focus States */
+.ytc-settings-container input[type="text"],
+.ytc-settings-container input[type="password"],
+.ytc-settings-container input[type="url"],
+.ytc-settings-container textarea,
+.ytc-settings-container select {
+    transition: all var(--ytc-transition-normal);
+}
+
+.ytc-settings-container input:focus,
+.ytc-settings-container textarea:focus,
+.ytc-settings-container select:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+/* Toggle Switch Animation */
+.ytc-settings-container .checkbox-container {
+    transition: transform var(--ytc-transition-fast);
+}
+
+.ytc-settings-container .checkbox-container:active {
+    transform: scale(0.95);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .ytc-settings-container {
+        padding: var(--ytc-spacing-md);
+    }
+
+    .ytc-settings-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--ytc-spacing-sm);
+    }
+
+    .ytc-settings-status-dashboard {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ytc-settings-status-grid {
+        flex-wrap: wrap;
+    }
+
+    .ytc-settings-quick-actions {
+        flex-direction: column;
+    }
+
+    .ytc-settings-action-btn {
+        width: 100%;
+    }
+
+    .ytc-settings-presets {
+        flex-direction: column;
+    }
+
+    .ytc-settings-provider-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* Start drawers collapsed on mobile */
+    .ytc-settings-drawer .ytc-settings-drawer-content {
+        display: none;
+    }
+
+    .ytc-settings-drawer.is-open .ytc-settings-drawer-content {
+        display: block;
+    }
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+    .ytc-settings-action-btn,
+    .ytc-settings-preset-btn,
+    .ytc-settings-popup-item,
+    .ytc-settings-status-chip {
+        min-height: 44px;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .ytc-settings-drawer {
+        border-width: 2px;
+    }
+
+    .ytc-settings-validate-btn,
+    .ytc-settings-action-btn {
+        border-width: 2px;
+    }
+
+    .ytc-settings-status-chip.valid .ytc-settings-status-dot {
+        box-shadow: 0 0 0 2px var(--color-green);
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .ytc-settings-drawer-content,
+    .ytc-settings-toast,
+    .ytc-settings-tooltip,
+    .ytc-settings-status-chip.testing .ytc-settings-status-dot {
+        animation: none;
+    }
+
+    .ytc-settings-drawer-arrow,
+    .ytc-settings-action-btn,
+    .ytc-settings-slider::-webkit-slider-thumb {
+        transition: none;
+    }
+}
+
+/* Animations */
+@keyframes ytc-settings-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+@keyframes ytc-settings-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes ytc-settings-slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes ytc-settings-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes ytc-settings-tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
