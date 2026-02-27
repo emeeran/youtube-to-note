@@ -18,34 +18,36 @@ function extractRetryTime(message: string): string {
 }
 
 /**
+ * Check if message contains any of the patterns
+ */
+function containsAny(message: string, patterns: string[]): boolean {
+    return patterns.some(p => message.includes(p));
+}
+
+/**
  * Format quota/limit errors consistently across providers
  */
 export function formatQuotaError(rawMessage: string, provider: string): string {
     const retryInfo = extractRetryTime(rawMessage);
-    const lowerMessage = rawMessage.toLowerCase();
+    const msg = rawMessage.toLowerCase();
 
-    // Free tier quota exhausted
-    if (lowerMessage.includes('free tier') || lowerMessage.includes('free_tier') || lowerMessage.includes('limit: 0')) {
+    if (containsAny(msg, ['free tier', 'free_tier', 'limit: 0'])) {
         return `${provider} free tier quota exhausted.${retryInfo} Upgrade your plan or wait for quota reset.`;
     }
 
-    // Rate limiting (tokens per minute/second)
-    if (lowerMessage.includes('tokens per minute') || lowerMessage.includes('tokens per second')) {
+    if (containsAny(msg, ['tokens per minute', 'tokens per second'])) {
         return `${provider} rate limit reached.${retryInfo} Try a shorter video or wait.`;
     }
 
-    // Request rate limiting
-    if (lowerMessage.includes('requests per minute') || lowerMessage.includes('requests per second')) {
+    if (containsAny(msg, ['requests per minute', 'requests per second'])) {
         return `${provider} request limit reached.${retryInfo}`;
     }
 
-    // General quota exceeded
-    if (lowerMessage.includes('quota exceeded') || lowerMessage.includes('quota')) {
+    if (containsAny(msg, ['quota exceeded', 'quota'])) {
         return `${provider} API quota exceeded.${retryInfo} Check your usage.`;
     }
 
-    // Generic rate limit
-    if (lowerMessage.includes('rate limit')) {
+    if (msg.includes('rate limit')) {
         return `${provider} rate limit reached.${retryInfo} Wait a moment before retrying.`;
     }
 

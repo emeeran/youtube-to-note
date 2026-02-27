@@ -2,7 +2,6 @@
 import { ConflictPrevention } from './conflict-prevention';
 import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
-import { MESSAGES } from './constants/index';
 import { ModalManager } from './services/modal-manager';
 import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types';
 import { ServiceContainer } from './services/service-container';
