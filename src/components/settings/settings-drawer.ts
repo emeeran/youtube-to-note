@@ -41,7 +41,7 @@ const defaultStateStore: DrawerStateStore = {
         } catch {
             // Silently fail
         }
-    }
+    },
 };
 
 export interface SettingsDrawerOptions {
@@ -110,23 +110,23 @@ export class SettingsDrawer {
                 role: 'button',
                 tabindex: '0',
                 'aria-expanded': String(this.isOpen),
-                'aria-controls': `${this.options.id}-content`
-            }
+                'aria-controls': `${this.options.id}-content`,
+            },
         });
 
         this.headerEl.createSpan({
             cls: `${CSS_PREFIX}-drawer-icon`,
-            text: this.options.icon
+            text: this.options.icon,
         });
 
         this.headerEl.createEl('h3', {
             cls: `${CSS_PREFIX}-drawer-title`,
-            text: this.options.title
+            text: this.options.title,
         });
 
         this.headerEl.createSpan({
             cls: `${CSS_PREFIX}-drawer-arrow`,
-            text: '\u25BC' // ▼
+            text: '\u25BC', // ▼
         });
 
         // Content wrapper
@@ -135,27 +135,27 @@ export class SettingsDrawer {
             attr: {
                 id: `${this.options.id}-content`,
                 role: 'region',
-                'aria-labelledby': `${this.options.id}-header`
-            }
+                'aria-labelledby': `${this.options.id}-header`,
+            },
         });
 
         // Optional description
         if (this.options.description) {
             contentWrapper.createDiv({
                 cls: `${CSS_PREFIX}-section-desc`,
-                text: this.options.description
+                text: this.options.description,
             });
         }
 
         // Inner content container
         this.contentEl = contentWrapper.createDiv({
-            cls: `${CSS_PREFIX}-drawer-inner`
+            cls: `${CSS_PREFIX}-drawer-inner`,
         });
 
         // Event handlers
         this.headerEl.addEventListener('click', () => this.toggle());
 
-        this.headerEl.addEventListener('keydown', (e) => {
+        this.headerEl.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 this.toggle();

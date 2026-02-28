@@ -3,7 +3,7 @@ import { ConflictPrevention } from './conflict-prevention';
 import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
 import { ModalManager } from './services/modal-manager';
-import { OutputFormat, YouTubePluginSettings, PerformanceMode } from './types';
+import { YouTubePluginSettings } from './types';
 import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';

@@ -91,7 +91,7 @@ export class SecurityAuditService {
             keyType?: string;
             provider?: string;
             metadata?: Record<string, unknown>;
-        }
+        },
     ): void {
         const event: SecurityEvent = {
             type,
@@ -115,14 +115,12 @@ export class SecurityAuditService {
     logKeyAccess(keyType: string, success: boolean, provider?: string): void {
         this.log(
             success ? 'key_access' : 'decryption_failure',
-            success
-                ? `API key accessed: ${keyType}`
-                : `Failed to access API key: ${keyType}`,
+            success ? `API key accessed: ${keyType}` : `Failed to access API key: ${keyType}`,
             {
                 severity: success ? 'info' : 'warning',
                 keyType,
                 provider,
-            }
+            },
         );
     }
 
@@ -153,14 +151,12 @@ export class SecurityAuditService {
     logDecryption(success: boolean, keyType?: string, error?: string): void {
         this.log(
             success ? 'decryption_success' : 'decryption_failure',
-            success
-                ? 'Key decryption successful'
-                : `Key decryption failed: ${error ?? 'Unknown error'}`,
+            success ? 'Key decryption successful' : `Key decryption failed: ${error ?? 'Unknown error'}`,
             {
                 severity: success ? 'info' : 'warning',
                 keyType,
                 metadata: success ? undefined : { error },
-            }
+            },
         );
     }
 
@@ -177,7 +173,7 @@ export class SecurityAuditService {
                 severity: success ? 'info' : 'error',
                 keyType,
                 metadata: { fromVersion, toVersion },
-            }
+            },
         );
     }
 
@@ -324,18 +320,14 @@ export class SecurityAuditService {
         if (event.type === 'decryption_failure') {
             const failures = recentEvents.filter(e => e.type === 'decryption_failure').length;
             if (failures === this.config.alertThresholds.maxDecryptionFailures) {
-                console.warn(
-                    `[Security] Alert: ${failures} decryption failures detected in the last hour`
-                );
+                console.warn(`[Security] Alert: ${failures} decryption failures detected in the last hour`);
             }
         }
 
         if (event.type === 'suspicious_access') {
             const suspicious = recentEvents.filter(e => e.type === 'suspicious_access').length;
             if (suspicious >= this.config.alertThresholds.maxSuspiciousAccess) {
-                console.error(
-                    `[Security] Critical: ${suspicious} suspicious access patterns detected`
-                );
+                console.error(`[Security] Critical: ${suspicious} suspicious access patterns detected`);
             }
         }
     }

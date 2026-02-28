@@ -7,9 +7,6 @@ import { App } from 'obsidian';
 import { YouTubeUrlModal, BatchVideoModal } from '../components/features/youtube';
 import { OutputFormat, PerformanceMode, YouTubePluginSettings } from '../types';
 import { ServiceContainer } from './service-container';
-import { logger } from './logger';
-import { ConflictPrevention } from '../conflict-prevention';
-import { ErrorHandler } from './error-handler';
 
 /** Process callback for URL modal */
 export type ProcessCallback = (
@@ -54,11 +51,7 @@ export class ModalFactory {
     private settings: YouTubePluginSettings;
     private serviceContainer: ServiceContainer;
 
-    constructor(
-        app: App,
-        settingsGetter: () => YouTubePluginSettings,
-        serviceContainerGetter: () => ServiceContainer,
-    ) {
+    constructor(app: App, settingsGetter: () => YouTubePluginSettings, serviceContainerGetter: () => ServiceContainer) {
         this.app = app;
         this.settings = settingsGetter();
         this.serviceContainer = serviceContainerGetter();
@@ -113,10 +106,7 @@ export class ModalFactory {
     /**
      * Create batch video modal
      */
-    createBatchVideoModal(options: {
-        onProcess: BatchProcessCallback;
-        onOpenFile: OpenFileCallback;
-    }): BatchVideoModal {
+    createBatchVideoModal(options: { onProcess: BatchProcessCallback; onOpenFile: OpenFileCallback }): BatchVideoModal {
         const settings = this.settings;
 
         const aiService = this.serviceContainer.aiService;
@@ -129,7 +119,7 @@ export class ModalFactory {
             providers,
             defaultProvider: 'Google Gemini',
             defaultModel: 'gemini-2.0-flash',
-            modelOptionsMap: modelOptionsMap,
+            modelOptionsMap,
         });
     }
 
@@ -171,10 +161,7 @@ export class ModalFactory {
     ): Promise<string[]> {
         try {
             const aiService = serviceContainer.aiService as {
-                fetchLatestModelsForProvider(
-                    providerName: string,
-                    bypassCache: boolean,
-                ): Promise<string[]>;
+                fetchLatestModelsForProvider(providerName: string, bypassCache: boolean): Promise<string[]>;
             };
             const models = await aiService.fetchLatestModelsForProvider(provider, forceRefresh);
 

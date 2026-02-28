@@ -90,17 +90,17 @@ const YOUTUBE_EMBED = {
  * Reusable template components
  * @internal
  */
-namespace Templates {
+const Templates = {
     /**
      * Generate YAML frontmatter for Obsidian notes
      */
-    export const frontmatter = (
+    frontmatter: (
         title: string,
         source: string,
         videoId: string,
         format: OutputFormat,
         provider: string,
-        model: string
+        model: string,
     ): string => `---
 title: ${title}
 source: ${source}
@@ -111,18 +111,18 @@ tags: [youtube${format === 'complete-transcription' ? ', transcript' : ''}]
 video_id: "${videoId}"
 ai_provider: "${provider}"
 ai_model: "${model}"
----`;
+---`,
 
     /**
      * Generate responsive video iframe
      */
-    export const videoIframe = (videoId: string, title: string): string => {
+    videoIframe: (videoId: string, title: string): string => {
         const embedUrl = `${YOUTUBE_EMBED.BASE_URL}${videoId}`;
         return `<div style="text-align: center; margin-bottom: 24px;">
 <iframe width="${YOUTUBE_EMBED.IFRAME_WIDTH}" height="${YOUTUBE_EMBED.IFRAME_HEIGHT}" src="${embedUrl}" title="${title}" ${YOUTUBE_EMBED.IFRAME_ATTRIBUTES}></iframe>
 </div>`;
-    };
-}
+    },
+};
 
 /**
  * Performance mode templates
@@ -372,7 +372,6 @@ Final thoughts and key takeaways`,
  * - Readonly template constants for better optimization
  */
 export class AIPromptService implements PromptService {
-
     // ============ PRIVATE MEMBERS ============
 
     /** Cached compiled regex pattern for frontmatter key replacement */
@@ -413,23 +412,10 @@ export class AIPromptService implements PromptService {
         const model = PLACEHOLDERS.AI_MODEL;
 
         // Build base content using single-pass replacement
-        const baseContent = this.buildBaseContent(
-            videoData,
-            videoUrl,
-            transcript,
-            performanceMode
-        );
+        const baseContent = this.buildBaseContent(videoData, videoUrl, transcript, performanceMode);
 
         // Build full prompt with all components
-        return this.buildFullPrompt(
-            baseContent,
-            videoData,
-            videoUrl,
-            videoId,
-            format,
-            provider,
-            model
-        );
+        return this.buildFullPrompt(baseContent, videoData, videoUrl, videoId, format, provider, model);
     }
 
     // ============ PRIVATE HELPER METHODS ============
@@ -442,7 +428,7 @@ export class AIPromptService implements PromptService {
         videoData: VideoData,
         videoUrl: string,
         transcript?: string,
-        performanceMode: PerformanceMode = 'balanced'
+        performanceMode: PerformanceMode = 'balanced',
     ): string {
         const baseTemplate = BASE_TEMPLATES[performanceMode];
         const transcriptSection = this.buildTranscriptSection(transcript);
@@ -462,9 +448,10 @@ export class AIPromptService implements PromptService {
     private buildTranscriptSection(transcript?: string): string {
         if (!transcript?.trim()) return '';
 
-        const truncated = transcript.length > TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH
-            ? `${transcript.slice(0, TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH)}... [transcript truncated]`
-            : transcript;
+        const truncated =
+            transcript.length > TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH
+                ? `${transcript.slice(0, TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH)}... [transcript truncated]`
+                : transcript;
 
         return `\nVIDEO CONTENT/TRANSCRIPT:\n${truncated}`;
     }
@@ -480,16 +467,9 @@ export class AIPromptService implements PromptService {
         format: OutputFormat,
         provider: string,
         model: string,
-        customPrompt?: string
+        customPrompt?: string,
     ): string {
-        const frontmatter = Templates.frontmatter(
-            videoData.title,
-            videoUrl,
-            videoId,
-            format,
-            provider,
-            model
-        );
+        const frontmatter = Templates.frontmatter(videoData.title, videoUrl, videoId, format, provider, model);
 
         const iframe = Templates.videoIframe(videoId, videoData.title);
         const separator = '---\n\n';
@@ -501,7 +481,7 @@ export class AIPromptService implements PromptService {
     /**
      * Build format-specific template
      */
-    private buildFormatTemplate(format: OutputFormat, customPrompt?: string): string {
+    private buildFormatTemplate(format: OutputFormat, _customPrompt?: string): string {
         return FORMAT_TEMPLATES[format];
     }
 
@@ -510,10 +490,7 @@ export class AIPromptService implements PromptService {
      * More efficient than chaining multiple .replace() calls
      * Uses regex global flag for compatibility with ES2020
      */
-    private replacePlaceholders(
-        template: string,
-        replacements: Readonly<Record<string, string>>
-    ): string {
+    private replacePlaceholders(template: string, replacements: Readonly<Record<string, string>>): string {
         let result = template;
         for (const [placeholder, value] of Object.entries(replacements)) {
             // Escape special regex characters in placeholder
@@ -552,25 +529,12 @@ export class AIPromptService implements PromptService {
         });
 
         // Ensure frontmatter has correct values (fallback for malformed responses)
-        updatedContent = this.ensureFrontMatterValue(
-            updatedContent,
-            'ai_provider',
-            providerValue
-        );
-        updatedContent = this.ensureFrontMatterValue(
-            updatedContent,
-            'ai_model',
-            modelValue
-        );
+        updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_provider', providerValue);
+        updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_model', modelValue);
 
         // Append Resources section
         if (videoUrl) {
-            updatedContent = this.appendResourcesSection(
-                updatedContent,
-                videoUrl,
-                providerValue,
-                modelValue
-            );
+            updatedContent = this.appendResourcesSection(updatedContent, videoUrl, providerValue, modelValue);
         }
 
         return updatedContent;
@@ -579,12 +543,7 @@ export class AIPromptService implements PromptService {
     /**
      * Append Resources section to the end of the content
      */
-    private appendResourcesSection(
-        content: string,
-        videoUrl: string,
-        provider: string,
-        model: string
-    ): string {
+    private appendResourcesSection(content: string, videoUrl: string, provider: string, model: string): string {
         const processingDate = new Date().toISOString().split('T')[0];
         const resourcesSection = `\n\n## Resources\n- Video URL: ${videoUrl}\n- Processing Date: ${processingDate}\n- Provider: ${provider} ${model}\n`;
 
@@ -597,11 +556,7 @@ export class AIPromptService implements PromptService {
      * Ensure frontmatter key has correct value
      * Uses pre-compiled regex pattern for better performance
      */
-    private ensureFrontMatterValue(
-        content: string,
-        key: string,
-        value: string
-    ): string {
+    private ensureFrontMatterValue(content: string, key: string, value: string): string {
         const pattern = new RegExp(`(${key}\\s*:\\s*)(["'])?([^"'\\n]*)(["'])?`, 'i');
 
         // Update existing key
@@ -649,9 +604,11 @@ Format as markdown with clear headings.`;
      * @returns true if prompt is valid, false otherwise
      */
     validatePrompt(prompt: string): boolean {
-        return Boolean(prompt) &&
-               typeof prompt === 'string' &&
-               prompt.trim().length >= TOKEN_LIMITS.MIN_PROMPT_LENGTH &&
-               prompt.length <= TOKEN_LIMITS.MAX_PROMPT_LENGTH;
+        return (
+            Boolean(prompt) &&
+            typeof prompt === 'string' &&
+            prompt.trim().length >= TOKEN_LIMITS.MIN_PROMPT_LENGTH &&
+            prompt.length <= TOKEN_LIMITS.MAX_PROMPT_LENGTH
+        );
     }
 }

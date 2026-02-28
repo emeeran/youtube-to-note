@@ -4,14 +4,14 @@
  */
 
 import { AIProvider, AIResponse, YouTubePluginSettings } from '../types';
-import { PROVIDER_MODEL_OPTIONS, type ProviderModelEntry } from '../ai/api';
+import { PROVIDER_MODEL_OPTIONS } from '../ai/api';
 
 export class AIService {
     private providerMap: Map<string, AIProvider> = new Map();
 
     constructor(
         providers: AIProvider[],
-        private settings: YouTubePluginSettings
+        private settings: YouTubePluginSettings,
     ) {
         if (!providers || providers.length === 0) {
             throw new Error('At least one AI provider is required');
@@ -22,7 +22,7 @@ export class AIService {
     /**
      * Process prompt with the first available provider
      */
-    async process(prompt: string, images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
+    async process(prompt: string, _images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
         if (!prompt || typeof prompt !== 'string') {
             throw new Error('Valid prompt is required');
         }
@@ -44,7 +44,7 @@ export class AIService {
         prompt: string,
         overrideModel?: string,
         images?: (string | ArrayBuffer)[],
-        enableFallback = true
+        enableFallback = true,
     ): Promise<AIResponse> {
         const provider = this.providerMap.get(providerName);
         if (!provider) {
@@ -103,7 +103,7 @@ export class AIService {
      */
     getProviderModels(providerName: string): string[] {
         const models = PROVIDER_MODEL_OPTIONS[providerName] ?? [];
-        return models.map(m => typeof m === 'string' ? m : m.name);
+        return models.map(m => (typeof m === 'string' ? m : m.name));
     }
 
     /**

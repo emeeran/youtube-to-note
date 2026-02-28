@@ -3,10 +3,9 @@
  * Allows processing multiple YouTube videos at once
  */
 
-import { App, Notice, Setting } from 'obsidian';
-import { BaseVideoModal, BaseVideoModalOptions, FORMAT_OPTIONS } from '../../common/base-video-modal';
+import { App } from 'obsidian';
+import { BaseVideoModal, BaseVideoModalOptions } from '../../common/base-video-modal';
 import { OutputFormat } from '../../../types';
-import { ValidationUtils } from '../../../validation';
 
 export interface BatchProcessingOptions extends BaseVideoModalOptions {
     onProcess: (urls: string[], format: OutputFormat, provider?: string, model?: string) => Promise<string[]>;
@@ -416,7 +415,10 @@ export class BatchVideoModal extends BaseVideoModal {
                 this.showNotice(`Processed ${completed}/${total} videos. Some failed.`, 'error');
             }
         } catch (error) {
-            this.showNotice(`Batch processing failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+            this.showNotice(
+                `Batch processing failed: ${error instanceof Error ? error.message : String(error)}`,
+                'error',
+            );
         } finally {
             this.setProcessing(false);
             this.updateProcessButton();

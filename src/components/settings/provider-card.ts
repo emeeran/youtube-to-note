@@ -37,7 +37,7 @@ export interface ProviderCardOptions {
     /** Callback when key changes */
     onChange?: (value: string) => void;
     /** Callback when test button clicked */
-    onTest?: () => void;
+    onTest?: () => Promise<void>;
 }
 
 /**
@@ -83,30 +83,30 @@ export class ProviderCard {
 
         header.createSpan({
             cls: `${CSS_PREFIX}-provider-icon`,
-            text: this.options.icon
+            text: this.options.icon,
         });
 
         header.createSpan({
             cls: `${CSS_PREFIX}-provider-name`,
-            text: this.options.name
+            text: this.options.name,
         });
 
         // Status badge
         this.statusEl = header.createDiv({
             cls: `${CSS_PREFIX}-provider-status ${this.status}`,
-            attr: { 'aria-live': 'polite' }
+            attr: { 'aria-live': 'polite' },
         });
         this.updateStatusDisplay();
 
         // Description
         this.cardEl.createDiv({
             cls: `${CSS_PREFIX}-provider-desc`,
-            text: this.options.description
+            text: this.options.description,
         });
 
         // Input group
         const inputGroup = this.cardEl.createDiv({
-            cls: `${CSS_PREFIX}-provider-input-group`
+            cls: `${CSS_PREFIX}-provider-input-group`,
         });
 
         // API Key input
@@ -116,8 +116,8 @@ export class ProviderCard {
                 placeholder: this.options.placeholder,
                 value: this.options.value ?? '',
                 autocomplete: 'off',
-                'aria-label': `${this.options.name} API Key`
-            }
+                'aria-label': `${this.options.name} API Key`,
+            },
         });
         this.inputEl.style.flex = '1';
 
@@ -128,8 +128,8 @@ export class ProviderCard {
             attr: {
                 type: 'button',
                 'aria-label': 'Toggle password visibility',
-                title: 'Show key'
-            }
+                title: 'Show key',
+            },
         });
 
         toggleBtn.addEventListener('click', () => this.toggleVisibility());
@@ -140,8 +140,8 @@ export class ProviderCard {
             text: '\u2713 Test', // ✓ Test
             attr: {
                 type: 'button',
-                'aria-label': `Test ${this.options.name} connection`
-            }
+                'aria-label': `Test ${this.options.name} connection`,
+            },
         });
 
         this.testBtnEl.addEventListener('click', () => this.handleTest());
@@ -156,7 +156,7 @@ export class ProviderCard {
         // Key strength indicator
         if (this.options.keyStrength !== 'none') {
             const strengthEl = this.cardEl.createDiv({
-                cls: `${CSS_PREFIX}-key-strength ${this.options.keyStrength ?? 'none'}`
+                cls: `${CSS_PREFIX}-key-strength ${this.options.keyStrength ?? 'none'}`,
             });
             for (let i = 0; i < 3; i++) {
                 strengthEl.createDiv({ cls: `${CSS_PREFIX}-key-strength-bar` });
@@ -167,15 +167,15 @@ export class ProviderCard {
         if (this.options.getKeyUrl) {
             const linkEl = this.cardEl.createDiv({
                 cls: `${CSS_PREFIX}-provider-link`,
-                attr: { style: 'margin-top: 8px; font-size: 0.8rem;' }
+                attr: { style: 'margin-top: 8px; font-size: 0.8rem;' },
             });
             linkEl.createEl('a', {
                 text: `Get ${this.options.name} API key \u2197\uFE0F`,
                 attr: {
                     href: this.options.getKeyUrl,
                     target: '_blank',
-                    rel: 'noopener noreferrer'
-                }
+                    rel: 'noopener noreferrer',
+                },
             });
         }
 
@@ -227,7 +227,7 @@ export class ProviderCard {
             valid: { text: 'Valid', icon: '\u2713' }, // ✓
             invalid: { text: 'Invalid', icon: '\u2717' }, // ✗
             testing: { text: 'Testing...', icon: '\u231B' }, // ⏳
-            untested: { text: 'Untested', icon: '\u2022' } // •
+            untested: { text: 'Untested', icon: '\u2022' }, // •
         };
 
         const config = statusConfig[this.status];
@@ -286,7 +286,9 @@ export class ProviderCard {
         this.setStatus('testing');
 
         try {
-            await this.options.onTest?.();
+            if (this.options.onTest) {
+                await this.options.onTest();
+            }
 
             // Success state
             this.testBtnEl.textContent = '\u2713 Valid'; // ✓ Valid

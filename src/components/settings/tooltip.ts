@@ -43,7 +43,8 @@ function getContainer(): HTMLElement {
     if (!container) {
         container = document.createElement('div');
         container.id = TOOLTIP_CONTAINER_ID;
-        container.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 10001;';
+        container.style.cssText =
+            'position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 10001;';
         document.body.appendChild(container);
     }
     return container;
@@ -76,11 +77,7 @@ function createTooltipElement(options: TooltipOptions): HTMLElement {
 /**
  * Position the tooltip relative to the trigger element
  */
-function positionTooltip(
-    tooltip: HTMLElement,
-    trigger: HTMLElement,
-    placement: TooltipPlacement
-): void {
+function positionTooltip(tooltip: HTMLElement, trigger: HTMLElement, placement: TooltipPlacement): void {
     const triggerRect = trigger.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
 
@@ -140,7 +137,7 @@ function showTooltip(trigger: HTMLElement, options: TooltipOptions): void {
     activeTooltip = {
         element: tooltip,
         trigger,
-        hideTimeout: null
+        hideTimeout: null,
     };
 }
 
@@ -172,10 +169,7 @@ export function hideTooltip(): void {
  * });
  * ```
  */
-export function attachTooltip(
-    element: HTMLElement,
-    options: TooltipOptions
-): void {
+export function attachTooltip(element: HTMLElement, options: TooltipOptions): void {
     const showDelay = options.showDelay ?? 300;
     const hideDelay = options.hideDelay ?? 100;
 
@@ -246,7 +240,7 @@ export function createInfoIcon(tooltipContent: string): HTMLElement {
 
     attachTooltip(icon, {
         content: tooltipContent,
-        placement: 'top'
+        placement: 'top',
     });
 
     return icon;

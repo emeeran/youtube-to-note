@@ -51,9 +51,7 @@ export class CryptoService {
      * Check if Web Crypto API is available
      */
     static isAvailable(): boolean {
-        return typeof window !== 'undefined' &&
-            window.crypto !== undefined &&
-            window.crypto.subtle !== undefined;
+        return typeof window !== 'undefined' && window.crypto?.subtle !== undefined;
     }
 
     /**
@@ -79,10 +77,10 @@ export class CryptoService {
             const encrypted = await window.crypto.subtle.encrypt(
                 {
                     name: this.ALGORITHM,
-                    iv: iv,
+                    iv,
                 },
                 keyMaterial,
-                encoded
+                encoded,
             );
 
             return ok({
@@ -110,7 +108,11 @@ export class CryptoService {
         try {
             // Validate version
             if (encryptedData.version !== CRYPTO_VERSION) {
-                return err({ type: 'unsupported_version', version: encryptedData.version, message: `Unsupported encryption version: ${encryptedData.version}` });
+                return err({
+                    type: 'unsupported_version',
+                    version: encryptedData.version,
+                    message: `Unsupported encryption version: ${encryptedData.version}`,
+                });
             }
 
             // Decode base64 values
@@ -125,10 +127,10 @@ export class CryptoService {
             const decrypted = await window.crypto.subtle.decrypt(
                 {
                     name: this.ALGORITHM,
-                    iv: iv,
+                    iv,
                 },
                 keyMaterial,
-                encrypted
+                encrypted,
             );
 
             const plaintext = new TextDecoder().decode(decrypted);
@@ -207,19 +209,13 @@ export class CryptoService {
         const keyMaterial = await this.getDeviceKeyMaterial();
 
         // Import as raw key
-        const baseKey = await window.crypto.subtle.importKey(
-            'raw',
-            keyMaterial,
-            'PBKDF2',
-            false,
-            ['deriveKey']
-        );
+        const baseKey = await window.crypto.subtle.importKey('raw', keyMaterial, 'PBKDF2', false, ['deriveKey']);
 
         // Derive AES key using PBKDF2
         return window.crypto.subtle.deriveKey(
             {
                 name: 'PBKDF2',
-                salt: salt,
+                salt,
                 iterations: this.PBKDF2_ITERATIONS,
                 hash: 'SHA-256',
             },
@@ -229,7 +225,7 @@ export class CryptoService {
                 length: this.KEY_LENGTH,
             },
             false,
-            ['encrypt', 'decrypt']
+            ['encrypt', 'decrypt'],
         );
     }
 
@@ -375,10 +371,10 @@ export class LegacyCryptoService {
 
         // Simple hash function to create numeric key
         let hash = 0;
-        const combined = factors.join('|') + '1.0.0';
+        const combined = `${factors.join('|')}1.0.0`;
         for (let i = 0; i < combined.length; i++) {
             const char = combined.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
+            hash = (hash << 5) - hash + char;
             hash = hash & hash;
         }
 

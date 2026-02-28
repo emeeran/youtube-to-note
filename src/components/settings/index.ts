@@ -4,19 +4,14 @@
  * Reusable UI components for the settings tab
  */
 
-export {
-    SettingsDrawer,
-    createDrawer,
-    type SettingsDrawerOptions,
-    type DrawerStateStore
-} from './settings-drawer';
+export { SettingsDrawer, createDrawer, type SettingsDrawerOptions, type DrawerStateStore } from './settings-drawer';
 
 export {
     ProviderCard,
     createProviderCard,
     type ProviderCardOptions,
     type ProviderStatus,
-    type KeyStrength
+    type KeyStrength,
 } from './provider-card';
 
 export {
@@ -26,5 +21,5 @@ export {
     createHelpText,
     disposeTooltips,
     type TooltipOptions,
-    type TooltipPlacement
+    type TooltipPlacement,
 } from './tooltip';

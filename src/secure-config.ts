@@ -20,7 +20,6 @@ type ApiKeyType = 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceA
  */
 
 // Security constants
-const SECURITY_VERSION = '2.0.0';
 const MIN_API_KEY_LENGTH = 20;
 const MAX_API_KEY_LENGTH = 200;
 
@@ -137,7 +136,7 @@ class SecureKeyStorage {
             lastModified: Date.now(),
             isEncrypted: true,
             encryptionVersion: CRYPTO_VERSION,
-            keyType
+            keyType,
         };
 
         try {
@@ -194,7 +193,7 @@ class APIKeyValidator {
     private static readonly PATTERNS = {
         gemini: /^AIza[A-Za-z0-9_-]{35}$/, // Gemini API keys
         groq: /^gsk_[A-Za-z0-9_-]{48,52}$/, // Groq API keys
-        openai: /^sk-[A-Za-z0-9_-]{48,}$/ // OpenAI-compatible (for reference)
+        openai: /^sk-[A-Za-z0-9_-]{48,}$/, // OpenAI-compatible (for reference)
     };
 
     /**
@@ -224,13 +223,16 @@ class APIKeyValidator {
             'example-key',
             'xxx',
             '...',
-            '<insert>'
+            '<insert>',
         ];
 
         const lowerKey = trimmedKey.toLowerCase();
         for (const pattern of placeholderPatterns) {
             if (lowerKey.includes(pattern)) {
-                return { valid: false, message: 'This appears to be a placeholder API key. Please enter your actual API key.' };
+                return {
+                    valid: false,
+                    message: 'This appears to be a placeholder API key. Please enter your actual API key.',
+                };
             }
         }
 
@@ -239,7 +241,7 @@ class APIKeyValidator {
         if (pattern && !pattern.test(trimmedKey)) {
             return {
                 valid: false,
-                message: `${keyType.toUpperCase()} API key format doesn't match expected pattern. This may be okay if the format has changed.`
+                message: `${keyType.toUpperCase()} API key format doesn't match expected pattern. This may be okay if the format has changed.`,
             };
         }
 
@@ -262,12 +264,7 @@ class APIKeyValidator {
         }
 
         // Check for common test keys
-        const testKeys = [
-            'sk-test',
-            'test-key',
-            'demo-key',
-            'sample-key'
-        ];
+        const testKeys = ['sk-test', 'test-key', 'demo-key', 'sample-key'];
 
         if (testKeys.some(testKey => trimmedKey.toLowerCase().includes(testKey))) {
             warnings.push('This appears to be a test/demo API key');
@@ -440,7 +437,7 @@ export class SecureConfigService {
             'groqApiKey',
             'ollamaApiKey',
             'huggingFaceApiKey',
-            'openRouterApiKey'
+            'openRouterApiKey',
         ] as const;
 
         for (const keyType of keyTypes) {
@@ -481,7 +478,7 @@ export class SecureConfigService {
             // Check for window-level environment (some setups)
             if (typeof window !== 'undefined') {
                 const winEnv = (window as { env?: Record<string, string> }).env;
-                if (winEnv && winEnv[envVarName]) {
+                if (winEnv?.[envVarName]) {
                     return winEnv[envVarName] ?? '';
                 }
             }
@@ -500,14 +497,14 @@ export class SecureConfigService {
             isValid: true,
             warnings: [],
             errors: [],
-            suggestions: []
+            suggestions: [],
         };
 
         // Check if using environment variables (most secure)
         if (this.settings.useEnvironmentVariables) {
             result.suggestions.push(
                 '✅ Using environment variables - this is the most secure method',
-                'Make sure to set environment variables before starting Obsidian'
+                'Make sure to set environment variables before starting Obsidian',
             );
             return result;
         }
@@ -518,7 +515,7 @@ export class SecureConfigService {
             'groqApiKey',
             'ollamaApiKey',
             'huggingFaceApiKey',
-            'openRouterApiKey'
+            'openRouterApiKey',
         ] as const;
 
         let hasStoredKeys = false;
@@ -530,10 +527,7 @@ export class SecureConfigService {
             hasStoredKeys = true;
 
             // Format validation
-            const formatValidation = this.validator.validateKeyFormat(
-                keyType.replace('ApiKey', ''),
-                apiKey
-            );
+            const formatValidation = this.validator.validateKeyFormat(keyType.replace('ApiKey', ''), apiKey);
 
             if (!formatValidation.valid) {
                 result.warnings.push(`${keyType}: ${formatValidation.message}`);
@@ -541,10 +535,7 @@ export class SecureConfigService {
             }
 
             // Health check
-            const health = this.validator.checkKeyHealth(
-                keyType.replace('ApiKey', ''),
-                apiKey
-            );
+            const health = this.validator.checkKeyHealth(keyType.replace('ApiKey', ''), apiKey);
 
             if (!health.isHealthy) {
                 result.warnings.push(`${keyType}: ${health.warnings.join(', ')}`);
@@ -555,7 +546,7 @@ export class SecureConfigService {
             const rawStored = this.settings[keyType];
             if (rawStored && !this.keyStorage.isEncrypted(rawStored)) {
                 result.warnings.push(
-                    `${keyType}: Key is stored in plain text. Consider re-entering your key to enable encryption.`
+                    `${keyType}: Key is stored in plain text. Consider re-entering your key to enable encryption.`,
                 );
             }
         }
@@ -564,7 +555,7 @@ export class SecureConfigService {
             result.warnings.push('No API keys configured');
             result.suggestions.push(
                 'Add API keys in settings to enable AI features',
-                'Consider using environment variables for better security'
+                'Consider using environment variables for better security',
             );
         }
 
@@ -575,7 +566,7 @@ export class SecureConfigService {
             '• Rotate API keys regularly',
             '• Never commit API keys to version control',
             '• Use scoped keys with minimal permissions',
-            '• Monitor API usage for unusual activity'
+            '• Monitor API usage for unusual activity',
         );
 
         return result;
@@ -584,8 +575,14 @@ export class SecureConfigService {
     /**
      * Get API key rotation recommendations
      */
-    getRotationRecommendations(): Array<{keyType: string; lastRotated: number; shouldRotate: boolean; reason: string}> {
-        const recommendations: Array<{keyType: string; lastRotated: number; shouldRotate: boolean; reason: string}> = [];
+    getRotationRecommendations(): Array<{
+        keyType: string;
+        lastRotated: number;
+        shouldRotate: boolean;
+        reason: string;
+    }> {
+        const recommendations: Array<{ keyType: string; lastRotated: number; shouldRotate: boolean; reason: string }> =
+            [];
         const metadata = this.keyStorage.getAllMetadata();
         const now = Date.now();
         const rotationDays = 90; // Recommended rotation period
@@ -596,17 +593,17 @@ export class SecureConfigService {
             'groqApiKey',
             'ollamaApiKey',
             'huggingFaceApiKey',
-            'openRouterApiKey'
+            'openRouterApiKey',
         ] as const;
 
         for (const keyType of keyTypes) {
             const meta = metadata[keyType];
-            if (!meta || !meta.lastModified) {
+            if (!meta?.lastModified) {
                 recommendations.push({
                     keyType,
                     lastRotated: 0,
                     shouldRotate: false,
-                    reason: 'No rotation history available'
+                    reason: 'No rotation history available',
                 });
                 continue;
             }
@@ -620,7 +617,7 @@ export class SecureConfigService {
                 shouldRotate,
                 reason: shouldRotate
                     ? `Key is ${Math.round(timeSinceRotation / (30 * 24 * 60 * 60 * 1000))} days old (recommend rotating every ${rotationDays} days)`
-                    : 'Key is within recommended rotation period'
+                    : 'Key is within recommended rotation period',
             });
         }
 
@@ -706,7 +703,7 @@ ${prefix}_OPENROUTER_API_KEY=your_openrouter_api_key_here
             customPrompts: this.settings.customPrompts,
             customTimeouts: this.settings.customTimeouts,
             modelOptionsCache: this.settings.modelOptionsCache,
-            modelCacheTimestamps: this.settings.modelCacheTimestamps
+            modelCacheTimestamps: this.settings.modelCacheTimestamps,
         };
 
         // Add masked API keys (for reference, not functional)
@@ -715,7 +712,7 @@ ${prefix}_OPENROUTER_API_KEY=your_openrouter_api_key_here
             'groqApiKey',
             'ollamaApiKey',
             'huggingFaceApiKey',
-            'openRouterApiKey'
+            'openRouterApiKey',
         ] as const;
 
         for (const keyType of keyTypes) {

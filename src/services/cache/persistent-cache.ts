@@ -91,7 +91,7 @@ export class PersistentCacheService implements CacheService {
 
     set<T>(key: string, data: T, ttl?: number): void {
         try {
-            let index = this.getIndex();
+            const index = this.getIndex();
 
             // Evict oldest if at capacity
             while (index.length >= this.config.maxItems) {

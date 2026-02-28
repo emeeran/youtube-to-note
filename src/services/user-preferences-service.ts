@@ -52,13 +52,13 @@ export interface UserPreferences {
  */
 function migrateFormatName(oldFormat: string): string | null {
     const migrationMap: Record<string, string> = {
-        'brief': 'concise-summary',
+        brief: 'concise-summary',
         'detailed-guide': 'step-by-step-tutorial',
-        'transcript': 'complete-transcription',
+        transcript: 'complete-transcription',
         '3c-concept': '3c-accelerated-learning',
         'accelerated-learning': '3c-accelerated-learning',
         'executive-briefing': 'executive-summary',
-        'custom': 'concise-summary', // Default to concise-summary for custom
+        custom: 'concise-summary', // Default to concise-summary for custom
     };
     return migrationMap[oldFormat] ?? null;
 }
@@ -302,7 +302,7 @@ export class UserPreferencesService {
         averageTemperature: number;
         usageLevel: 'light' | 'moderate' | 'heavy';
         recommendations: string[];
-        } {
+    } {
         const preferences = this.loadPreferences();
         const formatUsage = preferences.formatUsage ?? {};
         const providerUsage = preferences.providerUsage ?? {};
@@ -383,7 +383,6 @@ export class UserPreferencesService {
             this.savePreferences({ ...this.DEFAULT_PREFERENCES, ...preferences });
             return true;
         } catch (error) {
-
             return false;
         }
     }

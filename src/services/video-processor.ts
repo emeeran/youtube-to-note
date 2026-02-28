@@ -47,16 +47,6 @@ export class VideoProcessor {
      * Process a YouTube video
      */
     async process(options: ProcessVideoOptions): Promise<string> {
-        const {
-            url,
-            format = 'step-by-step-tutorial',
-            providerName,
-            model,
-            maxTokens,
-            temperature,
-            enableAutoFallback,
-        } = options;
-
         if (this.isUnloading()) {
             ConflictPrevention.log('Plugin is unloading, cancelling video processing');
             throw new Error('Plugin is shutting down');
@@ -142,13 +132,7 @@ export class VideoProcessor {
         this.configureProviders(aiService, maxTokens, temperature);
 
         // Get AI response
-        const aiResponse = await this.getAIResponse(
-            aiService,
-            prompt,
-            providerName,
-            model,
-            enableAutoFallback,
-        );
+        const aiResponse = await this.getAIResponse(aiService, prompt, providerName, model, enableAutoFallback);
 
         const formattedContent = promptService.processAIResponse(
             aiResponse.content,
@@ -169,7 +153,11 @@ export class VideoProcessor {
      * Fetch video transcript
      */
     private async fetchTranscript(
-        youtubeService: { extractVideoId(url: string): string | null; getVideoData(videoId: string): Promise<{ title: string }>; getTranscript?: (videoId: string) => Promise<{ fullText: string } | null> },
+        youtubeService: {
+            extractVideoId(url: string): string | null;
+            getVideoData(videoId: string): Promise<{ title: string }>;
+            getTranscript?: (videoId: string) => Promise<{ fullText: string } | null>;
+        },
         videoId: string,
     ): Promise<string | undefined> {
         try {
@@ -196,11 +184,7 @@ export class VideoProcessor {
     /**
      * Configure providers with model parameters
      */
-    private configureProviders(
-        aiService: unknown,
-        maxTokens?: number,
-        temperature?: number,
-    ): void {
+    private configureProviders(aiService: unknown, maxTokens?: number, temperature?: number): void {
         const providers =
             (
                 aiService as {
