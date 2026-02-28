@@ -103,8 +103,8 @@ export class SettingsDrawer {
         this.drawerEl.className = `${CSS_PREFIX}-drawer${this.isOpen ? ' is-open' : ''}`;
         this.drawerEl.setAttribute('data-drawer-id', this.options.id);
 
-        this.renderHeader();
-        this.renderContent();
+        this.renderHeader(this.drawerEl);
+        this.renderContent(this.drawerEl);
 
         return this.drawerEl;
     }
@@ -112,8 +112,8 @@ export class SettingsDrawer {
     /**
      * Render the drawer header
      */
-    private renderHeader(): void {
-        this.headerEl = this.drawerEl.createDiv({
+    private renderHeader(container: HTMLElement): void {
+        this.headerEl = container.createDiv({
             cls: `${CSS_PREFIX}-drawer-header`,
             attr: {
                 role: 'button',
@@ -150,8 +150,8 @@ export class SettingsDrawer {
     /**
      * Render the drawer content
      */
-    private renderContent(): void {
-        const contentWrapper = this.drawerEl.createDiv({
+    private renderContent(container: HTMLElement): void {
+        const contentWrapper = container.createDiv({
             cls: `${CSS_PREFIX}-drawer-content`,
             attr: {
                 id: `${this.options.id}-content`,

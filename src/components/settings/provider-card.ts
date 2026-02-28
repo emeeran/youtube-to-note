@@ -78,11 +78,11 @@ export class ProviderCard {
         this.cardEl.className = `${CSS_PREFIX}-provider-card`;
         this.cardEl.setAttribute('data-provider-id', this.options.id);
 
-        this.renderHeader();
-        this.renderDescription();
-        this.renderInputGroup();
-        this.renderKeyStrength();
-        this.renderGetKeyLink();
+        this.renderHeader(this.cardEl);
+        this.renderDescription(this.cardEl);
+        this.renderInputGroup(this.cardEl);
+        this.renderKeyStrength(this.cardEl);
+        this.renderGetKeyLink(this.cardEl);
 
         return this.cardEl;
     }
@@ -90,8 +90,8 @@ export class ProviderCard {
     /**
      * Render the card header with icon, name, and status
      */
-    private renderHeader(): void {
-        const header = this.cardEl.createDiv({ cls: `${CSS_PREFIX}-provider-header` });
+    private renderHeader(container: HTMLElement): void {
+        const header = container.createDiv({ cls: `${CSS_PREFIX}-provider-header` });
 
         header.createSpan({
             cls: `${CSS_PREFIX}-provider-icon`,
@@ -113,8 +113,8 @@ export class ProviderCard {
     /**
      * Render the description
      */
-    private renderDescription(): void {
-        this.cardEl.createDiv({
+    private renderDescription(container: HTMLElement): void {
+        container.createDiv({
             cls: `${CSS_PREFIX}-provider-desc`,
             text: this.options.description,
         });
@@ -123,8 +123,8 @@ export class ProviderCard {
     /**
      * Render the input group with API key input and buttons
      */
-    private renderInputGroup(): void {
-        const inputGroup = this.cardEl.createDiv({
+    private renderInputGroup(container: HTMLElement): void {
+        const inputGroup = container.createDiv({
             cls: `${CSS_PREFIX}-provider-input-group`,
         });
 
@@ -170,11 +170,11 @@ export class ProviderCard {
     /**
      * Render the key strength indicator
      */
-    private renderKeyStrength(): void {
+    private renderKeyStrength(container: HTMLElement): void {
         if (this.options.keyStrength === 'none') {
             return;
         }
-        const strengthEl = this.cardEl.createDiv({
+        const strengthEl = container.createDiv({
             cls: `${CSS_PREFIX}-key-strength ${this.options.keyStrength ?? 'none'}`,
         });
         for (let i = 0; i < 3; i++) {
@@ -185,11 +185,11 @@ export class ProviderCard {
     /**
      * Render the "Get Key" link
      */
-    private renderGetKeyLink(): void {
+    private renderGetKeyLink(container: HTMLElement): void {
         if (!this.options.getKeyUrl) {
             return;
         }
-        const linkEl = this.cardEl.createDiv({
+        const linkEl = container.createDiv({
             cls: `${CSS_PREFIX}-provider-link`,
             attr: { style: 'margin-top: 8px; font-size: 0.8rem;' },
         });
