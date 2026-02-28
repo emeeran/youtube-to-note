@@ -265,7 +265,7 @@ export class UserPreferencesService {
         parallel: boolean;
         multimodal: boolean;
         autoFallback: boolean;
-    } {
+        } {
         const preferences = this.loadPreferences();
 
         return {
@@ -302,7 +302,7 @@ export class UserPreferencesService {
         averageTemperature: number;
         usageLevel: 'light' | 'moderate' | 'heavy';
         recommendations: string[];
-    } {
+        } {
         const preferences = this.loadPreferences();
         const formatUsage = preferences.formatUsage ?? {};
         const providerUsage = preferences.providerUsage ?? {};

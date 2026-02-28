@@ -218,7 +218,7 @@ export class SecurityAuditService {
         suspiciousActivities: number;
         recentActivity: boolean;
         lastEvent?: SecurityEvent;
-    } {
+        } {
         const recentWindow = 60 * 60 * 1000; // 1 hour
         const recentEvents = this.getEventsInWindow(recentWindow);
 

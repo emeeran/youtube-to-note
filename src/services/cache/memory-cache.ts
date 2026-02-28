@@ -142,7 +142,7 @@ export class MemoryCacheService implements CacheService {
         itemCount: number;
         oldestAccess: number;
         newestAccess: number;
-    } {
+        } {
         let oldestAccess = Infinity;
         let newestAccess = 0;
 
