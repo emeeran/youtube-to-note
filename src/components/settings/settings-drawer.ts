@@ -103,7 +103,16 @@ export class SettingsDrawer {
         this.drawerEl.className = `${CSS_PREFIX}-drawer${this.isOpen ? ' is-open' : ''}`;
         this.drawerEl.setAttribute('data-drawer-id', this.options.id);
 
-        // Header
+        this.renderHeader();
+        this.renderContent();
+
+        return this.drawerEl;
+    }
+
+    /**
+     * Render the drawer header
+     */
+    private renderHeader(): void {
         this.headerEl = this.drawerEl.createDiv({
             cls: `${CSS_PREFIX}-drawer-header`,
             attr: {
@@ -129,7 +138,19 @@ export class SettingsDrawer {
             text: '\u25BC', // ▼
         });
 
-        // Content wrapper
+        this.headerEl.addEventListener('click', () => this.toggle());
+        this.headerEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.toggle();
+            }
+        });
+    }
+
+    /**
+     * Render the drawer content
+     */
+    private renderContent(): void {
         const contentWrapper = this.drawerEl.createDiv({
             cls: `${CSS_PREFIX}-drawer-content`,
             attr: {
@@ -139,7 +160,6 @@ export class SettingsDrawer {
             },
         });
 
-        // Optional description
         if (this.options.description) {
             contentWrapper.createDiv({
                 cls: `${CSS_PREFIX}-section-desc`,
@@ -147,22 +167,9 @@ export class SettingsDrawer {
             });
         }
 
-        // Inner content container
         this.contentEl = contentWrapper.createDiv({
             cls: `${CSS_PREFIX}-drawer-inner`,
         });
-
-        // Event handlers
-        this.headerEl.addEventListener('click', () => this.toggle());
-
-        this.headerEl.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.toggle();
-            }
-        });
-
-        return this.drawerEl;
     }
 
     /**

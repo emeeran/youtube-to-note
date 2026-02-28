@@ -10,7 +10,7 @@ import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { Notice, Plugin, TFile } from 'obsidian';
 import { VideoProcessor, ProcessVideoOptions } from './services/video-processor';
-import { ModalFactory } from './services/modal-factory';
+import { ModalFactory, ProcessCallbackOptions } from './services/modal-factory';
 
 const PLUGIN_PREFIX = 'ytp';
 const PLUGIN_VERSION = '1.3.5';
@@ -104,14 +104,20 @@ export default class YoutubeClipperPlugin extends Plugin {
         // Initialize extracted services
         this.videoProcessor = new VideoProcessor(
             () => this._settings,
-            () => this.serviceContainer!,
+            () => {
+                if (!this.serviceContainer) throw new Error('ServiceContainer not initialized');
+                return this.serviceContainer;
+            },
             () => this.isUnloading,
         );
 
         this.modalFactory = new ModalFactory(
             this.app,
             () => this._settings,
-            () => this.serviceContainer!,
+            () => {
+                if (!this.serviceContainer) throw new Error('ServiceContainer not initialized');
+                return this.serviceContainer;
+            },
         );
     }
 
@@ -257,29 +263,18 @@ export default class YoutubeClipperPlugin extends Plugin {
             this.modalFactory.updateServiceContainer(this.serviceContainer);
 
             const modal = this.modalFactory.createYouTubeUrlModal({
-                onProcess: async (
-                    url,
-                    format,
-                    provider,
-                    model,
-                    performanceMode,
-                    enableParallel,
-                    preferMultimodal,
-                    maxTokens,
-                    temperature,
-                    enableAutoFallback,
-                ) => {
+                onProcess: async (options: ProcessCallbackOptions) => {
                     return this.processYouTubeVideo({
-                        url,
-                        format,
-                        providerName: provider,
-                        model,
-                        performanceMode,
-                        enableParallel,
-                        preferMultimodal,
-                        maxTokens,
-                        temperature,
-                        enableAutoFallback,
+                        url: options.url,
+                        format: options.format,
+                        providerName: options.provider,
+                        model: options.model,
+                        performanceMode: options.performanceMode,
+                        enableParallel: options.enableParallel,
+                        preferMultimodal: options.preferMultimodal,
+                        maxTokens: options.maxTokens,
+                        temperature: options.temperature,
+                        enableAutoFallback: options.enableAutoFallback,
                     });
                 },
                 onOpenFile: this.openFileByPath.bind(this),

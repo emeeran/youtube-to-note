@@ -12,6 +12,7 @@
  */
 
 import { Notice } from 'obsidian';
+import { logger } from '../../services/logger';
 
 /** Error classification types */
 export type ErrorType =
@@ -197,7 +198,7 @@ export class ComponentErrorBoundary {
         }
 
         // Log error
-        console.error(`[${this.options.context}] Error:`, classifiedError);
+        logger.error(`Error in ${this.options.context}`, 'ErrorBoundary', { error: classifiedError });
 
         return null;
     }

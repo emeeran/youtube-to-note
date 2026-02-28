@@ -8,6 +8,8 @@
  * - Key rotation history
  */
 
+import { logger } from './logger';
+
 /** Security event types */
 export type SecurityEventType =
     | 'key_access'
@@ -320,14 +322,14 @@ export class SecurityAuditService {
         if (event.type === 'decryption_failure') {
             const failures = recentEvents.filter(e => e.type === 'decryption_failure').length;
             if (failures === this.config.alertThresholds.maxDecryptionFailures) {
-                console.warn(`[Security] Alert: ${failures} decryption failures detected in the last hour`);
+                logger.warn(`${failures} decryption failures detected in the last hour`, 'Security');
             }
         }
 
         if (event.type === 'suspicious_access') {
             const suspicious = recentEvents.filter(e => e.type === 'suspicious_access').length;
             if (suspicious >= this.config.alertThresholds.maxSuspiciousAccess) {
-                console.error(`[Security] Critical: ${suspicious} suspicious access patterns detected`);
+                logger.error(`${suspicious} suspicious access patterns detected`, 'Security');
             }
         }
     }
@@ -362,7 +364,7 @@ export class SecurityAuditService {
             try {
                 localStorage.setItem(this.storageKey, JSON.stringify(this.events));
             } catch {
-                console.warn('[Security] Failed to save audit logs');
+                logger.warn('Failed to save audit logs', 'Security');
             }
         }
     }

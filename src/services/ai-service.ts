@@ -43,7 +43,7 @@ export class AIService {
         providerName: string,
         prompt: string,
         overrideModel?: string,
-        images?: (string | ArrayBuffer)[],
+        _images?: (string | ArrayBuffer)[],
         enableFallback = true,
     ): Promise<AIResponse> {
         const provider = this.providerMap.get(providerName);
@@ -63,25 +63,51 @@ export class AIService {
                 model: provider.model || 'default',
             };
         } catch (error) {
-            if (enableFallback) {
-                // Try other providers as fallback
-                for (const [name, fallbackProvider] of this.providerMap) {
-                    if (name !== providerName) {
-                        try {
-                            const content = await fallbackProvider.process(prompt);
-                            return {
-                                content,
-                                provider: fallbackProvider.name,
-                                model: fallbackProvider.model || 'default',
-                            };
-                        } catch {
-                            continue;
-                        }
-                    }
-                }
-            }
-            throw error;
+            return this.handleProviderFailure(error, providerName, prompt, enableFallback);
         }
+    }
+
+    /**
+     * Handle provider failure with optional fallback to other providers
+     */
+    private async handleProviderFailure(
+        error: unknown,
+        failedProviderName: string,
+        prompt: string,
+        enableFallback: boolean,
+    ): Promise<AIResponse> {
+        if (enableFallback) {
+            const fallbackResult = await this.tryFallbackProviders(failedProviderName, prompt);
+            if (fallbackResult) {
+                return fallbackResult;
+            }
+        }
+        throw error;
+    }
+
+    /**
+     * Try fallback providers in order
+     */
+    private async tryFallbackProviders(
+        excludeProvider: string,
+        prompt: string,
+    ): Promise<AIResponse | null> {
+        for (const [name, fallbackProvider] of this.providerMap) {
+            if (name === excludeProvider) {
+                continue;
+            }
+            try {
+                const content = await fallbackProvider.process(prompt);
+                return {
+                    content,
+                    provider: fallbackProvider.name,
+                    model: fallbackProvider.model || 'default',
+                };
+            } catch {
+                continue;
+            }
+        }
+        return null;
     }
 
     /**

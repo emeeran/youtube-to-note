@@ -1,5 +1,5 @@
 import { BaseAIProvider } from './base';
-import type { OpenAICompatibleResponse } from '../types/api-responses';
+import type { OpenAICompatibleResponse, OpenRouterErrorResponse, OpenAICompatibleRequestBody } from '../types/api-responses';
 
 /**
  * OpenRouter API provider implementation
@@ -14,7 +14,7 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
  */
 function formatOpenRouterError(rawMessage: string): string {
     const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
+    const retryInfo = retryMatch?.[1] ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
 
     if (rawMessage.toLowerCase().includes('rate limit')) {
         return `OpenRouter rate limit reached.${retryInfo}`;
@@ -69,8 +69,8 @@ export class OpenRouterProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMessage = errorData?.error?.message || '';
+                const errorData = (await this.safeJsonParse(response)) as OpenRouterErrorResponse;
+                const errorMessage = errorData?.error?.message ?? '';
                 throw new Error(formatOpenRouterError(errorMessage));
             }
 
@@ -102,7 +102,7 @@ export class OpenRouterProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string): OpenAICompatibleRequestBody {
         return {
             model: this._model,
             messages: [

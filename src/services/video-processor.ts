@@ -134,14 +134,14 @@ export class VideoProcessor {
         // Get AI response
         const aiResponse = await this.getAIResponse(aiService, prompt, providerName, model, enableAutoFallback);
 
-        const formattedContent = promptService.processAIResponse(
-            aiResponse.content,
-            aiResponse.provider,
-            aiResponse.model,
+        const formattedContent = promptService.processAIResponse({
+            content: aiResponse.content,
+            provider: aiResponse.provider,
+            model: aiResponse.model,
             format,
             videoData,
-            url,
-        );
+            videoUrl: url,
+        });
 
         const filePath = await fileService.saveToFile(videoData.title, formattedContent, settings.outputPath);
 

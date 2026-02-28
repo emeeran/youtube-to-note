@@ -98,11 +98,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
      */
     private createPresets(): void {
         const presetsContainer = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-presets` });
+        const presets = this.getPresetDefinitions();
+        const currentMode = this.settings.performanceMode ?? 'balanced';
 
-        const presets = [
+        presets.forEach(preset => {
+            this.createPresetButton(presetsContainer, preset, currentMode);
+        });
+    }
+
+    /**
+     * Get preset definitions
+     */
+    private getPresetDefinitions(): Array<{
+        id: string;
+        icon: string;
+        label: string;
+        desc: string;
+        settings: Record<string, unknown>;
+    }> {
+        return [
             {
                 id: 'fast',
-                icon: '\u26A1', // ⚡
+                icon: '\u26A1',
                 label: 'Fast',
                 desc: 'Quick results',
                 settings: {
@@ -114,7 +131,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             },
             {
                 id: 'balanced',
-                icon: '\u2696\uFE0F', // ⚖️
+                icon: '\u2696\uFE0F',
                 label: 'Balanced',
                 desc: 'Good speed & quality',
                 settings: {
@@ -126,7 +143,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             },
             {
                 id: 'quality',
-                icon: '\u2728', // ✨
+                icon: '\u2728',
                 label: 'Quality',
                 desc: 'Best results',
                 settings: {
@@ -137,32 +154,35 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 },
             },
         ];
+    }
 
-        const currentMode = this.settings.performanceMode ?? 'balanced';
+    /**
+     * Create a preset button
+     */
+    private createPresetButton(
+        container: HTMLElement,
+        preset: { id: string; icon: string; label: string; desc: string; settings: Record<string, unknown> },
+        currentMode: string,
+    ): void {
+        const btn = container.createEl('button', {
+            cls: `${CSS_PREFIX}-preset-btn${currentMode === preset.id ? ' active' : ''}`,
+            attr: {
+                type: 'button',
+                'aria-pressed': String(currentMode === preset.id),
+            },
+        });
 
-        presets.forEach(preset => {
-            const btn = presetsContainer.createEl('button', {
-                cls: `${CSS_PREFIX}-preset-btn${currentMode === preset.id ? ' active' : ''}`,
-                attr: {
-                    type: 'button',
-                    'aria-pressed': String(currentMode === preset.id),
-                },
+        btn.createSpan({ cls: 'preset-icon', text: preset.icon });
+        btn.createSpan({ cls: 'preset-label', text: preset.label });
+        btn.createSpan({ cls: 'preset-desc', text: preset.desc });
+
+        btn.addEventListener('click', async () => {
+            Object.entries(preset.settings).forEach(([key, value]) => {
+                (this.settings as unknown as Record<string, unknown>)[key] = value;
             });
-
-            btn.createSpan({ cls: 'preset-icon', text: preset.icon });
-            btn.createSpan({ cls: 'preset-label', text: preset.label });
-            btn.createSpan({ cls: 'preset-desc', text: preset.desc });
-
-            btn.addEventListener('click', async () => {
-                // Apply preset settings
-                Object.entries(preset.settings).forEach(([key, value]) => {
-                    (this.settings as unknown as Record<string, unknown>)[key] = value;
-                });
-
-                await this.validateAndSaveSettings();
-                this.display();
-                this.showToast(`Applied ${preset.label} preset`, 'success');
-            });
+            await this.validateAndSaveSettings();
+            this.display();
+            this.showToast(`Applied ${preset.label} preset`, 'success');
         });
     }
 
@@ -812,7 +832,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const drawer = new SettingsDrawer({
             id: 'advanced',
             title: 'Advanced Settings',
-            icon: '\u2699\uFE0F', // ⚙️
+            icon: '\u2699\uFE0F',
             description: 'Advanced configuration options for power users.',
             isOpen: false,
         });
@@ -821,78 +841,84 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.drawers.set('advanced', drawer);
 
         const content = drawer.getContentElement();
+        await this.createSecurityStatusSection(content);
+        this.createAdvancedSettingsToggles(content);
+    }
 
-        // Security Status Section
+    private async createSecurityStatusSection(content: HTMLElement): Promise<void> {
         const securityDesc = content.createDiv({ cls: `${CSS_PREFIX}-security-status` });
-        securityDesc.createEl('h3', { text: '\uD83D\uDD12 Security Status' }); // 🔒
+        securityDesc.createEl('h3', { text: '\uD83D\uDD12 Security Status' });
         const securityContent = securityDesc.createDiv();
 
-        // Run security validation
         const securityResult = await this.secureConfig.validateSecurityConfiguration();
 
         if (securityResult.warnings.length > 0 || securityResult.suggestions.length > 0) {
-            if (securityResult.warnings.length > 0) {
-                const warningEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-security-warnings`,
-                });
-                securityResult.warnings.forEach((warning: string) => {
-                    const item = warningEl.createEl('div');
-                    item.textContent = `\u26A0\uFE0F ${warning}`; // ⚠️
-                    item.style.margin = '4px 0';
-                });
-            }
-
-            if (securityResult.suggestions.length > 0) {
-                const suggestionEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-security-suggestions`,
-                });
-                securityResult.suggestions.forEach((suggestion: string) => {
-                    const item = suggestionEl.createEl('div');
-                    item.textContent = suggestion;
-                    item.style.margin = '4px 0';
-                    item.style.color = 'var(--text-muted)';
-                });
-            }
-
-            const recommendations = this.secureConfig.getRotationRecommendations();
-            const needsRotation = recommendations.filter(r => r.shouldRotate);
-
-            if (needsRotation.length > 0) {
-                const rotationEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-rotation-alert`,
-                });
-                const rotationTitle = rotationEl.createEl('div', {
-                    text: '\uD83D\uDD04 Key Rotation Recommended', // 🔄
-                });
-                rotationTitle.style.fontWeight = 'bold';
-                rotationTitle.style.margin = '8px 0 4px 0';
-                rotationEl.appendChild(rotationTitle);
-
-                needsRotation.forEach(rec => {
-                    const item = rotationEl.createEl('div');
-                    item.style.marginLeft = '16px';
-                    item.textContent = `\u2022 ${rec.keyType}: ${rec.reason}`; // •
-                });
-            }
+            this.renderSecurityWarnings(securityContent, securityResult);
+            this.renderRotationAlerts(securityContent);
         } else {
-            const secureEl = securityContent.createEl('div', {
-                cls: `${CSS_PREFIX}-security-secure`,
-            });
-            secureEl.textContent = '\u2705 All API keys are properly secured'; // ✅
+            const secureEl = securityContent.createEl('div', { cls: `${CSS_PREFIX}-security-secure` });
+            secureEl.textContent = '\u2705 All API keys are properly secured';
         }
 
-        // Security actions
-        const actionsDiv = securityContent.createDiv({
-            cls: `${CSS_PREFIX}-security-actions`,
+        this.createSecurityActions(securityContent);
+    }
+
+    private renderSecurityWarnings(
+        securityContent: HTMLElement,
+        securityResult: { warnings: string[]; suggestions: string[] },
+    ): void {
+        if (securityResult.warnings.length > 0) {
+            const warningEl = securityContent.createEl('div', { cls: `${CSS_PREFIX}-security-warnings` });
+            securityResult.warnings.forEach((warning: string) => {
+                const item = warningEl.createEl('div');
+                item.textContent = `\u26A0\uFE0F ${warning}`;
+                item.style.margin = '4px 0';
+            });
+        }
+
+        if (securityResult.suggestions.length > 0) {
+            const suggestionEl = securityContent.createEl('div', { cls: `${CSS_PREFIX}-security-suggestions` });
+            securityResult.suggestions.forEach((suggestion: string) => {
+                const item = suggestionEl.createEl('div');
+                item.textContent = suggestion;
+                item.style.margin = '4px 0';
+                item.style.color = 'var(--text-muted)';
+            });
+        }
+    }
+
+    private renderRotationAlerts(securityContent: HTMLElement): void {
+        const recommendations = this.secureConfig.getRotationRecommendations();
+        const needsRotation = recommendations.filter(r => r.shouldRotate);
+
+        if (needsRotation.length === 0) {
+            return;
+        }
+
+        const rotationEl = securityContent.createEl('div', { cls: `${CSS_PREFIX}-rotation-alert` });
+        const rotationTitle = rotationEl.createEl('div', { text: '\uD83D\uDD04 Key Rotation Recommended' });
+        rotationTitle.style.fontWeight = 'bold';
+        rotationTitle.style.margin = '8px 0 4px 0';
+        rotationEl.appendChild(rotationTitle);
+
+        needsRotation.forEach(rec => {
+            const item = rotationEl.createEl('div');
+            item.style.marginLeft = '16px';
+            item.textContent = `\u2022 ${rec.keyType}: ${rec.reason}`;
         });
+    }
+
+    private createSecurityActions(securityContent: HTMLElement): void {
+        const actionsDiv = securityContent.createDiv({ cls: `${CSS_PREFIX}-security-actions` });
         actionsDiv.style.marginTop = '12px';
 
         const clearKeysBtn = actionsDiv.createEl('button', {
-            text: '\uD83D\uDDD1\uFE0F Clear All API Keys', // 🗑️
+            text: '\uD83D\uDDD1\uFE0F Clear All API Keys',
             cls: 'mod-warning',
         });
         clearKeysBtn.style.marginRight = '8px';
         clearKeysBtn.addEventListener('click', () => {
+            // eslint-disable-next-line no-alert
             if (confirm('Are you sure you want to clear all API keys? This cannot be undone.')) {
                 this.secureConfig.clearAllApiKeys();
                 this.showToast('All API keys have been cleared', 'info');
@@ -900,24 +926,22 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
         });
 
-        const exportBtn = actionsDiv.createEl('button', {
-            text: '\uD83D\uDCE4 Export Settings (Masked)', // 📤
-        });
+        const exportBtn = actionsDiv.createEl('button', { text: '\uD83D\uDCE4 Export Settings (Masked)' });
         exportBtn.addEventListener('click', () => {
             const safeSettings = this.secureConfig.exportSafeSettings();
             const json = JSON.stringify(safeSettings, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-
             const a = document.createElement('a');
             a.href = url;
             a.download = `youtube-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
             a.click();
-
             URL.revokeObjectURL(url);
             this.showToast('Settings exported (API keys are masked)', 'success');
         });
+    }
 
+    private createAdvancedSettingsToggles(content: HTMLElement): void {
         new Setting(content)
             .setName('Parallel Processing')
             .setDesc('Query multiple AI providers simultaneously for faster results.')

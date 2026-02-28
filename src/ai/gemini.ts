@@ -67,7 +67,8 @@ export class GeminiProvider extends BaseAIProvider {
                 throw new Error('No response candidates returned from Gemini API');
             }
 
-            if (data.candidates[0]!.finishReason === 'SAFETY') {
+            const candidate = data.candidates[0];
+            if (candidate?.finishReason === 'SAFETY') {
                 throw new Error('Response blocked by Gemini safety filters. Try rephrasing.');
             }
 

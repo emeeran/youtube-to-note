@@ -380,8 +380,10 @@ export class BatchVideoModal extends BaseVideoModal {
         try {
             // Process one by one to show progress
             for (let i = 0; i < this.urls.length; i++) {
-                if (!this.urls[i]) continue;
-                this.urls[i]!.status = 'processing';
+                const urlItem = this.urls[i];
+                if (!urlItem) continue;
+
+                urlItem.status = 'processing';
                 this.renderItems();
 
                 progressText.textContent = `Processing ${i + 1} of ${total}...`;
@@ -389,18 +391,18 @@ export class BatchVideoModal extends BaseVideoModal {
 
                 try {
                     const results = await this.batchOptions.onProcess(
-                        [this.urls[i]!.url],
+                        [urlItem.url],
                         this.selectedFormat,
                         this.selectedProvider,
                         this.selectedModel,
                     );
 
-                    this.urls[i]!.status = 'completed';
-                    this.urls[i]!.result = results[0];
+                    urlItem.status = 'completed';
+                    urlItem.result = results[0];
                     completed++;
                 } catch (error) {
-                    this.urls[i]!.status = 'failed';
-                    this.urls[i]!.error = error instanceof Error ? error.message : String(error);
+                    urlItem.status = 'failed';
+                    urlItem.error = error instanceof Error ? error.message : String(error);
                 }
 
                 this.renderItems();

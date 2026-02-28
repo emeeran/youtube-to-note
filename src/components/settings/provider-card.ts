@@ -78,7 +78,19 @@ export class ProviderCard {
         this.cardEl.className = `${CSS_PREFIX}-provider-card`;
         this.cardEl.setAttribute('data-provider-id', this.options.id);
 
-        // Header row
+        this.renderHeader();
+        this.renderDescription();
+        this.renderInputGroup();
+        this.renderKeyStrength();
+        this.renderGetKeyLink();
+
+        return this.cardEl;
+    }
+
+    /**
+     * Render the card header with icon, name, and status
+     */
+    private renderHeader(): void {
         const header = this.cardEl.createDiv({ cls: `${CSS_PREFIX}-provider-header` });
 
         header.createSpan({
@@ -91,25 +103,31 @@ export class ProviderCard {
             text: this.options.name,
         });
 
-        // Status badge
         this.statusEl = header.createDiv({
             cls: `${CSS_PREFIX}-provider-status ${this.status}`,
             attr: { 'aria-live': 'polite' },
         });
         this.updateStatusDisplay();
+    }
 
-        // Description
+    /**
+     * Render the description
+     */
+    private renderDescription(): void {
         this.cardEl.createDiv({
             cls: `${CSS_PREFIX}-provider-desc`,
             text: this.options.description,
         });
+    }
 
-        // Input group
+    /**
+     * Render the input group with API key input and buttons
+     */
+    private renderInputGroup(): void {
         const inputGroup = this.cardEl.createDiv({
             cls: `${CSS_PREFIX}-provider-input-group`,
         });
 
-        // API Key input
         this.inputEl = inputGroup.createEl('input', {
             attr: {
                 type: 'password',
@@ -121,65 +139,68 @@ export class ProviderCard {
         });
         this.inputEl.style.flex = '1';
 
-        // Password visibility toggle
         const toggleBtn = inputGroup.createEl('button', {
             cls: `${CSS_PREFIX}-password-toggle`,
-            text: '\u{1F441}\uFE0F', // 👁️
+            text: '\u{1F441}\uFE0F',
             attr: {
                 type: 'button',
                 'aria-label': 'Toggle password visibility',
                 title: 'Show key',
             },
         });
-
         toggleBtn.addEventListener('click', () => this.toggleVisibility());
 
-        // Test button
         this.testBtnEl = inputGroup.createEl('button', {
             cls: `${CSS_PREFIX}-validate-btn`,
-            text: '\u2713 Test', // ✓ Test
+            text: '\u2713 Test',
             attr: {
                 type: 'button',
                 'aria-label': `Test ${this.options.name} connection`,
             },
         });
-
         this.testBtnEl.addEventListener('click', () => this.handleTest());
 
-        // Input change handler
         this.inputEl.addEventListener('input', () => {
             const value = this.inputEl?.value ?? '';
             this.options.onChange?.(value);
             this.updateKeyStrength(value);
         });
+    }
 
-        // Key strength indicator
-        if (this.options.keyStrength !== 'none') {
-            const strengthEl = this.cardEl.createDiv({
-                cls: `${CSS_PREFIX}-key-strength ${this.options.keyStrength ?? 'none'}`,
-            });
-            for (let i = 0; i < 3; i++) {
-                strengthEl.createDiv({ cls: `${CSS_PREFIX}-key-strength-bar` });
-            }
+    /**
+     * Render the key strength indicator
+     */
+    private renderKeyStrength(): void {
+        if (this.options.keyStrength === 'none') {
+            return;
         }
-
-        // Get key link
-        if (this.options.getKeyUrl) {
-            const linkEl = this.cardEl.createDiv({
-                cls: `${CSS_PREFIX}-provider-link`,
-                attr: { style: 'margin-top: 8px; font-size: 0.8rem;' },
-            });
-            linkEl.createEl('a', {
-                text: `Get ${this.options.name} API key \u2197\uFE0F`,
-                attr: {
-                    href: this.options.getKeyUrl,
-                    target: '_blank',
-                    rel: 'noopener noreferrer',
-                },
-            });
+        const strengthEl = this.cardEl.createDiv({
+            cls: `${CSS_PREFIX}-key-strength ${this.options.keyStrength ?? 'none'}`,
+        });
+        for (let i = 0; i < 3; i++) {
+            strengthEl.createDiv({ cls: `${CSS_PREFIX}-key-strength-bar` });
         }
+    }
 
-        return this.cardEl;
+    /**
+     * Render the "Get Key" link
+     */
+    private renderGetKeyLink(): void {
+        if (!this.options.getKeyUrl) {
+            return;
+        }
+        const linkEl = this.cardEl.createDiv({
+            cls: `${CSS_PREFIX}-provider-link`,
+            attr: { style: 'margin-top: 8px; font-size: 0.8rem;' },
+        });
+        linkEl.createEl('a', {
+            text: `Get ${this.options.name} API key \u2197\uFE0F`,
+            attr: {
+                href: this.options.getKeyUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+            },
+        });
     }
 
     /**

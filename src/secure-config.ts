@@ -1,6 +1,7 @@
 import { YouTubePluginSettings } from './types';
 import { CryptoService, CryptoMigration, LegacyCryptoService, CRYPTO_VERSION } from './services/crypto-service';
 import { securityAudit, SecurityAuditService } from './services/security-audit';
+import { logger } from './services/logger';
 
 /** API key type for secure config methods */
 type ApiKeyType = 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
@@ -144,7 +145,7 @@ class SecureKeyStorage {
             stored[keyId] = meta;
             localStorage.setItem(this.storageKey, JSON.stringify(stored));
         } catch (e) {
-            console.warn('Failed to store key metadata:', e);
+            logger.warn('Failed to store key metadata', 'SecureConfig', { error: e });
         }
     }
 
@@ -169,7 +170,7 @@ class SecureKeyStorage {
             delete stored[keyId];
             localStorage.setItem(this.storageKey, JSON.stringify(stored));
         } catch (e) {
-            console.warn('Failed to clear key metadata:', e);
+            logger.warn('Failed to clear key metadata', 'SecureConfig', { error: e });
         }
     }
 
@@ -180,7 +181,7 @@ class SecureKeyStorage {
         try {
             localStorage.removeItem(this.storageKey);
         } catch (e) {
-            console.warn('Failed to clear all metadata:', e);
+            logger.warn('Failed to clear all metadata', 'SecureConfig', { error: e });
         }
     }
 }
@@ -241,7 +242,9 @@ class APIKeyValidator {
         if (pattern && !pattern.test(trimmedKey)) {
             return {
                 valid: false,
-                message: `${keyType.toUpperCase()} API key format doesn't match expected pattern. This may be okay if the format has changed.`,
+                message:
+                    `${keyType.toUpperCase()} API key format doesn't match expected pattern. ` +
+                    'This may be okay if the format has changed.',
             };
         }
 
@@ -336,7 +339,7 @@ export class SecureConfigService {
             } catch (error) {
                 securityAudit.logDecryption(false, keyType, error instanceof Error ? error.message : 'Unknown error');
                 securityAudit.logKeyAccess(keyType, false);
-                console.warn('Failed to decrypt key:', error);
+                logger.warn('Failed to decrypt key', 'SecureConfig', { error });
             }
         }
 
@@ -365,7 +368,7 @@ export class SecureConfigService {
         }
 
         // Cannot decrypt synchronously - return empty and log warning
-        console.warn(`Key ${keyType} requires async decryption. Use getApiKey() instead.`);
+        logger.warn(`Key ${keyType} requires async decryption. Use getApiKey() instead.`, 'SecureConfig');
         return '';
     }
 
@@ -483,7 +486,7 @@ export class SecureConfigService {
                 }
             }
         } catch (e) {
-            console.debug('Environment variable access failed:', e);
+            logger.debug('Environment variable access failed', 'SecureConfig', { error: e });
         }
 
         return '';
@@ -509,7 +512,25 @@ export class SecureConfigService {
             return result;
         }
 
-        // Check stored keys
+        const hasStoredKeys = await this.validateStoredKeys(result);
+
+        if (!hasStoredKeys) {
+            result.warnings.push('No API keys configured');
+            result.suggestions.push(
+                'Add API keys in settings to enable AI features',
+                'Consider using environment variables for better security',
+            );
+        }
+
+        this.addSecurityBestPractices(result);
+
+        return result;
+    }
+
+    /**
+     * Validate all stored API keys
+     */
+    private async validateStoredKeys(result: SecurityValidationResult): Promise<boolean> {
         const keyTypes = [
             'geminiApiKey',
             'groqApiKey',
@@ -525,41 +546,46 @@ export class SecureConfigService {
             if (!apiKey || apiKey.length === 0) continue;
 
             hasStoredKeys = true;
-
-            // Format validation
-            const formatValidation = this.validator.validateKeyFormat(keyType.replace('ApiKey', ''), apiKey);
-
-            if (!formatValidation.valid) {
-                result.warnings.push(`${keyType}: ${formatValidation.message}`);
-                result.isValid = false;
-            }
-
-            // Health check
-            const health = this.validator.checkKeyHealth(keyType.replace('ApiKey', ''), apiKey);
-
-            if (!health.isHealthy) {
-                result.warnings.push(`${keyType}: ${health.warnings.join(', ')}`);
-                result.isValid = false;
-            }
-
-            // Check if key is encrypted
-            const rawStored = this.settings[keyType];
-            if (rawStored && !this.keyStorage.isEncrypted(rawStored)) {
-                result.warnings.push(
-                    `${keyType}: Key is stored in plain text. Consider re-entering your key to enable encryption.`,
-                );
-            }
+            this.validateSingleKey(keyType, apiKey, result);
         }
 
-        if (!hasStoredKeys) {
-            result.warnings.push('No API keys configured');
-            result.suggestions.push(
-                'Add API keys in settings to enable AI features',
-                'Consider using environment variables for better security',
+        return hasStoredKeys;
+    }
+
+    /**
+     * Validate a single API key
+     */
+    private validateSingleKey(
+        keyType: string,
+        apiKey: string,
+        result: SecurityValidationResult,
+    ): void {
+        const providerName = keyType.replace('ApiKey', '');
+
+        const formatValidation = this.validator.validateKeyFormat(providerName, apiKey);
+        if (!formatValidation.valid) {
+            result.warnings.push(`${keyType}: ${formatValidation.message}`);
+            result.isValid = false;
+        }
+
+        const health = this.validator.checkKeyHealth(providerName, apiKey);
+        if (!health.isHealthy) {
+            result.warnings.push(`${keyType}: ${health.warnings.join(', ')}`);
+            result.isValid = false;
+        }
+
+        const rawStored = this.settings[keyType as keyof typeof this.settings];
+        if (rawStored && typeof rawStored === 'string' && !this.keyStorage.isEncrypted(rawStored)) {
+            result.warnings.push(
+                `${keyType}: Key is stored in plain text. Consider re-entering your key to enable encryption.`,
             );
         }
+    }
 
-        // Add security best practices
+    /**
+     * Add security best practices to result
+     */
+    private addSecurityBestPractices(result: SecurityValidationResult): void {
         result.suggestions.push(
             '🔒 Security Best Practices:',
             '• Use environment variables when possible',
@@ -568,8 +594,6 @@ export class SecureConfigService {
             '• Use scoped keys with minimal permissions',
             '• Monitor API usage for unusual activity',
         );
-
-        return result;
     }
 
     /**
@@ -616,7 +640,8 @@ export class SecureConfigService {
                 lastRotated: meta.lastModified,
                 shouldRotate,
                 reason: shouldRotate
-                    ? `Key is ${Math.round(timeSinceRotation / (30 * 24 * 60 * 60 * 1000))} days old (recommend rotating every ${rotationDays} days)`
+                    ? `Key is ${Math.round(timeSinceRotation / (30 * 24 * 60 * 60 * 1000))} ` +
+                      `days old (recommend rotating every ${rotationDays} days)`
                     : 'Key is within recommended rotation period',
             });
         }

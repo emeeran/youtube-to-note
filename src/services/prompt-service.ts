@@ -41,6 +41,38 @@ interface AnalysisPromptOptions {
     performanceMode?: PerformanceMode;
 }
 
+/** Options for frontmatter template */
+interface FrontmatterOptions {
+    title: string;
+    source: string;
+    videoId: string;
+    format: OutputFormat;
+    provider: string;
+    model: string;
+}
+
+/** Options for buildFullPrompt method */
+interface BuildFullPromptOptions {
+    baseContent: string;
+    videoData: VideoData;
+    videoUrl: string;
+    videoId: string;
+    format: OutputFormat;
+    provider: string;
+    model: string;
+    customPrompt?: string;
+}
+
+/** Options for processAIResponse method */
+interface ProcessAIResponseOptions {
+    content: string;
+    provider: string;
+    model: string;
+    format?: OutputFormat;
+    videoData?: VideoData;
+    videoUrl?: string;
+}
+
 // ============ CONSTANTS ============
 
 /** Token limits for different contexts */
@@ -94,14 +126,9 @@ const Templates = {
     /**
      * Generate YAML frontmatter for Obsidian notes
      */
-    frontmatter: (
-        title: string,
-        source: string,
-        videoId: string,
-        format: OutputFormat,
-        provider: string,
-        model: string,
-    ): string => `---
+    frontmatter: (options: FrontmatterOptions): string => {
+        const { title, source, videoId, format, provider, model } = options;
+        return `---
 title: ${title}
 source: ${source}
 created: "${new Date().toISOString().split('T')[0]}"
@@ -111,16 +138,20 @@ tags: [youtube${format === 'complete-transcription' ? ', transcript' : ''}]
 video_id: "${videoId}"
 ai_provider: "${provider}"
 ai_model: "${model}"
----`,
+---`;
+    },
 
     /**
      * Generate responsive video iframe
      */
     videoIframe: (videoId: string, title: string): string => {
         const embedUrl = `${YOUTUBE_EMBED.BASE_URL}${videoId}`;
-        return `<div style="text-align: center; margin-bottom: 24px;">
-<iframe width="${YOUTUBE_EMBED.IFRAME_WIDTH}" height="${YOUTUBE_EMBED.IFRAME_HEIGHT}" src="${embedUrl}" title="${title}" ${YOUTUBE_EMBED.IFRAME_ATTRIBUTES}></iframe>
-</div>`;
+        return (
+            '<div style="text-align: center; margin-bottom: 24px;">\n' +
+            `<iframe width="${YOUTUBE_EMBED.IFRAME_WIDTH}" height="${YOUTUBE_EMBED.IFRAME_HEIGHT}" ` +
+            `src="${embedUrl}" title="${title}" ${YOUTUBE_EMBED.IFRAME_ATTRIBUTES}></iframe>\n` +
+            '</div>'
+        );
     },
 };
 
@@ -324,7 +355,8 @@ The vital 20% delivering 80% value:
 
 **CRITICAL**:
 - If transcript provided: Include FULL transcript below
-- If NO transcript: State "Transcript Not Available: Based on title/description, this video covers:" followed by analysis
+- If NO transcript: State "Transcript Not Available: Based on title/description, this video covers:"` +
+` followed by analysis
 - **DO NOT include line numbers, timestamps, or numbering in the transcript**
 - Process multimodally (visual/audio) for complete extraction
 
@@ -415,7 +447,15 @@ export class AIPromptService implements PromptService {
         const baseContent = this.buildBaseContent(videoData, videoUrl, transcript, performanceMode);
 
         // Build full prompt with all components
-        return this.buildFullPrompt(baseContent, videoData, videoUrl, videoId, format, provider, model);
+        return this.buildFullPrompt({
+            baseContent,
+            videoData,
+            videoUrl,
+            videoId,
+            format,
+            provider,
+            model,
+        });
     }
 
     // ============ PRIVATE HELPER METHODS ============
@@ -459,17 +499,17 @@ export class AIPromptService implements PromptService {
     /**
      * Build complete prompt with frontmatter, video iframe, and format template
      */
-    private buildFullPrompt(
-        baseContent: string,
-        videoData: VideoData,
-        videoUrl: string,
-        videoId: string,
-        format: OutputFormat,
-        provider: string,
-        model: string,
-        customPrompt?: string,
-    ): string {
-        const frontmatter = Templates.frontmatter(videoData.title, videoUrl, videoId, format, provider, model);
+    private buildFullPrompt(options: BuildFullPromptOptions): string {
+        const { baseContent, videoData, videoUrl, videoId, format, provider, model, customPrompt } = options;
+
+        const frontmatter = Templates.frontmatter({
+            title: videoData.title,
+            source: videoUrl,
+            videoId,
+            format,
+            provider,
+            model,
+        });
 
         const iframe = Templates.videoIframe(videoId, videoData.title);
         const separator = '---\n\n';
@@ -503,20 +543,11 @@ export class AIPromptService implements PromptService {
     /**
      * Process AI response and inject actual provider/model information
      *
-     * @param content - Raw AI response content
-     * @param provider - AI provider name (e.g., 'gemini', 'groq')
-     * @param model - Model identifier (e.g., 'gemini-2.0-flash')
-     * @param format - Output format (optional, for future use)
+     * @param options - Processing options including content, provider, model, etc.
      * @returns Processed content with placeholders replaced
      */
-    processAIResponse(
-        content: string,
-        provider: string,
-        model: string,
-        format?: OutputFormat,
-        videoData?: VideoData,
-        videoUrl?: string,
-    ): string {
+    processAIResponse(options: ProcessAIResponseOptions): string {
+        const { content, provider, model, videoUrl } = options;
         if (!content) return content;
 
         const providerValue = provider ?? DEFAULTS.PROVIDER;
@@ -545,7 +576,11 @@ export class AIPromptService implements PromptService {
      */
     private appendResourcesSection(content: string, videoUrl: string, provider: string, model: string): string {
         const processingDate = new Date().toISOString().split('T')[0];
-        const resourcesSection = `\n\n## Resources\n- Video URL: ${videoUrl}\n- Processing Date: ${processingDate}\n- Provider: ${provider} ${model}\n`;
+        const resourcesSection =
+            '\n\n## Resources\n' +
+            `- Video URL: ${videoUrl}\n` +
+            `- Processing Date: ${processingDate}\n` +
+            `- Provider: ${provider} ${model}\n`;
 
         // Remove trailing whitespace before adding Resources
         const trimmedContent = content.trimEnd();

@@ -8,24 +8,14 @@ import { OutputFormat, PerformanceMode } from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
 import { App, Notice } from 'obsidian';
+import type { ProcessCallbackOptions } from '../../../services/modal-factory';
 
 /**
  * YouTube URL input modal component
  */
 
 export interface YouTubeUrlModalOptions {
-    onProcess: (
-        url: string,
-        format: OutputFormat,
-        provider?: string,
-        model?: string,
-        performanceMode?: PerformanceMode,
-        enableParallel?: boolean,
-        preferMultimodal?: boolean,
-        maxTokens?: number,
-        temperature?: number,
-        enableAutoFallback?: boolean,
-    ) => Promise<string>; // Return file path
+    onProcess: (options: ProcessCallbackOptions) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
     onOpenBatchModal?: () => void;
     initialUrl?: string;
@@ -1627,18 +1617,18 @@ export class YouTubeUrlModal extends BaseModal {
             }
 
             // Call the process function
-            const filePath = await this.options.onProcess(
-                trimmedUrl,
-                this.format,
-                this.selectedProvider,
-                this.selectedModel,
-                this.options.performanceMode ?? 'balanced',
-                this.options.enableParallelProcessing ?? false,
-                this.options.preferMultimodal ?? false,
+            const filePath = await this.options.onProcess({
+                url: trimmedUrl,
+                format: this.format,
+                provider: this.selectedProvider,
+                model: this.selectedModel,
+                performanceMode: this.options.performanceMode ?? 'balanced',
+                enableParallel: this.options.enableParallelProcessing ?? false,
+                preferMultimodal: this.options.preferMultimodal ?? false,
                 maxTokens,
-                this.options.defaultTemperature ?? 0.5,
-                this.autoFallbackEnabled,
-            );
+                temperature: this.options.defaultTemperature ?? 0.5,
+                enableAutoFallback: this.autoFallbackEnabled,
+            });
 
             // Update progress to 100% (complete)
             this.updateProgress(100, 'Complete!');

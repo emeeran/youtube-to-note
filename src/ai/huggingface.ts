@@ -1,4 +1,5 @@
 import { BaseAIProvider } from './base';
+import type { HuggingFaceErrorResponse, HuggingFaceRequestBody } from '../types/api-responses';
 
 /**
  * Hugging Face Inference API provider implementation
@@ -12,7 +13,7 @@ const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models';
  */
 function formatHuggingFaceError(rawMessage: string): string {
     const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
+    const retryInfo = retryMatch?.[1] ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]))}s.` : '';
 
     if (rawMessage.toLowerCase().includes('rate limit')) {
         return `Hugging Face rate limit reached.${retryInfo}`;
@@ -79,8 +80,8 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             if (response.status === 400) {
-                const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMessage = errorData?.error || '';
+                const errorData = (await this.safeJsonParse(response)) as HuggingFaceErrorResponse;
+                const errorMessage = errorData?.error ?? '';
                 throw new Error(formatHuggingFaceError(errorMessage));
             }
 
@@ -93,20 +94,20 @@ export class HuggingFaceProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMessage = errorData?.error || '';
+                const errorData = (await this.safeJsonParse(response)) as HuggingFaceErrorResponse;
+                const errorMessage = errorData?.error ?? '';
                 throw new Error(formatHuggingFaceError(errorMessage));
             }
 
             if (response.status === 503) {
-                const errorData = (await this.safeJsonParse(response)) as any;
-                const estimatedTime = errorData?.estimated_time || 20;
+                const errorData = (await this.safeJsonParse(response)) as HuggingFaceErrorResponse;
+                const estimatedTime = errorData?.estimated_time ?? 20;
                 throw new Error(`Model is loading. Wait ${Math.ceil(estimatedTime)}s and try again.`);
             }
 
             if (!response.ok) {
-                const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMsg = errorData?.error || response.statusText;
+                const errorData = (await this.safeJsonParse(response)) as HuggingFaceErrorResponse;
+                const errorMsg = errorData?.error ?? response.statusText;
 
                 // Check for redirect message
                 if (typeof errorMsg === 'string' && errorMsg.includes('router.huggingface.co')) {
@@ -136,7 +137,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string): HuggingFaceRequestBody {
         return {
             inputs: prompt,
             parameters: {

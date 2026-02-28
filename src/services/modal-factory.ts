@@ -8,19 +8,22 @@ import { YouTubeUrlModal, BatchVideoModal } from '../components/features/youtube
 import { OutputFormat, PerformanceMode, YouTubePluginSettings } from '../types';
 import { ServiceContainer } from './service-container';
 
+/** Options for process callback */
+export interface ProcessCallbackOptions {
+    url: string;
+    format: OutputFormat;
+    provider?: string;
+    model?: string;
+    performanceMode?: PerformanceMode;
+    enableParallel?: boolean;
+    preferMultimodal?: boolean;
+    maxTokens?: number;
+    temperature?: number;
+    enableAutoFallback?: boolean;
+}
+
 /** Process callback for URL modal */
-export type ProcessCallback = (
-    url: string,
-    format: OutputFormat,
-    provider?: string,
-    model?: string,
-    performanceMode?: PerformanceMode,
-    enableParallel?: boolean,
-    preferMultimodal?: boolean,
-    maxTokens?: number,
-    temperature?: number,
-    enableAutoFallback?: boolean,
-) => Promise<string>;
+export type ProcessCallback = (options: ProcessCallbackOptions) => Promise<string>;
 
 /** Batch process callback */
 export type BatchProcessCallback = (

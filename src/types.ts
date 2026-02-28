@@ -152,14 +152,14 @@ export interface PromptService {
         format?: OutputFormat;
         transcript?: string;
     }): string;
-    processAIResponse(
-        content: string,
-        provider: string,
-        model: string,
-        format?: OutputFormat,
-        videoData?: VideoData,
-        videoUrl?: string,
-    ): string;
+    processAIResponse(options: {
+        content: string;
+        provider: string;
+        model: string;
+        format?: OutputFormat;
+        videoData?: VideoData;
+        videoUrl?: string;
+    }): string;
 }
 
 /** Style object for CSS */
