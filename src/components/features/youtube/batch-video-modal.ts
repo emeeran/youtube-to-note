@@ -229,10 +229,13 @@ export class BatchVideoModal extends Modal {
         // Format selection
         new Setting(container).setName('Output Format').addDropdown(dropdown => {
             dropdown
-                .addOption('executive-summary', 'Executive Summary')
-                .addOption('step-by-step-tutorial', 'Step-by-Step Tutorial')
-                .addOption('brief', 'Brief Overview')
-                .addOption('3c-concept', '3C Concept')
+                .addOption('executive-summary', '1. Executive Brief')
+                .addOption('step-by-step-tutorial', '2. Step-by-Step Tutorial')
+                .addOption('concise-summary', '3. Concise Summary')
+                .addOption('technical-analysis', '4. Technical Analysis')
+                .addOption('3c-accelerated-learning', '5. 3C Accelerated Learning')
+                .addOption('atom-notes', '6. Atom Notes')
+                .addOption('complete-transcription', '7. Complete Transcription')
                 .setValue(this.selectedFormat)
                 .onChange((value: string) => {
                     this.selectedFormat = value as OutputFormat;

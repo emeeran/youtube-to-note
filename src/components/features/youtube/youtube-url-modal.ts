@@ -19,7 +19,6 @@ export interface YouTubeUrlModalOptions {
         format: OutputFormat,
         provider?: string,
         model?: string,
-        customPrompt?: string,
         performanceMode?: PerformanceMode,
         enableParallel?: boolean,
         preferMultimodal?: boolean,
@@ -78,8 +77,6 @@ export class YouTubeUrlModal extends BaseModal {
     private currentStepIndex = 0;
     private isProcessing = false;
     private processedFilePath?: string;
-    private customPromptInput?: HTMLTextAreaElement;
-    private customPromptContainer?: HTMLDivElement;
     private refreshButton?: HTMLButtonElement;
 
     // Format, Provider, and Model dropdowns
@@ -230,9 +227,6 @@ export class YouTubeUrlModal extends BaseModal {
             // Initialize state
             this.updateModelDropdown(this.options.modelOptions);
             this.applyTheme(this.isLightTheme);
-
-            // Apply initial visibility states
-            this.toggleCustomPromptVisibility();
 
             logger.debug('[YT-CLIPPER] Theme applied', 'Modal');
         } catch (error) {
@@ -475,15 +469,13 @@ export class YouTubeUrlModal extends BaseModal {
         // Styling handled by CSS
 
         const formatOptions = [
-            { value: 'executive-summary', text: '📊 Executive Summary' },
-            { value: 'technical-analysis', text: '⚙️ Technical Analysis' },
-            { value: 'detailed-guide', text: '📘 Tutorial / Guide' },
-            { value: 'accelerated-learning', text: '🧠 Accelerated Learning' },
-            { value: 'brief', text: '⚡ Brief Summary' },
-            { value: 'executive-briefing', text: '📰 Executive Briefing (News)' },
-            { value: '3c-concept', text: '💡 3C Concept' },
-            { value: 'transcript', text: '📝 Transcript Note' },
-            { value: 'custom', text: '✏️ Custom Format' },
+            { value: 'executive-summary', text: '📊 1. Executive Brief' },
+            { value: 'step-by-step-tutorial', text: '📘 2. Step-by-Step Tutorial' },
+            { value: 'concise-summary', text: '⚡ 3. Concise Summary' },
+            { value: 'technical-analysis', text: '⚙️ 4. Technical Analysis' },
+            { value: '3c-accelerated-learning', text: '🧠 5. 3C Accelerated Learning' },
+            { value: 'atom-notes', text: '🔬 6. Atom Notes' },
+            { value: 'complete-transcription', text: '📝 7. Complete Transcription' },
         ];
 
         formatOptions.forEach(option => {
@@ -496,7 +488,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.formatSelect.value = this.format;
         this.formatSelect.addEventListener('change', () => {
             this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
-            this.toggleCustomPromptVisibility();
             UserPreferencesService.setPreference('lastFormat', this.format);
         });
 
@@ -564,9 +555,6 @@ export class YouTubeUrlModal extends BaseModal {
             margin-top: -4px;
             animation: fadeIn 0.15s ease-out;
         `;
-
-        // Custom Prompt Container (Hidden by default)
-        this.createCustomPromptSection(container);
 
         // Toggle Logic
         let isExpanded = false;
@@ -888,135 +876,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.providerStatusEl.style.display = 'block';
             const providerSpan = `<span style="color: var(--ytc-accent);">🤖 ${provider}</span>`;
             this.providerStatusEl.innerHTML = `${providerSpan} — ${status}`;
-        }
-    }
-
-    /**
-     * Create custom prompt section
-     */
-    private customPrompt = '';
-
-    // eslint-disable-next-line max-lines-per-function
-    private createCustomPromptSection(parent: HTMLElement): void {
-        this.customPromptContainer = parent.createDiv();
-        this.customPromptContainer.style.cssText = `
-            display: none;
-            margin-top: 5px;
-            padding: 8px;
-            background: var(--background-secondary);
-            border-radius: 4px;
-            border: 1px solid var(--background-modifier-border);
-            animation: ytc-slide-down 0.2s ease-out;
-        `;
-
-        // Add animation keyframes
-        if (!document.getElementById('ytc-custom-prompt-styles')) {
-            const styleEl = document.createElement('style');
-            styleEl.id = 'ytc-custom-prompt-styles';
-            styleEl.textContent = `
-                @keyframes ytc-slide-down {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `;
-            document.head.appendChild(styleEl);
-        }
-
-        const labelRow = this.customPromptContainer.createDiv();
-        labelRow.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 4px;
-        `;
-
-        const labelContainer = labelRow.createDiv();
-        labelContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        `;
-
-        labelContainer.createSpan({ text: '✏️' });
-        const label = labelContainer.createSpan({ text: 'Custom Prompt' });
-        label.style.cssText = `
-            font-weight: 600;
-            color: var(--text-normal);
-            font-size: 0.8rem;
-        `;
-
-        const hint = labelRow.createSpan({ text: 'Describe your summary' });
-        hint.style.cssText = `
-            color: var(--text-muted);
-            font-size: 0.7rem;
-        `;
-
-        this.customPromptInput = this.customPromptContainer.createEl('textarea');
-        this.customPromptInput.placeholder = 'e.g., "Step-by-step tutorial with code examples"';
-        this.customPromptInput.style.cssText = `
-            width: 100%;
-            min-height: 60px;
-            padding: 6px 8px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 4px;
-            font-size: 0.8rem;
-            background: var(--background-primary);
-            color: var(--text-normal);
-            resize: vertical;
-            outline: none;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            font-family: inherit;
-            line-height: 1.4;
-        `;
-
-        this.customPromptInput.addEventListener('focus', () => {
-            if (this.customPromptInput) {
-                this.customPromptInput.style.borderColor = 'var(--interactive-accent)';
-                this.customPromptInput.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
-            }
-        });
-
-        this.customPromptInput.addEventListener('blur', () => {
-            if (this.customPromptInput) {
-                this.customPromptInput.style.borderColor = 'var(--background-modifier-border)';
-                this.customPromptInput.style.boxShadow = 'none';
-            }
-        });
-
-        this.customPromptInput.addEventListener('input', () => {
-            this.customPrompt = this.customPromptInput?.value ?? '';
-        });
-
-        // Character count (ultra compact)
-        const charCount = this.customPromptContainer.createDiv();
-        charCount.style.cssText = `
-            text-align: right;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 4px;
-        `;
-        charCount.textContent = '0 characters';
-
-        this.customPromptInput.addEventListener('input', () => {
-            const length = this.customPromptInput?.value.length ?? 0;
-            charCount.textContent = `${length} character${length !== 1 ? 's' : ''}`;
-        });
-    }
-
-    /**
-     * Toggle custom prompt visibility based on format selection
-     */
-    private toggleCustomPromptVisibility(): void {
-        if (this.customPromptContainer) {
-            if (this.format === 'custom') {
-                this.customPromptContainer.style.display = 'block';
-                // Focus the input after a brief delay for animation
-                setTimeout(() => {
-                    this.customPromptInput?.focus();
-                }, 100);
-            } else {
-                this.customPromptContainer.style.display = 'none';
-            }
         }
     }
 
@@ -1761,9 +1620,9 @@ export class YouTubeUrlModal extends BaseModal {
                 : 'AI';
             this.updateProgress(75, `Processing with ${providerDisplayName}...`);
 
-            // Boost max tokens for transcript format if default is low
+            // Boost max tokens for complete-transcription format if default is low
             let maxTokens = this.options.defaultMaxTokens ?? 4096;
-            if (this.format === 'transcript') {
+            if (this.format === 'complete-transcription') {
                 // Ensure at least 16k tokens for transcript if possible (provider dependent)
                 maxTokens = Math.max(maxTokens, 16384);
             }
@@ -1774,7 +1633,6 @@ export class YouTubeUrlModal extends BaseModal {
                 this.format,
                 this.selectedProvider,
                 this.selectedModel,
-                this.format === 'custom' ? this.customPrompt : undefined,
                 this.options.performanceMode ?? 'balanced',
                 this.options.enableParallelProcessing ?? false,
                 this.options.preferMultimodal ?? false,
