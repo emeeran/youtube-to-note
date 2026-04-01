@@ -873,7 +873,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         name: string;
         desc: string;
         placeholder: string;
-        settingKey: keyof YouTubePluginSettings;
+        settingKey: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
         validateFn: (key: string) => Promise<void>;
     }): void {
         const setting = new Setting(container)
@@ -883,9 +883,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 text.inputEl.type = 'password';
                 text.inputEl.autocomplete = 'off';
                 text.inputEl.style.width = '300px';
+
+                // Get the actual API key (de-obfuscated) or empty string
+                const actualKey = this.secureConfig.getApiKey(opts.settingKey);
+                // Show masked version or placeholder
+                const displayValue = actualKey ? this.secureConfig.getMaskedApiKey(opts.settingKey) : '';
+
                 text
                     .setPlaceholder(opts.placeholder)
-                    .setValue((this.settings[opts.settingKey] as string) || '')
+                    .setValue(displayValue)
                     .onChange(async (value) => {
                         await this.updateSetting(opts.settingKey, value.trim());
                     });
@@ -901,13 +907,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         toggleBtn.title = 'Toggle visibility';
 
         let isVisible = false;
+        let originalValue = '';
+
         toggleBtn.addEventListener('click', () => {
             isVisible = !isVisible;
             const textInput = controlEl.querySelector('input[type="password"], input[type="text"]') as HTMLInputElement;
+
             if (textInput) {
-                textInput.type = isVisible ? 'text' : 'password';
-                toggleBtn.textContent = isVisible ? '🙈' : '👁️';
-                toggleBtn.title = isVisible ? 'Hide key' : 'Show key';
+                if (isVisible) {
+                    // Show actual key temporarily
+                    originalValue = textInput.value;
+                    const actualKey = this.secureConfig.getApiKey(opts.settingKey);
+                    textInput.value = actualKey || '';
+                    textInput.type = 'text';
+                    toggleBtn.textContent = '🙈';
+                    toggleBtn.title = 'Hide key';
+                } else {
+                    // Revert to masked display
+                    textInput.value = originalValue || (this.secureConfig.getMaskedApiKey(opts.settingKey) || '');
+                    textInput.type = 'password';
+                    toggleBtn.textContent = '👁️';
+                    toggleBtn.title = 'Show key';
+                }
             }
         });
 
@@ -918,7 +939,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         });
 
         validateBtn.addEventListener('click', async () => {
-            const key = (this.settings[opts.settingKey] as string)?.trim();
+            // Get actual de-obfuscated API key for validation
+            const key = this.secureConfig.getApiKey(opts.settingKey);
             if (!key && opts.settingKey !== 'ollamaApiKey') {
                 this.showToast(`No ${opts.name} configured`, 'info');
                 return;
@@ -1019,6 +1041,108 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private createAdvancedSection(): void {
         const { content: section } = this.createDrawer('Advanced Settings', '⚙️', false);
 
+        // Security Status Section
+        const securityDesc = section.createDiv({ cls: `${CSS_PREFIX}-security-status` });
+        const securityTitle = securityDesc.createEl('h3', { text: '🔒 Security Status' });
+        const securityContent = securityDesc.createDiv();
+
+        // Run security validation
+        const securityResult = this.secureConfig.validateSecurityConfiguration();
+
+        if (securityResult.warnings.length > 0 || securityResult.suggestions.length > 0) {
+            // Show warnings
+            if (securityResult.warnings.length > 0) {
+                const warningEl = securityContent.createEl('div', {
+                    cls: `${CSS_PREFIX}-security-warnings`
+                });
+                securityResult.warnings.forEach(warning => {
+                    const item = warningEl.createEl('div');
+                    item.textContent = `⚠️ ${warning}`;
+                    item.style.margin = '4px 0';
+                });
+            }
+
+            // Show suggestions
+            if (securityResult.suggestions.length > 0) {
+                const suggestionEl = securityContent.createEl('div', {
+                    cls: `${CSS_PREFIX}-security-suggestions`
+                });
+                securityResult.suggestions.forEach(suggestion => {
+                    const item = suggestionEl.createEl('div');
+                    item.textContent = suggestion;
+                    item.style.margin = '4px 0';
+                    item.style.color = 'var(--text-muted)';
+                });
+            }
+
+            // Show rotation recommendations if keys are getting old
+            const recommendations = this.secureConfig.getRotationRecommendations();
+            const needsRotation = recommendations.filter(r => r.shouldRotate);
+
+            if (needsRotation.length > 0) {
+                const rotationEl = securityContent.createEl('div', {
+                    cls: `${CSS_PREFIX}-rotation-alert`
+                });
+                const rotationTitle = rotationEl.createEl('div', {
+                    text: '🔄 Key Rotation Recommended'
+                });
+                rotationTitle.style.fontWeight = 'bold';
+                rotationTitle.style.margin = '8px 0 4px 0';
+                rotationEl.appendChild(rotationTitle);
+
+                needsRotation.forEach(rec => {
+                    const item = rotationEl.createEl('div');
+                    item.style.marginLeft = '16px';
+                    item.textContent = `• ${rec.keyType}: ${rec.reason}`;
+                });
+            }
+        } else {
+            // All secure
+            const secureEl = securityContent.createEl('div', {
+                cls: `${CSS_PREFIX}-security-secure`
+            });
+            secureEl.textContent = '✅ All API keys are properly secured';
+        }
+
+        // Security actions
+        const actionsDiv = securityContent.createDiv({
+            cls: `${CSS_PREFIX}-security-actions`
+        });
+        actionsDiv.style.marginTop = '12px';
+
+        // Clear all keys button
+        const clearKeysBtn = actionsDiv.createEl('button', {
+            text: '🗑️ Clear All API Keys',
+            cls: 'mod-warning'
+        });
+        clearKeysBtn.style.marginRight = '8px';
+        clearKeysBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all API keys? This cannot be undone.')) {
+                this.secureConfig.clearAllApiKeys();
+                this.showToast('All API keys have been cleared', 'info');
+                this.display();
+            }
+        });
+
+        // Export settings (with masked keys) button
+        const exportBtn = actionsDiv.createEl('button', {
+            text: '📤 Export Settings (Masked)'
+        });
+        exportBtn.addEventListener('click', () => {
+            const safeSettings = this.secureConfig.exportSafeSettings();
+            const json = JSON.stringify(safeSettings, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `youtube-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+            this.showToast('Settings exported (API keys are masked)', 'success');
+        });
+
         new Setting(section)
             .setName('Parallel Processing')
             .setDesc('Query multiple AI providers simultaneously for faster results.')
@@ -1045,6 +1169,23 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     await this.updateSetting('useEnvironmentVariables', value);
                 }));
+
+        // Environment variable template button
+        new Setting(section)
+            .setName('Get Environment Variable Template')
+            .setDesc('Get a template file showing how to set up environment variables for secure key management.')
+            .addButton(button => {
+                button.setButtonText('📋 Copy Template');
+                button.onClick(() => {
+                    const template = this.secureConfig.getEnvironmentTemplate();
+
+                    navigator.clipboard.writeText(template).then(() => {
+                        this.showToast('Environment template copied to clipboard!', 'success');
+                    }).catch(() => {
+                        this.showToast('Failed to copy template', 'error');
+                    });
+                });
+            });
     }
 
     private createSlider(container: HTMLElement, opts: {
@@ -1097,11 +1238,43 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         value: string | boolean | number | 'fast' | 'balanced' | 'quality'
     ): Promise<void> {
         try {
-            (this.settings as unknown as Record<string, unknown>)[key] = value;
+            // Use secure storage for API keys
+            if (this.isApiKeyField(key) && typeof value === 'string') {
+                // Only set the key if it's not empty or user is intentionally clearing it
+                if (value && value !== '') {
+                    try {
+                        const obfuscated = this.secureConfig.setApiKey(key as import('./secure-config').ApiKeyName, value);
+                        (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
+                    } catch (error) {
+                        // Show validation error for invalid keys
+                        ErrorHandler.handle(error as Error, `API Key Validation: ${key}`, true);
+                        return; // Don't save invalid keys
+                    }
+                } else {
+                    // Clear API key
+                    (this.settings as unknown as Record<string, unknown>)[key] = '';
+                }
+            } else {
+                (this.settings as unknown as Record<string, unknown>)[key] = value;
+            }
             await this.validateAndSaveSettings();
         } catch (error) {
             ErrorHandler.handle(error as Error, `Settings update: ${key}`);
         }
+    }
+
+    /**
+     * Check if a settings key is an API key field
+     */
+    private isApiKeyField(key: keyof YouTubePluginSettings): boolean {
+        const apiKeyFields: (keyof YouTubePluginSettings)[] = [
+            'geminiApiKey',
+            'groqApiKey',
+            'ollamaApiKey',
+            'huggingFaceApiKey',
+            'openRouterApiKey'
+        ];
+        return apiKeyFields.includes(key);
     }
 
     private async validateAndSaveSettings(): Promise<void> {

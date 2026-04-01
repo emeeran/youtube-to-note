@@ -601,11 +601,10 @@ export class YouTubeUrlModal extends BaseModal {
 
         const providerOptions = [
             { value: 'Google Gemini', text: 'Google Gemini (Recommended)' },
-            { value: 'Groq', text: 'Groq (Fastest)' },
             { value: 'OpenRouter', text: 'OpenRouter' },
-            { value: 'Hugging Face', text: 'Hugging Face' },
-            { value: 'Ollama', text: 'Ollama (Local)' },
+            { value: 'Groq', text: 'Groq (Fastest)' },
             { value: 'Ollama Cloud', text: 'Ollama Cloud' },
+            { value: 'Ollama', text: 'Ollama (Local)' },
         ];
 
         providerOptions.forEach(opt => {

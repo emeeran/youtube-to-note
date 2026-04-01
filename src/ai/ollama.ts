@@ -1,5 +1,5 @@
 import { BaseAIProvider } from './base';
-import type { OllamaGenerateRequestBody, OllamaChatRequestBody, OllamaModelsResponse } from '../types/api-responses';
+import type { OllamaGenerateRequestBody, OllamaChatRequestBody, OllamaModelsResponse, JsonObject } from '../types/api-responses';
 
 /**
  * Ollama AI provider implementation
@@ -304,7 +304,7 @@ export class OllamaProvider extends BaseAIProvider {
         return headers;
     }
 
-    protected createRequestBody(_prompt: string): OllamaGenerateRequestBody {
+    protected createRequestBody(_prompt: string): JsonObject {
         // Ollama uses the process() method instead, so this isn't used
         return {
             model: this._model,

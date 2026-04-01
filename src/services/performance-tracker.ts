@@ -5,6 +5,19 @@
 
 import { logger } from './logger';
 
+// Chrome-specific memory API type extension
+interface MemoryInfo {
+    usedJSHeapSize: number;
+    totalJSHeapSize: number;
+    jsHeapSizeLimit: number;
+}
+
+declare global {
+    interface Performance {
+        memory?: MemoryInfo;
+    }
+}
+
 export interface ServicePerformanceMetrics {
     service: string;
     operation: string;

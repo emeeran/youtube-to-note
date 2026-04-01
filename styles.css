@@ -234,3 +234,233 @@
     0%, 100% { opacity: 0.4; }
     50% { opacity: 0.8; }
 }
+
+/* ============================================================================
+   SECURITY STATUS STYLES
+   ============================================================================ */
+
+/* Security Status Container */
+.ytc-settings-security-status {
+    background: var(--ytc-bg-primary) !important;
+    border: 1px solid var(--ytc-border) !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+}
+
+.ytc-settings-security-status h4 {
+    color: var(--ytc-text-primary) !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+/* Secure Status Badge */
+.ytc-settings-security-secure {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 6px 12px !important;
+    background: var(--ytc-bg-secondary) !important;
+    border-radius: 6px !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+}
+
+.ytc-settings-security-secure.secure {
+    color: var(--ytc-success) !important;
+    border: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+.ytc-settings-security-secure.warning {
+    color: var(--ytc-warning) !important;
+    border: 1px solid rgba(245, 158, 11, 0.2) !important;
+}
+
+.ytc-settings-security-secure.error {
+    color: var(--ytc-error) !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Security Warnings Section */
+.ytc-settings-security-warnings {
+    margin-bottom: 12px !important;
+}
+
+.ytc-settings-security-warnings ul {
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+}
+
+.ytc-settings-security-warnings li {
+    color: var(--ytc-warning) !important;
+    font-size: 0.85rem !important;
+    padding: 6px 0 !important;
+    padding-left: 24px !important;
+    position: relative !important;
+    line-height: 1.4 !important;
+}
+
+.ytc-settings-security-warnings li::before {
+    content: "⚠" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 6px !important;
+    font-size: 0.9rem !important;
+}
+
+/* Security Suggestions Section */
+.ytc-settings-security-suggestions {
+    margin-bottom: 12px !important;
+}
+
+.ytc-settings-security-suggestions ul {
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+}
+
+.ytc-settings-security-suggestions li {
+    color: var(--ytc-text-secondary) !important;
+    font-size: 0.85rem !important;
+    padding: 4px 0 !important;
+    padding-left: 20px !important;
+    position: relative !important;
+    line-height: 1.4 !important;
+}
+
+.ytc-settings-security-suggestions li::before {
+    content: "•" !important;
+    position: absolute !important;
+    left: 0 !important;
+    color: var(--ytc-text-muted) !important;
+    font-weight: bold !important;
+}
+
+/* Rotation Alert */
+.ytc-settings-rotation-alert {
+    background: rgba(245, 158, 11, 0.1) !important;
+    border: 1px solid rgba(245, 158, 11, 0.2) !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+}
+
+.ytc-settings-rotation-alert h5 {
+    color: var(--ytc-warning) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    margin: 0 0 8px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.ytc-settings-rotation-alert ul {
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+}
+
+.ytc-settings-rotation-alert li {
+    color: var(--ytc-text-secondary) !important;
+    font-size: 0.8rem !important;
+    padding: 3px 0 !important;
+    padding-left: 16px !important;
+    position: relative !important;
+}
+
+.ytc-settings-rotation-alert li::before {
+    content: "⏱" !important;
+    position: absolute !important;
+    left: 0 !important;
+    font-size: 0.75rem !important;
+}
+
+/* Security Action Buttons */
+.ytc-settings-security-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 16px !important;
+    padding-top: 12px !important;
+    border-top: 1px solid var(--ytc-border) !important;
+}
+
+.ytc-settings-security-actions button {
+    flex: 1 !important;
+    min-width: 140px !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+}
+
+.ytc-settings-security-actions .ytc-security-clear-btn {
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: var(--ytc-error) !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+.ytc-settings-security-actions .ytc-security-clear-btn:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    border-color: var(--ytc-error) !important;
+}
+
+.ytc-settings-security-actions .ytc-security-export-btn {
+    background: var(--ytc-bg-tertiary) !important;
+    color: var(--ytc-text-secondary) !important;
+    border: 1px solid var(--ytc-border) !important;
+}
+
+.ytc-settings-security-actions .ytc-security-export-btn:hover {
+    background: var(--ytc-bg-input) !important;
+    color: var(--ytc-text-primary) !important;
+    border-color: var(--ytc-text-muted) !important;
+}
+
+.ytc-settings-security-actions .ytc-security-env-btn {
+    background: rgba(13, 148, 136, 0.1) !important;
+    color: var(--ytc-accent) !important;
+    border: 1px solid rgba(13, 148, 136, 0.2) !important;
+}
+
+.ytc-settings-security-actions .ytc-security-env-btn:hover {
+    background: rgba(13, 148, 136, 0.2) !important;
+    border-color: var(--ytc-accent) !important;
+}
+
+/* Security Info Block */
+.ytc-settings-security-info {
+    background: var(--ytc-bg-secondary) !important;
+    border-left: 3px solid var(--ytc-accent) !important;
+    border-radius: 4px !important;
+    padding: 12px !important;
+    margin-top: 12px !important;
+}
+
+.ytc-settings-security-info p {
+    color: var(--ytc-text-secondary) !important;
+    font-size: 0.8rem !important;
+    margin: 0 !important;
+    line-height: 1.5 !important;
+}
+
+.ytc-settings-security-info code {
+    background: var(--ytc-bg-tertiary) !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-family: var(--font-monospace) !important;
+    font-size: 0.75rem !important;
+    color: var(--ytc-accent) !important;
+}

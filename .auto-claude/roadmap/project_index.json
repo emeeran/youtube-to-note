@@ -1,10 +1,10 @@
 {
-  "project_root": "/home/em/Sync/obs-vault-minimal/.obsidian/plugins/youtube-to-note",
+  "project_root": "/home/em/Sync/obs/obs-vault-minimal/.obsidian/plugins/youtube-to-note",
   "project_type": "single",
   "services": {
     "main": {
       "name": "main",
-      "path": "/home/em/Sync/obs-vault-minimal/.obsidian/plugins/youtube-to-note",
+      "path": "/home/em/Sync/obs/obs-vault-minimal/.obsidian/plugins/youtube-to-note",
       "language": "TypeScript",
       "framework": null,
       "type": "unknown",

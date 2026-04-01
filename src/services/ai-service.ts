@@ -1,85 +1,185 @@
 /**
- * AI Service (Refactored)
- * Maintains backward compatibility while delegating to new AI Orchestrator
+ * AI Service - Unified AI processing service
+ * Handles provider management, request processing, and fallback strategies
  */
 
 import { AIProvider, AIResponse, YouTubePluginSettings } from '../types';
-import { AIOrchestrator } from '../domain/ai';
-import type { JsonObject } from '../types/api-responses';
+import { PROVIDER_MODEL_OPTIONS, type ProviderModelEntry } from '../ai/api';
 
-/**
- * AI Service facade - delegates to AIOrchestrator
- * This maintains backward compatibility with existing code
- */
 export class AIService {
-    private orchestrator: AIOrchestrator;
+    private providerMap: Map<string, AIProvider> = new Map();
 
-    constructor(providers: AIProvider[], settings: YouTubePluginSettings) {
-        this.orchestrator = new AIOrchestrator(providers, settings);
+    constructor(
+        providers: AIProvider[],
+        private settings: YouTubePluginSettings
+    ) {
+        if (!providers || providers.length === 0) {
+            throw new Error('At least one AI provider is required');
+        }
+        providers.forEach(p => this.providerMap.set(p.name, p));
     }
 
+    /**
+     * Process prompt with the first available provider
+     */
     async process(prompt: string, images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
-        return await this.orchestrator.process(prompt, images);
+        if (!prompt || typeof prompt !== 'string') {
+            throw new Error('Valid prompt is required');
+        }
+
+        const provider = this.getFirstProvider();
+        const content = await provider.process(prompt);
+        return {
+            content,
+            provider: provider.name,
+            model: provider.model || 'default',
+        };
     }
 
+    /**
+     * Process with specific provider, with optional fallback
+     */
     async processWith(
         providerName: string,
         prompt: string,
         overrideModel?: string,
         images?: (string | ArrayBuffer)[],
-        enableFallback: boolean = true
+        enableFallback = true
     ): Promise<AIResponse> {
-        return await this.orchestrator.processWith(
-            providerName,
-            prompt,
-            overrideModel,
-            images,
-            enableFallback
-        );
+        const provider = this.providerMap.get(providerName);
+        if (!provider) {
+            throw new Error(`Provider "${providerName}" not found`);
+        }
+
+        if (overrideModel && provider.setModel) {
+            provider.setModel(overrideModel);
+        }
+
+        try {
+            const content = await provider.process(prompt);
+            return {
+                content,
+                provider: provider.name,
+                model: provider.model || 'default',
+            };
+        } catch (error) {
+            if (enableFallback) {
+                // Try other providers as fallback
+                for (const [name, fallbackProvider] of this.providerMap) {
+                    if (name !== providerName) {
+                        try {
+                            const content = await fallbackProvider.process(prompt);
+                            return {
+                                content,
+                                provider: fallbackProvider.name,
+                                model: fallbackProvider.model || 'default',
+                            };
+                        } catch {
+                            continue;
+                        }
+                    }
+                }
+            }
+            throw error;
+        }
     }
 
-    updateSettings(newSettings: YouTubePluginSettings): void {
-        this.orchestrator.updateSettings(newSettings);
-    }
-
-    getProviderModels(providerName: string): string[] {
-        return this.orchestrator.getProviderModels(providerName);
-    }
-
-    async fetchLatestModels(): Promise<Record<string, string[]>> {
-        return await this.orchestrator.fetchLatestModels();
-    }
-
-    async fetchLatestModelsForProvider(providerName: string, bypassCache?: boolean): Promise<string[]> {
-        return await this.orchestrator.fetchLatestModelsForProvider(providerName, bypassCache);
-    }
-
-    hasAvailableProviders(): boolean {
-        return this.orchestrator.hasAvailableProviders();
-    }
-
+    /**
+     * Get available provider names
+     */
     getProviderNames(): string[] {
-        return this.orchestrator.getProviderNames();
+        return Array.from(this.providerMap.keys());
     }
 
+    /**
+     * Check if any providers are available
+     */
+    hasAvailableProviders(): boolean {
+        return this.providerMap.size > 0;
+    }
+
+    /**
+     * Get models for a specific provider from static options
+     */
+    getProviderModels(providerName: string): string[] {
+        const models = PROVIDER_MODEL_OPTIONS[providerName] ?? [];
+        return models.map(m => typeof m === 'string' ? m : m.name);
+    }
+
+    /**
+     * Fetch all available models for all providers
+     */
+    async fetchLatestModels(): Promise<Record<string, string[]>> {
+        const result: Record<string, string[]> = {};
+        for (const providerName of this.getProviderNames()) {
+            result[providerName] = this.getProviderModels(providerName);
+        }
+        return result;
+    }
+
+    /**
+     * Fetch models for a specific provider
+     */
+    async fetchLatestModelsForProvider(_providerName: string, _bypassCache?: boolean): Promise<string[]> {
+        // Return static model list - dynamic fetching not implemented
+        return this.getProviderModels(_providerName);
+    }
+
+    /**
+     * Update settings
+     */
+    updateSettings(newSettings: YouTubePluginSettings): void {
+        this.settings = newSettings;
+    }
+
+    /**
+     * Add a provider dynamically
+     */
     addProvider(provider: AIProvider): void {
-        this.orchestrator.addProvider(provider);
+        this.providerMap.set(provider.name, provider);
     }
 
+    /**
+     * Remove a provider
+     */
     removeProvider(providerName: string): boolean {
-        return this.orchestrator.removeProvider(providerName);
+        return this.providerMap.delete(providerName);
     }
 
-    getPerformanceMetrics(): JsonObject {
-        return this.orchestrator.getPerformanceMetrics();
+    /**
+     * Get performance metrics
+     */
+    getPerformanceMetrics(): Record<string, unknown> {
+        return {
+            providerCount: this.providerMap.size,
+            providers: this.getProviderNames(),
+        };
     }
 
+    /**
+     * Cleanup when service is no longer needed
+     */
     cleanup(): void {
-        this.orchestrator.cleanup();
+        for (const provider of this.providerMap.values()) {
+            if (typeof provider.cleanup === 'function') {
+                try {
+                    provider.cleanup();
+                } catch {
+                    // Ignore cleanup errors
+                }
+            }
+        }
+        this.providerMap.clear();
     }
 
-    // Expose internal orchestrator for advanced use cases
-    get internalOrchestrator(): AIOrchestrator {
-        return this.orchestrator;
+    /**
+     * Get the first available provider
+     */
+    private getFirstProvider(): AIProvider {
+        const first = this.providerMap.values().next().value;
+        if (!first) {
+            throw new Error('No AI providers available');
+        }
+        return first;
     }
 }

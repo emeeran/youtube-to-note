@@ -18,6 +18,7 @@ export interface EnhancedVideoData extends VideoData {
     estimatedProcessingTime?: number;
     thumbnail?: string;
     channelName?: string;
+    publishedAt?: string;
 }
 
 export class YouTubeVideoService implements VideoDataService {
@@ -72,6 +73,7 @@ export class YouTubeVideoService implements VideoDataService {
                 duration: metadata.duration,
                 thumbnail: metadata.thumbnail,
                 channelName: metadata.channelName,
+                publishedAt: metadata.publishedAt,
             };
 
             // Check for transcript availability in background
@@ -103,6 +105,7 @@ export class YouTubeVideoService implements VideoDataService {
         duration?: number;
         thumbnail?: string;
         channelName?: string;
+        publishedAt?: string;
     }> {
         const cacheKey = this.getCacheKey('metadata', videoId);
         const cached = this.cache?.get<{ title: string }>(cacheKey);
@@ -115,7 +118,7 @@ export class YouTubeVideoService implements VideoDataService {
         try {
             // Create timeout controller for the request
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for oEmbed API
 
             const response = await fetch(oembedUrl, {
                 headers: {
@@ -155,6 +158,7 @@ export class YouTubeVideoService implements VideoDataService {
                 author_name: string;
                 description?: string;
                 duration?: number;
+                publishedAt?: string;
             } = {
                 title: data.title || 'Unknown Title',
                 thumbnail: data.thumbnail_url,
@@ -176,6 +180,7 @@ export class YouTubeVideoService implements VideoDataService {
                 duration: enhancedData.duration,
                 thumbnail: enhancedData.thumbnail,
                 channelName: enhancedData.author_name,
+                publishedAt: enhancedData.publishedAt,
             };
 
             this.cache?.set(cacheKey, metadata, this.metadataTTL);
@@ -205,10 +210,11 @@ export class YouTubeVideoService implements VideoDataService {
             if (pageData.description ?? pageData.duration) {
                 return {
                     title: `YouTube Video (${videoId})`,
-                    description: pageData.description,
+                    description: pageData.description ?? `Video URL: https://www.youtube.com/watch?v=${videoId}`,
                     duration: pageData.duration,
                     thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
                     channelName: undefined,
+                    publishedAt: pageData.publishedAt,
                 };
             }
         } catch (scrapeError) {
@@ -231,6 +237,7 @@ export class YouTubeVideoService implements VideoDataService {
     private async scrapeAdditionalMetadata(videoId: string): Promise<{
         description?: string;
         duration?: number;
+        publishedAt?: string;
     }> {
         try {
             const html = await this.fetchVideoPageHTML(videoId);
@@ -245,7 +252,11 @@ export class YouTubeVideoService implements VideoDataService {
                 descriptionMatch[1].replace(/\\u0026/g, '&').replace(/\\n/g, '\n') :
                 undefined;
 
-            return { description, duration };
+            // Extract published date
+            const publishMatch = html.match(/"publishDate":"(\d{4}-\d{2}-\d{2})"/);
+            const publishedAt = publishMatch?.[1] ?? undefined;
+
+            return { description, duration, publishedAt };
         } catch (error) {
             return {};
         }
@@ -292,14 +303,22 @@ export class YouTubeVideoService implements VideoDataService {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=` +
             `${encodeURIComponent(videoUrl)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for page scraping
 
-        const response = await fetch(proxyUrl);
+        try {
+            const response = await fetch(proxyUrl, { signal: controller.signal });
 
-        if (!response.ok) {
-            throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
+            }
+
+            return response.text();
+        } finally {
+            clearTimeout(timeoutId);
         }
-
-        return response.text();
     }
 
     /**

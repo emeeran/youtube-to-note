@@ -3,31 +3,11 @@ import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
 import type { GeminiRequestBody, GeminiResponse } from '../types/api-responses';
 import type { ProviderModelEntry } from '../constants/index';
+import { formatQuotaError, formatHttpError } from './error-utils';
 
 /**
  * Google Gemini AI provider implementation
  */
-
-/**
- * Extract clean quota error message from verbose API response
- */
-function formatQuotaError(rawMessage: string, provider: string): string {
-    // Extract retry time if present
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)s/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
-
-    // Check for free tier exhaustion
-    if (rawMessage.includes('limit: 0') || rawMessage.includes('free_tier')) {
-        return `${provider} free tier quota exhausted.${retryInfo} Upgrade your plan or wait for quota reset.`;
-    }
-
-    // Generic quota exceeded
-    if (rawMessage.toLowerCase().includes('quota exceeded')) {
-        return `${provider} API quota exceeded.${retryInfo} Check your usage at https://ai.google.dev/usage`;
-    }
-
-    return `${provider} API limit reached.${retryInfo}`;
-}
 
 export class GeminiProvider extends BaseAIProvider {
     readonly name = 'Google Gemini';
@@ -77,7 +57,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (!response.ok) {
-                await this.handleAPIError(response);
+                throw new Error(formatHttpError(response.status, 'Gemini'));
             }
 
             const data = (await response.json()) as GeminiResponse;
