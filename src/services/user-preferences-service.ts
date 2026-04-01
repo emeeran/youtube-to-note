@@ -52,13 +52,15 @@ export interface UserPreferences {
  */
 function migrateFormatName(oldFormat: string): string | null {
     const migrationMap: Record<string, string> = {
-        'brief': 'concise-summary',
-        'detailed-guide': 'step-by-step-tutorial',
+        'brief': 'executive-summary',
+        'concise-summary': 'executive-summary',
+        'detailed-guide': 'technical-analysis',
+        'step-by-step-tutorial': 'technical-analysis',
         'transcript': 'complete-transcription',
         '3c-concept': '3c-accelerated-learning',
         'accelerated-learning': '3c-accelerated-learning',
         'executive-briefing': 'executive-summary',
-        'custom': 'concise-summary', // Default to concise-summary for custom
+        'custom': 'executive-summary',
     };
     return migrationMap[oldFormat] ?? null;
 }
@@ -74,13 +76,12 @@ export class UserPreferencesService {
         showAdvancedSettings: false,
         compactMode: false,
         formatUsage: {
-            'concise-summary': 0,
             'executive-summary': 0,
-            'step-by-step-tutorial': 0,
-            'complete-transcription': 0,
-            '3c-accelerated-learning': 0,
             'technical-analysis': 0,
+            '3c-accelerated-learning': 0,
             'atom-notes': 0,
+            'article': 0,
+            'complete-transcription': 0,
         },
         providerUsage: {},
     };

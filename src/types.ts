@@ -57,11 +57,10 @@ export interface ModelStrategy {
 /** Output formats for video analysis */
 export type OutputFormat =
     | 'executive-summary'
-    | 'step-by-step-tutorial'
-    | 'concise-summary'
     | 'technical-analysis'
     | '3c-accelerated-learning'
     | 'atom-notes'
+    | 'article'
     | 'complete-transcription';
 
 /** Options for video processing */
@@ -77,6 +76,7 @@ export interface VideoData {
     duration?: number;
     thumbnail?: string;
     channelName?: string;
+    publishedAt?: string;
 }
 
 /** Response from AI provider */
@@ -105,6 +105,7 @@ export interface AIProvider {
     setTemperature?(temperature: number): void;
     maxTokens?: number;
     temperature?: number;
+    cleanup?(): void;
 }
 
 /** Video data service interface */
@@ -149,6 +150,9 @@ export interface PromptService {
         videoUrl: string;
         format?: OutputFormat;
         transcript?: string;
+        performanceMode?: PerformanceMode;
+        providerName?: string;
+        userInstructions?: string;
     }): string;
     processAIResponse(
         content: string,

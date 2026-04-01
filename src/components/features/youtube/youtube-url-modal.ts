@@ -7,6 +7,7 @@ import { PROVIDER_MODEL_OPTIONS } from '../../../ai/api';
 import { OutputFormat, PerformanceMode } from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
+import { FORMAT_CONFIG } from '../../../services/prompt-service';
 import { App, Notice } from 'obsidian';
 
 /**
@@ -25,6 +26,7 @@ export interface YouTubeUrlModalOptions {
         maxTokens?: number,
         temperature?: number,
         enableAutoFallback?: boolean,
+        userInstructions?: string,
     ) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
     onOpenBatchModal?: () => void;
@@ -73,6 +75,8 @@ export class YouTubeUrlModal extends BaseModal {
     private progressBar?: HTMLDivElement;
     private progressText?: HTMLDivElement;
     private validationMessage?: HTMLDivElement;
+    private userInstructionsTextarea?: HTMLTextAreaElement;
+    private userInstructions = '';
     private progressSteps: { label: string; element: HTMLLIElement }[] = [];
     private currentStepIndex = 0;
     private isProcessing = false;
@@ -160,7 +164,7 @@ export class YouTubeUrlModal extends BaseModal {
             }
             this.focusUrlInput();
         } catch (error) {
-            logger.error('[YT-CLIPPER] Error in onOpen:', 'Modal', error);
+            logger.error('[YT-CLIPPER] Error in onOpen:', 'Modal', { error });
             throw error;
         }
     }
@@ -173,10 +177,10 @@ export class YouTubeUrlModal extends BaseModal {
         if (!this.options.fetchModelsForProvider || !this.selectedProvider) return;
 
         try {
-            logger.debug('[YT-CLIPPER] Fetching models for provider:', 'Modal', this.selectedProvider);
+            logger.debug('[YT-CLIPPER] Fetching models for provider:', 'Modal', { provider: this.selectedProvider });
             // Always bypass cache on modal open to get fresh models
             const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
-            logger.debug('[YT-CLIPPER] Fetched models count:', 'Modal', models?.length || 0);
+            logger.debug('[YT-CLIPPER] Fetched models count:', 'Modal', { count: models?.length || 0 });
             if (models && models.length > 0) {
                 const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
                 this.options.modelOptions = updatedOptions;
@@ -185,13 +189,13 @@ export class YouTubeUrlModal extends BaseModal {
             } else {
                 logger.warn('[YT-CLIPPER] No models returned from API, using fallback', 'Modal');
                 // Still update with whatever we got (empty array) to trigger fallback
-                this.updateModelDropdown(this.options.modelOptions);
+                this.updateModelDropdown(this.options.modelOptions ?? {});
             }
         } catch (error) {
             // Log error and still try to update dropdown
-            logger.error('[YT-CLIPPER] Auto-fetch models failed:', 'Modal', error);
+            logger.error('[YT-CLIPPER] Auto-fetch models failed:', 'Modal', { error });
             logger.warn('[YT-CLIPPER] Falling back to cached or static models', 'Modal');
-            this.updateModelDropdown(this.options.modelOptions);
+            this.updateModelDropdown(this.options.modelOptions ?? {});
         }
     }
 
@@ -225,12 +229,12 @@ export class YouTubeUrlModal extends BaseModal {
             logger.debug('[YT-CLIPPER] Action buttons created', 'Modal');
 
             // Initialize state
-            this.updateModelDropdown(this.options.modelOptions);
+            this.updateModelDropdown(this.options.modelOptions ?? {});
             this.applyTheme(this.isLightTheme);
 
             logger.debug('[YT-CLIPPER] Theme applied', 'Modal');
         } catch (error) {
-            logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', error);
+            logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', { error });
             throw error;
         }
     }
@@ -470,12 +474,11 @@ export class YouTubeUrlModal extends BaseModal {
 
         const formatOptions = [
             { value: 'executive-summary', text: '📊 1. Executive Brief' },
-            { value: 'step-by-step-tutorial', text: '📘 2. Step-by-Step Tutorial' },
-            { value: 'concise-summary', text: '⚡ 3. Concise Summary' },
-            { value: 'technical-analysis', text: '⚙️ 4. Technical Analysis' },
-            { value: '3c-accelerated-learning', text: '🧠 5. 3C Accelerated Learning' },
-            { value: 'atom-notes', text: '🔬 6. Atom Notes' },
-            { value: 'complete-transcription', text: '📝 7. Complete Transcription' },
+            { value: 'technical-analysis', text: '⚙️ 2. Technical Analysis' },
+            { value: '3c-accelerated-learning', text: '🧠 3. 3C Accelerated Learning' },
+            { value: 'atom-notes', text: '🔬 4. Atom Notes' },
+            { value: 'article', text: '📰 5. Article' },
+            { value: 'complete-transcription', text: '📝 6. Complete Transcription' },
         ];
 
         formatOptions.forEach(option => {
@@ -688,6 +691,70 @@ export class YouTubeUrlModal extends BaseModal {
             originalUpdateDropdown(options);
             updateSummary();
         };
+
+        // User Instructions Textarea (shown for article/complete-transcription)
+        const userInstructionsWrapper = container.createDiv();
+        userInstructionsWrapper.style.cssText = `margin-top: 8px;`;
+
+        const userInstructionsLabel = userInstructionsWrapper.createEl('label');
+        userInstructionsLabel.textContent = 'USER INSTRUCTIONS';
+        userInstructionsLabel.style.cssText = `
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--ytc-text-muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.05em;
+            display: block;
+        `;
+
+        this.userInstructionsTextarea = userInstructionsWrapper.createEl('textarea');
+        this.userInstructionsTextarea.placeholder = 'E.g., "Focus on specific aspects...", "Include code examples"';
+        this.userInstructionsTextarea.rows = 3;
+        this.userInstructionsTextarea.setAttribute('aria-label', 'User Instructions');
+        this.userInstructionsTextarea.style.cssText = `
+            width: 100%;
+            height: 80px;
+            resize: vertical;
+            font-size: 0.85rem;
+            color: var(--ytc-text-secondary);
+            background: var(--ytc-bg-input);
+            border-radius: 8px;
+            border: 1px solid var(--ytc-border);
+            margin-top: 8px;
+            padding: 8px 12px;
+            font-family: inherit;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s ease;
+        `;
+        this.userInstructionsTextarea.addEventListener('input', () => {
+            this.userInstructions = this.userInstructionsTextarea?.value ?? '';
+        });
+        this.userInstructionsTextarea.addEventListener('focus', () => {
+            if (this.userInstructionsTextarea) {
+                this.userInstructionsTextarea.style.borderColor = 'var(--ytc-accent)';
+            }
+        });
+        this.userInstructionsTextarea.addEventListener('blur', () => {
+            if (this.userInstructionsTextarea) {
+                this.userInstructionsTextarea.style.borderColor = 'var(--ytc-border)';
+            }
+        });
+
+        // Helper to toggle visibility based on format
+        const updateUserInstructionsVisibility = () => {
+            const currentFormat = this.formatSelect?.value ?? this.format;
+            const show = currentFormat === 'article' || currentFormat === 'complete-transcription';
+            userInstructionsWrapper.style.display = show ? 'block' : 'none';
+        };
+
+        // Update visibility on format change
+        this.formatSelect?.addEventListener('change', () => {
+            updateUserInstructionsVisibility();
+        });
+
+        // Initial visibility
+        updateUserInstructionsVisibility();
     }
 
     /**
@@ -1620,12 +1687,10 @@ export class YouTubeUrlModal extends BaseModal {
                 : 'AI';
             this.updateProgress(75, `Processing with ${providerDisplayName}...`);
 
-            // Boost max tokens for complete-transcription format if default is low
-            let maxTokens = this.options.defaultMaxTokens ?? 4096;
-            if (this.format === 'complete-transcription') {
-                // Ensure at least 16k tokens for transcript if possible (provider dependent)
-                maxTokens = Math.max(maxTokens, 16384);
-            }
+            // Use per-format token and temperature from FORMAT_CONFIG
+            const formatConfig = FORMAT_CONFIG[this.format] ?? FORMAT_CONFIG['executive-summary'];
+            const maxTokens = this.options.defaultMaxTokens ?? formatConfig.recommendedMaxTokens;
+            const temperature = formatConfig.temperatureHint;
 
             // Call the process function
             const filePath = await this.options.onProcess(
@@ -1637,8 +1702,9 @@ export class YouTubeUrlModal extends BaseModal {
                 this.options.enableParallelProcessing ?? false,
                 this.options.preferMultimodal ?? false,
                 maxTokens,
-                this.options.defaultTemperature ?? 0.5,
+                temperature,
                 this.autoFallbackEnabled,
+                this.userInstructions,
             );
 
             // Update progress to 100% (complete)

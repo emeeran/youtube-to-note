@@ -39,7 +39,61 @@ interface AnalysisPromptOptions {
     transcript?: string;
     /** Performance mode affecting prompt detail level */
     performanceMode?: PerformanceMode;
+    /** AI provider name for conditional instructions */
+    providerName?: string;
+    /** Custom user instructions injected into prompt */
+    userInstructions?: string;
 }
+
+/**
+ * Per-format configuration for token limits, temperature, transcript budget, and validation
+ */
+export interface FormatConfig {
+    recommendedMaxTokens: number;
+    temperatureHint: number;
+    transcriptBudget?: number;
+    expectedSections?: string[];
+}
+
+/**
+ * Format-specific configuration map
+ */
+export const FORMAT_CONFIG: Readonly<Record<OutputFormat, FormatConfig>> = {
+    'executive-summary': {
+        recommendedMaxTokens: 4096,
+        temperatureHint: 0.5,
+        expectedSections: ['The Full Picture', 'Core Thesis', 'Key Insights', 'Implications & Impact', 'Key References', 'Assessment', 'Quick Actions'],
+    },
+    'technical-analysis': {
+        recommendedMaxTokens: 6144,
+        temperatureHint: 0.3,
+        transcriptBudget: 120_000,
+        expectedSections: ['Overview', 'Tech Stack & Tools', 'Prerequisites', 'Architecture & Design', 'Implementation Details', 'Engineering Trade-offs', 'Resources'],
+    },
+    '3c-accelerated-learning': {
+        recommendedMaxTokens: 6144,
+        temperatureHint: 0.5,
+        transcriptBudget: 120_000,
+        expectedSections: ['COMPRESS', 'COMPILE', 'CONSOLIDATE'],
+    },
+    'atom-notes': {
+        recommendedMaxTokens: 6144,
+        temperatureHint: 0.5,
+        transcriptBudget: 120_000,
+    },
+    'article': {
+        recommendedMaxTokens: 8192,
+        temperatureHint: 0.6,
+        transcriptBudget: 150_000,
+        expectedSections: ['Executive Summary', 'The Deep Dive', 'Technical Glossary', 'Resources & Citations', 'Actionable Takeaways'],
+    },
+    'complete-transcription': {
+        recommendedMaxTokens: 16384,
+        temperatureHint: 0.3,
+        transcriptBudget: 200_000,
+        expectedSections: ['Overview', 'Full Structured Notes', 'Key Terms'],
+    },
+} as const;
 
 // ============ CONSTANTS ============
 
@@ -60,6 +114,12 @@ const PLACEHOLDERS = {
     DESCRIPTION: '{{DESCRIPTION}}',
     TRANSCRIPT_SECTION: '{{TRANSCRIPT_SECTION}}',
     USER_INSTRUCTIONS: '{{USER_INSTRUCTIONS}}',
+    CHANNEL_NAME: '{{CHANNEL_NAME}}',
+    DURATION: '{{DURATION}}',
+    PUBLISHED_DATE: '{{PUBLISHED_DATE}}',
+    THUMBNAIL_URL: '{{THUMBNAIL_URL}}',
+    CHAPTER_MARKERS: '{{CHAPTER_MARKERS}}',
+    YOUTUBE_URL: '{{YOUTUBE_URL}}',
     AI_PROVIDER: '__AI_PROVIDER__',
     AI_MODEL: '__AI_MODEL__',
 } as const;
@@ -174,347 +234,513 @@ Description: {{DESCRIPTION}}
  * Optimized for token efficiency (30-40% reduction by removing meta-instructions)
  */
 const FORMAT_TEMPLATES: Readonly<Record<OutputFormat, string>> = {
-    'concise-summary': `# Concise Summary
+    'executive-summary': `# ROLE
+You are a Strategic Intelligence Analyst. Distill video content into a decision-ready executive brief — precise, evidence-backed, and immediately actionable.
 
-## Core Summary (<150 words)
-- **Main Point**: Central thesis or key message
-- **Key Takeaway**: Primary insight or value proposition
-- **Immediate Application**: Quick action item or use case
-
-## Power Takeaways (5 points)
-- **[Insight 1]**: Actionable takeaway
-- **[Insight 2]**: Strategic point
-- **[Insight 3]**: Practical application
-- **[Insight 4]**: Resource or tool mentioned
-- **[Insight 5]**: Mindset shift or perspective
-
-## Quick Actions
-- [ ] **[Action 1]**: Implementation step
-- [ ] **[Action 2]**: Resource to explore
-- [ ] **[Action 3]**: Concept to research further`,
-
-    'executive-summary': `# Executive Brief
+# PROCESSING (Execute silently)
+Watch the full video. Ignore intros, sponsors, filler. RANK insights by strategic significance, not chronology. Every claim must be anchored to specific content. Write in active voice, addressing the reader directly.
 
 ---
 
-## ⚡ TL;DR — The 30-Second Take
-> [Single paragraph: What's the core message? Why does it matter? What should we do?]
+## 📋 The Full Picture
+[Write ONE comprehensive paragraph (200-300 words) that distills the entire content. Apply this structure:
+- **OPEN** with the core thesis — the single most important claim.
+- **BUILD** with the strongest supporting evidence and key arguments.
+- **ELEVATE** with the broader significance — who this affects and why it matters.
+- **CHALLENGE** with at least one limitation, counter-argument, or open question.
+A reader should understand the subject completely without watching the source.]
 
 ---
 
-## 🎯 Strategic Summary (3-5 sentences)
-[Comprehensive overview that a C-suite executive can read in 60 seconds. Cover: the thesis, business impact, competitive implications, and recommended direction.]
+## 🎯 Core Thesis
+> [The central argument, claim, or proposition in 1-2 sentences]
 
 ---
 
 ## 💡 Key Insights
 
-### The Big Idea
-**[Main Concept]**: [One-sentence definition of the central thesis]
+### Critical Points
+1. **[Point 1]**: [Explanation with context, significance, and specific evidence from the video]
+2. **[Point 2]**: [Explanation with context, significance, and specific evidence from the video]
+3. **[Point 3]**: [Explanation with context, significance, and specific evidence from the video]
+4. **[Point 4]**: [Explanation with context, significance, and specific evidence from the video]
+5. **[Point 5]**: [Explanation with context, significance, and specific evidence from the video]
 
-### Critical Findings (Top 5)
-| # | Insight | Business Impact | Urgency |
-|---|---------|-----------------|---------|
-| 1 | [Finding 1] | [Revenue/efficiency/risk impact] | 🔴 High |
-| 2 | [Finding 2] | [Impact description] | 🟡 Medium |
-| 3 | [Finding 3] | [Impact description] | 🟢 Low |
-| 4 | [Finding 4] | [Impact description] | ⏳ Watch |
-| 5 | [Finding 5] | [Impact description] | 📊 Track |
-
----
-
-## 📊 Executive Dashboard
-
-### Opportunity Assessment
-- **Market Size/TAM**: [If applicable — quantified opportunity]
-- **Growth Potential**: [Scalability and expansion possibilities]
-- **Competitive Edge**: [Differentiation factors]
-- **Time to Value**: [How fast can results be realized]
-
-### Risk Radar
-| Risk Category | Level | Mitigation Strategy |
-|---------------|-------|---------------------|
-| Market Risk | 🟢🟡🔴 | [Brief mitigation] |
-| Technical Risk | 🟢🟡🔴 | [Brief mitigation] |
-| Execution Risk | 🟢🟡🔴 | [Brief mitigation] |
-| Timing Risk | 🟢🟡🔴 | [Brief mitigation] |
-
-### Resource Requirements
-- **Budget**: [Estimated investment or cost range]
-- **Team**: [Headcount or skill requirements]
-- **Technology**: [Tools, platforms, infrastructure]
-- **Timeline**: [Key milestones and deadlines]
+### Evidence & Examples
+- [Key evidence, data point, or concrete example 1]
+- [Key evidence, data point, or concrete example 2]
+- [Key evidence, data point, or concrete example 3]
 
 ---
 
-## 🚀 Action Plan
+## 🔮 Implications & Impact
 
-### Immediate (This Week)
-- [ ] **[Action 1]**: [Specific task with owner and deadline]
-- [ ] **[Action 2]**: [Specific task with owner and deadline]
+### Near-term Consequences
+- [Immediate effects or developments to watch]
 
-### Short-term (30 Days)
-- [ ] **[Action 3]**: [Specific task with measurable outcome]
-- [ ] **[Action 4]**: [Specific task with measurable outcome]
+### Long-term Trajectory
+- [Broader impact, paradigm shifts, or structural changes]
 
-### Strategic (This Quarter)
-- [ ] **[Action 5]**: [Major initiative with KPIs]
-- [ ] **[Action 6]**: [Major initiative with KPIs]
+### Who & What Is Affected
+- [Groups, institutions, systems, or domains impacted]
 
-### KPIs to Track
-- **Metric 1**: [What to measure, target value, tracking frequency]
-- **Metric 2**: [What to measure, target value, tracking frequency]
-- **Metric 3**: [What to measure, target value, tracking frequency]
+### Open Questions
+- [Unresolved issue or question 1]
+- [Unresolved issue or question 2]
 
 ---
 
-## 🔮 Forward Look
+## 📎 Key References
 
-### Trends to Watch
-- **Trend 1**: [Emerging development and why it matters]
-- **Trend 2**: [Emerging development and why it matters]
+### People, Groups & Organizations
+- [Name]: [Role, relevance, or position]
 
-### Next Steps Recommendation
-**Primary Recommendation**: [Clear, actionable guidance]
+### Sources & Data Cited
+- [Source]: [Key finding or how it's used]
 
-**Alternative Approaches**:
-1. [Option A with pros/cons]
-2. [Option B with pros/cons]
+### Related Concepts & Materials
+- [Concept/Resource]: [Connection or relevance]
 
 ---
 
-## 📎 Reference Intelligence
-
-### Technologies & Tools
-- [Tool 1]: [Purpose/relevance]
-- [Tool 2]: [Purpose/relevance]
-
-### Data & Research Cited
-- [Source 1]: [Key finding]
-- [Source 2]: [Key finding]
-
-### Experts & Organizations
-- [Person/Org 1]: [Relevant perspective]
-- [Person/Org 2]: [Relevant perspective]
-
-### Related Resources
-- [Link 1]: [Description]
-- [Link 2]: [Description]
+## 🏷️ Assessment
+**Confidence in Claims**: [High/Medium/Low — justify with evidence quality]
+**Complexity**: [Accessible/Moderate/Dense]
+**Significance**: [Major shift / Important development / Incremental update]
 
 ---
 
-## 🏷️ Metadata
-**Confidence Level**: [High/Medium/Low based on source quality]
-**Decision Timeline**: [When must action be taken]
-**Stakeholders**: [Who needs to be involved]`,
+## ⚡ Quick Actions
+- [ ] **[Action 1]**: Concrete implementation step based on key insights
+- [ ] **[Action 2]**: Resource to explore or person to follow up with
+- [ ] **[Action 3]**: Concept to research further or experiment to run
 
-    'step-by-step-tutorial': `# Step-by-Step Tutorial
+---
 
-## Overview (200-250 words)
-- **Objective**: What you'll accomplish
-- **Scope**: What's covered and what's not
-- **Outcome**: Final result
-- **Time Investment**: Estimated duration
+# OUTPUT CONSTRAINTS
+- FORMAT: Strict Github-Flavored Markdown. No preambles.
+- EVIDENCE: Every Critical Point must reference specific content from the video.
+- ACTIVE VOICE: Write in active voice, addressing the reader directly. Prefer "You'll notice..." over "It should be noted..." and "Consider how..." over "One might consider..." Use "you" and imperative mood naturally.
+- WORD LIMIT: "The Full Picture" must stay within 200-300 words.
+- NO TIMESTAMPS: No time references anywhere.
+- ACCURACY: 100% factual retention for proper nouns and data points.`,
 
-## Prerequisites
-- **Tools Required**: Software/hardware needed
-- **Knowledge Needed**: Foundational skills
-- **Setup**: Configuration requirements
-- **Resources**: Materials to download
+    'technical-analysis': `# ROLE
+You are a Senior Software Engineer conducting a technical review. Extract precise, reproducible technical analysis from video content — every claim must be grounded in specific evidence, and every process must be specific enough to follow.
 
-## Step-by-Step Implementation
+# PROCESSING (Execute silently)
+Watch the full video. Ignore intros, sponsors, filler. Extract all technical substance: code, commands, configuration, architecture decisions, version numbers. Capture exact syntax for all code and commands shown on screen. Write in active voice, addressing the reader as "you."
 
-### Phase 1: Foundation
-1. **[Step Name]**: Action with specific details
-   - **Expected Result**: Success indicator
-   - **Troubleshooting**: Common issues and fixes
+---
 
-### Phase 2: Implementation
-2. **[Step Name]**: Core action with dependencies
-   - **Verification**: How to confirm it works
-   - **Integration**: Connection to previous steps
+## Overview (100-150 words)
+> [The single most important technical insight or outcome from the video]
 
-### Phase 3: Refinement
-3. **[Step Name]**: Enhancement or optimization
-   - **Performance**: What to monitor
-   - **Scaling**: Expansion considerations
+[2-3 sentences of active-voice prose explaining what the video covers and why it matters technically. Bold key outcomes.]
 
-## Critical Success Factors
-- **Common Pitfalls**: Mistakes to avoid
-- **Key Decisions**: Important choice points
-- **Timing**: When to take action
-- **Resources**: Effort allocation
-
-## Resources
-- **Links**: Tools, documentation, references
-- **Templates**: Reusable components
-- **Further Learning**: Advanced topics`,
-
-    'technical-analysis': `# Technical Analysis
-
-**Constraint**: Ignore intros, sponsors, "like and subscribe". Extract technical substance only.
+---
 
 ## Tech Stack & Tools
 - **Languages/Frameworks**: All with specific versions
-- **Libraries**: Dependencies with versions
-- **Environment**: Hardware, cloud, or configuration
+- **Libraries**: Dependencies with versions and why each was chosen
+- **Environment**: Hardware, cloud platform, OS, or configuration details
+- **Alternatives Considered**: Tools mentioned but not selected, and why
+
+---
+
+## Prerequisites
+- **Tools Required**: Software/hardware needed with specific versions
+- **Knowledge Needed**: Foundational skills assumed
+- **Setup**: Configuration requirements and environment details
+
+---
 
 ## Architecture & Design
-- **Structure**: System architecture overview
-- **Patterns**: Design patterns used (CQRS, Event Sourcing, etc.)
-- **Data Flow**: Client to database movement
+- **Structure**: System architecture overview — how components connect
+- **Patterns**: Design patterns used (CQRS, Event Sourcing, etc.) and the problem each solves
+- **Data Flow**: How data moves through the system — from input to storage to output
+- **Key Decisions**: Architecture choices and the trade-offs involved
+
+---
 
 ## Implementation Details
-- **Commands/Config**: Specific commands or settings
-- **Pseudo-code**: Generated logic when described but not shown
-- **Refactoring**: Before/After optimizations
+- **Commands/Config**: Exact commands and configuration with full syntax
+- **Code**: Key code snippets shown or described — include exact syntax where possible
+- **Refactoring**: Before/After optimizations with explanation of what changed and why
+- **Edge Cases**: Boundary conditions and error handling discussed
+
+---
+
+## Implementation Steps
+
+### Phase 1: [Descriptive Name — e.g., "Environment Setup"]
+1. **[Step Name]**: Specific action with details
+   - **Expected Result**: How to confirm success
+   - **Troubleshooting**: Common issues and fixes
+   - **Code/Command**: \`exact command or code snippet\`
+
+### Phase 2: [Descriptive Name — e.g., "Core Build"]
+2. **[Step Name]**: Action with dependencies noted
+   - **Verification**: How to confirm it works
+   - **Integration**: Connection to previous steps
+
+Use as many phases as the content requires — 2, 3, or 4. Name each phase descriptively based on actual content. If the video is analysis-only with no build steps, omit this section entirely.
+
+---
 
 ## Engineering Trade-offs
-- **Problem Solved**: Specific technical challenge addressed
-- **Hot Takes**: Strong technical opinions
-- **Trade-offs**: Performance/cost/complexity decisions
+- **Problem Solved**: The specific technical challenge being addressed
+- **Trade-offs**: Performance vs. cost vs. complexity decisions — with concrete reasoning
+- **Strong Opinions**: Technical positions taken by the speaker, with their justification
+- **Alternatives**: Approaches not taken and why they were rejected
 
-## Reproduction Steps
-1. **[Action]**: Specific command or action
-2. **[Action]**: Next step with dependencies
-3. **[Action]**: Verification step`,
+---
 
-    '3c-accelerated-learning': `# 3C Accelerated Learning
+## Critical Success Factors
+- **Common Pitfalls**: Specific mistakes mentioned in the video and how to avoid them
+- **Key Decisions**: Important choice points and their trade-offs
+- **Debugging**: How to diagnose and fix common failures
 
-**Compress → Compile → Consolidate**: Transform video into lasting knowledge.
+---
+
+## Resources
+- **Links**: Tools, documentation, and references mentioned
+- **Code**: Repositories, gists, or files referenced
+- **Further Learning**: Advanced topics suggested
+
+---
+
+# OUTPUT CONSTRAINTS
+- FORMAT: Strict Github-Flavored Markdown. No preambles.
+- SPECIFICITY: No vague claims — every technical assertion must reference specific evidence from the video.
+- CODE: Capture all code, commands, and configuration with exact syntax.
+- ACTIVE VOICE: Write in active voice, addressing the reader as "you." Prefer "Run this command" over "This command should be run." Use imperative mood for all steps.
+- NO TIMESTAMPS: No time references anywhere.
+- ACCURACY: 100% factual retention for versions, commands, and technical details.`,
+
+    '3c-accelerated-learning': `# ROLE
+You are a Learning Science Specialist. Transform video content into lasting, transferable knowledge using the Compress→Compile→Consolidate framework — every element must serve retention and application.
+
+# PROCESSING (Execute silently)
+Watch the full video. Ignore intros, sponsors, filler. IDENTIFY the vital 20% of content that delivers 80% of the value — rank by insight impact, not chronology. For each concept: note the core definition, strongest evidence, practical application, and at least one limitation. Write in active voice, addressing the reader directly.
+
+---
 
 ## 🔹 COMPRESS (80/20 Rule)
 The vital 20% delivering 80% value:
+
+> [The single most transferable insight from the video]
+
 - **Core Thesis**: Fundamental message in 1-2 sentences
-- **Key Concepts** (5-7): Precise definitions
-- **Mental Models**: Visual analogies and metaphors
-- **Visuals**: Descriptions of diagrams/demonstrations
+- **Key Concepts** (5-7): Precise definitions with specific evidence anchors — not generic labels
+- **Mental Models**: Visual analogies and metaphors used in the video, with context
+- **Visuals**: Key diagrams, demonstrations, or on-screen explanations described for recall
+
+---
 
 ## 🔸 COMPILE (Active Application)
-- **Framework**: Organized understanding structure
-- **Workflow**: Step-by-step implementation checklist
-- **Tools/Resources**: Every app, book, site, hardware mentioned
-- **Connections**: How concepts relate to each other
+- **Framework**: An organized structure connecting all key concepts — show how they relate and build on each other
+- **Workflow**: Step-by-step application checklist the reader can follow immediately
+- **Tools/Resources**: Every app, book, site, and hardware mentioned with specific names
+- **Connections**: How concepts relate to each other and to domains outside the video's topic
+
+---
 
 ## 🔹 CONSOLIDATE (Retention & Transfer)
-- **Master Model**: Unifying framework integrating all concepts
-- **Recall Anchors**: 6-8 challenging comprehension questions
-- **Action Roadmap**: 4-6 measurable next steps with timelines
-- **Cross-References**: Related concepts and adjacent fields
-- **Success Metrics**: Quantifiable impact indicators
+- **Master Model**: A unifying framework integrating all concepts into a single mental model — explain the connections
+- **Recall Anchors** (6-8): Challenging comprehension questions that test understanding, not trivia recall. Mix factual, conceptual, and application-level questions.
+- **Action Roadmap**: 4-6 specific, measurable next steps the reader can take
+- **Cross-References**: Related concepts and adjacent fields to explore
+- **Success Metrics**: Concrete indicators that the knowledge has been internalized
+
+---
 
 **Transfer Acceleration**:
-- **Adaptation**: How to modify for different scenarios
-- **Obstacles**: Anticipated challenges and solutions
-- **Compound Effect**: How small changes create disproportionate impact`,
+- **Adaptation**: How to modify these insights for different scenarios or domains
+- **Obstacles**: Anticipated challenges in applying this knowledge and how to overcome them
+- **Compound Effect**: How applying these insights creates disproportionate long-term impact
 
-    'atom-notes': `# Atom Notes
+---
 
-**Atomic Knowledge Units**: Self-contained, linkable ideas that can be combined and recombined.
+# OUTPUT CONSTRAINTS
+- FORMAT: Strict Github-Flavored Markdown. No preambles.
+- EVIDENCE: Every key concept must reference specific content from the video — no unsupported generalizations.
+- ACTIVE VOICE: Write in active voice, addressing the reader directly. Prefer "You'll apply this by..." over "This can be applied by..." Use "you" and imperative mood naturally.
+- QUALITY: Recall Anchors must test understanding, not memorization.
+- NO TIMESTAMPS: No time references anywhere.
+- ACCURACY: 100% factual retention for proper nouns and data points.`,
+
+    'atom-notes': `# ROLE
+You are a Knowledge Architect. Decompose video content into atomic knowledge units — self-contained, linkable ideas that can be combined and recombined across contexts.
+
+# PROCESSING (Execute silently)
+Watch the full video. Ignore intros, sponsors, filler. IDENTIFY 5-10 distinct atomic ideas — each must be independently understandable without the others. For each atom: define precisely, anchor with evidence, specify application, and map connections. Rank by insight value and transferability, not chronology. Write in active voice, addressing the reader directly.
+
+---
+
+# [Specific, Informative Headline — Max 10 Words]
+
+**Video URL:** {{YOUTUBE_URL}}
+By [Speaker Names] · [Channel Name] · [Runtime] · Published [Date]
+
+---
 
 ## 💡 Core Atomic Ideas (5-10 concepts)
-Each concept should be:
-- **Self-contained**: Understandable without context
-- **Linkable**: Connected to other ideas
-- **Actionable**: Applicable in multiple contexts
+Each atom must be: **Self-contained** (understandable alone), **Linkable** (connected to others), **Actionable** (applicable beyond this video).
 
-### Concept 1: [Name]
-- **Definition**: One-sentence explanation
-- **Evidence**: Supporting data or examples
-- **Application**: How to use this insight
-- **Connections**: Related concepts
+### [Concept Name]
+- **Definition**: One precise sentence explaining the idea
+- **Evidence**: Specific data, example, or demonstration from the video supporting this
+- **Application**: How you can apply this insight in practice
+- **Connections**: Links to other concepts in this set or beyond
 
-### Concept 2: [Name]
-- **Definition**: One-sentence explanation
-- **Evidence**: Supporting data or examples
-- **Application**: How to use this insight
-- **Connections**: Related concepts
+[Repeat for each atomic concept — use ### headers for each]
 
-### Concept 3: [Name]
-- **Definition**: One-sentence explanation
-- **Evidence**: Supporting data or examples
-- **Application**: How to use this insight
-- **Connections**: Related concepts
-
-### Concept 4: [Name]
-- **Definition**: One-sentence explanation
-- **Evidence**: Supporting data or examples
-- **Application**: How to use this insight
-- **Connections**: Related concepts
-
-### Concept 5: [Name]
-- **Definition**: One-sentence explanation
-- **Evidence**: Supporting data or examples
-- **Application**: How to use this insight
-- **Connections**: Related concepts
+---
 
 ## 🔗 Concept Map
-**Central Theme**: [Unifying idea]
+**Central Theme**: [The unifying idea connecting all atoms]
 
 **Branches**:
-- Branch A → Related concepts
-- Branch B → Related concepts
-- Branch C → Related concepts
+- Branch A → [List related concept names and how they connect]
+- Branch B → [List related concept names and how they connect]
+- Branch C → [List related concept names and how they connect]
 
-**Cross-links**: Unexpected connections between branches
+**Cross-links**: [Unexpected connections between branches — explain WHY they connect, not just that they do]
+
+---
 
 ## 📝 Quick Capture Notes
-- **Quote 1**: "[Notable quote]" — Context
-- **Quote 2**: "[Notable quote]" — Context
-- **Statistic**: [Data point] — Source
-- **Analogy**: [Memorable comparison]
+- **Quote 1**: "[Notable quote]" — Context and why it matters
+- **Quote 2**: "[Notable quote]" — Context and why it matters
+- **Statistic**: [Data point] — Source and significance
+- **Analogy**: [Memorable comparison] — What it illustrates
+
+---
 
 ## 🎯 Implementation Seeds
-- **[ ]**: Micro-action based on Concept 1
-- **[ ]**: Micro-action based on Concept 2
-- **[ ]**: Question to explore further
-- **[ ]**: Person/resource to investigate
+- [ ] **[Micro-action]**: Concrete step based on a specific concept
+- [ ] **[Micro-action]**: Concrete step based on a specific concept
+- [ ] **[Question]**: A question worth exploring further
+- [ ] **[Resource]**: A person, tool, or material to investigate
+
+---
 
 ## 🏷️ Metadata
 **Domain**: [Primary field/category]
 **Complexity**: [Beginner/Intermediate/Advanced]
-**Reusability**: [How this knowledge transfers]`,
+**Reusability**: [How this knowledge transfers to other contexts]
 
-    'complete-transcription': `# Complete Transcription
+---
 
-**CRITICAL**:
-- If transcript provided: Include FULL transcript below
-- If NO transcript: State "Transcript Not Available: Based on title/description, this video covers:" followed by analysis
-- **DO NOT include line numbers, timestamps, or numbering in the transcript**
-- Process multimodally (visual/audio) for complete extraction
+# OUTPUT CONSTRAINTS
+- FORMAT: Strict Github-Flavored Markdown. No preambles.
+- ATOMICITY: Each concept must be independently understandable — no concept should require reading another to make sense.
+- EVIDENCE: Every concept must reference specific content from the video.
+- ACTIVE VOICE: Write in active voice, addressing the reader directly. Prefer "You can use this to..." over "This can be used to..." Use "you" and imperative mood naturally.
+- NO TIMESTAMPS: No time references anywhere.
+- ACCURACY: 100% factual retention for proper nouns and data points.`,
 
-## Summary (<250 words)
-[Core message and main value points]
+    'article': `# ROLE
+You are a Multimodal Research Analyst and Senior Editor. Your goal is to convert video content into a publication-ready, structured long-form article.
 
-## Full Transcript
+# INPUT
+Video URL: {{YOUTUBE_URL}}
 
-**Structure Guidelines**:
-- **NO line numbers, timestamps, or numbering**
-- **Sections**: Logical topic segments with ### headers
-- **Clean dialogue**: Remove filler words ("um", "uh", "like")
-- **Speaker labels**: Format as **[Name]:** with dialogue
-- **Readability**: Paragraph breaks between thoughts
-- **Emphasis**: **Bold** for key terms, *italics* for visual descriptions
-- **Code**: Inline \`code\` for commands/URLs
-- **Resources**: Link as [Name](URL)
+# EXECUTION PIPELINE (Execute in order)
+
+## STAGE 1: MULTIMODAL INGESTION
+- Watch and listen to the video in its entirety.
+- Identify all primary speakers, their roles/titles, and the core thesis of the discussion.
+- ANALYZE VISUALS: Read on-screen text, slides, and graphics to provide context and anchor technical terminology.
+- NOTE ENVIRONMENTAL AUDIO: Assess mic quality. If background noise is high, prioritize vocal frequency isolation through contextual deduction.
+
+## STAGE 2: INTERNAL REFINEMENT (Do not output)
+- Generate a verbatim internal transcript.
+- STRIP FILLERS: Remove "um," "ah," "like," "you know," and collapse false starts.
+- POOR AUDIO RESILIENCE: Use video metadata and on-screen OCR text as "Vocabulary Anchors" to disambiguate phonetic similarities (e.g., "data" vs "beta").
+- THE FLAGGING SYSTEM: If a word is truly unrecognizable, flag as [VERIFY MM:SS]. Use this only as a last resort.
+- THEME EXTRACTION: Before writing, identify 4-6 distinct thematic clusters from the content. Rank by significance and insight value, NOT chronology. For each theme, note: the core claim, strongest supporting evidence, broader implications, and at least one limitation or counter-argument.
+- MULTI-SPEAKER SYNTHESIS: Synthesize the dialogue into a single, cohesive narrative. Do not use a Q&A format. Attribute specific insights to individual speakers (e.g., "As [Name] points out...") to maintain journalistic integrity, especially during debates or interviews.
+
+## STAGE 3: SEMANTIC ARCHITECTURE
+Structure the final output into these specific Markdown blocks:
+
+1. # [Specific, Informative Headline — Max 10 Words]
+2. [Embed YouTube Video: <iframe width="560" height="315" src="https://www.youtube.com/embed/VIDEO_ID" frameborder="0" allowfullscreen></iframe>]
+3. **Video URL:** [Link]
+4. By [Speaker Names] · [Channel Name] · [Runtime] · Published [Date]
+5. ## Executive Summary: Open with a \`>\` blockquote containing the single most provocative or essential insight from the video — a pull quote that grabs the reader. Follow with 2-3 sentences of active-voice overview that frames the core thesis and tells the reader exactly what they'll gain from reading further.
+6. ## The Deep Dive: The main body — NOT a chronological summary. DISTILL into 4-6 thematic paragraphs of flowing prose (NO bullet points, NO sub-headers). Write in active voice, addressing the reader directly — prefer "You'll notice..." over "It should be noted..." and "Consider how..." over "One might consider..." Apply this architecture to EVERY paragraph:
+   - **OPEN** with the theme's core claim — the single most important insight. **Bold the opening phrase** of each paragraph to create a visual anchor.
+   - **BUILD** with concrete evidence: specific examples, data points, technical details, or named references. Show the reasoning, not just the conclusion.
+   - **ELEVATE** by connecting to broader implications — real-world impact, industry context, or cross-domain relevance. Answer "so what?"
+   - **CHALLENGE** with limitations, counter-arguments, edge cases, or omitted perspectives. Be analytically honest.
+   - **BRIDGE** with a closing sentence that connects to the next theme or deepens the insight.
+
+   ORDER paragraphs by thematic weight (most important first), not video timeline. Weave speaker style and delivery observations organically where relevant — never as a standalone paragraph. Each paragraph must contain at least one specific evidence anchor (quote, data point, named example). Insert 1-2 \`>\` blockquotes for the most striking insights or pull quotes — never more than two sentences. Separate major sections with \`---\` horizontal rules. The section should read like published long-form analysis — intellectually rigorous, information-dense, critically engaged, and visually scannable.
+7. ## Technical Glossary: Define jargon and complex terms found in the video. Use format: * **Term:** Definition
+8. ## Resources & Citations: List books, websites, or people explicitly mentioned. Use format: * **Name:** Description
+9. ## Actionable Takeaways: A bulleted list of immediate "Next Steps." Use format: * **Action Title:** Description
+   Separate each major section (items 5-9) with \`---\` horizontal rules for visual breathing room.
+
+# REFERENCE EXAMPLE
+Your output MUST match this exact formatting style:
+
+# Master of Logic: Decoding Efficiency in Algorithms
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/6Svu_ae5ebk" frameborder="0" allowfullscreen></iframe>
+
+**Video URL:** https://www.youtube.com/watch?v=6Svu_ae5ebk
+
+By David J. Malan · CS50 · 01:59:36 · Published 2026-01-01
+
+---
+
+## Executive Summary
+> Efficiency isn't about speed — it's about how gracefully your solution scales when data grows from dozens to billions.
+
+This session breaks down the fundamental building blocks of computer science: how computers search for and sort information. Through interactive demonstrations and live coding in C, David Malan walks you from intuitive human problem-solving to formal algorithmic structures like Big O notation. **The core thesis is clear — algorithmic efficiency is not speed, but scalable design.**
+
+---
+
+## The Deep Dive
+**Algorithmic efficiency is fundamentally about graceful scaling** — how a solution behaves as data grows from dozens to billions of entries. Malan opens with a deceptively simple demonstration: counting students one by one gives you a linear O(n) operation, but pairing them off in a divide-and-conquer pattern collapses that to O(log n). The insight isn't that one method is faster in absolute terms — it's that the growth rate diverges catastrophically at scale. This principle underpins every search engine query, social media feed, and database lookup you encounter. Using physical props — lockers, Monopoly money, and student volunteers — Malan makes the logarithmic leap viscerally intuitive through a "show, don't tell" approach. But here's the catch: divide-and-conquer elegance only matters at scale. For a dataset of ten items, the overhead of a clever algorithm can exceed brute force.
+
+> The growth rate divergence isn't a mathematical curiosity — it's the difference between a system that functions and one that collapses.
+
+**This tension between elegance and practicality resurfaces at the hardware level**, where arrays — contiguous blocks of memory — impose a fundamental constraint: a computer can typically access only one memory location at a time. Linear search checks each element sequentially, while binary search halves the search space with each step — but only if you've pre-sorted the data. That sorting requirement is the real design decision: time spent ordering data versus time saved searching it. Every query you run through modern infrastructure, from DNS lookups to recommendation engines, navigates this trade-off. Malan's interactive style — polling students on which algorithm to choose — mirrors the decision process you'll face as an engineer: there's no universally correct answer, only contextually appropriate ones.
+
+**Translating these abstractions into code exposes a further layer of hidden complexity.** String comparison in C requires \`strcmp\` from the \`string.h\` library rather than a simple \`==\` operator — what appears elementary at the conceptual level demands precise implementation. The introduction of \`typedef struct\` to encapsulate a name and phone number into a single "person" type replaces the fragile "honor system" of parallel arrays with genuine data integrity. You're shifting from trusting the programmer to enforcing correctness at the language level. Yet practical limits assert themselves: recursion, the elegant engine behind merge sort, can trigger "stack overflow" errors when the problem exceeds available memory — a failure mode demonstrated live during the session. Defensive programming practices exist precisely because theory and implementation diverge at the edges.
+
+**The ultimate takeaway isn't any single algorithm but engineering judgment** — knowing when to deploy which tool. Selection sort is intuitive but O(n²) at every case; bubble sort offers marginal best-case improvement; merge sort achieves O(n log n) at the cost of additional memory. As data volumes continue their exponential trajectory, these scaling laws stop being academic exercises and become the difference between systems that function and systems that fail. Yet the honest assessment is that the "best" algorithm is always context-dependent: a small dataset searched once needs no optimization, and merge sort's memory overhead can be prohibitive in embedded systems. The skill worth developing isn't memorizing Big O tables — it's accurately diagnosing which constraints matter in a given situation.
+
+---
+
+## Technical Glossary
+* **Algorithm:** A set of instructions for solving a specific problem or performing a task.
+* **Array:** A data structure consisting of a collection of elements, each identified by at least one array index or key, stored in contiguous memory.
+* **Big O Notation:** A mathematical notation used to describe the limiting behavior of a function when the argument tends towards a particular value or infinity, specifically used to describe algorithm efficiency.
+* **Binary Search:** A search algorithm that finds the position of a target value within a sorted array by repeatedly dividing the search interval in half.
+* **Recursion:** A method of solving a problem where the solution depends on solutions to smaller instances of the same problem.
+* **Struct:** A composite data type in C that allows for the grouping of variables of different types under a single name.
+
+## Resources & Citations
+* **CS50h Library:** The custom header file used for simplified input in C.
+* **Standard I/O (stdio.h):** The standard C library for input and output operations.
+* **String Library (string.h):** The C library providing functions for manipulating arrays of characters.
+* **Super Mario Brothers:** Referenced for visual metaphors of pyramids and recursion.
+
+---
+
+## Actionable Takeaways
+* **Adopt Defensive Programming:** Use \`structs\` to encapsulate related data points to prevent errors associated with "honor system" parallel arrays.
+* **Evaluate Scaling Before Coding:** Before choosing a sorting or searching method, determine the expected size of n to decide if a simple O(n) or a more complex O(log n) approach is necessary.
+* **Use Standard Functions:** Utilize built-in functions like \`strcmp\` for string comparisons to ensure character-by-character accuracy.
+* **Optimize for the Worst Case:** When designing systems, focus on the Big O (upper bound) to ensure the application remains functional under heavy loads.
+
+# OUTPUT CONSTRAINTS
+- FORMAT: Strict Github-Flavored Markdown. No preambles like "Here is the article."
+- NO TIMESTAMPS: The body must read like a professional essay.
+- TONE: Match the speakers' natural register (e.g., academic, corporate, or conversational). Use active voice throughout — address the reader directly. Prefer "You'll notice..." over "It should be noted that..." and "Consider how..." over "One might consider..."
+- VOICE: Write as a knowledgeable guide speaking directly to the reader, not as a detached reporter narrating events. Use "you" and imperative mood naturally.
+- VISUAL: Separate every major section with \`---\` horizontal rules. Bold the opening phrase of each Deep Dive paragraph. Use \`>\` blockquotes for 1-2 key insights per Deep Dive. Never produce unbroken walls of text.
+- ACCURACY: 100% factual retention for proper nouns and data points.
+- EVIDENCE: Every Deep Dive paragraph must contain at least one specific evidence anchor (quoted term, data point, named example). Unsupported generalizations are unacceptable.
+- CRITICAL DEPTH: The Deep Dive must surface at least one substantive challenge or limitation per major theme. Pure summary without critical engagement fails the format.
+- MATCH the reference example format exactly — same section structure, same list formatting with * **Bold:** Description pattern, same flowing prose in body sections.`,
+
+    'complete-transcription': `# ROLE
+You are a Precision Transcription Analyst and Structured Note Architect. Your goal is to produce a complete, end-to-end transcription of the video as structured notes — capturing every spoken word without omission, organized by topic with absolute clarity.
+
+# INPUT
+Video URL: {{YOUTUBE_URL}}
+
+# EXECUTION PIPELINE (Execute in order)
+
+## STAGE 1: FULL END-TO-END INGESTION
+- Watch and listen to the ENTIRE video from the first spoken word to the last.
+- Capture EVERY sentence, statement, and dialogue exchange — nothing may be paraphrased, summarized, or omitted.
+- Identify all speakers by name and role/title.
+- ANALYZE VISUALS: Read on-screen text, slides, code, diagrams, and graphics. Incorporate visual context using *italics* descriptions where relevant.
+- NOTE AUDIO: If audio quality degrades, use contextual deduction and on-screen text to reconstruct unclear portions.
+
+## STAGE 2: TRANSCRIPT REFINEMENT (Do not output)
+- Generate a complete verbatim transcript of the entire video.
+- STRIP FILLERS: Remove "um," "ah," "uh," "like," "you know," and collapse false starts and repetitions.
+- DO NOT paraphrase or summarize — retain the full substance of every point made.
+- POOR AUDIO RESILIENCE: Use video metadata and on-screen OCR text as "Vocabulary Anchors" to disambiguate unclear words.
+- FLAGGING: If a word is truly unrecognizable despite all efforts, flag as [VERIFY]. Use only as a last resort.
+- MULTI-SPEAKER: Label every speaker change clearly using **[Name]:** format.
+
+## STAGE 3: STRUCTURED NOTE OUTPUT
+Organize the complete transcription into structured notes using these Markdown blocks:
+
+# [Video Title]
+
+**Video URL:** {{YOUTUBE_URL}}
+By [Speaker Names] · [Channel Name] · [Runtime] · Published [Date]
+
+## Overview
+A 3–5 sentence summary of what the video covers and its main thesis.
+
+## Full Structured Notes
+
+Organize the COMPLETE transcription into logical topic sections using ### headers. Every spoken point must be captured — do not skip or abbreviate any content.
+
+**Formatting Rules**:
+- **NO timestamps** — no MM:SS, no HH:MM:SS, no bracketed time references anywhere in the output
+- **NO line numbers** — no sequential numbering of dialogue
+- **Section headers**: Use ### for each distinct topic or segment transition
+- **Speaker labels**: Format as **[Name]:** followed by their dialogue
+- **Clean dialogue**: Filler words removed, but all substantive content preserved verbatim
+- **Readability**: Paragraph breaks between distinct thoughts or speaker turns
+- **Emphasis**: **Bold** for key terms and concepts introduced
+- **Visual descriptions**: *Italics* for on-screen content like *\[Visual: Diagram of binary search\]*
+- **Code**: Inline \`code\` for commands, function names, and URLs
+- **Resources**: Link as [Name](URL) when mentioned
 
 **Example Format**:
-### Introduction
-**[Speaker]:** Opening remarks and topic introduction.
+### Introduction to the Topic
+**[Speaker]:** Opening remarks covering the scope of the discussion and what will be addressed.
 
-**Key Point:** Main thesis statement.
+**[Speaker]:** Further elaboration on the foundational concepts needed to follow along. Additional context about why this topic matters in practice.
 
-### Main Content
-1. First point with explanation
-2. Second point with details
+**Key Concept:** Definition or principle introduced at this point.
 
-*[Visual: Diagram description]*
+### Core Mechanism Explained
+**[Speaker]:** Detailed walkthrough of the primary mechanism with step-by-step explanation of how it works under the hood.
 
-### Resources
-- [Resource 1](https://example.com)
+*[Visual: Diagram showing data flow from input to output]*
+
+**[Speaker]:** Continuation of the explanation with practical examples demonstrating real-world application of the concept.
+
+### Advanced Implementation
+**[Speaker]:** Discussion of edge cases and how to handle them. Code examples showing proper implementation using \`function_name()\`.
+
+*[Visual: Code on screen demonstrating the pattern]*
 
 ### Conclusion
-Final thoughts and key takeaways`,
+**[Speaker]:** Summary of key points covered. Final recommendations and next steps for applying this knowledge.
+
+---
+
+## Key Terms
+* **Term 1:** Definition as used in the video.
+* **Term 2:** Definition as used in the video.
+
+---
+
+## Resources Mentioned
+* **Resource Name:** Description of what it is and why it was referenced.
+
+# OUTPUT CONSTRAINTS
+- FORMAT: Strict Github-Flavored Markdown. No preambles.
+- COMPLETENESS: Every point from the video must be present. This is NOT a summary — it is a full structured transcription.
+- NO TIMESTAMPS: Zero time references anywhere in the output.
+- NO OMISSIONS: Do not skip, abbreviate, or paraphrase any substantive content.
+- ACTIVE VOICE: Write all AI-generated sections (Overview, Key Terms, Resources) in active voice, addressing the reader directly. Transcribed dialogue remains faithful to the speaker's original wording.
+- ACCURACY: 100% factual retention for proper nouns, data points, and technical details.`,
 } as const;
 
 /**
@@ -558,9 +784,11 @@ export class AIPromptService implements PromptService {
         const {
             videoData,
             videoUrl,
-            format = 'step-by-step-tutorial',
+            format = 'executive-summary',
             transcript,
             performanceMode = 'balanced',
+            providerName,
+            userInstructions,
         } = options;
 
         const videoId = ValidationUtils.extractVideoId(videoUrl) ?? DEFAULTS.VIDEO_ID;
@@ -572,7 +800,9 @@ export class AIPromptService implements PromptService {
             videoData,
             videoUrl,
             transcript,
-            performanceMode
+            performanceMode,
+            format,
+            userInstructions,
         );
 
         // Build full prompt with all components
@@ -583,7 +813,9 @@ export class AIPromptService implements PromptService {
             videoId,
             format,
             provider,
-            model
+            model,
+            undefined,
+            providerName,
         );
     }
 
@@ -597,10 +829,20 @@ export class AIPromptService implements PromptService {
         videoData: VideoData,
         videoUrl: string,
         transcript?: string,
-        performanceMode: PerformanceMode = 'balanced'
+        performanceMode: PerformanceMode = 'balanced',
+        format: OutputFormat = 'executive-summary',
+        userInstructions?: string,
     ): string {
         const baseTemplate = BASE_TEMPLATES[performanceMode];
-        const transcriptSection = this.buildTranscriptSection(transcript);
+        const transcriptSection = this.buildTranscriptSection(transcript, format);
+
+        // Build chapter markers from description
+        const chapterMarkers = this.extractChapterMarkers(videoData.description);
+
+        // Build user instructions block
+        const userInstructionsBlock = userInstructions?.trim()
+            ? `\n\n**USER INSTRUCTIONS** (prioritize these over defaults):\n${userInstructions.trim()}\n`
+            : '';
 
         // Single-pass replacement using placeholder map
         return this.replacePlaceholders(baseTemplate, {
@@ -608,17 +850,28 @@ export class AIPromptService implements PromptService {
             [PLACEHOLDERS.URL]: videoUrl,
             [PLACEHOLDERS.DESCRIPTION]: videoData.description,
             [PLACEHOLDERS.TRANSCRIPT_SECTION]: transcriptSection,
+            [PLACEHOLDERS.USER_INSTRUCTIONS]: userInstructionsBlock,
+            [PLACEHOLDERS.CHANNEL_NAME]: videoData.channelName ?? 'Unknown',
+            [PLACEHOLDERS.DURATION]: this.formatDuration(videoData.duration),
+            [PLACEHOLDERS.PUBLISHED_DATE]: videoData.publishedAt ?? 'Unknown',
+            [PLACEHOLDERS.THUMBNAIL_URL]: videoData.thumbnail ?? '',
+            [PLACEHOLDERS.CHAPTER_MARKERS]: chapterMarkers,
         });
     }
 
     /**
      * Build transcript section with truncation for token efficiency
+     * Uses per-format transcript budget when available
      */
-    private buildTranscriptSection(transcript?: string): string {
+    private buildTranscriptSection(transcript?: string, format?: OutputFormat): string {
         if (!transcript?.trim()) return '';
 
-        const truncated = transcript.length > TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH
-            ? `${transcript.slice(0, TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH)}... [transcript truncated]`
+        const budget = format && FORMAT_CONFIG[format]?.transcriptBudget
+            ? FORMAT_CONFIG[format].transcriptBudget!
+            : TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH;
+
+        const truncated = transcript.length > budget
+            ? `${transcript.slice(0, budget)}... [transcript truncated]`
             : transcript;
 
         return `\nVIDEO CONTENT/TRANSCRIPT:\n${truncated}`;
@@ -635,7 +888,8 @@ export class AIPromptService implements PromptService {
         format: OutputFormat,
         provider: string,
         model: string,
-        customPrompt?: string
+        customPrompt?: string,
+        providerName?: string,
     ): string {
         const frontmatter = Templates.frontmatter(
             videoData.title,
@@ -647,10 +901,25 @@ export class AIPromptService implements PromptService {
         );
 
         const iframe = Templates.videoIframe(videoId, videoData.title);
-        const separator = '---\n\n';
-        const formatTemplate = this.buildFormatTemplate(format, customPrompt);
 
-        return `${frontmatter}\n\n${iframe}\n\n${separator}${baseContent}\n\n${formatTemplate}`;
+        // Add thumbnail image below iframe for article/complete-transcription
+        let thumbnailBlock = '';
+        if ((format === 'article' || format === 'complete-transcription') && videoData.thumbnail) {
+            thumbnailBlock = `\n\n![Video Thumbnail](${videoData.thumbnail})`;
+        }
+
+        const separator = '---\n\n';
+        let formatTemplate = this.buildFormatTemplate(format, customPrompt);
+
+        // Replace {{YOUTUBE_URL}} placeholder in format templates
+        formatTemplate = formatTemplate.replace(/\{\{YOUTUBE_URL\}\}/g, videoUrl);
+
+        // Strip multimodal instructions for text-only providers
+        if (providerName && !this.isMultimodalProvider(providerName)) {
+            formatTemplate = this.stripMultimodalInstructions(formatTemplate);
+        }
+
+        return `${frontmatter}\n\n${iframe}${thumbnailBlock}\n\n${separator}${baseContent}\n\n${formatTemplate}`;
     }
 
     /**
@@ -728,6 +997,11 @@ export class AIPromptService implements PromptService {
             );
         }
 
+        // Validate format structure (remove duplicate iframes, check sections)
+        if (format) {
+            updatedContent = this.validateFormatStructure(updatedContent, format);
+        }
+
         return updatedContent;
     }
 
@@ -773,6 +1047,117 @@ export class AIPromptService implements PromptService {
         }
 
         return content;
+    }
+
+    /**
+     * Get format-specific configuration
+     */
+    getFormatConfig(format: OutputFormat): FormatConfig {
+        return FORMAT_CONFIG[format];
+    }
+
+    /**
+     * Format duration in seconds to human-readable string (e.g., "1:23:45")
+     */
+    private formatDuration(seconds?: number): string {
+        if (!seconds) return 'Unknown';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) {
+            return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+        return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    /**
+     * Extract chapter markers from video description
+     * Parses patterns like "0:00 Title", "1:23:45 Title", "00:00 Title"
+     */
+    extractChapterMarkers(description?: string): string {
+        if (!description) return '';
+        // Match timestamp patterns at the start of a line: "0:00", "00:00", "1:23:45"
+        const chapterPattern = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s+(.+)$/gm;
+        const chapters: string[] = [];
+        let match: RegExpExecArray | null;
+
+        while ((match = chapterPattern.exec(description)) !== null) {
+            const hours = match[1] ? parseInt(match[1]) : 0;
+            const minutes = parseInt(match[2]!);
+            const seconds = parseInt(match[3]!);
+            const title = (match[4] ?? '').trim();
+            const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+            const formatted = hours > 0
+                ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+                : `${minutes}:${String(seconds).padStart(2, '0')}`;
+            chapters.push(`- **${formatted}** ${title}`);
+        }
+
+        if (chapters.length === 0) return '';
+
+        return `\n**Chapters:**\n${chapters.join('\n')}\n`;
+    }
+
+    /**
+     * Strip multimodal instructions from template for text-only providers
+     * Removes lines containing visual/audio analysis instructions
+     */
+    stripMultimodalInstructions(template: string): string {
+        const multimodalPatterns = [
+            /- ANALYZE VISUALS:.*$/gm,
+            /- NOTE ENVIRONMENTAL AUDIO:.*$/gm,
+            /- NOTE AUDIO:.*$/gm,
+            /Process video multimodally.*$/gm,
+            /Process video with `use_audio_video_tokens=True`.*$/gm,
+            /Watch and listen to the video.*$/gm,
+            /visual\/audio\).*$/gm,
+            /multimodally \(visual\/audio\).*$/gm,
+        ];
+
+        let result = template;
+        for (const pattern of multimodalPatterns) {
+            result = result.replace(pattern, '');
+        }
+        // Clean up blank lines left behind
+        result = result.replace(/\n{3,}/g, '\n\n');
+        return result;
+    }
+
+    /**
+     * Check if a provider supports multimodal (vision) input
+     */
+    private isMultimodalProvider(providerName: string): boolean {
+        const multimodalProviders = ['Google Gemini', 'gemini'];
+        return multimodalProviders.some(p => p.toLowerCase() === providerName.toLowerCase());
+    }
+
+    /**
+     * Validate format structure of AI output
+     * Checks for expected ## headers, removes duplicate iframes
+     */
+    validateFormatStructure(content: string, format?: OutputFormat): string {
+        if (!content || !format) return content;
+
+        const config = FORMAT_CONFIG[format];
+        if (!config?.expectedSections) return content;
+
+        // Remove duplicate iframes (keep only the first)
+        let result = content;
+        const iframePattern = /<iframe[^>]*src="https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[^"]*"[^>]*><\/iframe>/g;
+        const iframes = result.match(iframePattern);
+        if (iframes && iframes.length > 1) {
+            // Keep first iframe, remove subsequent ones (including surrounding div)
+            let firstFound = false;
+            result = result.replace(/(<div[^>]*>)?\s*<iframe[^>]*src="https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[^"]*"[^>]*><\/iframe>\s*(<\/div>)?/g, (match) => {
+                if (!firstFound) {
+                    firstFound = true;
+                    return match;
+                }
+                return '';
+            });
+        }
+
+        return result;
     }
 
     /**

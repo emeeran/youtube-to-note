@@ -20,13 +20,13 @@ interface ProcessVideoOptions {
     format?: OutputFormat;
     providerName?: string;
     model?: string;
-    customPrompt?: string;
     performanceMode?: PerformanceMode;
     enableParallel?: boolean;
     preferMultimodal?: boolean;
     maxTokens?: number;
     temperature?: number;
     enableAutoFallback?: boolean;
+    userInstructions?: string;
 }
 
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
@@ -140,12 +140,12 @@ export default class YoutubeClipperPlugin extends Plugin {
     private setupProtocolHandler(): void {
         try {
             this.registerObsidianProtocolHandler('youtube-clipper', params => {
-                logger.info('[YT-Clipper] Protocol received:', 'Plugin', params);
+                logger.info('[YT-Clipper] Protocol received:', 'Plugin', { params });
                 this.urlHandler?.handleProtocol(params);
             });
             logger.info('[YT-Clipper] Protocol handler registered successfully', 'Plugin');
         } catch (error) {
-            logger.error('[YT-Clipper] Protocol handler registration failed:', 'Plugin', error);
+            logger.error('[YT-Clipper] Protocol handler registration failed:', 'Plugin', { error });
             logger.debug('Protocol handler not available', 'Plugin');
         }
     }
@@ -243,7 +243,7 @@ export default class YoutubeClipperPlugin extends Plugin {
         try {
             await this.openYouTubeUrlModal(initialUrl);
         } catch (error) {
-            logger.error('[YT-CLIPPER] Failed to open modal:', 'Plugin', error);
+            logger.error('[YT-CLIPPER] Failed to open modal:', 'Plugin', { error });
         }
     }
 
@@ -270,7 +270,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                     format: OutputFormat,
                     provider?: string,
                     model?: string,
-                    customPrompt?: string,
                     performanceMode?: PerformanceMode,
                     enableParallel?: boolean,
                     preferMultimodal?: boolean,
@@ -283,7 +282,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                         format,
                         providerName: provider,
                         model,
-                        customPrompt,
                         performanceMode,
                         enableParallel: enableParallel,
                         preferMultimodal,
@@ -404,9 +402,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             providers,
             defaultProvider: 'Google Gemini',
             defaultModel: 'gemini-2.0-flash',
-            modelOptions: modelOptionsMap,
-            defaultMaxTokens: this._settings.defaultMaxTokens,
-            defaultTemperature: this._settings.defaultTemperature,
+            modelOptionsMap: modelOptionsMap,
         });
         modal.open();
     }
@@ -415,13 +411,13 @@ export default class YoutubeClipperPlugin extends Plugin {
     private async processYouTubeVideo(options: ProcessVideoOptions): Promise<string> {
         const {
             url,
-            format = 'detailed-guide',
+            format = 'executive-summary',
             providerName,
             model,
-            customPrompt,
             maxTokens,
             temperature,
             enableAutoFallback,
+            userInstructions,
         } = options;
         if (this.isUnloading) {
             ConflictPrevention.log('Plugin is unloading, cancelling video processing');
@@ -432,7 +428,7 @@ export default class YoutubeClipperPlugin extends Plugin {
         const result = await ConflictPrevention.safeOperation(async () => {
             new Notice(MESSAGES.PROCESSING);
 
-            const validation = ValidationUtils.validateSettings(this._settings);
+            const validation = ValidationUtils.validateSettings(this._settings as unknown as Record<string, unknown>);
             if (!validation.isValid) {
                 throw new Error(`Configuration invalid: ${validation.errors.join(', ')}`);
             }
@@ -450,14 +446,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             }
 
             const videoData = await youtubeService.getVideoData(videoId);
-
-            // Determine prompt to use
-            let promptToUse: string | undefined;
-            if (format === 'custom') {
-                promptToUse = customPrompt;
-            } else {
-                promptToUse = this._settings.customPrompts?.[format];
-            }
 
             // Fetch transcript to provide actual video content to AI
             let transcript: string | undefined;
@@ -484,8 +472,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                 videoData,
                 videoUrl: url,
                 format,
-                customPrompt: promptToUse,
                 transcript,
+                performanceMode: this._settings.performanceMode ?? 'balanced',
+                providerName,
+                userInstructions,
             });
 
             logger.aiService('Processing video', {
