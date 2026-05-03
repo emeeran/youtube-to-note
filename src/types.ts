@@ -61,7 +61,8 @@ export type OutputFormat =
     | '3c-accelerated-learning'
     | 'atom-notes'
     | 'article'
-    | 'complete-transcription';
+    | 'complete-transcription'
+    | 'quick-notes';
 
 /** Options for video processing */
 export interface ProcessingOptions {

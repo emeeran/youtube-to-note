@@ -10,6 +10,7 @@ import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal, BatchVideoModal } from './components/features/youtube';
+import { ProcessingHistoryService } from './services/processing-history';
 import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
@@ -55,6 +56,7 @@ export default class YoutubeClipperPlugin extends Plugin {
     private operationCount = 0;
     private urlHandler?: UrlHandler;
     private modalManager?: ModalManager;
+    private historyService?: ProcessingHistoryService;
 
     async onload(): Promise<void> {
         // Set plugin version
@@ -113,6 +115,8 @@ export default class YoutubeClipperPlugin extends Plugin {
         this.serviceContainer = new ServiceContainer(this._settings, this.app);
         this.modalManager = new ModalManager();
         this.urlHandler = new UrlHandler(this.app, this._settings, this.handleUrlDetection.bind(this));
+        this.historyService = new ProcessingHistoryService(this);
+        await this.historyService.loadAsync();
     }
 
     private setupUrlHandling(): void {
@@ -368,6 +372,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                     this.serviceContainer = new ServiceContainer(this._settings, this.app);
                 },
                 onOpenBatchModal: this.openBatchModal.bind(this),
+                historyService: this.historyService,
             });
 
             modal.open();
@@ -553,6 +558,21 @@ export default class YoutubeClipperPlugin extends Plugin {
             );
 
             const filePath = await fileService.saveToFile(videoData.title, formattedContent, this._settings.outputPath);
+
+            // Record in processing history
+            if (this.historyService) {
+                await this.historyService.add({
+                    videoId,
+                    title: videoData.title,
+                    url,
+                    format,
+                    provider: aiResponse.provider,
+                    model: aiResponse.model,
+                    filePath,
+                    channelName: videoData.channelName,
+                    duration: videoData.duration,
+                });
+            }
 
             new Notice(MESSAGES.SUCCESS(videoData.title));
             return filePath;

@@ -8,6 +8,9 @@ import { OutputFormat, PerformanceMode } from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
 import { FORMAT_CONFIG } from '../../../services/prompt-service';
+import { FORMAT_META } from '../../../templates/format-templates';
+import { formatModelNameWithMultimodal } from '../../../services/model-formatter';
+import { ProcessingHistoryService } from '../../../services/processing-history';
 import { App, Notice } from 'obsidian';
 
 /**
@@ -49,6 +52,8 @@ export interface YouTubeUrlModalOptions {
         enableParallel: boolean,
         preferMultimodal: boolean,
     ) => Promise<void>;
+    // Processing history
+    historyService?: ProcessingHistoryService;
 }
 
 export class YouTubeUrlModal extends BaseModal {
@@ -82,6 +87,7 @@ export class YouTubeUrlModal extends BaseModal {
     private isProcessing = false;
     private processedFilePath?: string;
     private refreshButton?: HTMLButtonElement;
+    private formatDescriptionEl?: HTMLDivElement;
 
     // Format, Provider, and Model dropdowns
     private formatSelect?: HTMLSelectElement;
@@ -107,7 +113,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         // Initialize theme from localStorage
         const savedTheme = localStorage.getItem('ytc-theme-mode');
-        this.isLightTheme = savedTheme === 'light'; // Default to dark if not set
+        this.isLightTheme = savedTheme === 'light';
 
         // Load smart defaults from user preferences
         const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
@@ -115,18 +121,14 @@ export class YouTubeUrlModal extends BaseModal {
         const lastFormat = UserPreferencesService.getSmartDefaultFormat() ?? 'timestamped';
         const smartAutoFallback = UserPreferencesService.getSmartDefaultAutoFallback() ?? true;
 
-        // Check for user-set preferred model, falling back to last used
         const preferredModel = UserPreferencesService.getPreference('preferredModel');
         const lastModel = UserPreferencesService.getPreference('lastModel');
 
-        // Set default provider and model values based on user history
-        // Preferred settings take priority over last used
         this.selectedProvider = lastProvider ?? 'Google Gemini';
         this.selectedModel = preferredModel ?? lastModel ?? 'gemini-2.5-pro';
         this.format = lastFormat;
         this.autoFallbackEnabled = smartAutoFallback;
 
-        // Track usage for smart suggestions (will be updated again on actual processing)
         UserPreferencesService.updateLastUsed({
             format: lastFormat,
             provider: this.selectedProvider,
@@ -143,16 +145,10 @@ export class YouTubeUrlModal extends BaseModal {
         logger.debug('[YT-CLIPPER] YouTubeUrlModal.onOpen called', 'Modal');
         try {
             this.createModalContent();
-            logger.debug('[YT-CLIPPER] Modal content created', 'Modal');
             this.setupEventHandlers();
-            logger.debug('[YT-CLIPPER] Event handlers set up', 'Modal');
             this.setupKeyboardShortcuts();
-            logger.debug('[YT-CLIPPER] Keyboard shortcuts set up', 'Modal');
-
-            // Automatically fetch fresh models for the current provider on modal open
             void this.fetchModelsForCurrentProvider();
 
-            // If an initial URL was provided, validate and focus the appropriate control
             if (this.options.initialUrl) {
                 this.setUrl(this.options.initialUrl);
                 this.updateProcessButtonState();
@@ -171,30 +167,20 @@ export class YouTubeUrlModal extends BaseModal {
 
     /**
      * Automatically fetch models for the current provider when modal opens
-     * Always bypasses cache to get fresh models from API
      */
     private async fetchModelsForCurrentProvider(): Promise<void> {
         if (!this.options.fetchModelsForProvider || !this.selectedProvider) return;
 
         try {
-            logger.debug('[YT-CLIPPER] Fetching models for provider:', 'Modal', { provider: this.selectedProvider });
-            // Always bypass cache on modal open to get fresh models
             const models = await this.options.fetchModelsForProvider(this.selectedProvider, true);
-            logger.debug('[YT-CLIPPER] Fetched models count:', 'Modal', { count: models?.length || 0 });
             if (models && models.length > 0) {
                 const updatedOptions = { ...this.options.modelOptions, [this.selectedProvider]: models };
                 this.options.modelOptions = updatedOptions;
                 this.updateModelDropdown(updatedOptions);
-                logger.debug('[YT-CLIPPER] Updated dropdown with models', 'Modal', { count: models.length });
             } else {
-                logger.warn('[YT-CLIPPER] No models returned from API, using fallback', 'Modal');
-                // Still update with whatever we got (empty array) to trigger fallback
                 this.updateModelDropdown(this.options.modelOptions ?? {});
             }
-        } catch (error) {
-            // Log error and still try to update dropdown
-            logger.error('[YT-CLIPPER] Auto-fetch models failed:', 'Modal', { error });
-            logger.warn('[YT-CLIPPER] Falling back to cached or static models', 'Modal');
+        } catch {
             this.updateModelDropdown(this.options.modelOptions ?? {});
         }
     }
@@ -203,45 +189,27 @@ export class YouTubeUrlModal extends BaseModal {
      * Create modal content
      */
     private createModalContent(): void {
-        logger.debug('[YT-CLIPPER] createModalContent starting', 'Modal');
         try {
             this.contentEl.empty();
             this.contentEl.addClass('ytc-modal-content-wrapper');
 
-            // 1. Top Bar: Header + Global Actions (Theme, Batch)
             this.createTopBar();
-            logger.debug('[YT-CLIPPER] Top bar created', 'Modal');
-
-            // 2. Main Input Area
             this.createUrlSection();
-            logger.debug('[YT-CLIPPER] URL section created', 'Modal');
-
-            // 3. Settings Area (Format + Collapsible AI Config)
             this.createSettingsSection();
-            logger.debug('[YT-CLIPPER] Settings section created', 'Modal');
-
-            // 4. Progress Area
             this.createProgressSection();
-            logger.debug('[YT-CLIPPER] Progress section created', 'Modal');
-
-            // 5. Primary Actions
             this.createActionButtons();
-            logger.debug('[YT-CLIPPER] Action buttons created', 'Modal');
 
-            // Initialize state
             this.updateModelDropdown(this.options.modelOptions ?? {});
             this.applyTheme(this.isLightTheme);
-
-            logger.debug('[YT-CLIPPER] Theme applied', 'Modal');
         } catch (error) {
             logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', { error });
             throw error;
         }
     }
+
     /**
      * Create top bar with header and global controls
      */
-    // eslint-disable-next-line max-lines-per-function
     private createTopBar(): void {
         const topBar = this.contentEl.createDiv('ytc-top-bar');
         topBar.style.cssText = `
@@ -250,7 +218,6 @@ export class YouTubeUrlModal extends BaseModal {
             align-items: center;
         `;
 
-        // Header Title
         const titleContainer = topBar.createDiv();
         const title = titleContainer.createEl('h2');
         title.textContent = 'YouTube to Note';
@@ -259,7 +226,6 @@ export class YouTubeUrlModal extends BaseModal {
         const subtitle = titleContainer.createDiv('subtitle');
         subtitle.textContent = 'Generate AI summaries & notes';
 
-        // Global Controls (Auto-Fallback, Batch, Theme)
         const controls = topBar.createDiv();
         controls.style.cssText = `
             display: flex;
@@ -267,7 +233,35 @@ export class YouTubeUrlModal extends BaseModal {
             align-items: center;
         `;
 
-        // Auto Fallback Toggle (Icon only)
+        // History Button
+        const historyBtn = controls.createEl('button');
+        historyBtn.innerHTML = '<span style="font-size: 1.1em">🕐</span>';
+        historyBtn.setAttribute('aria-label', 'Processing History');
+        historyBtn.title = 'View recently processed videos';
+        historyBtn.style.cssText = `
+            background: transparent;
+            border: 1px solid var(--ytc-border);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ytc-text-secondary);
+        `;
+        historyBtn.onclick = () => this.showHistory();
+        historyBtn.onmouseenter = () => {
+            historyBtn.style.background = 'var(--ytc-bg-tertiary)';
+            historyBtn.style.color = 'var(--ytc-text-primary)';
+        };
+        historyBtn.onmouseleave = () => {
+            historyBtn.style.background = 'transparent';
+            historyBtn.style.color = 'var(--ytc-text-secondary)';
+        };
+
+        // Auto Fallback Toggle
         const fallbackBtn = controls.createEl('button');
         const updateFallbackIcon = () => {
             fallbackBtn.innerHTML = '<span style="font-size: 1.1em">🔄</span>';
@@ -290,7 +284,6 @@ export class YouTubeUrlModal extends BaseModal {
             color: var(--ytc-text-secondary);
         `;
         updateFallbackIcon();
-
         fallbackBtn.onclick = () => {
             this.autoFallbackEnabled = !this.autoFallbackEnabled;
             updateFallbackIcon();
@@ -378,7 +371,6 @@ export class YouTubeUrlModal extends BaseModal {
             position: relative;
         `;
 
-        // Input Wrapper
         const inputWrapper = urlContainer.createDiv('ytc-input-group');
         inputWrapper.style.cssText = `
             position: relative;
@@ -390,22 +382,19 @@ export class YouTubeUrlModal extends BaseModal {
         this.urlInput.type = 'url';
         this.urlInput.placeholder = 'Paste YouTube URL here...';
         this.urlInput.setAttribute('aria-label', 'YouTube URL Input');
-        // Styling handled by CSS classes now, but keeping some structure logic
 
-        // Integrated Paste Button (Inside Input)
         this.pasteButton = inputWrapper.createEl('button', { cls: 'ytc-paste-btn-integrated' });
         this.pasteButton.innerHTML = '📋 Paste';
         this.pasteButton.setAttribute('aria-label', 'Paste URL from clipboard');
         this.pasteButton.title = 'Paste from clipboard';
 
         this.pasteButton.addEventListener('click', e => {
-            e.preventDefault(); // Prevent focus loss if possible
+            e.preventDefault();
             void this.handleSmartPaste();
         });
 
-        // Validation Message Area - Absolute to prevent jumping
         this.validationMessage = urlContainer.createDiv();
-        this.validationMessage.setAttribute('aria-live', 'polite'); // Announce changes to screen readers
+        this.validationMessage.setAttribute('aria-live', 'polite');
         this.validationMessage.style.cssText = `
             position: absolute;
             bottom: -20px;
@@ -421,18 +410,13 @@ export class YouTubeUrlModal extends BaseModal {
             align-items: center;
         `;
 
-        // Initialize video preview container (hidden by default)
         this.createVideoPreviewSection(urlContainer);
     }
 
     /**
-     * Legacy unused methods removed
-     */
-
-    /**
      * Create Settings Section (Format + Collapsible AI Config)
+     * User Instructions now visible for ALL formats.
      */
-    // eslint-disable-next-line max-lines-per-function
     private createSettingsSection(): void {
         const container = this.contentEl.createDiv();
         container.addClass('ytc-settings-section');
@@ -455,7 +439,6 @@ export class YouTubeUrlModal extends BaseModal {
         const formatWrapper = controlsRow.createDiv();
         formatWrapper.style.flex = '1';
 
-        // Compact Label
         const formatLabel = formatWrapper.createEl('label');
         formatLabel.textContent = 'OUTPUT FORMAT';
         formatLabel.htmlFor = 'ytc-format-select';
@@ -470,29 +453,43 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.formatSelect = formatWrapper.createEl('select');
         this.formatSelect.id = 'ytc-format-select';
-        // Styling handled by CSS
 
-        const formatOptions = [
-            { value: 'executive-summary', text: '📊 1. Executive Brief' },
-            { value: 'technical-analysis', text: '⚙️ 2. Technical Analysis' },
-            { value: '3c-accelerated-learning', text: '🧠 3. 3C Accelerated Learning' },
-            { value: 'atom-notes', text: '🔬 4. Atom Notes' },
-            { value: 'article', text: '📰 5. Article' },
-            { value: 'complete-transcription', text: '📝 6. Complete Transcription' },
+        // Build format options from FORMAT_META
+        const formatOrder: OutputFormat[] = [
+            'quick-notes',
+            'executive-summary',
+            'technical-analysis',
+            '3c-accelerated-learning',
+            'atom-notes',
+            'article',
+            'complete-transcription',
         ];
 
-        formatOptions.forEach(option => {
+        formatOrder.forEach(format => {
             if (!this.formatSelect) return;
+            const meta = FORMAT_META[format];
             const optionEl = this.formatSelect.createEl('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.text;
+            optionEl.value = format;
+            optionEl.textContent = meta.label;
+            optionEl.title = meta.description; // Tooltip on hover
         });
 
         this.formatSelect.value = this.format;
         this.formatSelect.addEventListener('change', () => {
             this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
             UserPreferencesService.setPreference('lastFormat', this.format);
+            this.updateFormatDescription();
         });
+
+        // Format description line
+        this.formatDescriptionEl = formatWrapper.createDiv();
+        this.formatDescriptionEl.style.cssText = `
+            font-size: 0.75rem;
+            color: var(--ytc-text-muted);
+            margin-top: 4px;
+            min-height: 18px;
+        `;
+        this.updateFormatDescription();
 
         // 2. AI Config Toggle (Right)
         const aiToggleWrapper = controlsRow.createDiv();
@@ -547,7 +544,6 @@ export class YouTubeUrlModal extends BaseModal {
             color: var(--ytc-text-secondary);
         `;
 
-        // AI Content Panel (Collapsible, Full Width)
         const aiContent = container.createDiv('ytc-ai-content');
         aiContent.style.cssText = `
             background: var(--ytc-bg-secondary);
@@ -559,15 +555,13 @@ export class YouTubeUrlModal extends BaseModal {
             animation: fadeIn 0.15s ease-out;
         `;
 
-        // Toggle Logic
         let isExpanded = false;
 
         const updateSummary = () => {
             const provider = this.selectedProvider ?? 'Google Gemini';
             const model = this.selectedModel ?? 'Default';
-            // Simplify summary for the button
             aiSummary.textContent = `${provider}`;
-            aiSummary.title = `${provider} • ${this.formatModelName(model)}`;
+            aiSummary.title = `${provider} • ${formatModelNameWithMultimodal(provider, model)}`;
         };
 
         const toggleAI = () => {
@@ -597,7 +591,6 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.providerSelect = providerRow.createEl('select');
         this.providerSelect.id = 'ytc-provider-select';
-        // CSS handles styling
 
         const providerOptions = [
             { value: 'Google Gemini', text: 'Google Gemini (Recommended)' },
@@ -642,7 +635,6 @@ export class YouTubeUrlModal extends BaseModal {
             cursor: pointer;
         `;
 
-        // Refresh Button
         const refreshBtn = modelInputGroup.createEl('button', { cls: 'ytc-icon-btn' });
         refreshBtn.innerHTML = '🔄';
         refreshBtn.title = 'Refresh Models';
@@ -655,7 +647,6 @@ export class YouTubeUrlModal extends BaseModal {
             updateSummary();
         };
 
-        // Star Button
         const starBtn = modelInputGroup.createEl('button', { cls: 'ytc-icon-btn' });
         starBtn.innerHTML = '⭐';
         starBtn.title = 'Save as Default Preference';
@@ -668,10 +659,8 @@ export class YouTubeUrlModal extends BaseModal {
             }
         };
 
-        // Event Listeners for AI Settings
         this.providerSelect.addEventListener('change', async () => {
             this.selectedProvider = this.providerSelect?.value ?? 'Google Gemini';
-            // Trigger model update
             await this.fetchModelsForCurrentProvider();
             updateSummary();
         });
@@ -681,22 +670,20 @@ export class YouTubeUrlModal extends BaseModal {
             updateSummary();
         });
 
-        // Initial summary update
         updateSummary();
 
-        // Hook into updateModelDropdown to keep summary fresh
         const originalUpdateDropdown = this.updateModelDropdown.bind(this);
         this.updateModelDropdown = options => {
             originalUpdateDropdown(options);
             updateSummary();
         };
 
-        // User Instructions Textarea (shown for article/complete-transcription)
+        // User Instructions Textarea — visible for ALL formats
         const userInstructionsWrapper = container.createDiv();
         userInstructionsWrapper.style.cssText = `margin-top: 8px;`;
 
         const userInstructionsLabel = userInstructionsWrapper.createEl('label');
-        userInstructionsLabel.textContent = 'USER INSTRUCTIONS';
+        userInstructionsLabel.textContent = 'USER INSTRUCTIONS (optional)';
         userInstructionsLabel.style.cssText = `
             font-size: 0.7rem;
             font-weight: 600;
@@ -707,12 +694,12 @@ export class YouTubeUrlModal extends BaseModal {
         `;
 
         this.userInstructionsTextarea = userInstructionsWrapper.createEl('textarea');
-        this.userInstructionsTextarea.placeholder = 'E.g., "Focus on specific aspects...", "Include code examples"';
-        this.userInstructionsTextarea.rows = 3;
+        this.userInstructionsTextarea.placeholder = 'E.g., \'Focus on specific aspects...\', \'Include code examples\', \'Highlight the debate about...\'';
+        this.userInstructionsTextarea.rows = 2;
         this.userInstructionsTextarea.setAttribute('aria-label', 'User Instructions');
         this.userInstructionsTextarea.style.cssText = `
             width: 100%;
-            height: 80px;
+            height: 60px;
             resize: vertical;
             font-size: 0.85rem;
             color: var(--ytc-text-secondary);
@@ -739,28 +726,15 @@ export class YouTubeUrlModal extends BaseModal {
                 this.userInstructionsTextarea.style.borderColor = 'var(--ytc-border)';
             }
         });
-
-        // Helper to toggle visibility based on format
-        const updateUserInstructionsVisibility = () => {
-            const currentFormat = this.formatSelect?.value ?? this.format;
-            const show = currentFormat === 'article' || currentFormat === 'complete-transcription';
-            userInstructionsWrapper.style.display = show ? 'block' : 'none';
-        };
-
-        // Update visibility on format change
-        this.formatSelect?.addEventListener('change', () => {
-            updateUserInstructionsVisibility();
-        });
-
-        // Initial visibility
-        updateUserInstructionsVisibility();
     }
 
     /**
-     * Legacy icons row - functionality moved to createTopBar and createSettingsSection
+     * Update the format description text below the dropdown
      */
-    private createIconsRow(): void {
-        // Deprecated
+    private updateFormatDescription(): void {
+        if (!this.formatDescriptionEl) return;
+        const meta = FORMAT_META[this.format];
+        this.formatDescriptionEl.textContent = meta?.description ?? '';
     }
 
     private videoPreviewContainer?: HTMLDivElement;
@@ -769,7 +743,6 @@ export class YouTubeUrlModal extends BaseModal {
     private videoChannelEl?: HTMLSpanElement;
     private providerStatusEl?: HTMLDivElement;
 
-    // eslint-disable-next-line max-lines-per-function
     private createVideoPreviewSection(parent: HTMLElement): void {
         this.videoPreviewContainer = parent.createDiv();
         this.videoPreviewContainer.style.cssText = `
@@ -788,7 +761,6 @@ export class YouTubeUrlModal extends BaseModal {
             align-items: center;
         `;
 
-        // Thumbnail (ultra compact)
         this.thumbnailEl = previewContent.createEl('img');
         this.thumbnailEl.style.cssText = `
             width: 60px;
@@ -800,7 +772,6 @@ export class YouTubeUrlModal extends BaseModal {
         `;
         this.thumbnailEl.alt = 'Video thumbnail';
 
-        // Metadata container (ultra compact)
         const metaContainer = previewContent.createDiv();
         metaContainer.style.cssText = `
             flex: 1;
@@ -829,7 +800,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.videoChannelEl = metaRow.createSpan();
         this.videoDurationEl = metaRow.createSpan();
 
-        // Provider status (shown during processing, ultra compact)
         this.providerStatusEl = this.videoPreviewContainer.createDiv();
         this.providerStatusEl.style.cssText = `
             margin-top: 3px;
@@ -845,14 +815,11 @@ export class YouTubeUrlModal extends BaseModal {
     /**
      * Show video preview with thumbnail and metadata
      */
-    // eslint-disable-next-line complexity, max-lines-per-function
     private async showVideoPreview(videoId: string): Promise<void> {
         if (!this.videoPreviewContainer || !this.thumbnailEl) return;
 
-        // Show container with loading skeleton animation
         this.videoPreviewContainer.style.display = 'block';
 
-        // Add skeleton loading styles
         const skeletonAnim = `
             @keyframes ytc-skeleton-pulse {
                 0%, 100% { opacity: 0.4; }
@@ -866,7 +833,6 @@ export class YouTubeUrlModal extends BaseModal {
             document.head.appendChild(styleEl);
         }
 
-        // Show loading skeleton for thumbnail
         this.thumbnailEl.style.background = 'var(--background-modifier-border)';
         this.thumbnailEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
         this.thumbnailEl.src = '';
@@ -885,7 +851,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.videoDurationEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
         }
 
-        // Load thumbnail
         this.thumbnailEl.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
         this.thumbnailEl.onload = () => {
             if (this.thumbnailEl) {
@@ -893,7 +858,6 @@ export class YouTubeUrlModal extends BaseModal {
             }
         };
 
-        // Fetch video metadata (using oEmbed)
         try {
             const response = await fetch(
                 `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
@@ -913,6 +877,9 @@ export class YouTubeUrlModal extends BaseModal {
                     this.videoDurationEl.textContent = '';
                     this.videoDurationEl.style.animation = 'none';
                 }
+
+                // Check history for this video
+                this.checkHistoryForVideo(videoId);
             }
         } catch {
             if (this.videoTitleEl) {
@@ -926,17 +893,26 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Hide video preview
+     * Check processing history and show indicator if video was previously processed
      */
+    private checkHistoryForVideo(videoId: string): void {
+        const history = this.options.historyService;
+        if (!history) return;
+
+        const previous = history.find(videoId);
+        if (previous && this.providerStatusEl) {
+            const date = new Date(previous.processedAt).toLocaleDateString();
+            this.providerStatusEl.style.display = 'block';
+            this.providerStatusEl.innerHTML = `<span style="color: var(--ytc-text-muted);">🕐 Previously processed (${previous.format}, ${date})</span>`;
+        }
+    }
+
     private hideVideoPreview(): void {
         if (this.videoPreviewContainer) {
             this.videoPreviewContainer.style.display = 'none';
         }
     }
 
-    /**
-     * Update provider status during processing
-     */
     private updateProviderStatus(provider: string, status: string): void {
         if (this.providerStatusEl) {
             this.providerStatusEl.style.display = 'block';
@@ -945,12 +921,8 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Create ultra-compact auto fallback toggle
-     */
     private fallbackToggle?: HTMLInputElement;
 
-    // eslint-disable-next-line max-lines-per-function
     private createFallbackToggle(parent: HTMLElement): void {
         const toggleRow = parent.createDiv();
         toggleRow.style.cssText = `
@@ -985,7 +957,6 @@ export class YouTubeUrlModal extends BaseModal {
             font-size: 0.7rem;
         `;
 
-        // Ultra-compact toggle switch container
         const toggleContainer = toggleRow.createDiv();
         toggleContainer.style.cssText = `
             position: relative;
@@ -1010,7 +981,6 @@ export class YouTubeUrlModal extends BaseModal {
             outline: none;
         `;
 
-        // Toggle knob styling via pseudo-element simulation
         const updateToggleStyle = () => {
             if (this.fallbackToggle?.checked) {
                 this.fallbackToggle.style.background = 'var(--ytc-accent)';
@@ -1021,7 +991,6 @@ export class YouTubeUrlModal extends BaseModal {
             }
         };
 
-        // Create ultra-compact toggle knob
         const knob = toggleContainer.createDiv();
         knob.style.cssText = `
             position: absolute;
@@ -1049,33 +1018,26 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.fallbackToggle.addEventListener('change', () => {
             this.autoFallbackEnabled = this.fallbackToggle?.checked ?? true;
-
-            // Save auto-fallback preference to last used
             UserPreferencesService.updateLastUsed({
                 autoFallback: this.autoFallbackEnabled,
             });
-
             updateToggleStyle();
             updateKnob();
         });
     }
 
     /**
-     * Update the model dropdown options based on provider selection and fetched data
-     * This is called dynamically when models are fetched from the web/API
+     * Update the model dropdown options based on provider selection
+     * Uses the pattern-based model formatter from model-formatter.ts
      */
-    // eslint-disable-next-line complexity, max-lines-per-function
     private updateModelDropdown(modelOptionsMap: Record<string, string[]>): void {
         if (!this.modelSelect || !this.providerSelect) return;
 
-        // Get the currently selected provider
         const currentProvider = this.providerSelect.value;
 
-        // Show loading state in dropdown
         this.modelSelect.innerHTML = '<option value="">Loading models...</option>';
         this.modelSelect.disabled = true;
 
-        // Get available models for the current provider
         let models: string[] = [];
         let sourceInfo = '';
 
@@ -1083,7 +1045,6 @@ export class YouTubeUrlModal extends BaseModal {
             models = modelOptionsMap[currentProvider] ?? [];
             sourceInfo = ' (live)';
         } else {
-            // Fallback to PROVIDER_MODEL_OPTIONS (single source of truth)
             const providerModels = PROVIDER_MODEL_OPTIONS[currentProvider];
             if (providerModels) {
                 models = providerModels.map(m => (typeof m === 'string' ? m : m.name));
@@ -1093,10 +1054,8 @@ export class YouTubeUrlModal extends BaseModal {
             }
         }
 
-        // Clear and populate dropdown
         this.modelSelect.innerHTML = '';
 
-        // Add model count indicator as first option (disabled)
         if (models.length > 0) {
             const countOption = this.modelSelect.createEl('option');
             countOption.value = '';
@@ -1110,41 +1069,21 @@ export class YouTubeUrlModal extends BaseModal {
             `;
         }
 
-        // Add models to dropdown with friendly names
+        // Use the centralized model formatter
         models.forEach(model => {
             if (!this.modelSelect) return;
             const option = this.modelSelect.createEl('option');
             option.value = model;
-
-            // Format model names to be more user-friendly
-            const formattedName = this.formatModelName(model);
-            const isMultimodal = this.isMultimodalModel(currentProvider, model);
-
-            // Add multimodal indicator
-            option.textContent = isMultimodal ? `👁️ ${formattedName}` : formattedName;
-
-            // Add title for multimodal models
-            if (isMultimodal) {
-                option.title = `${formattedName} - Supports vision and multimodal analysis`;
-            }
-
-            // Ensure proper text color
+            option.textContent = formatModelNameWithMultimodal(currentProvider, model);
             option.style.cssText = `
                 color: var(--text-normal);
                 background: var(--background-primary);
             `;
         });
 
-        // Re-enable dropdown
         this.modelSelect.disabled = false;
 
-        // Try to find the best model to select:
-        // 1. Try to use the last used model for this provider
-        // 2. Fall back to the previously selected model if it's still available
-        // 3. Otherwise use the first available model
         let modelToSelect = '';
-
-        // Get last used model for this specific provider
         const preferences = UserPreferencesService.loadPreferences();
         const providerKey = `lastModel_${currentProvider.replace(/\s+/g, '')}`;
         const lastProviderModel = (preferences as Record<string, unknown>)[providerKey] as string | undefined;
@@ -1160,7 +1099,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.modelSelect.value = modelToSelect;
         this.selectedModel = modelToSelect;
 
-        // Visual feedback - flash the dropdown to show it was updated
         if (models.length > 0) {
             this.modelSelect.style.transition = 'background 0.3s ease';
             this.modelSelect.style.background = 'var(--background-modifier-hover)';
@@ -1172,169 +1110,24 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Format model names to be more user-friendly
-     */
-    // eslint-disable-next-line complexity, max-lines-per-function
-    private formatModelName(modelName: string): string {
-        // Handle special cases for better naming
-        if (modelName === 'gemini-2.5-pro') return 'Gemini Pro 2.5';
-        if (modelName === 'gemini-2.5-flash') return 'Gemini Flash 2.5';
-        if (modelName === 'gemini-1.5-pro') return 'Gemini Pro 1.5';
-        if (modelName === 'gemini-1.5-flash') return 'Gemini Flash 1.5';
-        if (modelName === 'qwen3-coder:480b-cloud') return 'Qwen3-Coder 480B Cloud';
-
-        // DeepSeek v3.2 Models (NEW)
-        if (modelName === 'deepseek-v3.2') return 'DeepSeek v3.2';
-        if (modelName === 'deepseek-v3.2:latest') return 'DeepSeek v3.2 (Latest)';
-        if (modelName === 'deepseek-v3.2:32b') return 'DeepSeek v3.2 32B';
-        if (modelName === 'deepseek-v3.2:70b') return 'DeepSeek v3.2 70B';
-        if (modelName === 'deepseek-v3.2:instruct') return 'DeepSeek v3.2 Instruct';
-        if (modelName === 'deepseek-v3.2:coder') return 'DeepSeek v3.2 Coder';
-
-        // Official Groq Models (December 2024)
-        if (modelName === 'llama-3.1-8b-instant') return 'Llama 3.1 8B Instant ⚡';
-        if (modelName === 'llama-3.1-8b-instruct') return 'Llama 3.1 8B';
-        if (modelName === 'llama-3.1-70b-instruct') return 'Llama 3.1 70B';
-        if (modelName === 'llama-3.1-405b-instruct') return 'Llama 3.1 405B';
-
-        // Mixtral Models
-        if (modelName === 'mixtral-8x7b-instruct-v0.1') return 'Mixtral 8x7B Instruct v0.1';
-        if (modelName === 'mixtral-8x22b-instruct-v0.1') return 'Mixtral 8x22B Instruct v0.1';
-
-        // Gemma Models
-        if (modelName === 'gemma2-9b-it') return 'Gemma 2 9B IT';
-        if (modelName === 'gemma-7b-it') return 'Gemma 7B IT';
-
-        // DeepSeek Models
-        if (modelName === 'deepseek-r1-distill-llama-70b') return 'DeepSeek R1 Distill 70B';
-        if (modelName === 'deepseek-coder-v2-lite-instruct') return 'DeepSeek Coder V2 Lite';
-
-        // Specialized Models
-        if (modelName === 'llama-guard-3-8b') return 'Llama Guard 3 8B';
-        if (modelName === 'code-llama-34b-instruct') return 'Code Llama 34B';
-
-        // Mixtral series
-        if (modelName === 'mixtral-8x7b-32768') return 'Mixtral 8x7B 32K';
-        if (modelName === 'mixtral-8x7b-instruct-v0.1') return 'Mixtral 8x7B Instruct v0.1';
-
-        // Gemma series
-        if (modelName === 'gemma-7b-it') return 'Gemma 7B IT';
-        if (modelName === 'gemma2-9b-it') return 'Gemma 2 9B IT';
-
-        // Llama 2 series
-        if (modelName === 'llama2-70b-4096') return 'Llama 2 70B 4K';
-        if (modelName === 'llama2-70b-chat') return 'Llama 2 70B Chat';
-        if (modelName === 'llama2-13b-chat') return 'Llama 2 13B Chat';
-        if (modelName === 'llama2-7b-chat') return 'Llama 2 7B Chat';
-
-        // Multimodal Vision Models
-        if (modelName === 'llama-3.2-11b-vision-instruct') return 'Llama 3.2 11B Vision 👁️';
-        if (modelName === 'llama-3.2-90b-vision-instruct') return 'Llama 3.2 90B Vision 👁️';
-        if (modelName === 'llama3.2-vision') return 'Llama 3.2 Vision 👁️';
-        if (modelName === 'llava') return 'LLaVA 👁️';
-        if (modelName === 'llava-llama3') return 'LLaVA Llama 3 👁️';
-        if (modelName === 'bakllava') return 'BakLLaVA 👁️';
-        if (modelName === 'moondream') return 'MoonDream 👁️';
-        if (modelName === 'nvidia-llama3-1-vision') return 'NVIDIA Llama 3.1 Vision 👁️';
-        if (modelName === 'qwen2-vl') return 'Qwen 2 VL 👁️';
-        if (modelName === 'phi3-vision') return 'Phi 3 Vision 👁️';
-        if (modelName === 'fuyu-8b') return 'Fuyu 8B 👁️';
-        if (modelName === 'pixtral-12b') return 'Pixtral 12B 👁️';
-        if (modelName === 'qwen/qwen2-vl-7b-instruct') return 'Qwen 2 VL 7B 👁️';
-        if (modelName === 'qwen/qwen2-vl-2b-instruct') return 'Qwen 2 VL 2B 👁️';
-        if (modelName === 'microsoft/phi-3.5-vision-instruct') return 'Phi 3.5 Vision 👁️';
-        if (modelName === 'google/paligemma-3b-mix-448') return 'PaliGemma 3B 👁️';
-        if (modelName === 'huggingfacem4/idefics2-8b') return 'Idefics 2 8B 👁️';
-
-        // Multimodal Provider Models
-        if (modelName === 'anthropic/claude-3.5-sonnet') return 'Claude 3.5 Sonnet 👁️';
-        if (modelName === 'anthropic/claude-3.5-haiku') return 'Claude 3.5 Haiku 👁️';
-        if (modelName === 'openai/gpt-4o') return 'GPT-4o 👁️';
-        if (modelName === 'openai/gpt-4o-mini') return 'GPT-4o Mini 👁️';
-        if (modelName === 'google/gemini-2.0-flash-exp') return 'Gemini 2.0 Flash Experimental 👁️';
-
-        // Default fallback: capitalize first letter and replace dashes/underscores with spaces
-        return modelName.charAt(0).toUpperCase() + modelName.slice(1).replace(/[-_]/g, ' ');
-    }
-
-    /**
-     * Create theme toggle component (light/dark mode)
-     */
     private createThemeToggle(): void {
-        const themeContainer = this.contentEl.createDiv();
-        themeContainer.style.cssText = `
-            display: flex;
-            justify-content: flex-end;
-            margin: 4px 0 8px 0;
-        `;
-
-        // Minimal theme toggle - just a clickable icon
-        const toggleBtn = themeContainer.createDiv();
-        toggleBtn.style.cssText = `
-            cursor: pointer;
-            font-size: 1rem;
-            opacity: 0.6;
-            transition: opacity 0.2s ease;
-            padding: 4px;
-        `;
-        toggleBtn.innerHTML = this.isLightTheme ? '☀️' : '🌙';
-        toggleBtn.title = this.isLightTheme ? 'Switch to dark mode' : 'Switch to light mode';
-
-        toggleBtn.addEventListener('mouseenter', () => {
-            toggleBtn.style.opacity = '1';
-        });
-        toggleBtn.addEventListener('mouseleave', () => {
-            toggleBtn.style.opacity = '0.6';
-        });
-
-        // Theme toggle functionality
-        const updateTheme = (isLight: boolean) => {
-            this.isLightTheme = isLight;
-            toggleBtn.innerHTML = isLight ? '☀️' : '🌙';
-            toggleBtn.title = isLight ? 'Switch to dark mode' : 'Switch to light mode';
-            this.applyTheme(isLight);
-            localStorage.setItem('ytc-theme-mode', isLight ? 'light' : 'dark');
-        };
-
-        // Click to toggle
-        toggleBtn.addEventListener('click', () => {
-            updateTheme(!this.isLightTheme);
-        });
-
-        // Store for cleanup
-        this.themeElements = {
-            slider: toggleBtn,
-            knob: toggleBtn,
-            sunIcon: toggleBtn,
-            moonIcon: toggleBtn,
-            updateTheme,
-        };
+        // Deprecated - theme toggle is now in the top bar
     }
 
-    /**
-     * Apply theme to modal
-     */
     private applyTheme(isLight: boolean): void {
-        // Apply theme class to modal
         this.modalEl?.classList.add('ytc-themed-modal');
         this.modalEl?.classList.toggle('ytc-modal-light', isLight);
         this.modalEl?.classList.toggle('ytc-modal-dark', !isLight);
 
-        // Remove manually injected styles if they exist (cleanup)
         const existingStyle = document.getElementById('ytc-theme-styles');
         if (existingStyle) {
             existingStyle.remove();
         }
     }
 
-    /**
-     * Create ultra-compact progress section with timer
-     */
     private timerInterval?: number;
     private timerEl?: HTMLSpanElement;
 
-    // eslint-disable-next-line max-lines-per-function
     private createProgressSection(): void {
         this.progressContainer = this.contentEl.createDiv();
         this.progressContainer.setAttribute('role', 'region');
@@ -1343,7 +1136,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.progressContainer.style.marginTop = '6px';
         this.progressContainer.style.display = 'none';
 
-        // Info Row (Text + Timer)
         const infoRow = this.progressContainer.createDiv();
         infoRow.style.cssText = `
             display: flex;
@@ -1352,7 +1144,6 @@ export class YouTubeUrlModal extends BaseModal {
             margin-bottom: 6px;
         `;
 
-        // Progress text
         this.progressText = infoRow.createDiv();
         this.progressText.id = 'progress-text';
         this.progressText.style.fontWeight = '500';
@@ -1360,7 +1151,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.progressText.style.color = '#00b894';
         this.progressText.textContent = 'Processing...';
 
-        // Timer
         this.timerEl = infoRow.createSpan();
         this.timerEl.style.cssText = `
             font-family: monospace;
@@ -1370,7 +1160,6 @@ export class YouTubeUrlModal extends BaseModal {
         `;
         this.timerEl.textContent = '0.0s';
 
-        // Progress bar container
         const progressBarContainer = this.progressContainer.createDiv();
         progressBarContainer.setAttribute('role', 'progressbar');
         progressBarContainer.setAttribute('aria-valuenow', '0');
@@ -1386,7 +1175,6 @@ export class YouTubeUrlModal extends BaseModal {
             position: relative;
         `;
 
-        // Animated Progress bar
         this.progressBar = progressBarContainer.createDiv();
         this.progressBar.style.cssText = `
             height: 100%;
@@ -1397,7 +1185,6 @@ export class YouTubeUrlModal extends BaseModal {
             position: relative;
         `;
 
-        // Add shimmer effect
         const shimmer = this.progressBar.createDiv();
         shimmer.style.cssText = `
             position: absolute;
@@ -1420,7 +1207,6 @@ export class YouTubeUrlModal extends BaseModal {
             opacity: 0.6;
         `;
 
-        // Add keyframes for animation if not exists
         if (!document.getElementById('ytc-progress-anim')) {
             const style = document.createElement('style');
             style.id = 'ytc-progress-anim';
@@ -1434,11 +1220,7 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Create action buttons - compact and organized
-     */
     private createActionButtons(): void {
-        // Main action container
         const container = this.contentEl.createDiv();
         container.style.cssText = `
             display: flex;
@@ -1450,36 +1232,30 @@ export class YouTubeUrlModal extends BaseModal {
             border-top: 1px solid var(--ytc-border);
         `;
 
-        // Cancel button (Left)
         const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn ytc-ghost-btn' });
         cancelBtn.textContent = 'Cancel';
         cancelBtn.addEventListener('click', () => this.close());
 
-        // Spacer to push primary actions to the right
         const spacer = container.createDiv();
         spacer.style.flex = '1';
 
-        // Secondary actions wrapper (Hidden initially)
         this.secondaryActionsRow = container.createDiv();
         this.secondaryActionsRow.style.cssText = `
             display: none;
             gap: 8px;
         `;
 
-        // Copy Path button
         this.copyPathButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         this.copyPathButton.innerHTML = '📋';
         this.copyPathButton.title = 'Copy Path';
-        this.copyPathButton.style.width = '40px'; // Compact icon button
+        this.copyPathButton.style.width = '40px';
         this.copyPathButton.style.padding = '0';
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
-        // Open Note button
         this.openButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         this.openButton.innerHTML = '📄 Open';
         this.openButton.addEventListener('click', () => this.handleOpenFile());
 
-        // Process Another button
         const processAnotherBtn = this.secondaryActionsRow.createEl('button', {
             cls: 'ytc-action-btn ytc-primary-btn',
         });
@@ -1489,7 +1265,6 @@ export class YouTubeUrlModal extends BaseModal {
         });
         this.processAnotherButton = processAnotherBtn;
 
-        // Primary Process Button (Right)
         this.processButton = container.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
         this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
         this.processButton.style.minWidth = '120px';
@@ -1498,9 +1273,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.updateProcessButtonState();
     }
 
-    /**
-     * Show input state (for "Process Another")
-     */
     private showInputState(): void {
         if (this.processButton) {
             this.processButton.style.display = 'flex';
@@ -1518,16 +1290,16 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.headerEl) {
             this.headerEl.textContent = MESSAGES.MODALS.PROCESS_VIDEO;
         }
+        if (this.userInstructionsTextarea) {
+            this.userInstructionsTextarea.value = '';
+            this.userInstructions = '';
+        }
         this.processedFilePath = '';
         this.updateProcessButtonState();
         this.focusUrlInput();
     }
 
-    /**
-     * Set up event handlers for the modal
-     */
     private setupEventHandlers(): void {
-        // Key handlers for Enter and Escape
         this.scope.register([], 'Enter', () => {
             if (this.processButton && !this.processButton.disabled) {
                 this.processButton.click();
@@ -1540,7 +1312,6 @@ export class YouTubeUrlModal extends BaseModal {
             return false;
         });
 
-        // Ctrl+O to open processed file
         this.scope.register(['Ctrl'], 'o', () => {
             if (this.openButton && this.openButton.style.display !== 'none') {
                 void this.handleOpenFile();
@@ -1548,17 +1319,14 @@ export class YouTubeUrlModal extends BaseModal {
             return false;
         });
 
-        // Ctrl+C when not in input to copy path
         this.scope.register(['Ctrl'], 'c', () => {
-            // Only copy path if not in input field and file is processed
             if (document.activeElement !== this.urlInput && this.processedFilePath) {
                 void this.handleCopyPath();
                 return false;
             }
-            return true; // Allow default copy behavior in input
+            return true;
         });
 
-        // Ctrl+V to paste and auto-process
         this.scope.register(['Ctrl', 'Shift'], 'v', async () => {
             try {
                 const clipText = await navigator.clipboard.readText();
@@ -1566,18 +1334,16 @@ export class YouTubeUrlModal extends BaseModal {
                     this.urlInput.value = clipText;
                     this.url = clipText;
                     this.updateProcessButtonState();
-                    // Auto-trigger process if valid
                     if (this.processButton && !this.processButton.disabled) {
                         this.processButton.click();
                     }
                 }
             } catch {
-                // Clipboard access denied - ignore
+                // Clipboard access denied
             }
             return false;
         });
 
-        // URL input change
         if (this.urlInput) {
             this.urlInput.addEventListener('input', () => {
                 this.url = this.urlInput?.value ?? '';
@@ -1586,18 +1352,12 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Focus on URL input
-     */
     private focusUrlInput(): void {
         if (this.urlInput) {
             this.urlInput.focus();
         }
     }
 
-    /**
-     * Update process button enabled state
-     */
     private updateProcessButtonState(): void {
         if (!this.processButton) return;
 
@@ -1612,7 +1372,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.hideVideoPreview();
         } else if (isValid) {
             this.setValidationMessage('Ready to process this video.', 'success');
-            // Show video preview
             const videoId = ValidationUtils.extractVideoId(trimmedUrl);
             if (videoId) {
                 void this.showVideoPreview(videoId);
@@ -1623,9 +1382,6 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Set validation message
-     */
     private setValidationMessage(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
         if (!this.validationMessage) return;
 
@@ -1643,8 +1399,8 @@ export class YouTubeUrlModal extends BaseModal {
 
     /**
      * Handle process button click
+     * Fix: use user's temperature setting, not formatConfig override
      */
-    // eslint-disable-next-line complexity, max-lines-per-function
     private async handleProcess(): Promise<void> {
         const trimmedUrl = this.url.trim();
         if (!trimmedUrl) {
@@ -1663,35 +1419,29 @@ export class YouTubeUrlModal extends BaseModal {
             this.showProcessingState();
             this.updateProgress(0, 'Starting...');
 
-            // Update progress to 25% (validate URL)
             this.updateProgress(25, 'Validating URL...');
 
-            // Extract video ID
             const videoId = ValidationUtils.extractVideoId(trimmedUrl);
             if (!videoId) {
                 throw new Error('Could not extract YouTube video ID');
             }
 
-            // Update progress to 50% (fetch video data)
             this.updateProgress(50, 'Fetching video data...');
 
-            // Set format, provider, and model based on dropdown selections
             this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
             this.selectedProvider = this.providerSelect?.value;
             this.selectedModel = this.modelSelect?.value;
 
-            // Update progress to 75% (process with AI) - show provider name
             const providerDisplayName = this.selectedProvider
                 ? this.selectedProvider.charAt(0).toUpperCase() + this.selectedProvider.slice(1)
                 : 'AI';
             this.updateProgress(75, `Processing with ${providerDisplayName}...`);
 
-            // Use per-format token and temperature from FORMAT_CONFIG
             const formatConfig = FORMAT_CONFIG[this.format] ?? FORMAT_CONFIG['executive-summary'];
             const maxTokens = this.options.defaultMaxTokens ?? formatConfig.recommendedMaxTokens;
-            const temperature = formatConfig.temperatureHint;
+            // Fix: use user's temperature setting instead of always overriding with formatConfig
+            const temperature = this.options.defaultTemperature ?? formatConfig.temperatureHint;
 
-            // Call the process function
             const filePath = await this.options.onProcess(
                 trimmedUrl,
                 this.format,
@@ -1706,7 +1456,6 @@ export class YouTubeUrlModal extends BaseModal {
                 this.userInstructions,
             );
 
-            // Update progress to 100% (complete)
             this.updateProgress(100, 'Complete!');
 
             this.processedFilePath = filePath;
@@ -1717,9 +1466,6 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Show processing state
-     */
     private showProcessingState(): void {
         this.isProcessing = true;
         if (this.progressContainer) {
@@ -1737,7 +1483,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.secondaryActionsRow.style.display = 'none';
         }
 
-        // Start timer
         if (this.timerInterval) window.clearInterval(this.timerInterval);
         const startTime = Date.now();
         if (this.timerEl) this.timerEl.textContent = '0.0s';
@@ -1750,9 +1495,6 @@ export class YouTubeUrlModal extends BaseModal {
         }, 100);
     }
 
-    /**
-     * Update progress bar and text in real-time
-     */
     private updateProgress(percent: number, text: string): void {
         if (this.progressBar) {
             this.progressBar.style.width = `${percent}%`;
@@ -1762,9 +1504,6 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Show completion state
-     */
     private showCompletionState(): void {
         this.isProcessing = false;
         if (this.timerInterval) {
@@ -1778,7 +1517,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.url = '';
         }
 
-        // Single row layout logic: Hide process button, show secondary row
         if (this.processButton) {
             this.processButton.style.display = 'none';
         }
@@ -1793,9 +1531,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.focusUrlInput();
     }
 
-    /**
-     * Show error state
-     */
     private showErrorState(error: Error): void {
         this.isProcessing = false;
         if (this.timerInterval) {
@@ -1825,9 +1560,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.setValidationMessage(error.message, 'error');
     }
 
-    /**
-     * Handle open file button click
-     */
     private async handleOpenFile(): Promise<void> {
         if (this.processedFilePath && this.options.onOpenFile) {
             try {
@@ -1839,14 +1571,10 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Handle copy path button click
-     */
     private async handleCopyPath(): Promise<void> {
         if (this.processedFilePath) {
             try {
                 await navigator.clipboard.writeText(this.processedFilePath);
-                // Show brief feedback
                 if (this.copyPathButton) {
                     const originalText = this.copyPathButton.textContent;
                     this.copyPathButton.textContent = '✅ Copied!';
@@ -1862,9 +1590,6 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    /**
-     * Set URL value
-     */
     private setUrl(url: string): void {
         this.url = url;
         if (this.urlInput) {
@@ -1873,9 +1598,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.updateProcessButtonState();
     }
 
-    /**
-     * Enhanced paste functionality with smart URL detection
-     */
     private async handleSmartPaste(): Promise<void> {
         try {
             const text = await navigator.clipboard.readText();
@@ -1905,26 +1627,20 @@ export class YouTubeUrlModal extends BaseModal {
             } else {
                 this.focusUrlInput();
             }
-        } catch (error) {
+        } catch {
             new Notice('Could not access clipboard');
         }
     }
 
-    /**
-     * Setup keyboard shortcuts for enhanced productivity
-     */
     private setupKeyboardShortcuts(): void {
         this.scope.register(['Ctrl'], 'Enter', () => {
             if (this.processButton && !this.processButton.disabled) {
                 this.processButton.click();
             }
-            return false; // Prevent default behavior
+            return false;
         });
     }
 
-    /**
-     * Clean up resources when modal is closed
-     */
     onClose(): void {
         if (this.validationTimer) {
             clearTimeout(this.validationTimer);
@@ -1932,70 +1648,128 @@ export class YouTubeUrlModal extends BaseModal {
         super.onClose();
     }
 
-    // Additional properties for debouncing
     private validationTimer?: number;
 
     /**
-     * Get cache status for a provider
+     * Show processing history in a simple overlay
      */
-    private getCacheStatus(provider: string): { isCached: boolean; ageMinutes?: number } {
-        const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud'];
-
-        if (!dynamicProviders.includes(provider)) {
-            return { isCached: false }; // Static providers
+    private showHistory(): void {
+        const history = this.options.historyService;
+        if (!history) {
+            new Notice('Processing history not available');
+            return;
         }
 
-        // In a real implementation, you would check actual cache timestamps
-        // For now, return a placeholder - this could be enhanced by passing cache info
-        return { isCached: true, ageMinutes: 15 }; // Placeholder
-    }
-
-    /**
-     * Check if model supports multimodal capabilities
-     */
-    private isMultimodalModel(provider: string, model: string): boolean {
-        // Known multimodal model patterns
-        const multimodalPatterns = [
-            'vision',
-            'vl',
-            'v-',
-            'multimodal',
-            'pixtral',
-            'fuyu',
-            'llava',
-            'moondream',
-            'gemini-2.5',
-            'gemini-2.0',
-            'claude-3.5',
-            'gpt-4o',
-            'phi-3.5-vision',
-            'qwen2-vl',
-        ];
-
-        // Check if model name contains any multimodal indicators
-        return multimodalPatterns.some(pattern => model.toLowerCase().includes(pattern.toLowerCase()));
-    }
-
-    /**
-     * Check if provider is using cached models
-     */
-    private isUsingCachedModels(provider: string): boolean {
-        return this.getCacheStatus(provider).isCached;
-    }
-
-    /**
-     * Update refresh button tooltip based on selected provider
-     */
-    private updateRefreshButtonTooltip(): void {
-        if (this.refreshButton) {
-            const currentProvider = this.selectedProvider ?? 'Google Gemini';
-            const dynamicProviders = ['OpenRouter', 'Hugging Face', 'Ollama', 'Ollama Cloud'];
-
-            if (dynamicProviders.includes(currentProvider)) {
-                this.refreshButton.title = 'Refresh models (Shift+Click to force refresh and bypass cache)';
-            } else {
-                this.refreshButton.title = 'Refresh models (static list)';
-            }
+        const entries = history.getRecent(10);
+        if (entries.length === 0) {
+            new Notice('No processing history yet');
+            return;
         }
+
+        // Create a simple history overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'ytc-history-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--background-primary);
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 10000;
+            min-width: 400px;
+            max-width: 500px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        `;
+
+        const header = overlay.createDiv();
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--background-modifier-border);
+        `;
+        header.createEl('h3', { text: '🕐 Recent Processing History' });
+
+        const closeBtn = header.createEl('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            padding: 4px;
+        `;
+
+        entries.forEach(entry => {
+            const item = overlay.createDiv();
+            item.style.cssText = `
+                padding: 8px;
+                margin-bottom: 4px;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: background 0.15s;
+                border: 1px solid var(--background-modifier-border);
+            `;
+            item.onmouseenter = () => item.style.background = 'var(--background-secondary)';
+            item.onmouseleave = () => item.style.background = 'transparent';
+
+            const titleEl = item.createDiv();
+            titleEl.style.cssText = `
+                font-weight: 500;
+                font-size: 0.85rem;
+                color: var(--text-normal);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            `;
+            titleEl.textContent = entry.title;
+
+            const metaEl = item.createDiv();
+            metaEl.style.cssText = `
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                margin-top: 2px;
+            `;
+            const date = new Date(entry.processedAt).toLocaleDateString();
+            const formatLabel = FORMAT_META[entry.format]?.label ?? entry.format;
+            metaEl.textContent = `${formatLabel} · ${entry.provider} · ${date}`;
+
+            // Click to open
+            item.onclick = () => {
+                if (this.options.onOpenFile) {
+                    void this.options.onOpenFile(entry.filePath);
+                }
+                overlay.remove();
+                bgOverlay.remove();
+            };
+        });
+
+        const bgOverlay = document.createElement('div');
+        bgOverlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 9999;
+        `;
+
+        closeBtn.onclick = () => {
+            overlay.remove();
+            bgOverlay.remove();
+        };
+        bgOverlay.onclick = () => {
+            overlay.remove();
+            bgOverlay.remove();
+        };
+
+        document.body.appendChild(bgOverlay);
+        document.body.appendChild(overlay);
     }
 }

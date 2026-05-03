@@ -82,6 +82,7 @@ export class UserPreferencesService {
             'atom-notes': 0,
             'article': 0,
             'complete-transcription': 0,
+            'quick-notes': 0,
         },
         providerUsage: {},
     };
