@@ -10,7 +10,6 @@ import { ValidationUtils } from '../../../validation';
 import { FORMAT_CONFIG } from '../../../services/prompt-service';
 import { FORMAT_META } from '../../../templates/format-templates';
 import { formatModelNameWithMultimodal } from '../../../services/model-formatter';
-import { ProcessingHistoryService } from '../../../services/processing-history';
 import { App, Notice } from 'obsidian';
 
 /**
@@ -32,7 +31,6 @@ export interface YouTubeUrlModalOptions {
         userInstructions?: string,
     ) => Promise<string>; // Return file path
     onOpenFile?: (filePath: string) => Promise<void>;
-    onOpenBatchModal?: () => void;
     initialUrl?: string;
     providers?: string[]; // available provider names
     modelOptions?: Record<string, string[]>; // mapping providerName -> models
@@ -52,8 +50,6 @@ export interface YouTubeUrlModalOptions {
         enableParallel: boolean,
         preferMultimodal: boolean,
     ) => Promise<void>;
-    // Processing history
-    historyService?: ProcessingHistoryService;
 }
 
 export class YouTubeUrlModal extends BaseModal {
@@ -62,18 +58,19 @@ export class YouTubeUrlModal extends BaseModal {
     private headerEl?: HTMLHeadingElement;
     private urlInput?: HTMLInputElement;
     private pasteButton?: HTMLButtonElement;
-    private clearButton?: HTMLButtonElement;
     private processButton?: HTMLButtonElement;
     private openButton?: HTMLButtonElement;
     private copyPathButton?: HTMLButtonElement;
-    private processAnotherButton?: HTMLButtonElement;
     private secondaryActionsRow?: HTMLDivElement;
     private thumbnailEl?: HTMLImageElement;
-    private metadataContainer?: HTMLDivElement;
+    private videoTitleEl?: HTMLDivElement;
+    private videoChannelEl?: HTMLSpanElement;
+    private videoDurationEl?: HTMLSpanElement;
+    private providerStatusEl?: HTMLDivElement;
+    private videoPreviewContainer?: HTMLDivElement;
     private fetchInProgress = false;
     private providerSelect?: HTMLSelectElement;
     private modelSelect?: HTMLSelectElement;
-    private refreshSpinner?: HTMLSpanElement;
     private selectedProvider?: string;
     private selectedModel?: string;
     private progressContainer?: HTMLDivElement;
@@ -82,26 +79,15 @@ export class YouTubeUrlModal extends BaseModal {
     private validationMessage?: HTMLDivElement;
     private userInstructionsTextarea?: HTMLTextAreaElement;
     private userInstructions = '';
-    private progressSteps: { label: string; element: HTMLLIElement }[] = [];
-    private currentStepIndex = 0;
     private isProcessing = false;
     private processedFilePath?: string;
-    private refreshButton?: HTMLButtonElement;
-    private formatDescriptionEl?: HTMLDivElement;
-
-    // Format, Provider, and Model dropdowns
-    private formatSelect?: HTMLSelectElement;
-
-    // Theme state
-    private isLightTheme = false;
     private autoFallbackEnabled = true;
-    private themeElements?: {
-        slider: HTMLDivElement;
-        knob: HTMLDivElement;
-        sunIcon: HTMLSpanElement;
-        moonIcon: HTMLSpanElement;
-        updateTheme: (isLight: boolean) => void;
-    };
+    private timerInterval?: number;
+    private timerEl?: HTMLSpanElement;
+    private validationTimer?: number;
+
+    // Format dropdown
+    private formatSelect?: HTMLSelectElement;
 
     constructor(
         app: App,
@@ -110,10 +96,6 @@ export class YouTubeUrlModal extends BaseModal {
         super(app);
 
         this.url = options.initialUrl ?? '';
-
-        // Initialize theme from localStorage
-        const savedTheme = localStorage.getItem('ytc-theme-mode');
-        this.isLightTheme = savedTheme === 'light';
 
         // Load smart defaults from user preferences
         const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
@@ -193,6 +175,9 @@ export class YouTubeUrlModal extends BaseModal {
             this.contentEl.empty();
             this.contentEl.addClass('ytc-modal-content-wrapper');
 
+            // Apply Obsidian native theme (dark mode)
+            this.modalEl?.classList.add('ytc-themed-modal', 'ytc-modal-dark');
+
             this.createTopBar();
             this.createUrlSection();
             this.createSettingsSection();
@@ -200,7 +185,6 @@ export class YouTubeUrlModal extends BaseModal {
             this.createActionButtons();
 
             this.updateModelDropdown(this.options.modelOptions ?? {});
-            this.applyTheme(this.isLightTheme);
         } catch (error) {
             logger.error('[YT-CLIPPER] Error in createModalContent:', 'Modal', { error });
             throw error;
@@ -208,175 +192,37 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Create top bar with header and global controls
+     * Create top bar with title only
      */
     private createTopBar(): void {
         const topBar = this.contentEl.createDiv('ytc-top-bar');
-        topBar.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        `;
 
-        const titleContainer = topBar.createDiv();
-        const title = titleContainer.createEl('h2');
+        const title = topBar.createEl('h2');
         title.textContent = 'YouTube to Note';
         this.headerEl = title;
 
-        const subtitle = titleContainer.createDiv('subtitle');
-        subtitle.textContent = 'Generate AI summaries & notes';
+        // Theme toggle
+        const themeBtn = topBar.createEl('button', { cls: 'ytc-theme-toggle' });
+        themeBtn.innerHTML = '☀️';
+        themeBtn.title = 'Toggle light/dark theme';
+        themeBtn.setAttribute('aria-label', 'Toggle theme');
 
-        const controls = topBar.createDiv();
-        controls.style.cssText = `
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        `;
-
-        // History Button
-        const historyBtn = controls.createEl('button');
-        historyBtn.innerHTML = '<span style="font-size: 1.1em">🕐</span>';
-        historyBtn.setAttribute('aria-label', 'Processing History');
-        historyBtn.title = 'View recently processed videos';
-        historyBtn.style.cssText = `
-            background: transparent;
-            border: 1px solid var(--ytc-border);
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--ytc-text-secondary);
-        `;
-        historyBtn.onclick = () => this.showHistory();
-        historyBtn.onmouseenter = () => {
-            historyBtn.style.background = 'var(--ytc-bg-tertiary)';
-            historyBtn.style.color = 'var(--ytc-text-primary)';
-        };
-        historyBtn.onmouseleave = () => {
-            historyBtn.style.background = 'transparent';
-            historyBtn.style.color = 'var(--ytc-text-secondary)';
-        };
-
-        // Auto Fallback Toggle
-        const fallbackBtn = controls.createEl('button');
-        const updateFallbackIcon = () => {
-            fallbackBtn.innerHTML = '<span style="font-size: 1.1em">🔄</span>';
-            fallbackBtn.style.opacity = this.autoFallbackEnabled ? '1' : '0.4';
-            fallbackBtn.style.borderColor = this.autoFallbackEnabled ? 'var(--ytc-accent)' : 'var(--ytc-border)';
-            fallbackBtn.title = `Auto Fallback: ${this.autoFallbackEnabled ? 'ON' : 'OFF'}`;
-        };
-        fallbackBtn.setAttribute('aria-label', 'Toggle Auto Fallback');
-        fallbackBtn.style.cssText = `
-            background: transparent;
-            border: 1px solid var(--ytc-border);
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--ytc-text-secondary);
-        `;
-        updateFallbackIcon();
-        fallbackBtn.onclick = () => {
-            this.autoFallbackEnabled = !this.autoFallbackEnabled;
-            updateFallbackIcon();
-            UserPreferencesService.updateLastUsed({ autoFallback: this.autoFallbackEnabled });
-        };
-        fallbackBtn.onmouseenter = () => {
-            fallbackBtn.style.background = 'var(--ytc-bg-tertiary)';
-            fallbackBtn.style.color = 'var(--ytc-text-primary)';
-        };
-        fallbackBtn.onmouseleave = () => {
-            fallbackBtn.style.background = 'transparent';
-            fallbackBtn.style.color = 'var(--ytc-text-secondary)';
-        };
-
-        // Batch Mode Button
-        const batchBtn = controls.createEl('button');
-        batchBtn.innerHTML = '<span style="font-size: 1.1em">📦</span>';
-        batchBtn.setAttribute('aria-label', 'Batch Process');
-        batchBtn.title = 'Batch Process Multiple Videos';
-        batchBtn.style.cssText = `
-            background: transparent;
-            border: 1px solid var(--ytc-border);
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--ytc-text-secondary);
-        `;
-        batchBtn.onclick = () => this.options.onOpenBatchModal?.();
-        batchBtn.onmouseenter = () => {
-            batchBtn.style.background = 'var(--ytc-bg-tertiary)';
-            batchBtn.style.color = 'var(--ytc-text-primary)';
-        };
-        batchBtn.onmouseleave = () => {
-            batchBtn.style.background = 'transparent';
-            batchBtn.style.color = 'var(--ytc-text-secondary)';
-        };
-
-        // Theme Toggle
-        const themeBtn = controls.createEl('button');
-        themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
-        themeBtn.setAttribute('aria-label', 'Toggle Theme');
-        themeBtn.title = 'Toggle Light/Dark Mode';
-        themeBtn.style.cssText = `
-            background: transparent;
-            border: 1px solid var(--ytc-border);
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 1.1em;
-            color: var(--ytc-text-secondary);
-        `;
-        themeBtn.onclick = () => {
-            this.isLightTheme = !this.isLightTheme;
-            this.applyTheme(this.isLightTheme);
-            localStorage.setItem('ytc-theme-mode', this.isLightTheme ? 'light' : 'dark');
-            themeBtn.innerHTML = this.isLightTheme ? '🌙' : '☀️';
-        };
-        themeBtn.onmouseenter = () => {
-            themeBtn.style.background = 'var(--ytc-bg-tertiary)';
-            themeBtn.style.color = 'var(--ytc-text-primary)';
-        };
-        themeBtn.onmouseleave = () => {
-            themeBtn.style.background = 'transparent';
-            themeBtn.style.color = 'var(--ytc-text-secondary)';
-        };
+        let isDark = true;
+        themeBtn.addEventListener('click', () => {
+            isDark = !isDark;
+            this.modalEl?.classList.toggle('ytc-modal-dark', isDark);
+            this.modalEl?.classList.toggle('ytc-modal-light', !isDark);
+            themeBtn.innerHTML = isDark ? '☀️' : '🌙';
+        });
     }
 
     /**
      * Create URL input section
      */
     private createUrlSection(): void {
-        const urlContainer = this.contentEl.createDiv();
-        urlContainer.style.cssText = `
-            margin: 0 0 20px 0;
-            position: relative;
-        `;
+        const urlContainer = this.contentEl.createDiv('ytc-url-section');
 
         const inputWrapper = urlContainer.createDiv('ytc-input-group');
-        inputWrapper.style.cssText = `
-            position: relative;
-            display: flex;
-            align-items: center;
-        `;
 
         this.urlInput = inputWrapper.createEl('input');
         this.urlInput.type = 'url';
@@ -393,47 +239,20 @@ export class YouTubeUrlModal extends BaseModal {
             void this.handleSmartPaste();
         });
 
-        this.validationMessage = urlContainer.createDiv();
+        this.validationMessage = urlContainer.createDiv('ytc-validation-message');
         this.validationMessage.setAttribute('aria-live', 'polite');
-        this.validationMessage.style.cssText = `
-            position: absolute;
-            bottom: -20px;
-            left: 2px;
-            font-size: 12px;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-            height: 20px;
-            display: flex;
-            align-items: center;
-        `;
 
         this.createVideoPreviewSection(urlContainer);
     }
 
     /**
      * Create Settings Section (Format + Collapsible AI Config)
-     * User Instructions now visible for ALL formats.
      */
     private createSettingsSection(): void {
-        const container = this.contentEl.createDiv();
-        container.addClass('ytc-settings-section');
-        container.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 24px;
-        `;
+        const container = this.contentEl.createDiv('ytc-settings-section');
 
         // Controls Row (Output Format + AI Toggle)
-        const controlsRow = container.createDiv();
-        controlsRow.style.cssText = `
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-        `;
+        const controlsRow = container.createDiv('ytc-controls-row');
 
         // 1. Output Format (Left)
         const formatWrapper = controlsRow.createDiv();
@@ -442,19 +261,11 @@ export class YouTubeUrlModal extends BaseModal {
         const formatLabel = formatWrapper.createEl('label');
         formatLabel.textContent = 'OUTPUT FORMAT';
         formatLabel.htmlFor = 'ytc-format-select';
-        formatLabel.style.cssText = `
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--ytc-text-muted);
-            margin-bottom: 6px;
-            letter-spacing: 0.05em;
-            display: block;
-        `;
+        formatLabel.addClass('ytc-field-label');
 
         this.formatSelect = formatWrapper.createEl('select');
         this.formatSelect.id = 'ytc-format-select';
 
-        // Build format options from FORMAT_META
         const formatOrder: OutputFormat[] = [
             'quick-notes',
             'executive-summary',
@@ -471,25 +282,14 @@ export class YouTubeUrlModal extends BaseModal {
             const optionEl = this.formatSelect.createEl('option');
             optionEl.value = format;
             optionEl.textContent = meta.label;
-            optionEl.title = meta.description; // Tooltip on hover
+            optionEl.title = meta.description;
         });
 
         this.formatSelect.value = this.format;
         this.formatSelect.addEventListener('change', () => {
             this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
             UserPreferencesService.setPreference('lastFormat', this.format);
-            this.updateFormatDescription();
         });
-
-        // Format description line
-        this.formatDescriptionEl = formatWrapper.createDiv();
-        this.formatDescriptionEl.style.cssText = `
-            font-size: 0.75rem;
-            color: var(--ytc-text-muted);
-            margin-top: 4px;
-            min-height: 18px;
-        `;
-        this.updateFormatDescription();
 
         // 2. AI Config Toggle (Right)
         const aiToggleWrapper = controlsRow.createDiv();
@@ -497,63 +297,19 @@ export class YouTubeUrlModal extends BaseModal {
 
         const aiLabel = aiToggleWrapper.createEl('label');
         aiLabel.textContent = 'AI CONFIGURATION';
-        aiLabel.style.cssText = `
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--ytc-text-muted);
-            margin-bottom: 6px;
-            letter-spacing: 0.05em;
-            display: block;
-        `;
+        aiLabel.addClass('ytc-field-label');
 
-        const aiToggleBtn = aiToggleWrapper.createDiv();
-        aiToggleBtn.addClass('ytc-ai-toggle-btn');
+        const aiToggleBtn = aiToggleWrapper.createDiv('ytc-ai-toggle-btn');
         aiToggleBtn.setAttribute('role', 'button');
         aiToggleBtn.setAttribute('tabindex', '0');
-        aiToggleBtn.style.cssText = `
-            background: var(--ytc-bg-input);
-            border: 1px solid var(--ytc-border);
-            border-radius: 8px;
-            height: 38px;
-            padding: 0 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            user-select: none;
-        `;
 
-        const aiSummary = aiToggleBtn.createDiv();
-        aiSummary.style.cssText = `
-            font-size: 0.9rem;
-            color: var(--ytc-text-primary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        `;
+        const aiSummary = aiToggleBtn.createDiv('ytc-ai-summary');
 
-        const chevron = aiToggleBtn.createDiv();
+        const chevron = aiToggleBtn.createDiv('ytc-ai-chevron');
         chevron.innerHTML =
             '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>';
-        chevron.style.cssText = `
-            transition: transform 0.2s ease;
-            opacity: 0.5;
-            margin-left: 8px;
-            flex-shrink: 0;
-            color: var(--ytc-text-secondary);
-        `;
 
         const aiContent = container.createDiv('ytc-ai-content');
-        aiContent.style.cssText = `
-            background: var(--ytc-bg-secondary);
-            border: 1px solid var(--ytc-border);
-            border-radius: 8px;
-            padding: 16px;
-            display: none;
-            margin-top: -4px;
-            animation: fadeIn 0.15s ease-out;
-        `;
 
         let isExpanded = false;
 
@@ -566,7 +322,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         const toggleAI = () => {
             isExpanded = !isExpanded;
-            aiContent.style.display = isExpanded ? 'block' : 'none';
+            aiContent.classList.toggle('is-visible', isExpanded);
             aiToggleBtn.classList.toggle('active', isExpanded);
             aiToggleBtn.style.borderColor = isExpanded ? 'var(--ytc-accent)' : 'var(--ytc-border)';
             chevron.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
@@ -586,8 +342,7 @@ export class YouTubeUrlModal extends BaseModal {
         const providerLabel = providerRow.createEl('label');
         providerLabel.textContent = 'AI PROVIDER';
         providerLabel.htmlFor = 'ytc-provider-select';
-        providerLabel.style.cssText =
-            'font-size: 0.7rem; font-weight: 600; margin-bottom: 6px; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block;';
+        providerLabel.addClass('ytc-field-label');
 
         this.providerSelect = providerRow.createEl('select');
         this.providerSelect.id = 'ytc-provider-select';
@@ -609,31 +364,18 @@ export class YouTubeUrlModal extends BaseModal {
         this.providerSelect.value = this.selectedProvider ?? 'Google Gemini';
 
         // Model Selection
-        const modelRow = aiContent.createDiv();
-        modelRow.style.cssText = 'margin-top: 16px;';
+        const modelRow = aiContent.createDiv('ytc-model-row');
 
         const modelLabel = modelRow.createEl('label');
         modelLabel.textContent = 'MODEL';
         modelLabel.htmlFor = 'ytc-model-select';
-        modelLabel.style.cssText =
-            'font-size: 0.7rem; font-weight: 600; color: var(--ytc-text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 6px;';
+        modelLabel.addClass('ytc-field-label');
 
-        const modelInputGroup = modelRow.createDiv();
-        modelInputGroup.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+        const modelInputGroup = modelRow.createDiv('ytc-model-input-group');
 
         this.modelSelect = modelInputGroup.createEl('select');
         this.modelSelect.id = 'ytc-model-select';
-        this.modelSelect.style.cssText = `
-            flex: 1;
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            background: var(--background-primary);
-            height: 42px;
-            cursor: pointer;
-        `;
+        this.modelSelect.addClass('ytc-model-select');
 
         const refreshBtn = modelInputGroup.createEl('button', { cls: 'ytc-icon-btn' });
         refreshBtn.innerHTML = '🔄';
@@ -678,41 +420,19 @@ export class YouTubeUrlModal extends BaseModal {
             updateSummary();
         };
 
-        // User Instructions Textarea — visible for ALL formats
-        const userInstructionsWrapper = container.createDiv();
-        userInstructionsWrapper.style.cssText = `margin-top: 8px;`;
+        // User Instructions Textarea (inside AI config)
+        const userInstructionsWrapper = aiContent.createDiv('ytc-user-instructions-wrapper');
 
         const userInstructionsLabel = userInstructionsWrapper.createEl('label');
         userInstructionsLabel.textContent = 'USER INSTRUCTIONS (optional)';
-        userInstructionsLabel.style.cssText = `
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--ytc-text-muted);
-            margin-bottom: 6px;
-            letter-spacing: 0.05em;
-            display: block;
-        `;
+        userInstructionsLabel.addClass('ytc-field-label');
 
-        this.userInstructionsTextarea = userInstructionsWrapper.createEl('textarea');
+        this.userInstructionsTextarea = userInstructionsWrapper.createEl('textarea', {
+            cls: 'ytc-user-instructions-textarea',
+        });
         this.userInstructionsTextarea.placeholder = 'E.g., \'Focus on specific aspects...\', \'Include code examples\', \'Highlight the debate about...\'';
         this.userInstructionsTextarea.rows = 2;
         this.userInstructionsTextarea.setAttribute('aria-label', 'User Instructions');
-        this.userInstructionsTextarea.style.cssText = `
-            width: 100%;
-            height: 60px;
-            resize: vertical;
-            font-size: 0.85rem;
-            color: var(--ytc-text-secondary);
-            background: var(--ytc-bg-input);
-            border-radius: 8px;
-            border: 1px solid var(--ytc-border);
-            margin-top: 8px;
-            padding: 8px 12px;
-            font-family: inherit;
-            box-sizing: border-box;
-            outline: none;
-            transition: border-color 0.2s ease;
-        `;
         this.userInstructionsTextarea.addEventListener('input', () => {
             this.userInstructions = this.userInstructionsTextarea?.value ?? '';
         });
@@ -728,88 +448,24 @@ export class YouTubeUrlModal extends BaseModal {
         });
     }
 
-    /**
-     * Update the format description text below the dropdown
-     */
-    private updateFormatDescription(): void {
-        if (!this.formatDescriptionEl) return;
-        const meta = FORMAT_META[this.format];
-        this.formatDescriptionEl.textContent = meta?.description ?? '';
-    }
-
-    private videoPreviewContainer?: HTMLDivElement;
-    private videoTitleEl?: HTMLDivElement;
-    private videoDurationEl?: HTMLSpanElement;
-    private videoChannelEl?: HTMLSpanElement;
-    private providerStatusEl?: HTMLDivElement;
-
     private createVideoPreviewSection(parent: HTMLElement): void {
-        this.videoPreviewContainer = parent.createDiv();
-        this.videoPreviewContainer.style.cssText = `
-            display: none;
-            margin-top: 4px;
-            padding: 6px;
-            background: var(--background-secondary);
-            border-radius: 4px;
-            border: 1px solid var(--background-modifier-border);
-        `;
+        this.videoPreviewContainer = parent.createDiv('ytc-video-preview');
 
-        const previewContent = this.videoPreviewContainer.createDiv();
-        previewContent.style.cssText = `
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        `;
+        const previewContent = this.videoPreviewContainer.createDiv('ytc-video-preview-content');
 
-        this.thumbnailEl = previewContent.createEl('img');
-        this.thumbnailEl.style.cssText = `
-            width: 60px;
-            height: 34px;
-            border-radius: 3px;
-            object-fit: cover;
-            background: var(--background-modifier-border);
-            flex-shrink: 0;
-        `;
+        this.thumbnailEl = previewContent.createEl('img', { cls: 'ytc-video-preview-thumb' });
         this.thumbnailEl.alt = 'Video thumbnail';
 
-        const metaContainer = previewContent.createDiv();
-        metaContainer.style.cssText = `
-            flex: 1;
-            min-width: 0;
-        `;
+        const metaContainer = previewContent.createDiv('ytc-video-preview-meta');
 
-        this.videoTitleEl = metaContainer.createDiv();
-        this.videoTitleEl.style.cssText = `
-            font-weight: 500;
-            font-size: 0.8rem;
-            color: var(--text-normal);
-            margin-bottom: 1px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        `;
+        this.videoTitleEl = metaContainer.createDiv('ytc-video-preview-title');
 
-        const metaRow = metaContainer.createDiv();
-        metaRow.style.cssText = `
-            display: flex;
-            gap: 6px;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        `;
+        const metaRow = metaContainer.createDiv('ytc-video-preview-meta-row');
 
         this.videoChannelEl = metaRow.createSpan();
         this.videoDurationEl = metaRow.createSpan();
 
-        this.providerStatusEl = this.videoPreviewContainer.createDiv();
-        this.providerStatusEl.style.cssText = `
-            margin-top: 3px;
-            padding: 3px 6px;
-            background: var(--background-primary);
-            border-radius: 3px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            display: none;
-        `;
+        this.providerStatusEl = this.videoPreviewContainer.createDiv('ytc-provider-status');
     }
 
     /**
@@ -818,45 +474,15 @@ export class YouTubeUrlModal extends BaseModal {
     private async showVideoPreview(videoId: string): Promise<void> {
         if (!this.videoPreviewContainer || !this.thumbnailEl) return;
 
-        this.videoPreviewContainer.style.display = 'block';
+        this.videoPreviewContainer.classList.add('is-visible');
 
-        const skeletonAnim = `
-            @keyframes ytc-skeleton-pulse {
-                0%, 100% { opacity: 0.4; }
-                50% { opacity: 0.8; }
-            }
-        `;
-        if (!document.getElementById('ytc-skeleton-styles')) {
-            const styleEl = document.createElement('style');
-            styleEl.id = 'ytc-skeleton-styles';
-            styleEl.textContent = skeletonAnim;
-            document.head.appendChild(styleEl);
-        }
-
-        this.thumbnailEl.style.background = 'var(--background-modifier-border)';
-        this.thumbnailEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
+        // Clear placeholder state
         this.thumbnailEl.src = '';
-
-        if (this.videoTitleEl) {
-            this.videoTitleEl.textContent = '████████████████';
-            this.videoTitleEl.style.color = 'var(--background-modifier-border)';
-            this.videoTitleEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
-        }
-        if (this.videoChannelEl) {
-            this.videoChannelEl.textContent = '████████';
-            this.videoChannelEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
-        }
-        if (this.videoDurationEl) {
-            this.videoDurationEl.textContent = '██:██';
-            this.videoDurationEl.style.animation = 'ytc-skeleton-pulse 1.5s ease-in-out infinite';
-        }
+        if (this.videoTitleEl) this.videoTitleEl.textContent = '';
+        if (this.videoChannelEl) this.videoChannelEl.textContent = '';
+        if (this.videoDurationEl) this.videoDurationEl.textContent = '';
 
         this.thumbnailEl.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-        this.thumbnailEl.onload = () => {
-            if (this.thumbnailEl) {
-                this.thumbnailEl.style.animation = 'none';
-            }
-        };
 
         try {
             const response = await fetch(
@@ -866,169 +492,37 @@ export class YouTubeUrlModal extends BaseModal {
                 const data = await response.json();
                 if (this.videoTitleEl) {
                     this.videoTitleEl.textContent = data.title || 'Unknown Title';
-                    this.videoTitleEl.style.color = 'var(--text-normal)';
-                    this.videoTitleEl.style.animation = 'none';
                 }
                 if (this.videoChannelEl) {
                     this.videoChannelEl.textContent = `📺 ${data.author_name || 'Unknown Channel'}`;
-                    this.videoChannelEl.style.animation = 'none';
                 }
                 if (this.videoDurationEl) {
                     this.videoDurationEl.textContent = '';
-                    this.videoDurationEl.style.animation = 'none';
                 }
-
-                // Check history for this video
-                this.checkHistoryForVideo(videoId);
             }
         } catch {
             if (this.videoTitleEl) {
                 this.videoTitleEl.textContent = 'Video Preview';
-                this.videoTitleEl.style.color = 'var(--text-normal)';
-                this.videoTitleEl.style.animation = 'none';
             }
-            if (this.videoChannelEl) this.videoChannelEl.style.animation = 'none';
-            if (this.videoDurationEl) this.videoDurationEl.style.animation = 'none';
-        }
-    }
-
-    /**
-     * Check processing history and show indicator if video was previously processed
-     */
-    private checkHistoryForVideo(videoId: string): void {
-        const history = this.options.historyService;
-        if (!history) return;
-
-        const previous = history.find(videoId);
-        if (previous && this.providerStatusEl) {
-            const date = new Date(previous.processedAt).toLocaleDateString();
-            this.providerStatusEl.style.display = 'block';
-            this.providerStatusEl.innerHTML = `<span style="color: var(--ytc-text-muted);">🕐 Previously processed (${previous.format}, ${date})</span>`;
         }
     }
 
     private hideVideoPreview(): void {
         if (this.videoPreviewContainer) {
-            this.videoPreviewContainer.style.display = 'none';
+            this.videoPreviewContainer.classList.remove('is-visible');
         }
     }
 
     private updateProviderStatus(provider: string, status: string): void {
         if (this.providerStatusEl) {
-            this.providerStatusEl.style.display = 'block';
+            this.providerStatusEl.classList.add('is-visible');
             const providerSpan = `<span style="color: var(--ytc-accent);">🤖 ${provider}</span>`;
             this.providerStatusEl.innerHTML = `${providerSpan} — ${status}`;
         }
     }
 
-    private fallbackToggle?: HTMLInputElement;
-
-    private createFallbackToggle(parent: HTMLElement): void {
-        const toggleRow = parent.createDiv();
-        toggleRow.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 5px;
-            padding: 4px 8px;
-            background: var(--background-secondary);
-            border-radius: 4px;
-            font-size: 0.75rem;
-        `;
-
-        const labelContainer = toggleRow.createDiv();
-        labelContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        `;
-
-        labelContainer.createSpan({ text: '🔄' });
-        const label = labelContainer.createSpan({ text: 'Auto Fallback' });
-        label.style.cssText = `
-            color: var(--text-normal);
-            font-weight: 500;
-            font-size: 0.75rem;
-        `;
-
-        const hint = labelContainer.createSpan({ text: '(err)' });
-        hint.style.cssText = `
-            color: var(--text-muted);
-            font-size: 0.7rem;
-        `;
-
-        const toggleContainer = toggleRow.createDiv();
-        toggleContainer.style.cssText = `
-            position: relative;
-            width: 30px;
-            height: 16px;
-            flex-shrink: 0;
-        `;
-
-        this.fallbackToggle = toggleContainer.createEl('input', { type: 'checkbox' });
-        this.fallbackToggle.checked = this.options.enableAutoFallback ?? true;
-        this.autoFallbackEnabled = this.fallbackToggle.checked;
-        this.fallbackToggle.style.cssText = `
-            position: absolute;
-            width: 30px;
-            height: 16px;
-            appearance: none;
-            -webkit-appearance: none;
-            background: var(--background-modifier-border);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            outline: none;
-        `;
-
-        const updateToggleStyle = () => {
-            if (this.fallbackToggle?.checked) {
-                this.fallbackToggle.style.background = 'var(--ytc-accent)';
-                this.fallbackToggle.style.boxShadow = '0 0 10px rgba(45, 212, 191, 0.4)';
-            } else if (this.fallbackToggle) {
-                this.fallbackToggle.style.background = 'var(--ytc-border)';
-                this.fallbackToggle.style.boxShadow = 'none';
-            }
-        };
-
-        const knob = toggleContainer.createDiv();
-        knob.style.cssText = `
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 12px;
-            height: 12px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.2s ease;
-            pointer-events: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        `;
-
-        const updateKnob = () => {
-            if (this.fallbackToggle?.checked) {
-                knob.style.transform = 'translateX(14px)';
-            } else {
-                knob.style.transform = 'translateX(0)';
-            }
-        };
-
-        updateToggleStyle();
-        updateKnob();
-
-        this.fallbackToggle.addEventListener('change', () => {
-            this.autoFallbackEnabled = this.fallbackToggle?.checked ?? true;
-            UserPreferencesService.updateLastUsed({
-                autoFallback: this.autoFallbackEnabled,
-            });
-            updateToggleStyle();
-            updateKnob();
-        });
-    }
-
     /**
      * Update the model dropdown options based on provider selection
-     * Uses the pattern-based model formatter from model-formatter.ts
      */
     private updateModelDropdown(modelOptionsMap: Record<string, string[]>): void {
         if (!this.modelSelect || !this.providerSelect) return;
@@ -1069,7 +563,6 @@ export class YouTubeUrlModal extends BaseModal {
             `;
         }
 
-        // Use the centralized model formatter
         models.forEach(model => {
             if (!this.modelSelect) return;
             const option = this.modelSelect.createEl('option');
@@ -1110,146 +603,45 @@ export class YouTubeUrlModal extends BaseModal {
         }
     }
 
-    private createThemeToggle(): void {
-        // Deprecated - theme toggle is now in the top bar
-    }
-
-    private applyTheme(isLight: boolean): void {
-        this.modalEl?.classList.add('ytc-themed-modal');
-        this.modalEl?.classList.toggle('ytc-modal-light', isLight);
-        this.modalEl?.classList.toggle('ytc-modal-dark', !isLight);
-
-        const existingStyle = document.getElementById('ytc-theme-styles');
-        if (existingStyle) {
-            existingStyle.remove();
-        }
-    }
-
-    private timerInterval?: number;
-    private timerEl?: HTMLSpanElement;
-
     private createProgressSection(): void {
-        this.progressContainer = this.contentEl.createDiv();
+        this.progressContainer = this.contentEl.createDiv('ytc-progress-container');
         this.progressContainer.setAttribute('role', 'region');
         this.progressContainer.setAttribute('aria-label', 'Processing progress');
         this.progressContainer.setAttribute('aria-live', 'polite');
-        this.progressContainer.style.marginTop = '6px';
-        this.progressContainer.style.display = 'none';
 
-        const infoRow = this.progressContainer.createDiv();
-        infoRow.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        `;
+        const infoRow = this.progressContainer.createDiv('ytc-progress-info-row');
 
-        this.progressText = infoRow.createDiv();
+        this.progressText = infoRow.createDiv('ytc-progress-text');
         this.progressText.id = 'progress-text';
-        this.progressText.style.fontWeight = '500';
-        this.progressText.style.fontSize = '13px';
-        this.progressText.style.color = '#00b894';
         this.progressText.textContent = 'Processing...';
 
-        this.timerEl = infoRow.createSpan();
-        this.timerEl.style.cssText = `
-            font-family: monospace;
-            font-variant-numeric: tabular-nums;
-            font-size: 12px;
-            color: var(--ytc-text-muted);
-        `;
+        this.timerEl = infoRow.createSpan('ytc-progress-timer');
         this.timerEl.textContent = '0.0s';
 
-        const progressBarContainer = this.progressContainer.createDiv();
+        const progressBarContainer = this.progressContainer.createDiv('ytc-progress-bar-track');
         progressBarContainer.setAttribute('role', 'progressbar');
         progressBarContainer.setAttribute('aria-valuenow', '0');
         progressBarContainer.setAttribute('aria-valuemin', '0');
         progressBarContainer.setAttribute('aria-valuemax', '100');
         progressBarContainer.setAttribute('aria-labelledby', 'progress-text');
-        progressBarContainer.style.cssText = `
-            width: 100%;
-            height: 6px;
-            background-color: var(--ytc-bg-tertiary);
-            border-radius: 3px;
-            overflow: hidden;
-            position: relative;
-        `;
 
-        this.progressBar = progressBarContainer.createDiv();
-        this.progressBar.style.cssText = `
-            height: 100%;
-            background: linear-gradient(90deg, var(--ytc-accent), #34d399);
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.3s ease;
-            position: relative;
-        `;
-
-        const shimmer = this.progressBar.createDiv();
-        shimmer.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background-image: linear-gradient(
-                45deg,
-                rgba(255, 255, 255, 0.15) 25%,
-                transparent 25%,
-                transparent 50%,
-                rgba(255, 255, 255, 0.15) 50%,
-                rgba(255, 255, 255, 0.15) 75%,
-                transparent 75%,
-                transparent
-            );
-            background-size: 20px 20px;
-            animation: ytc-progress-stripe 1s linear infinite;
-            opacity: 0.6;
-        `;
-
-        if (!document.getElementById('ytc-progress-anim')) {
-            const style = document.createElement('style');
-            style.id = 'ytc-progress-anim';
-            style.textContent = `
-                @keyframes ytc-progress-stripe {
-                    0% { background-position: 0 0; }
-                    100% { background-position: 20px 20px; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        this.progressBar = progressBarContainer.createDiv('ytc-progress-bar-fill');
     }
 
     private createActionButtons(): void {
-        const container = this.contentEl.createDiv();
-        container.style.cssText = `
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 12px;
-            margin-top: 24px;
-            padding-top: 20px;
-            border-top: 1px solid var(--ytc-border);
-        `;
+        const container = this.contentEl.createDiv('ytc-actions-row');
 
         const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn ytc-ghost-btn' });
         cancelBtn.textContent = 'Cancel';
         cancelBtn.addEventListener('click', () => this.close());
 
-        const spacer = container.createDiv();
-        spacer.style.flex = '1';
+        const spacer = container.createDiv('ytc-actions-spacer');
 
-        this.secondaryActionsRow = container.createDiv();
-        this.secondaryActionsRow.style.cssText = `
-            display: none;
-            gap: 8px;
-        `;
+        this.secondaryActionsRow = container.createDiv('ytc-secondary-actions');
 
         this.copyPathButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         this.copyPathButton.innerHTML = '📋';
         this.copyPathButton.title = 'Copy Path';
-        this.copyPathButton.style.width = '40px';
-        this.copyPathButton.style.padding = '0';
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
         this.openButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
@@ -1263,11 +655,10 @@ export class YouTubeUrlModal extends BaseModal {
         processAnotherBtn.addEventListener('click', () => {
             this.showInputState();
         });
-        this.processAnotherButton = processAnotherBtn;
 
         this.processButton = container.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
         this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
-        this.processButton.style.minWidth = '120px';
+        this.processButton.addClass('ytc-process-btn');
         this.processButton.addEventListener('click', () => this.handleProcess());
 
         this.updateProcessButtonState();
@@ -1275,12 +666,12 @@ export class YouTubeUrlModal extends BaseModal {
 
     private showInputState(): void {
         if (this.processButton) {
-            this.processButton.style.display = 'flex';
+            this.processButton.classList.add('is-visible');
             this.processButton.disabled = false;
             this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
         }
         if (this.secondaryActionsRow) {
-            this.secondaryActionsRow.style.display = 'none';
+            this.secondaryActionsRow.classList.remove('is-visible');
         }
         if (this.urlInput) {
             this.urlInput.disabled = false;
@@ -1386,20 +777,19 @@ export class YouTubeUrlModal extends BaseModal {
         if (!this.validationMessage) return;
 
         this.validationMessage.textContent = message;
+        this.validationMessage.classList.remove('ytc-validation-error', 'ytc-validation-success', 'ytc-validation-info');
 
-        let color = 'var(--ytc-text-muted)';
         if (type === 'error') {
-            color = 'var(--ytc-error)';
+            this.validationMessage.classList.add('ytc-validation-error');
         } else if (type === 'success') {
-            color = 'var(--ytc-success)';
+            this.validationMessage.classList.add('ytc-validation-success');
+        } else {
+            this.validationMessage.classList.add('ytc-validation-info');
         }
-
-        this.validationMessage.style.color = color;
     }
 
     /**
      * Handle process button click
-     * Fix: use user's temperature setting, not formatConfig override
      */
     private async handleProcess(): Promise<void> {
         const trimmedUrl = this.url.trim();
@@ -1439,7 +829,6 @@ export class YouTubeUrlModal extends BaseModal {
 
             const formatConfig = FORMAT_CONFIG[this.format] ?? FORMAT_CONFIG['executive-summary'];
             const maxTokens = this.options.defaultMaxTokens ?? formatConfig.recommendedMaxTokens;
-            // Fix: use user's temperature setting instead of always overriding with formatConfig
             const temperature = this.options.defaultTemperature ?? formatConfig.temperatureHint;
 
             const filePath = await this.options.onProcess(
@@ -1469,18 +858,18 @@ export class YouTubeUrlModal extends BaseModal {
     private showProcessingState(): void {
         this.isProcessing = true;
         if (this.progressContainer) {
-            this.progressContainer.style.display = 'block';
+            this.progressContainer.classList.add('is-visible');
         }
         if (this.urlInput) {
             this.urlInput.disabled = true;
         }
         if (this.processButton) {
-            this.processButton.style.display = 'flex';
+            this.processButton.classList.add('is-visible');
             this.processButton.disabled = true;
             this.processButton.innerHTML = '<span>⏳</span> Processing...';
         }
         if (this.secondaryActionsRow) {
-            this.secondaryActionsRow.style.display = 'none';
+            this.secondaryActionsRow.classList.remove('is-visible');
         }
 
         if (this.timerInterval) window.clearInterval(this.timerInterval);
@@ -1518,10 +907,10 @@ export class YouTubeUrlModal extends BaseModal {
         }
 
         if (this.processButton) {
-            this.processButton.style.display = 'none';
+            this.processButton.classList.remove('is-visible');
         }
         if (this.secondaryActionsRow) {
-            this.secondaryActionsRow.style.display = 'flex';
+            this.secondaryActionsRow.classList.add('is-visible');
         }
 
         if (this.headerEl) {
@@ -1546,13 +935,13 @@ export class YouTubeUrlModal extends BaseModal {
             this.processButton.textContent = MESSAGES.MODALS.PROCESS;
         }
         if (this.openButton) {
-            this.openButton.style.display = 'none';
+            this.openButton.classList.remove('is-visible');
         }
         if (this.copyPathButton) {
-            this.copyPathButton.style.display = 'none';
+            this.copyPathButton.classList.remove('is-visible');
         }
         if (this.progressContainer) {
-            this.progressContainer.style.display = 'none';
+            this.progressContainer.classList.remove('is-visible');
         }
         if (this.headerEl) {
             this.headerEl.textContent = '❌ Processing Failed';
@@ -1646,130 +1035,5 @@ export class YouTubeUrlModal extends BaseModal {
             clearTimeout(this.validationTimer);
         }
         super.onClose();
-    }
-
-    private validationTimer?: number;
-
-    /**
-     * Show processing history in a simple overlay
-     */
-    private showHistory(): void {
-        const history = this.options.historyService;
-        if (!history) {
-            new Notice('Processing history not available');
-            return;
-        }
-
-        const entries = history.getRecent(10);
-        if (entries.length === 0) {
-            new Notice('No processing history yet');
-            return;
-        }
-
-        // Create a simple history overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'ytc-history-overlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--background-primary);
-            border: 1px solid var(--background-modifier-border);
-            border-radius: 12px;
-            padding: 20px;
-            z-index: 10000;
-            min-width: 400px;
-            max-width: 500px;
-            max-height: 400px;
-            overflow-y: auto;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        `;
-
-        const header = overlay.createDiv();
-        header.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--background-modifier-border);
-        `;
-        header.createEl('h3', { text: '🕐 Recent Processing History' });
-
-        const closeBtn = header.createEl('button');
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 1.2rem;
-            color: var(--text-muted);
-            padding: 4px;
-        `;
-
-        entries.forEach(entry => {
-            const item = overlay.createDiv();
-            item.style.cssText = `
-                padding: 8px;
-                margin-bottom: 4px;
-                border-radius: 6px;
-                cursor: pointer;
-                transition: background 0.15s;
-                border: 1px solid var(--background-modifier-border);
-            `;
-            item.onmouseenter = () => item.style.background = 'var(--background-secondary)';
-            item.onmouseleave = () => item.style.background = 'transparent';
-
-            const titleEl = item.createDiv();
-            titleEl.style.cssText = `
-                font-weight: 500;
-                font-size: 0.85rem;
-                color: var(--text-normal);
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            `;
-            titleEl.textContent = entry.title;
-
-            const metaEl = item.createDiv();
-            metaEl.style.cssText = `
-                font-size: 0.75rem;
-                color: var(--text-muted);
-                margin-top: 2px;
-            `;
-            const date = new Date(entry.processedAt).toLocaleDateString();
-            const formatLabel = FORMAT_META[entry.format]?.label ?? entry.format;
-            metaEl.textContent = `${formatLabel} · ${entry.provider} · ${date}`;
-
-            // Click to open
-            item.onclick = () => {
-                if (this.options.onOpenFile) {
-                    void this.options.onOpenFile(entry.filePath);
-                }
-                overlay.remove();
-                bgOverlay.remove();
-            };
-        });
-
-        const bgOverlay = document.createElement('div');
-        bgOverlay.style.cssText = `
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.3);
-            z-index: 9999;
-        `;
-
-        closeBtn.onclick = () => {
-            overlay.remove();
-            bgOverlay.remove();
-        };
-        bgOverlay.onclick = () => {
-            overlay.remove();
-            bgOverlay.remove();
-        };
-
-        document.body.appendChild(bgOverlay);
-        document.body.appendChild(overlay);
     }
 }

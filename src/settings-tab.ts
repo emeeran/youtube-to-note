@@ -2,7 +2,7 @@
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Menu, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './services/logger';
 import { ErrorHandler } from './services/error-handler';
 
@@ -28,7 +28,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private secureConfig: SecureConfigService;
     private drawerStates: Map<string, boolean> = new Map();
     private readonly DRAWER_STATES_KEY = 'ytc-settings-drawer-states';
-    private searchInput?: HTMLInputElement;
     private providerStatuses: Map<string, 'valid' | 'invalid' | 'testing' | 'untested'> = new Map();
 
     constructor(
@@ -52,7 +51,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         this.injectStyles();
         this.createHeader();
-        this.createSearchBar();
         this.createProviderStatusDashboard();
         this.createQuickActions();
         this.createAPISection();
@@ -61,299 +59,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.createAdvancedSection();
     }
 
-    // eslint-disable-next-line max-lines-per-function
     private injectStyles(): void {
-        if (document.getElementById(`${CSS_PREFIX}-styles`)) return;
-
-        const style = document.createElement('style');
-        style.id = `${CSS_PREFIX}-styles`;
-        style.textContent = `
-            .${CSS_PREFIX}-container {
-                max-width: 800px;
-                margin: 0 auto;
-                padding-bottom: 40px;
-            }
-
-            /* Header */
-            .${CSS_PREFIX}-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                margin-bottom: 24px;
-                padding-bottom: 16px;
-                border-bottom: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-title {
-                margin: 0;
-                font-size: 1.5em;
-                font-weight: 700;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-badge {
-                padding: 4px 10px;
-                border-radius: 4px;
-                font-size: 0.75rem;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-
-            .${CSS_PREFIX}-badge-ready {
-                background: rgba(var(--color-green-rgb), 0.15);
-                color: var(--color-green);
-            }
-
-            .${CSS_PREFIX}-badge-setup {
-                background: rgba(var(--color-orange-rgb), 0.15);
-                color: var(--color-orange);
-            }
-
-            /* Search Bar */
-            .${CSS_PREFIX}-search-bar {
-                position: relative;
-                margin-bottom: 20px;
-            }
-
-            .${CSS_PREFIX}-search-bar input {
-                width: 100%;
-                padding: 10px 12px 10px 36px;
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 6px;
-                font-size: 0.9rem;
-                transition: all 0.2s ease;
-            }
-
-            .${CSS_PREFIX}-search-bar input:focus {
-                border-color: var(--interactive-accent);
-                box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.1);
-            }
-
-            .${CSS_PREFIX}-search-icon {
-                position: absolute;
-                left: 12px;
-                top: 50%;
-                transform: translateY(-50%);
-                color: var(--text-muted);
-                font-size: 1rem;
-                pointer-events: none;
-            }
-
-            /* Status Dashboard (Compact Row) */
-            .${CSS_PREFIX}-status-dashboard {
-                margin-bottom: 24px;
-                background: var(--background-secondary);
-                border-radius: 8px;
-                padding: 12px 16px;
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                overflow-x: auto;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-status-title {
-                font-size: 0.8rem;
-                font-weight: 600;
-                color: var(--text-muted);
-                text-transform: uppercase;
-                white-space: nowrap;
-                margin-right: 8px;
-            }
-
-            .${CSS_PREFIX}-status-grid {
-                display: flex;
-                gap: 8px;
-                flex: 1;
-            }
-
-            .${CSS_PREFIX}-status-chip {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                padding: 4px 10px;
-                background: var(--background-primary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 12px;
-                font-size: 0.8rem;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                white-space: nowrap;
-            }
-
-            .${CSS_PREFIX}-status-chip:hover {
-                transform: translateY(-1px);
-                border-color: var(--text-muted);
-            }
-
-            .${CSS_PREFIX}-status-dot {
-                width: 6px;
-                height: 6px;
-                border-radius: 50%;
-            }
-
-            .${CSS_PREFIX}-status-chip.valid .${CSS_PREFIX}-status-dot {
-                background: var(--color-green);
-                box-shadow: 0 0 4px var(--color-green);
-            }
-            .${CSS_PREFIX}-status-chip.invalid .${CSS_PREFIX}-status-dot {
-                background: var(--color-red);
-            }
-            .${CSS_PREFIX}-status-chip.testing .${CSS_PREFIX}-status-dot {
-                background: var(--color-yellow);
-                animation: pulse 1s infinite;
-            }
-            .${CSS_PREFIX}-status-chip.untested .${CSS_PREFIX}-status-dot {
-                background: var(--text-muted);
-            }
-
-            /* Drawers/Sections */
-            .${CSS_PREFIX}-drawer {
-                margin-bottom: 12px;
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 6px;
-                overflow: hidden;
-                background: var(--background-primary);
-            }
-
-            .${CSS_PREFIX}-drawer-header {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 12px 16px;
-                background: var(--background-primary);
-                cursor: pointer;
-                transition: background 0.15s ease;
-            }
-
-            .${CSS_PREFIX}-drawer-header:hover {
-                background: var(--background-secondary);
-            }
-
-            .${CSS_PREFIX}-drawer-icon {
-                color: var(--text-muted);
-                font-size: 1.1rem;
-            }
-
-            .${CSS_PREFIX}-drawer-title {
-                flex: 1;
-                margin: 0;
-                font-size: 0.95rem;
-                font-weight: 600;
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-drawer-arrow {
-                color: var(--text-muted);
-                font-size: 0.8rem;
-                transition: transform 0.2s ease;
-            }
-
-            .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-arrow {
-                transform: rotate(180deg);
-            }
-
-            .${CSS_PREFIX}-drawer-content {
-                display: none;
-                padding: 16px;
-                border-top: 1px solid var(--background-modifier-border);
-                background: var(--background-primary);
-            }
-
-            .${CSS_PREFIX}-drawer.is-open .${CSS_PREFIX}-drawer-content {
-                display: block;
-                animation: fadeIn 0.2s ease;
-            }
-
-            /* Controls */
-            .${CSS_PREFIX}-password-toggle {
-                background: transparent;
-                border: none;
-                color: var(--text-muted);
-                cursor: pointer;
-                padding: 4px;
-            }
-            
-            .${CSS_PREFIX}-password-toggle:hover {
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-validate-btn {
-                padding: 4px 10px;
-                border-radius: 4px;
-                font-size: 0.8rem;
-                font-weight: 500;
-            }
-
-            /* Quick Actions Toolbar */
-            .${CSS_PREFIX}-quick-actions {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 24px;
-                padding: 4px;
-                background: var(--background-secondary);
-                border-radius: 8px;
-                border: 1px solid var(--background-modifier-border);
-            }
-
-            .${CSS_PREFIX}-action-btn {
-                flex: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                padding: 8px 12px;
-                border-radius: 6px;
-                border: none;
-                background: transparent;
-                color: var(--text-muted);
-                font-size: 0.85rem;
-                font-weight: 500;
-                cursor: pointer;
-                transition: all 0.15s ease;
-            }
-
-            .${CSS_PREFIX}-action-btn:hover {
-                background: var(--background-modifier-hover);
-                color: var(--text-normal);
-            }
-
-            .${CSS_PREFIX}-action-btn.primary {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-            }
-            
-            .${CSS_PREFIX}-action-btn.primary:hover {
-                opacity: 0.9;
-            }
-
-            .${CSS_PREFIX}-action-btn.danger {
-                color: var(--color-red);
-            }
-            
-            .${CSS_PREFIX}-action-btn.danger:hover {
-                background: rgba(var(--color-red-rgb), 0.1);
-            }
-
-            /* Helpers */
-            .${CSS_PREFIX}-hidden { display: none !important; }
-
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.5; }
-                100% { opacity: 1; }
-            }
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-5px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
+        return;
     }
 
     private createDrawer(
@@ -384,50 +91,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     private headerBadge?: HTMLDivElement;
-
-    private createSearchBar(): void {
-        const searchBar = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-search-bar` });
-        searchBar.createSpan({ cls: `${CSS_PREFIX}-search-icon`, text: '🔍' });
-
-        this.searchInput = searchBar.createEl('input', {
-            attr: { placeholder: 'Search settings... (Ctrl+K)' },
-        });
-
-        this.searchInput.addEventListener('input', () => {
-            this.filterSettings(this.searchInput?.value ?? '');
-        });
-
-        // Keyboard shortcut for search focus
-        this.searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'k' && e.ctrlKey) {
-                e.preventDefault();
-                this.searchInput?.focus();
-            }
-        });
-    }
-
-    private filterSettings(query: string): void {
-        const drawers = this.containerEl.querySelectorAll(`.${CSS_PREFIX}-drawer`);
-        const lowerQuery = query.toLowerCase().trim();
-
-        drawers.forEach(drawer => {
-            if (!lowerQuery) {
-                drawer.removeClass(`${CSS_PREFIX}-hidden`);
-                return;
-            }
-
-            const title = drawer.querySelector(`.${CSS_PREFIX}-drawer-title`)?.textContent?.toLowerCase() ?? '';
-            const content = drawer.querySelector(`.${CSS_PREFIX}-drawer-inner}`)?.textContent?.toLowerCase() ?? '';
-
-            if (title.includes(lowerQuery) || content.includes(lowerQuery)) {
-                drawer.removeClass(`${CSS_PREFIX}-hidden`);
-                // Auto-expand matching drawer
-                drawer.addClass('is-open');
-            } else {
-                drawer.addClass(`${CSS_PREFIX}-hidden`);
-            }
-        });
-    }
 
     private createProviderStatusDashboard(): void {
         const dashboard = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-status-dashboard` });
@@ -542,76 +205,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             cls: `${CSS_PREFIX}-action-btn`,
         });
         settingsBtn.innerHTML = '<span>⚙️</span> Manage Settings';
-        // eslint-disable-next-line max-lines-per-function
-        settingsBtn.addEventListener('click', (_e) => {
-            // Simple popup menu logic (could be improved with Obsidian Menu API but keeping it dependency-free for now)
-            // ... (existing popup logic adapted)
-            const popup = document.createElement('div');
-            popup.className = 'ytc-settings-popup';
-            popup.style.cssText = `
-                position: absolute;
-                top: 100%;
-                left: 0;
-                margin-top: 8px;
-                background: var(--background-secondary);
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 8px;
-                padding: 8px;
-                z-index: 1000;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                min-width: 160px;
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-            `;
-
-            // Positioning relative to button
-            const rect = settingsBtn.getBoundingClientRect();
-            popup.style.top = `${rect.bottom + 5}px`;
-            popup.style.left = `${rect.left}px`;
-
-            const createItem = (text: string, icon: string, onClick: () => void) => {
-                const btn = document.createElement('button');
-                btn.innerHTML = `<span>${icon}</span> ${text}`;
-                btn.style.cssText = `
-                    text-align: left;
-                    background: transparent;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    color: var(--text-normal);
-                    font-size: 0.9rem;
-                    display: flex; gap: 8px; align-items: center;
-                    width: 100%;
-                `;
-                btn.onmouseenter = () => btn.style.background = 'var(--background-modifier-hover)';
-                btn.onmouseleave = () => btn.style.background = 'transparent';
-                btn.onclick = onClick;
-                return btn;
-            };
-
-            popup.appendChild(createItem('Export Settings', '📤', () => {
-                this.exportSettings();
-                popup.remove();
-                overlay.remove();
-            }));
-
-            popup.appendChild(createItem('Import Settings', '📥', () => {
-                this.importSettings();
-                popup.remove();
-                overlay.remove();
-            }));
-
-            const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                z-index: 999;
-            `;
-            overlay.onclick = () => { popup.remove(); overlay.remove(); };
-
-            document.body.appendChild(overlay);
-            document.body.appendChild(popup);
+        settingsBtn.addEventListener('click', (e: MouseEvent) => {
+            const menu = new Menu();
+            menu.addItem(item => item.setTitle('Export Settings').setIcon('export').onClick(() => this.exportSettings()));
+            menu.addItem(item => item.setTitle('Import Settings').setIcon('import').onClick(() => this.importSettings()));
+            menu.showAtMouseEvent(e);
         });
 
         // Reset to Defaults
@@ -994,8 +592,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             step: 256,
             value: this.settings.defaultMaxTokens || 4096,
             key: 'defaultMaxTokens',
-            format: (v) => v.toLocaleString(),
-            scale: ['Short (512)', 'Long (8192)'],
         });
 
         // Temperature slider
@@ -1007,8 +603,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             step: 0.1,
             value: this.settings.defaultTemperature ?? 0.5,
             key: 'defaultTemperature',
-            format: (v) => v.toFixed(1),
-            scale: ['Precise (0)', 'Creative (1)'],
         });
 
         new Setting(section)
@@ -1195,36 +789,19 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         max: number;
         step: number;
         value: number;
-        key: string;
-        format: (v: number) => string;
-        scale: [string, string];
+        key: keyof YouTubePluginSettings;
     }): void {
-        const wrap = container.createDiv({ cls: `${CSS_PREFIX}-slider-wrap` });
-
-        const top = wrap.createDiv({ cls: `${CSS_PREFIX}-slider-top` });
-        top.createSpan({ cls: `${CSS_PREFIX}-slider-label`, text: opts.label });
-        const valueEl = top.createSpan({ cls: `${CSS_PREFIX}-slider-value`, text: opts.format(opts.value) });
-
-        const slider = wrap.createEl('input', { type: 'range', cls: `${CSS_PREFIX}-slider` });
-        slider.min = String(opts.min);
-        slider.max = String(opts.max);
-        slider.step = String(opts.step);
-        slider.value = String(opts.value);
-
-        const scaleDiv = wrap.createDiv({ cls: `${CSS_PREFIX}-slider-scale` });
-        scaleDiv.createSpan({ text: opts.scale[0] });
-        scaleDiv.createSpan({ text: opts.scale[1] });
-
-        wrap.createDiv({ cls: `${CSS_PREFIX}-slider-desc`, text: opts.desc });
-
-        slider.addEventListener('input', () => {
-            valueEl.textContent = opts.format(parseFloat(slider.value));
-        });
-
-        slider.addEventListener('change', async () => {
-            const val = opts.step < 1 ? parseFloat(slider.value) : parseInt(slider.value);
-            await this.updateSetting(opts.key as keyof YouTubePluginSettings, val);
-        });
+        new Setting(container)
+            .setName(opts.label)
+            .setDesc(opts.desc)
+            .addSlider(slider => slider
+                .setLimits(opts.min, opts.max, opts.step)
+                .setValue(opts.value)
+                .setDynamicTooltip()
+                .onChange(async (v) => {
+                    await this.updateSetting(opts.key, opts.step < 1 ? parseFloat(String(v)) : parseInt(String(v)));
+                })
+            );
     }
 
     private validateConfiguration(): boolean {

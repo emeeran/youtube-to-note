@@ -1,3 +1,4 @@
+import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
 
@@ -38,7 +39,7 @@ export class OpenRouterProvider extends BaseAIProvider {
 
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Default to a capable free/cheap model
-        super(apiKey, model ?? 'meta-llama/llama-3.1-8b-instruct:free', timeout);
+        super(apiKey, model ?? AI_MODELS.OPENROUTER, timeout);
         this.siteUrl = 'https://github.com/user/yt-clipper';
         this.siteName = 'YouTube Clipper Obsidian Plugin';
     }

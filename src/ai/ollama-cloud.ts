@@ -1,3 +1,4 @@
+import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import type { OllamaGenerateRequestBody, OllamaChatRequestBody, OllamaModelsResponse } from '../types/api-responses';
 
@@ -15,7 +16,7 @@ export class OllamaCloudProvider extends BaseAIProvider {
 
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Ollama Cloud requires an API key
-        super(apiKey, model ?? 'deepseek-r1:32b', timeout);
+        super(apiKey, model ?? AI_MODELS.OLLAMA_CLOUD, timeout);
 
         // Ollama Cloud always uses the official cloud endpoint
         this.apiBaseUrl = 'https://ollama.com/api';

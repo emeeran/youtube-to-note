@@ -9,7 +9,7 @@ import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
-import { YouTubeUrlModal, BatchVideoModal } from './components/features/youtube';
+import { YouTubeUrlModal } from './components/features/youtube';
 import { ProcessingHistoryService } from './services/processing-history';
 import { Notice, Plugin, TFile } from 'obsidian';
 
@@ -183,14 +183,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             name: 'YouTube Clipper: Open URL Modal (from clipboard)',
             callback: async () => {
                 await this.handleClipboardUrl();
-            },
-        });
-
-        this.addCommand({
-            id: `${PLUGIN_PREFIX}-batch-process`,
-            name: 'YouTube Clipper: Batch Process Videos',
-            callback: () => {
-                void this.openBatchModal();
             },
         });
     }
@@ -371,45 +363,12 @@ export default class YoutubeClipperPlugin extends Plugin {
                     await this.saveSettings();
                     this.serviceContainer = new ServiceContainer(this._settings, this.app);
                 },
-                onOpenBatchModal: this.openBatchModal.bind(this),
-                historyService: this.historyService,
             });
 
             modal.open();
         }, 'YouTube URL Modal').catch(error => {
             ErrorHandler.handle(error as Error, 'Opening YouTube URL modal');
         });
-    }
-
-    private async openBatchModal(): Promise<void> {
-        if (this.isUnloading || !this.serviceContainer) return;
-
-        const aiService = this.serviceContainer.aiService;
-        const providers = aiService ? aiService.getProviderNames() : [];
-        const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache ?? {};
-
-        const modal = new BatchVideoModal(this.app, {
-            onProcess: async (urls: string[], format: OutputFormat, provider?: string, model?: string) => {
-                // Process each URL and return array of file paths
-                const results: string[] = [];
-                for (const url of urls) {
-                    const filePath = await this.processYouTubeVideo({
-                        url,
-                        format,
-                        providerName: provider,
-                        model,
-                    });
-                    results.push(filePath);
-                }
-                return results;
-            },
-            onOpenFile: this.openFileByPath.bind(this),
-            providers,
-            defaultProvider: 'Google Gemini',
-            defaultModel: 'gemini-2.0-flash',
-            modelOptionsMap: modelOptionsMap,
-        });
-        modal.open();
     }
 
     // eslint-disable-next-line max-lines-per-function

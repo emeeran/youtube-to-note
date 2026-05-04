@@ -20,6 +20,7 @@ import {
     CacheService,
     PromptService,
 } from '../types';
+import { AI_MODELS } from '../ai/api';
 
 /**
  * Simplified service container for the YouTube to Note plugin
@@ -41,7 +42,11 @@ export class ServiceContainer implements IServiceContainer {
 
         const providers: AIProvider[] = [];
 
-        // Provider priority: Google Gemini > OpenRouter > Groq > Ollama Cloud > Ollama Local
+        // Provider priority: Groq (fast, reliable) > Gemini (multimodal) > OpenRouter > Ollama Cloud > HuggingFace > Ollama Local
+        if (this.settings.groqApiKey) {
+            providers.push(new GroqProvider(this.settings.groqApiKey));
+        }
+
         if (this.settings.geminiApiKey) {
             providers.push(new GeminiProvider(this.settings.geminiApiKey));
         }
@@ -50,14 +55,10 @@ export class ServiceContainer implements IServiceContainer {
             providers.push(new OpenRouterProvider(this.settings.openRouterApiKey));
         }
 
-        if (this.settings.groqApiKey) {
-            providers.push(new GroqProvider(this.settings.groqApiKey));
-        }
-
         if (this.settings.ollamaApiKey) {
             providers.push(new OllamaCloudProvider(
                 this.settings.ollamaApiKey,
-                'deepseek-r1:32b'
+                AI_MODELS.OLLAMA_CLOUD
             ));
         }
 

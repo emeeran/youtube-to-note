@@ -24,7 +24,8 @@ export class GeminiProvider extends BaseAIProvider {
                 throw new Error(MESSAGES.ERRORS.GEMINI_INVALID_KEY);
             }
 
-            const response = await fetch(`${API_ENDPOINTS.GEMINI}?key=${this.apiKey}`, {
+            const endpoint = `${API_ENDPOINTS.GEMINI_BASE}/${this.model}:generateContent`;
+            const response = await fetch(`${endpoint}?key=${this.apiKey}`, {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(this.createRequestBody(prompt)),

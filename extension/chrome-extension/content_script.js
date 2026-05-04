@@ -1,144 +1,80 @@
 /**
- * YouTube Clipper Content Script
- * Injects a "Clip" button into the YouTube player
+ * YouTube to Note — Content Script v2.1
+ * Compact button in YouTube player controls + keyboard shortcut
+ * Protocol: obsidian://youtube-clipper?url=...
  */
 (function () {
-  const BUTTON_ID = 'youtube-clipper-button';
-  const TOAST_ID = 'youtube-clipper-toast';
+  var B = 'yt2n-btn', T = 'yt2n-toast';
 
-  // Find YouTube player controls
-  function getVideoControls() {
-    return (
-      document.querySelector('.ytp-right-controls') ||
-      document.querySelector('#top-level-buttons-computed') ||
-      document.querySelector('#info-contents')
-    );
+  function watch() {
+    try { return location.pathname === '/watch' && new URL(location.href).searchParams.get('v'); }
+    catch (e) { return false; }
   }
 
-  // Create the Clip button
-  function createButton() {
-    if (document.getElementById(BUTTON_ID)) return null;
-
-    const btn = document.createElement('button');
-    btn.id = BUTTON_ID;
-    btn.title = 'Send to YouTube Clipper in Obsidian (Ctrl+Shift+Y)';
-    
-    // Use YouTube native-style icon
-    btn.innerHTML = `
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 32px; height: 32px; display: block;">
-        <rect width="24" height="24" fill="#FF0000" rx="6"/>
-        <polygon fill="#FFFFFF" points="9.5,7.5 16.5,12 9.5,16.5"/>
-      </svg>
-    `;
-    
-    btn.style.cssText = `
-      margin-left: 8px;
-      padding: 0;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      transition: transform 0.2s ease, opacity 0.2s ease;
-      opacity: 0.9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `.replace(/\s+/g, ' ');
-
-    btn.addEventListener('mouseenter', () => {
-      btn.style.transform = 'scale(1.1)';
-      btn.style.opacity = '1';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.transform = 'scale(1)';
-      btn.style.opacity = '0.9';
-    });
-    btn.addEventListener('click', onClick);
-    
-    return btn;
+  function vid() {
+    try { var id = new URL(location.href).searchParams.get('v'); if (id) return 'https://www.youtube.com/watch?v=' + id; }
+    catch (e) {}
+    return location.href;
   }
 
-  // Show toast notification
-  function showToast(text, isError = false) {
-    let el = document.getElementById(TOAST_ID);
-    if (!el) {
-      el = document.createElement('div');
-      el.id = TOAST_ID;
-      el.style.cssText = `
-        position: fixed;
-        right: 20px;
-        bottom: 80px;
-        background: ${isError ? 'rgba(220, 38, 38, 0.95)' : 'rgba(124, 58, 237, 0.95)'};
-        color: white;
-        padding: 12px 18px;
-        border-radius: 8px;
-        z-index: 999999;
-        font-size: 14px;
-        font-weight: 500;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        transition: opacity 0.3s ease;
-      `.replace(/\s+/g, ' ');
-      document.body.appendChild(el);
-    }
-    el.textContent = text;
-    el.style.opacity = '1';
-    setTimeout(() => { el.style.opacity = '0'; }, 2500);
+  function toast(t, err) {
+    var el = document.getElementById(T);
+    if (!el) { el = document.createElement('div'); el.id = T; document.body.appendChild(el); }
+    el.textContent = t;
+    el.style.cssText =
+      'position:fixed;bottom:56px;right:12px;padding:6px 14px;border-radius:6px;z-index:999999;' +
+      'font:500 12px/1.4 system-ui,sans-serif;color:#fff;pointer-events:none;' +
+      'background:' + (err ? '#DC2626' : '#7C3AED') + ';opacity:1;transition:opacity .25s';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.style.opacity = '0'; }, 2000);
   }
 
-  // Send URL to Obsidian
-  async function sendToObsidian(url) {
-    // Copy to clipboard
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('✓ URL copied, opening Obsidian...');
-    } catch (e) {
-      console.warn('Clipper: clipboard write failed', e);
-    }
-
-    // Open Obsidian protocol
-    try {
-      const params = new URLSearchParams({ url });
-      window.open('obsidian://youtube-clipper?' + params.toString());
-    } catch (e) {
-      showToast('✗ Failed to open Obsidian', true);
-      console.error('Clipper: failed to open obsidian', e);
-    }
+  function send() {
+    if (!watch()) { toast('Not a video page', 1); return; }
+    toast('Opening Obsidian\u2026');
+    var f = document.createElement('iframe');
+    f.style.display = 'none';
+    f.src = 'obsidian://youtube-clipper?url=' + encodeURIComponent(vid());
+    document.body.appendChild(f);
+    setTimeout(function () { f.remove(); }, 2000);
   }
 
-  // Handle button click
-  function onClick() {
-    sendToObsidian(location.href);
+  function mkBtn() {
+    if (document.getElementById(B)) return;
+    var b = document.createElement('button');
+    b.id = B;
+    b.className = 'ytp-button';
+    b.title = 'Send to Obsidian (Ctrl+Shift+Y)';
+    b.innerHTML =
+      '<svg height="100%" viewBox="0 0 24 24" width="100%" fill="none">' +
+        '<path d="M6 4h8a2 2 0 012 2v12l-6-3-6 3V6a2 2 0 012-2z" stroke="#c4b5fd" stroke-width="1.5"/>' +
+        '<path d="M9 8.5h4M9 11h4M9 13.5h2.5" stroke="#c4b5fd" stroke-width="1.2" stroke-linecap="round"/>' +
+        '<path d="M16 10.5l2.5-2.5L20 9.5l-3 3h-1v-2z" fill="#a78bfa"/>' +
+      '</svg>';
+    b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); send(); };
+    return b;
   }
 
-  // Listen for keyboard shortcut from background
-  chrome.runtime?.onMessage?.addListener((msg) => {
-    if (msg?.type === 'send-current-video') {
-      sendToObsidian(location.href);
-    }
-  });
-
-  // Watch for YouTube SPA navigation and add button when player appears
-  const observer = new MutationObserver(() => {
-    const controls = getVideoControls();
-    if (controls && !document.getElementById(BUTTON_ID)) {
-      const btn = createButton();
-      if (btn) controls.appendChild(btn);
-    }
-  });
-
-  // Initialize
-  function start() {
-    const controls = getVideoControls();
-    if (controls && !document.getElementById(BUTTON_ID)) {
-      const btn = createButton();
-      if (btn) controls.appendChild(btn);
-    }
-    observer.observe(document.body, { childList: true, subtree: true });
+  function inject() {
+    if (document.getElementById(B)) return true;
+    if (!watch()) return false;
+    var c = document.querySelector('.ytp-right-controls');
+    if (!c) return false;
+    var b = mkBtn();
+    if (b) c.insertBefore(b, c.firstChild);
+    return true;
   }
 
-  // Wait for page to load
-  if (document.readyState === 'complete') {
-    setTimeout(start, 500);
-  } else {
-    window.addEventListener('load', () => setTimeout(start, 500));
-  }
+  try { chrome.runtime.onMessage.addListener(function (m) { if (m && m.t === 's') send(); }); } catch (e) {}
+
+  var url = location.href, n = 0;
+  function retry() { if (inject()) return; if (++n < 30) setTimeout(retry, 500); }
+  new MutationObserver(function () {
+    if (location.href !== url) { url = location.href; n = 0; retry(); }
+    else if (watch() && !document.getElementById(B)) inject();
+  }).observe(document.body, { childList: true, subtree: true });
+
+  function go() { retry(); }
+  if (document.readyState === 'complete') setTimeout(go, 600);
+  else window.addEventListener('load', function () { setTimeout(go, 600); });
 })();

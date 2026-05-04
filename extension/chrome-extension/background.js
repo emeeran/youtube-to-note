@@ -1,11 +1,10 @@
-// Background service worker to handle commands (keyboard shortcuts)
-chrome.commands && chrome.commands.onCommand && chrome.commands.onCommand.addListener((command) => {
-  if (command === 'send-current-video') {
-    // send a message to the active tab
-    chrome.tabs && chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs || !tabs.length) return;
-      const tabId = tabs[0].id;
-      chrome.tabs.sendMessage(tabId, { type: 'send-current-video' });
+chrome.commands?.onCommand?.addListener(function (c) {
+  if (c === 'send-current-video')
+    chrome.tabs.query({ active: true, currentWindow: true }, function (t) {
+      if (t?.[0]) chrome.tabs.sendMessage(t[0].id, { t: 's' });
     });
-  }
+});
+chrome.action?.onClicked?.addListener(function (t) {
+  if (t?.url?.includes('youtube.com/watch'))
+    chrome.tabs.sendMessage(t.id, { t: 's' });
 });

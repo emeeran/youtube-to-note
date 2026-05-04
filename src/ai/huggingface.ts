@@ -1,3 +1,4 @@
+import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import type { HuggingFaceRequestBody } from '../types/api-responses';
 
@@ -39,7 +40,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
 
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Default to Qwen3-8B which is reliable on HuggingFace inference
-        super(apiKey, model ?? 'Qwen/Qwen3-8B', timeout);
+        super(apiKey, model ?? AI_MODELS.HUGGINGFACE, timeout);
     }
 
     // eslint-disable-next-line complexity, max-lines-per-function

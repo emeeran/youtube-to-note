@@ -1,12 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Clipper for Obsidian",
-  "version": "1.0.0",
-  "description": "Send YouTube videos to Obsidian's YouTube Clipper plugin with one click.",
-  "permissions": ["storage", "activeTab", "scripting", "clipboardWrite"],
+  "name": "YouTube to Note for Obsidian",
+  "version": "2.0.0",
+  "description": "Send YouTube videos to Obsidian's YouTube to Note plugin with one click. No extra plugins needed.",
+  "permissions": ["activeTab"],
   "host_permissions": ["*://*.youtube.com/*"],
   "action": {
-    "default_title": "YouTube Clipper"
+    "default_title": "Send to Obsidian Note",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
@@ -18,11 +23,15 @@
       "run_at": "document_idle"
     }
   ],
-  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "commands": {
     "send-current-video": {
       "suggested_key": { "default": "Ctrl+Shift+Y", "mac": "Command+Shift+Y" },
-      "description": "Send current YouTube video URL to Obsidian"
+      "description": "Send current YouTube video to Obsidian"
     }
   }
 }

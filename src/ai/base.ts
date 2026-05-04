@@ -10,8 +10,8 @@ export abstract class BaseAIProvider implements AIProvider {
     abstract readonly name: string;
     protected _model: string;
     protected _timeout: number = 30000; // Default 30s timeout
-    protected _maxTokens: number = 2048; // Default max tokens
-    protected _temperature: number = 0.7; // Default temperature
+    protected _maxTokens: number = 8192; // Default max tokens
+    protected _temperature: number = 0.5; // Default temperature
 
     get model(): string {
         return this._model;

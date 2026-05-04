@@ -2,7 +2,7 @@
  * Format-specific configuration for token limits, temperature, transcript budgets,
  * and expected sections.
  *
- * Adjusted for revamped templates — tighter token budgets where templates are leaner.
+ * Aligned with revamped templates in format-templates.ts.
  */
 
 import { OutputFormat } from '../types';
@@ -20,28 +20,28 @@ export const FORMAT_CONFIG: Readonly<Record<OutputFormat, FormatConfig>> = {
     'executive-summary': {
         recommendedMaxTokens: 4096,
         temperatureHint: 0.5,
-        expectedSections: ['The Full Picture', 'Core Thesis', 'Key Insights', 'Implications & Impact', 'Key References', 'Assessment', 'Quick Actions'],
+        expectedSections: ['Executive Summary', 'Strategic Insights', 'Impact Assessment', 'Key References', 'Action Items'],
         hasBuiltInResources: true,
     },
     'technical-analysis': {
         recommendedMaxTokens: 6144,
         temperatureHint: 0.3,
         transcriptBudget: 120_000,
-        expectedSections: ['Overview', 'Tech Stack & Tools', 'Architecture & Design', 'Implementation Details', 'Engineering Trade-offs', 'Resources'],
+        expectedSections: ['Technical Overview', 'Tech Stack', 'Architecture', 'Implementation', 'Engineering Decisions', 'Resources'],
         hasBuiltInResources: true,
     },
     '3c-accelerated-learning': {
         recommendedMaxTokens: 6144,
         temperatureHint: 0.5,
         transcriptBudget: 120_000,
-        expectedSections: ['COMPRESS', 'COMPILE', 'CONSOLIDATE', 'Transfer Acceleration'],
+        expectedSections: ['COMPRESS', 'CONNECT', 'COMPOUND'],
         hasBuiltInResources: false,
     },
     'atom-notes': {
         recommendedMaxTokens: 6144,
         temperatureHint: 0.5,
         transcriptBudget: 120_000,
-        expectedSections: ['Atomic Ideas', 'Concept Map', 'Quick Capture', 'Implementation Seeds'],
+        expectedSections: ['Atomic Ideas', 'Concept Map', 'Notable Captures', 'Implementation Seeds'],
         hasBuiltInResources: false,
     },
     'article': {
@@ -55,11 +55,11 @@ export const FORMAT_CONFIG: Readonly<Record<OutputFormat, FormatConfig>> = {
         recommendedMaxTokens: 16384,
         temperatureHint: 0.3,
         transcriptBudget: 200_000,
-        expectedSections: ['Overview', 'Full Structured Notes', 'Key Terms'],
+        expectedSections: ['Overview', 'Structured Transcript', 'Key Terms', 'Resources Mentioned'],
         hasBuiltInResources: true,
     },
     'quick-notes': {
-        recommendedMaxTokens: 1024,
+        recommendedMaxTokens: 1536,
         temperatureHint: 0.4,
         transcriptBudget: 100_000,
         expectedSections: ['TL;DR', 'Key Points', 'Standout', 'Next Action'],
