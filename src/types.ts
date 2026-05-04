@@ -36,24 +36,6 @@ export interface CustomTimeoutSettings {
     metadataTimeout: number;
 }
 
-/** Performance preset configuration */
-export interface PerformancePreset {
-    name: string;
-    description: string;
-    timeouts: CustomTimeoutSettings;
-    enableParallel: boolean;
-    preferMultimodal: boolean;
-    modelStrategy: ModelStrategy;
-}
-
-/** Model selection strategy */
-export interface ModelStrategy {
-    briefFormat: string;
-    executiveSummary: string;
-    detailedGuide: string;
-    fallbackModel: string;
-}
-
 /** Output formats for video analysis */
 export type OutputFormat =
     | 'executive-summary'
@@ -63,12 +45,6 @@ export type OutputFormat =
     | 'article'
     | 'complete-transcription'
     | 'quick-notes';
-
-/** Options for video processing */
-export interface ProcessingOptions {
-    format: OutputFormat;
-    useMultimodal: boolean;
-}
 
 /** Video metadata from YouTube */
 export interface VideoData {
@@ -229,24 +205,4 @@ export interface EnhancedVideoData extends VideoData {
     tags: string[];
     category: string;
     thumbnailUrl: string;
-}
-
-/** Performance metrics for monitoring */
-export interface PerformanceMetrics {
-    totalOperations: number;
-    averageProcessingTime: number;
-    slowOperations: number;
-    errorRate: number;
-    cacheHitRate: number;
-    memoryUsage: number;
-    uptime: number;
-    activeProviders: number;
-}
-
-/** Validation result for configuration */
-export interface ValidationResult {
-    isValid: boolean;
-    errors: string[];
-    warnings: string[];
-    info: string[];
 }
