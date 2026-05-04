@@ -2,14 +2,9 @@
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
-import { App, Menu, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './services/logger';
 import { ErrorHandler } from './services/error-handler';
-
-/**
- * Plugin settings tab component
- * Clean, readable design with clear labels
- */
 
 interface PluginWithSettings extends Plugin {
     settings: YouTubePluginSettings;
@@ -26,9 +21,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private settings: YouTubePluginSettings;
     private validationErrors: string[] = [];
     private secureConfig: SecureConfigService;
-    private drawerStates: Map<string, boolean> = new Map();
-    private readonly DRAWER_STATES_KEY = 'ytc-settings-drawer-states';
-    private providerStatuses: Map<string, 'valid' | 'invalid' | 'testing' | 'untested'> = new Map();
+    private sectionStates: Map<string, boolean> = new Map();
+    private readonly SECTION_STATES_KEY = 'ytc-settings-section-states';
 
     constructor(
         app: App,
@@ -37,7 +31,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         super(app, options.plugin);
         this.settings = { ...options.plugin.settings };
         this.secureConfig = new SecureConfigService(this.settings);
-        this.loadDrawerStates();
+        this.loadSectionStates();
     }
 
     display(): void {
@@ -45,583 +39,251 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.addClass(`${CSS_PREFIX}-container`);
 
-        // Refresh settings from plugin to ensure we have the latest data
         this.settings = { ...this.options.plugin.settings };
         this.secureConfig = new SecureConfigService(this.settings);
 
-        this.injectStyles();
         this.createHeader();
-        this.createProviderStatusDashboard();
-        this.createQuickActions();
-        this.createAPISection();
-        this.createAISection();
-        this.createOutputSection();
-        this.createAdvancedSection();
+
+        // Two-column grid
+        const grid = containerEl.createDiv({ cls: `${CSS_PREFIX}-grid` });
+
+        // Left column: API Keys
+        const left = grid.createDiv({ cls: `${CSS_PREFIX}-col` });
+        this.createAPISection(left);
+
+        // Right column: AI + Output + Advanced stacked
+        const right = grid.createDiv({ cls: `${CSS_PREFIX}-col` });
+        this.createAISection(right);
+        this.createOutputSection(right);
+        this.createAdvancedSection(right);
     }
 
-    private injectStyles(): void {
-        return;
-    }
-
-    private createDrawer(
+    // ── Collapsible section ──────────────────────────────────────────────
+    private createSection(
+        parent: HTMLElement,
         title: string,
         icon: string,
-        isOpenByDefault = false,
-    ): { drawer: HTMLElement; content: HTMLElement } {
-        const drawerKey = title; // Use title as unique identifier
-        const savedState = this.drawerStates.get(drawerKey) ?? isOpenByDefault;
+    ): HTMLElement {
+        const isOpen = this.sectionStates.get(title) ?? false;
+        const section = parent.createDiv({ cls: `${CSS_PREFIX}-section${isOpen ? ' is-open' : ''}` });
 
-        const drawer = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-drawer${savedState ? ' is-open' : ''}` });
+        const header = section.createDiv({ cls: `${CSS_PREFIX}-section-header` });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-icon`, text: icon });
+        header.createSpan({ cls: `${CSS_PREFIX}-section-title`, text: title });
+        const arrow = header.createSpan({ cls: `${CSS_PREFIX}-section-arrow`, text: '▸' });
 
-        const header = drawer.createDiv({ cls: `${CSS_PREFIX}-drawer-header` });
-        header.createSpan({ cls: `${CSS_PREFIX}-drawer-icon`, text: icon });
-        header.createEl('h3', { cls: `${CSS_PREFIX}-drawer-title`, text: title });
-        header.createSpan({ cls: `${CSS_PREFIX}-drawer-arrow`, text: '▼' });
-
-        const contentWrapper = drawer.createDiv({ cls: `${CSS_PREFIX}-drawer-content` });
-        const content = contentWrapper.createDiv({ cls: `${CSS_PREFIX}-drawer-inner` });
+        const content = section.createDiv({ cls: `${CSS_PREFIX}-section-content` });
 
         header.addEventListener('click', () => {
-            const isOpen = drawer.classList.toggle('is-open');
-            this.drawerStates.set(drawerKey, isOpen);
-            this.saveDrawerStates();
+            const open = section.classList.toggle('is-open');
+            arrow.textContent = open ? '▾' : '▸';
+            this.sectionStates.set(title, open);
+            this.saveSectionStates();
         });
 
-        return { drawer, content };
+        return content;
     }
 
+    // ── Header ───────────────────────────────────────────────────────────
     private headerBadge?: HTMLDivElement;
 
-    private createProviderStatusDashboard(): void {
-        const dashboard = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-status-dashboard` });
-        dashboard.createDiv({ cls: `${CSS_PREFIX}-status-title`, text: 'Providers' });
-
-        const grid = dashboard.createDiv({ cls: `${CSS_PREFIX}-status-grid` });
-
-        const providers = [
-            { id: 'gemini', name: 'Gemini', key: 'geminiApiKey' },
-            { id: 'groq', name: 'Groq', key: 'groqApiKey' },
-            { id: 'huggingface', name: 'HuggingFace', key: 'huggingFaceApiKey' },
-            { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' },
-            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' },
-            { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' },
-        ];
-
-        providers.forEach(provider => {
-            const hasKey = Boolean((this.settings[provider.key as keyof YouTubePluginSettings] as string)?.trim());
-            const status = this.providerStatuses.get(provider.id) ?? (hasKey ? 'untested' : 'untested');
-
-            const chip = grid.createDiv({ cls: `${CSS_PREFIX}-status-chip ${status}` });
-            chip.createDiv({ cls: `${CSS_PREFIX}-status-dot ${status}` });
-            chip.createDiv({ cls: `${CSS_PREFIX}-status-name`, text: provider.name });
-
-            // Click to re-test
-            chip.addEventListener('click', () => {
-                if (hasKey) {
-                    void this.testProvider(provider.id, provider.name, provider.key as keyof YouTubePluginSettings);
-                }
-            });
-
-            if (!hasKey) {
-                chip.style.opacity = '0.5';
-                chip.style.cursor = 'default';
-            } else {
-                chip.title = 'Click to test connection';
-            }
-        });
-    }
-
-    // eslint-disable-next-line complexity, max-lines-per-function
-    private async testProvider(id: string, name: string, key: keyof YouTubePluginSettings): Promise<void> {
-        this.providerStatuses.set(id, 'testing');
-        this.display(); // Refresh to show testing state
-
-        const apiKey = (this.settings[key] as string)?.trim();
-        if (!apiKey) {
-            this.providerStatuses.set(id, 'invalid');
-            this.display();
-            return;
-        }
-
-        try {
-            // Validate based on provider
-            switch (id) {
-                case 'gemini':
-                    await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-                    break;
-                case 'groq':
-                    await fetch('https://api.groq.com/openai/v1/models', {
-                        headers: { Authorization: `Bearer ${apiKey}` },
-                    });
-                    break;
-                case 'huggingface':
-                    await fetch('https://huggingface.co/api/whoami-v2', {
-                        headers: { Authorization: `Bearer ${apiKey}` },
-                    });
-                    break;
-                case 'openrouter':
-                    await fetch('https://openrouter.ai/api/v1/models', {
-                        headers: { Authorization: `Bearer ${apiKey}` },
-                    });
-                    break;
-                case 'ollama': {
-                    const endpoint = this.settings.ollamaEndpoint ?? 'http://localhost:11434';
-                    await fetch(`${endpoint}/api/tags`);
-                    break;
-                }
-                case 'ollama-cloud':
-                    if (!this.settings.ollamaApiKey) {
-                        throw new Error('Ollama Cloud requires API key');
-                    }
-                    await fetch('https://ollama.com/api/tags', {
-                        headers: { Authorization: `Bearer ${this.settings.ollamaApiKey}` },
-                    });
-                    break;
-            }
-
-            this.providerStatuses.set(id, 'valid');
-            this.showToast(`${name} API key is valid!`, 'success');
-        } catch (error) {
-            this.providerStatuses.set(id, 'invalid');
-            this.showToast(`${name} API key validation failed`, 'error');
-        }
-
-        this.display();
-    }
-
-    // eslint-disable-next-line max-lines-per-function
-    private createQuickActions(): void {
-        const actions = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-quick-actions` });
-
-        // Test All Keys
-        const testAllBtn = actions.createEl('button', {
-            cls: `${CSS_PREFIX}-action-btn primary`,
-        });
-        testAllBtn.innerHTML = '<span>🧪</span> Test Connections';
-        testAllBtn.addEventListener('click', () => this.testAllProviders());
-
-        // Export/Import dropdown combo
-        const settingsBtn = actions.createEl('button', {
-            cls: `${CSS_PREFIX}-action-btn`,
-        });
-        settingsBtn.innerHTML = '<span>⚙️</span> Manage Settings';
-        settingsBtn.addEventListener('click', (e: MouseEvent) => {
-            const menu = new Menu();
-            menu.addItem(item =>
-                item
-                    .setTitle('Export Settings')
-                    .setIcon('export')
-                    .onClick(() => this.exportSettings()),
-            );
-            menu.addItem(item =>
-                item
-                    .setTitle('Import Settings')
-                    .setIcon('import')
-                    .onClick(() => this.importSettings()),
-            );
-            menu.showAtMouseEvent(e);
-        });
-
-        // Reset to Defaults
-        const resetBtn = actions.createEl('button', {
-            cls: `${CSS_PREFIX}-action-btn danger`,
-        });
-        resetBtn.innerHTML = '<span>🔄</span> Reset';
-        resetBtn.addEventListener('click', async () => this.resetToDefaults());
-    }
-
-    private async testAllProviders(): Promise<void> {
-        const providers = [
-            { id: 'gemini', name: 'Google Gemini', key: 'geminiApiKey' as keyof YouTubePluginSettings },
-            { id: 'groq', name: 'Groq', key: 'groqApiKey' as keyof YouTubePluginSettings },
-            { id: 'huggingface', name: 'Hugging Face', key: 'huggingFaceApiKey' as keyof YouTubePluginSettings },
-            { id: 'openrouter', name: 'OpenRouter', key: 'openRouterApiKey' as keyof YouTubePluginSettings },
-            { id: 'ollama', name: 'Ollama', key: 'ollamaApiKey' as keyof YouTubePluginSettings },
-            { id: 'ollama-cloud', name: 'Ollama Cloud', key: 'ollamaApiKey' as keyof YouTubePluginSettings },
-        ];
-
-        for (const provider of providers) {
-            if ((this.settings[provider.key] as string)?.trim()) {
-                await this.testProvider(provider.id, provider.name, provider.key);
-                // Small delay between tests
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-        }
-    }
-
-    private exportSettings(): void {
-        const settingsJson = JSON.stringify(this.settings, null, 2);
-        const blob = new Blob([settingsJson], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `yt-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        this.showToast('Settings exported successfully!', 'success');
-    }
-
-    private importSettings(): void {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'application/json';
-        input.addEventListener('change', async e => {
-            const file = (e.target as HTMLInputElement).files?.[0];
-            if (!file) return;
-
-            try {
-                const text = await file.text();
-                const imported = JSON.parse(text);
-
-                // Validate imported settings
-                const validation = ValidationUtils.validateSettings(imported);
-                if (!validation.isValid) {
-                    this.showToast(`Invalid settings file: ${validation.errors.join(', ')}`, 'error');
-                    return;
-                }
-
-                // Confirm import using ConfirmationModal
-                const { ConfirmationModal } = await import('./components/common/confirmation-modal');
-                const modal = new ConfirmationModal(this.app, {
-                    title: 'Import Settings',
-                    message: 'This will overwrite your current settings.',
-                });
-                const confirmed = await modal.openAndWait();
-
-                if (confirmed) {
-                    await this.options.onSettingsChange(imported);
-                    this.settings = { ...imported };
-                    this.display();
-                    this.showToast('Settings imported successfully!', 'success');
-                }
-            } catch (error) {
-                this.showToast('Failed to import settings. Check file format.', 'error');
-            }
-        });
-        input.click();
-    }
-
-    private async resetToDefaults(): Promise<void> {
-        // Confirm reset using ConfirmationModal
-        const { ConfirmationModal } = await import('./components/common/confirmation-modal');
-        const modal = new ConfirmationModal(this.app, {
-            title: 'Reset to Defaults',
-            message: 'This action cannot be undone.',
-            confirmText: 'Reset',
-            isDangerous: true,
-        });
-        const confirmed = await modal.openAndWait();
-
-        if (confirmed) {
-            // Keep API keys, reset everything else
-            const apiKeys = {
-                geminiApiKey: this.settings.geminiApiKey,
-                groqApiKey: this.settings.groqApiKey,
-                huggingFaceApiKey: this.settings.huggingFaceApiKey,
-                openRouterApiKey: this.settings.openRouterApiKey,
-                ollamaApiKey: this.settings.ollamaApiKey,
-                ollamaEndpoint: this.settings.ollamaEndpoint,
-            };
-
-            // Define defaults inline
-            const defaults: YouTubePluginSettings = {
-                ...apiKeys,
-                outputPath: 'YouTube/Processed Videos',
-                useEnvironmentVariables: false,
-                environmentPrefix: 'YTC',
-                performanceMode: 'balanced',
-                enableParallelProcessing: true,
-                enableAutoFallback: true,
-                preferMultimodal: true,
-                defaultMaxTokens: 4096,
-                defaultTemperature: 0.5,
-            };
-
-            this.settings = defaults;
-            void this.options.onSettingsChange(defaults);
-            this.display();
-            this.showToast('Settings reset to defaults', 'info');
-        }
-    }
-
-    private showToast(message: string, type: 'success' | 'error' | 'info'): void {
-        const toast = document.createElement('div');
-        toast.className = `${CSS_PREFIX}-toast ${type}`;
-        toast.createSpan({ text: type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️' });
-        toast.createSpan({ text: message });
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.animation = 'slideIn 0.3s ease reverse';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
-
     private createHeader(): void {
-        const { containerEl } = this;
-        const header = containerEl.createDiv({ cls: `${CSS_PREFIX}-header` });
+        const header = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-header` });
 
-        const title = header.createDiv({ cls: `${CSS_PREFIX}-title` });
-        title.createSpan({ text: '🎬' });
-        title.createSpan({ text: 'YT Clipper' });
+        const left = header.createDiv({ cls: `${CSS_PREFIX}-header-left` });
+        left.createSpan({ text: '🎬' });
+        left.createSpan({ text: 'YT Clipper' });
 
         const isReady = this.validateConfiguration();
         this.headerBadge = header.createDiv({
-            cls: `${CSS_PREFIX}-badge ${isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`}`,
+            cls: `${CSS_PREFIX}-badge ${isReady ? 'ready' : 'setup'}`,
         });
-        this.headerBadge.textContent = isReady ? 'READY' : 'SETUP REQUIRED';
+        this.headerBadge.textContent = isReady ? 'READY' : 'SETUP';
+
+        const actions = header.createDiv({ cls: `${CSS_PREFIX}-header-actions` });
+
+        const manageBtn = actions.createEl('button', { cls: `${CSS_PREFIX}-header-btn` });
+        manageBtn.textContent = '⚙️';
+        manageBtn.title = 'Manage';
+        manageBtn.addEventListener('click', (e: MouseEvent) => {
+            const dropdown = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-mini-menu` });
+            const exportOpt = dropdown.createDiv({ cls: `${CSS_PREFIX}-mini-menu-item`, text: '📤 Export' });
+            exportOpt.addEventListener('click', () => { dropdown.remove(); this.exportSettings(); });
+            const importOpt = dropdown.createDiv({ cls: `${CSS_PREFIX}-mini-menu-item`, text: '📥 Import' });
+            importOpt.addEventListener('click', () => { dropdown.remove(); this.importSettings(); });
+            const rect = manageBtn.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = `${rect.bottom + 4}px`;
+            dropdown.style.right = `${window.innerWidth - rect.right}px`;
+            setTimeout(() => {
+                document.addEventListener('click', function dismiss(ev) {
+                    if (!dropdown.contains(ev.target as Node)) { dropdown.remove(); document.removeEventListener('click', dismiss); }
+                });
+            }, 0);
+        });
+
+        const resetBtn = actions.createEl('button', { cls: `${CSS_PREFIX}-header-btn` });
+        resetBtn.textContent = '🔄';
+        resetBtn.title = 'Reset';
+        resetBtn.addEventListener('click', async () => this.resetToDefaults());
     }
 
     private updateHeaderBadge(isReady: boolean): void {
         if (this.headerBadge) {
-            const badgeClass = isReady ? `${CSS_PREFIX}-badge-ready` : `${CSS_PREFIX}-badge-setup`;
-            this.headerBadge.className = `${CSS_PREFIX}-badge ${badgeClass}`;
-            this.headerBadge.textContent = isReady ? '✓ Ready' : '⚠ Setup Required';
+            this.headerBadge.className = `${CSS_PREFIX}-badge ${isReady ? 'ready' : 'setup'}`;
+            this.headerBadge.textContent = isReady ? 'READY' : 'SETUP';
         }
     }
 
-    // eslint-disable-next-line max-lines-per-function
-    private createAPISection(): void {
-        const { content: section } = this.createDrawer('API Keys', '🔑', false);
+    // ── API Keys ─────────────────────────────────────────────────────────
+    private createAPISection(parent: HTMLElement): void {
+        const content = this.createSection(parent, 'API Keys', '🔑');
 
-        this.createAPIKeySetting(section, {
-            name: 'Google Gemini API Key',
-            desc: 'Primary AI provider for video analysis. Get free key from Google AI Studio.',
-            placeholder: 'Enter your Gemini API key (AIzaSy...)',
-            settingKey: 'geminiApiKey',
-            validateFn: async (key: string) => {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            },
+        const providers = [
+            { name: 'Gemini', icon: '✦', placeholder: 'AIzaSy...', color: '#4285f4', key: 'geminiApiKey' as const,
+              validate: async (key: string) => {
+                  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              }},
+            { name: 'Groq', icon: '⚡', placeholder: 'gsk_...', color: '#f55036', key: 'groqApiKey' as const,
+              validate: async (key: string) => {
+                  const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              }},
+            { name: 'HuggingFace', icon: '🤗', placeholder: 'hf_...', color: '#ffcc00', key: 'huggingFaceApiKey' as const,
+              validate: async (key: string) => {
+                  const res = await fetch('https://huggingface.co/api/whoami-v2', { headers: { Authorization: `Bearer ${key}` } });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              }},
+            { name: 'OpenRouter', icon: '🔀', placeholder: 'sk-or-...', color: '#6366f1', key: 'openRouterApiKey' as const,
+              validate: async (key: string) => {
+                  const res = await fetch('https://openrouter.ai/api/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              }},
+            { name: 'Ollama', icon: '🦙', placeholder: 'cloud only', color: '#6b7280', key: 'ollamaApiKey' as const,
+              validate: async (key: string) => {
+                  const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
+                  const isCloud = endpoint.includes('ollama.com') || endpoint.includes('cloud');
+                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                  if (isCloud && key) headers['Authorization'] = `Bearer ${key}`;
+                  const res = await fetch(`${isCloud ? 'https://ollama.com/api' : `${endpoint}/api`}/tags`, { headers });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              }},
+        ];
+
+        providers.forEach(p => this.createAPIKeyCard(content, p));
+
+        // Ollama endpoint
+        const endpointCard = content.createDiv({ cls: `${CSS_PREFIX}-api-card` });
+        const epLeft = endpointCard.createDiv({ cls: `${CSS_PREFIX}-api-card-left` });
+        epLeft.createSpan({ cls: `${CSS_PREFIX}-api-icon`, text: '🔗' });
+        epLeft.createSpan({ cls: `${CSS_PREFIX}-api-name`, text: 'Endpoint' });
+        const epInput = endpointCard.createEl('input', { cls: `${CSS_PREFIX}-api-input` });
+        epInput.type = 'text';
+        epInput.placeholder = 'http://localhost:11434';
+        epInput.value = this.settings.ollamaEndpoint || 'http://localhost:11434';
+        epInput.addEventListener('change', async () => {
+            await this.updateSetting('ollamaEndpoint', epInput.value.trim());
         });
-
-        this.createAPIKeySetting(section, {
-            name: 'Groq API Key',
-            desc: 'Fast alternative AI provider. Get free key from Groq Console.',
-            placeholder: 'Enter your Groq API key (gsk_...)',
-            settingKey: 'groqApiKey',
-            validateFn: async (key: string) => {
-                const res = await fetch('https://api.groq.com/openai/v1/models', {
-                    headers: { Authorization: `Bearer ${key}` },
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            },
-        });
-
-        this.createAPIKeySetting(section, {
-            name: 'Hugging Face API Key',
-            desc: 'Get from huggingface.co/settings/tokens (free tier available)',
-            placeholder: 'hf_...',
-            settingKey: 'huggingFaceApiKey',
-            validateFn: async (key: string) => {
-                const res = await fetch('https://huggingface.co/api/whoami-v2', {
-                    headers: { Authorization: `Bearer ${key}` },
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            },
-        });
-
-        this.createAPIKeySetting(section, {
-            name: 'OpenRouter API Key',
-            desc: 'Get from openrouter.ai/keys (free models available)',
-            placeholder: 'sk-or-...',
-            settingKey: 'openRouterApiKey',
-            validateFn: async (key: string) => {
-                const res = await fetch('https://openrouter.ai/api/v1/models', {
-                    headers: { Authorization: `Bearer ${key}` },
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            },
-        });
-
-        this.createAPIKeySetting(section, {
-            name: 'Ollama API Key',
-            desc: 'Required for Ollama Cloud (https://ollama.com). Get API key from ollama.com/settings. Not required for local instances.',
-            placeholder: 'Optional - required for cloud only',
-            settingKey: 'ollamaApiKey',
-            validateFn: async (key: string) => {
-                const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
-                // Determine if this is cloud or local
-                const isCloud = endpoint.includes('ollama.com') || endpoint.includes('cloud');
-                const apiBaseUrl = isCloud ? 'https://ollama.com/api' : `${endpoint}/api`;
-
-                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-                if (isCloud && key) {
-                    headers['Authorization'] = `Bearer ${key}`;
-                }
-
-                const res = await fetch(`${apiBaseUrl}/tags`, { headers });
-                if (!res.ok) {
-                    const errorText = await res.text().catch(() => 'Unknown error');
-                    throw new Error(`HTTP ${res.status}: ${errorText}`);
-                }
-            },
-        });
-
-        // Ollama Endpoint setting
-        new Setting(section)
-            .setName('Ollama Endpoint')
-            .setDesc('Ollama API endpoint. Local: http://localhost:11434 | Cloud: https://ollama.com')
-            .addText(text => {
-                text.setPlaceholder('http://localhost:11434')
-                    .setValue(this.settings.ollamaEndpoint || 'http://localhost:11434')
-                    .onChange(async value => {
-                        await this.updateSetting('ollamaEndpoint', value.trim());
-                    });
-            });
     }
 
-    // eslint-disable-next-line max-lines-per-function
-    private createAPIKeySetting(
+    private createAPIKeyCard(
         container: HTMLElement,
         opts: {
-            name: string;
-            desc: string;
-            placeholder: string;
-            settingKey: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
-            validateFn: (key: string) => Promise<void>;
+            name: string; icon: string; placeholder: string; color: string;
+            key: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
+            validate: (key: string) => Promise<void>;
         },
     ): void {
-        const setting = new Setting(container)
-            .setName(opts.name)
-            .setDesc(opts.desc)
-            .addText(text => {
-                text.inputEl.type = 'password';
-                text.inputEl.autocomplete = 'off';
-                text.inputEl.style.width = '300px';
+        const hasKey = Boolean(this.secureConfig.getApiKey(opts.key)?.trim());
+        const card = container.createDiv({ cls: `${CSS_PREFIX}-api-card` });
 
-                // Get the actual API key (de-obfuscated) or empty string
-                const actualKey = this.secureConfig.getApiKey(opts.settingKey);
-                // Show masked version or placeholder
-                const displayValue = actualKey ? this.secureConfig.getMaskedApiKey(opts.settingKey) : '';
+        // Left: icon + name + status dot
+        const left = card.createDiv({ cls: `${CSS_PREFIX}-api-card-left` });
+        const iconEl = left.createSpan({ cls: `${CSS_PREFIX}-api-icon`, text: opts.icon });
+        iconEl.style.color = opts.color;
+        left.createSpan({ cls: `${CSS_PREFIX}-api-name`, text: opts.name });
+        const dot = left.createSpan({ cls: `${CSS_PREFIX}-api-dot ${hasKey ? 'has-key' : 'no-key'}` });
+        dot.title = hasKey ? 'Key configured' : 'No key';
 
-                text.setPlaceholder(opts.placeholder)
-                    .setValue(displayValue)
-                    .onChange(async value => {
-                        await this.updateSetting(opts.settingKey, value.trim());
-                    });
-            });
-
-        const controlEl = setting.controlEl;
-
-        // Password visibility toggle
-        const toggleBtn = controlEl.createEl('button', {
-            cls: `${CSS_PREFIX}-password-toggle`,
-            text: '👁️',
-        });
-        toggleBtn.title = 'Toggle visibility';
-
-        let isVisible = false;
-        let originalValue = '';
-
-        toggleBtn.addEventListener('click', () => {
-            isVisible = !isVisible;
-            const textInput = controlEl.querySelector('input[type="password"], input[type="text"]') as HTMLInputElement;
-
-            if (textInput) {
-                if (isVisible) {
-                    // Show actual key temporarily
-                    originalValue = textInput.value;
-                    const actualKey = this.secureConfig.getApiKey(opts.settingKey);
-                    textInput.value = actualKey || '';
-                    textInput.type = 'text';
-                    toggleBtn.textContent = '🙈';
-                    toggleBtn.title = 'Hide key';
-                } else {
-                    // Revert to masked display
-                    textInput.value = originalValue || this.secureConfig.getMaskedApiKey(opts.settingKey) || '';
-                    textInput.type = 'password';
-                    toggleBtn.textContent = '👁️';
-                    toggleBtn.title = 'Show key';
-                }
-            }
+        // Input
+        const input = card.createEl('input', { cls: `${CSS_PREFIX}-api-input` });
+        input.type = 'password';
+        input.autocomplete = 'off';
+        input.placeholder = opts.placeholder;
+        const actualKey = this.secureConfig.getApiKey(opts.key);
+        input.value = actualKey ? this.secureConfig.getMaskedApiKey(opts.key) : '';
+        input.addEventListener('change', async () => {
+            await this.updateSetting(opts.key, input.value.trim());
+            // Update dot
+            const nowHasKey = Boolean(input.value.trim());
+            dot.className = `${CSS_PREFIX}-api-dot ${nowHasKey ? 'has-key' : 'no-key'}`;
         });
 
-        // Validate button
-        const validateBtn = controlEl.createEl('button', {
-            cls: `${CSS_PREFIX}-validate-btn`,
-            text: '✓ Test',
+        // Actions
+        const actions = card.createDiv({ cls: `${CSS_PREFIX}-api-actions` });
+
+        // Eye toggle
+        const eyeBtn = actions.createEl('button', { cls: `${CSS_PREFIX}-api-action`, text: '👁' });
+        let visible = false;
+        eyeBtn.addEventListener('click', () => {
+            visible = !visible;
+            input.value = visible
+                ? (this.secureConfig.getApiKey(opts.key) || '')
+                : (actualKey ? this.secureConfig.getMaskedApiKey(opts.key) : '');
+            input.type = visible ? 'text' : 'password';
+            eyeBtn.textContent = visible ? '🙈' : '👁';
         });
 
-        validateBtn.addEventListener('click', async () => {
-            // Get actual de-obfuscated API key for validation
-            const key = this.secureConfig.getApiKey(opts.settingKey);
-            if (!key && opts.settingKey !== 'ollamaApiKey') {
-                this.showToast(`No ${opts.name} configured`, 'info');
-                return;
-            }
-
-            validateBtn.disabled = true;
-            validateBtn.textContent = '...';
-            validateBtn.removeClass('is-success', 'is-error');
-
-            // Add spinner
-            const spinner = validateBtn.createEl('span', { cls: `${CSS_PREFIX}-spinner` });
-
+        // Test
+        const testBtn = actions.createEl('button', { cls: `${CSS_PREFIX}-api-action`, text: '✓' });
+        testBtn.title = 'Test';
+        testBtn.addEventListener('click', async () => {
+            const key = this.secureConfig.getApiKey(opts.key);
+            if (!key && opts.key !== 'ollamaApiKey') { this.showToast(`No ${opts.name} key`, 'info'); return; }
+            testBtn.disabled = true;
+            testBtn.textContent = '…';
             try {
-                await opts.validateFn(key);
-                spinner.remove();
-                validateBtn.textContent = '✓ Valid';
-                validateBtn.addClass('is-success');
-                this.showToast(`${opts.name} is valid!`, 'success');
-
-                // Update provider status
-                const providerId = opts.settingKey.replace('ApiKey', '').toLowerCase();
-                this.providerStatuses.set(providerId, 'valid');
-            } catch (err) {
-                spinner.remove();
-                validateBtn.textContent = '✗ Invalid';
-                validateBtn.addClass('is-error');
-                this.showToast(`${opts.name} failed: ${(err as Error).message}`, 'error');
-
-                // Update provider status
-                const providerId = opts.settingKey.replace('ApiKey', '').toLowerCase();
-                this.providerStatuses.set(providerId, 'invalid');
+                await opts.validate(key);
+                testBtn.textContent = '✓';
+                testBtn.classList.add('is-valid');
+                dot.className = `${CSS_PREFIX}-api-dot has-key`;
+                this.showToast(`${opts.name} valid`, 'success');
+            } catch {
+                testBtn.textContent = '✗';
+                testBtn.classList.add('is-error');
+                this.showToast(`${opts.name} failed`, 'error');
             }
-
             setTimeout(() => {
-                validateBtn.textContent = '✓ Test';
-                validateBtn.removeClass('is-success', 'is-error');
-                validateBtn.disabled = false;
-            }, 3000);
+                testBtn.textContent = '✓';
+                testBtn.classList.remove('is-valid', 'is-error');
+                testBtn.disabled = false;
+            }, 2500);
         });
     }
 
-    private createAISection(): void {
-        const { content: section } = this.createDrawer('AI Configuration', '🤖', false);
+    // ── AI Configuration ─────────────────────────────────────────────────
+    private createAISection(parent: HTMLElement): void {
+        const content = this.createSection(parent, 'AI', '🤖');
 
-        // Max Tokens slider
-        this.createSlider(section, {
-            label: 'Maximum Output Tokens',
-            desc: 'Controls the length of generated notes. Higher values produce more detailed output.',
-            min: 512,
-            max: 8192,
-            step: 256,
-            value: this.settings.defaultMaxTokens || 4096,
-            key: 'defaultMaxTokens',
+        this.createSlider(content, {
+            label: 'Max Tokens', min: 512, max: 8192, step: 256,
+            value: this.settings.defaultMaxTokens || 4096, key: 'defaultMaxTokens',
         });
 
-        // Temperature slider
-        this.createSlider(section, {
-            label: 'Temperature',
-            desc: 'Controls AI creativity. Lower = more focused/factual, Higher = more creative.',
-            min: 0,
-            max: 1,
-            step: 0.1,
-            value: this.settings.defaultTemperature ?? 0.5,
-            key: 'defaultTemperature',
+        this.createSlider(content, {
+            label: 'Temperature', min: 0, max: 1, step: 0.1,
+            value: this.settings.defaultTemperature ?? 0.5, key: 'defaultTemperature',
         });
 
-        new Setting(section)
-            .setName('Performance Mode')
-            .setDesc('Choose processing speed vs output quality tradeoff.')
+        new Setting(content)
+            .setName('Performance')
+            .setDesc('')
             .addDropdown(dd =>
                 dd
-                    .addOption('fast', '⚡ Fast — Quick results, basic analysis')
-                    .addOption('balanced', '⚖️ Balanced — Good speed & quality')
-                    .addOption('quality', '✨ Quality — Best results, slower')
+                    .addOption('fast', '⚡ Fast')
+                    .addOption('balanced', '⚖️ Balanced')
+                    .addOption('quality', '✨ Quality')
                     .setValue(this.settings.performanceMode || 'balanced')
                     .onChange(async value => {
                         await this.updateSetting('performanceMode', value as 'fast' | 'balanced' | 'quality');
@@ -629,12 +291,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             );
     }
 
-    private createOutputSection(): void {
-        const { content: section } = this.createDrawer('Output Settings', '📁', false);
+    // ── Output ───────────────────────────────────────────────────────────
+    private createOutputSection(parent: HTMLElement): void {
+        const content = this.createSection(parent, 'Output', '📁');
 
-        new Setting(section)
-            .setName('Output Folder')
-            .setDesc('Folder path where processed video notes will be saved.')
+        new Setting(content)
+            .setName('Folder')
+            .setDesc('')
             .addText(text =>
                 text
                     .setPlaceholder('YouTube/Processed Videos')
@@ -645,174 +308,56 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             );
     }
 
-    private createAdvancedSection(): void {
-        const { content: section } = this.createDrawer('Advanced Settings', '⚙️', false);
+    // ── Advanced ─────────────────────────────────────────────────────────
+    private createAdvancedSection(parent: HTMLElement): void {
+        const content = this.createSection(parent, 'Advanced', '⚙️');
 
-        // Security Status Section
-        const securityDesc = section.createDiv({ cls: `${CSS_PREFIX}-security-status` });
-        const securityTitle = securityDesc.createEl('h3', { text: '🔒 Security Status' });
-        const securityContent = securityDesc.createDiv();
-
-        // Run security validation
-        const securityResult = this.secureConfig.validateSecurityConfiguration();
-
-        if (securityResult.warnings.length > 0 || securityResult.suggestions.length > 0) {
-            // Show warnings
-            if (securityResult.warnings.length > 0) {
-                const warningEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-security-warnings`,
-                });
-                securityResult.warnings.forEach(warning => {
-                    const item = warningEl.createEl('div');
-                    item.textContent = `⚠️ ${warning}`;
-                    item.style.margin = '4px 0';
-                });
-            }
-
-            // Show suggestions
-            if (securityResult.suggestions.length > 0) {
-                const suggestionEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-security-suggestions`,
-                });
-                securityResult.suggestions.forEach(suggestion => {
-                    const item = suggestionEl.createEl('div');
-                    item.textContent = suggestion;
-                    item.style.margin = '4px 0';
-                    item.style.color = 'var(--text-muted)';
-                });
-            }
-
-            // Show rotation recommendations if keys are getting old
-            const recommendations = this.secureConfig.getRotationRecommendations();
-            const needsRotation = recommendations.filter(r => r.shouldRotate);
-
-            if (needsRotation.length > 0) {
-                const rotationEl = securityContent.createEl('div', {
-                    cls: `${CSS_PREFIX}-rotation-alert`,
-                });
-                const rotationTitle = rotationEl.createEl('div', {
-                    text: '🔄 Key Rotation Recommended',
-                });
-                rotationTitle.style.fontWeight = 'bold';
-                rotationTitle.style.margin = '8px 0 4px 0';
-                rotationEl.appendChild(rotationTitle);
-
-                needsRotation.forEach(rec => {
-                    const item = rotationEl.createEl('div');
-                    item.style.marginLeft = '16px';
-                    item.textContent = `• ${rec.keyType}: ${rec.reason}`;
-                });
-            }
-        } else {
-            // All secure
-            const secureEl = securityContent.createEl('div', {
-                cls: `${CSS_PREFIX}-security-secure`,
-            });
-            secureEl.textContent = '✅ All API keys are properly secured';
-        }
-
-        // Security actions
-        const actionsDiv = securityContent.createDiv({
-            cls: `${CSS_PREFIX}-security-actions`,
-        });
-        actionsDiv.style.marginTop = '12px';
-
-        // Clear all keys button
-        const clearKeysBtn = actionsDiv.createEl('button', {
-            text: '🗑️ Clear All API Keys',
-            cls: 'mod-warning',
-        });
-        clearKeysBtn.style.marginRight = '8px';
-        clearKeysBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to clear all API keys? This cannot be undone.')) {
-                this.secureConfig.clearAllApiKeys();
-                this.showToast('All API keys have been cleared', 'info');
-                this.display();
-            }
-        });
-
-        // Export settings (with masked keys) button
-        const exportBtn = actionsDiv.createEl('button', {
-            text: '📤 Export Settings (Masked)',
-        });
-        exportBtn.addEventListener('click', () => {
-            const safeSettings = this.secureConfig.exportSafeSettings();
-            const json = JSON.stringify(safeSettings, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `youtube-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-
-            URL.revokeObjectURL(url);
-            this.showToast('Settings exported (API keys are masked)', 'success');
-        });
-
-        new Setting(section)
+        new Setting(content)
             .setName('Parallel Processing')
-            .setDesc('Query multiple AI providers simultaneously for faster results.')
+            .setDesc('')
             .addToggle(toggle =>
                 toggle.setValue(this.settings.enableParallelProcessing ?? false).onChange(async value => {
                     await this.updateSetting('enableParallelProcessing', value);
                 }),
             );
 
-        new Setting(section)
-            .setName('Multimodal Video Analysis')
-            .setDesc('Enable audio + visual analysis for supported models (Gemini 2.5+).')
+        new Setting(content)
+            .setName('Multimodal')
+            .setDesc('')
             .addToggle(toggle =>
                 toggle.setValue(this.settings.preferMultimodal ?? false).onChange(async value => {
                     await this.updateSetting('preferMultimodal', value);
                 }),
             );
 
-        new Setting(section)
-            .setName('Use Environment Variables')
-            .setDesc('Load API keys from environment variables (YTC_GEMINI_API_KEY, etc.).')
+        new Setting(content)
+            .setName('Env Variables')
+            .setDesc('')
             .addToggle(toggle =>
                 toggle.setValue(this.settings.useEnvironmentVariables ?? false).onChange(async value => {
                     await this.updateSetting('useEnvironmentVariables', value);
                 }),
             );
 
-        // Environment variable template button
-        new Setting(section)
-            .setName('Get Environment Variable Template')
-            .setDesc('Get a template file showing how to set up environment variables for secure key management.')
-            .addButton(button => {
-                button.setButtonText('📋 Copy Template');
-                button.onClick(() => {
-                    const template = this.secureConfig.getEnvironmentTemplate();
-
-                    navigator.clipboard
-                        .writeText(template)
-                        .then(() => {
-                            this.showToast('Environment template copied to clipboard!', 'success');
-                        })
-                        .catch(() => {
-                            this.showToast('Failed to copy template', 'error');
-                        });
-                });
-            });
+        const actionsDiv = content.createDiv({ cls: `${CSS_PREFIX}-compact-actions` });
+        const clearBtn = actionsDiv.createEl('button', { text: '🗑️ Clear Keys', cls: 'mod-warning' });
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Clear all API keys?')) {
+                this.secureConfig.clearAllApiKeys();
+                this.showToast('Keys cleared', 'info');
+                this.display();
+            }
+        });
     }
 
+    // ── Slider helper ────────────────────────────────────────────────────
     private createSlider(
         container: HTMLElement,
-        opts: {
-            label: string;
-            desc: string;
-            min: number;
-            max: number;
-            step: number;
-            value: number;
-            key: keyof YouTubePluginSettings;
-        },
+        opts: { label: string; min: number; max: number; step: number; value: number; key: keyof YouTubePluginSettings },
     ): void {
         new Setting(container)
             .setName(opts.label)
-            .setDesc(opts.desc)
+            .setDesc('')
             .addSlider(slider =>
                 slider
                     .setLimits(opts.min, opts.max, opts.step)
@@ -824,6 +369,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             );
     }
 
+    // ── Settings persistence ─────────────────────────────────────────────
     private validateConfiguration(): boolean {
         const hasKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
         const hasPath = ValidationUtils.isValidPath(this.settings.outputPath);
@@ -835,23 +381,18 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         value: string | boolean | number | 'fast' | 'balanced' | 'quality',
     ): Promise<void> {
         try {
-            // Use secure storage for API keys
             if (this.isApiKeyField(key) && typeof value === 'string') {
-                // Only set the key if it's not empty or user is intentionally clearing it
-                if (value && value !== '') {
+                if (value) {
                     try {
                         const obfuscated = this.secureConfig.setApiKey(
-                            key as import('./secure-config').ApiKeyName,
-                            value,
+                            key as import('./secure-config').ApiKeyName, value,
                         );
                         (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
                     } catch (error) {
-                        // Show validation error for invalid keys
-                        ErrorHandler.handle(error as Error, `API Key Validation: ${key}`, true);
-                        return; // Don't save invalid keys
+                        ErrorHandler.handle(error as Error, `API Key: ${key}`, true);
+                        return;
                     }
                 } else {
-                    // Clear API key
                     (this.settings as unknown as Record<string, unknown>)[key] = '';
                 }
             } else {
@@ -859,29 +400,18 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
             await this.validateAndSaveSettings();
         } catch (error) {
-            ErrorHandler.handle(error as Error, `Settings update: ${key}`);
+            ErrorHandler.handle(error as Error, `Settings: ${key}`);
         }
     }
 
-    /**
-     * Check if a settings key is an API key field
-     */
     private isApiKeyField(key: keyof YouTubePluginSettings): boolean {
-        const apiKeyFields: (keyof YouTubePluginSettings)[] = [
-            'geminiApiKey',
-            'groqApiKey',
-            'ollamaApiKey',
-            'huggingFaceApiKey',
-            'openRouterApiKey',
-        ];
-        return apiKeyFields.includes(key);
+        return ['geminiApiKey', 'groqApiKey', 'ollamaApiKey', 'huggingFaceApiKey', 'openRouterApiKey'].includes(key);
     }
 
     private async validateAndSaveSettings(): Promise<void> {
         const validation = ValidationUtils.validateSettings(this.settings as unknown as Record<string, unknown>);
         const hadErrors = this.validationErrors.length > 0;
         const hasErrors = validation.errors.length > 0;
-
         this.validationErrors = validation.errors;
 
         if (validation.isValid) {
@@ -891,8 +421,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             this.updateHeaderBadge(false);
         }
 
-        // Only refresh display if validation state changed (errors appeared/disappeared)
-        // This prevents drawers from closing on every setting change
         if (hadErrors !== hasErrors) {
             this.display();
         }
@@ -907,31 +435,80 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.display();
     }
 
-    private loadDrawerStates(): void {
-        try {
-            const stored = localStorage.getItem(this.DRAWER_STATES_KEY);
-            if (stored) {
-                const states = JSON.parse(stored);
-                Object.entries(states).forEach(([key, value]) => {
-                    this.drawerStates.set(key, Boolean(value));
-                });
-            }
-        } catch (error) {
-            // Silently fail and use defaults
-            logger.debug('Could not load drawer states:', 'SettingsTab', { error });
+    // ── Export / Import / Reset ──────────────────────────────────────────
+    private exportSettings(): void {
+        const blob = new Blob([JSON.stringify(this.settings, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `yt-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Exported', 'success');
+    }
+
+    private importSettings(): void {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.addEventListener('change', async e => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+            try {
+                const imported = JSON.parse(await file.text());
+                const validation = ValidationUtils.validateSettings(imported);
+                if (!validation.isValid) { this.showToast('Invalid file', 'error'); return; }
+                const { ConfirmationModal } = await import('./components/common/confirmation-modal');
+                if (await new ConfirmationModal(this.app, { title: 'Import', message: 'Overwrite current settings?' }).openAndWait()) {
+                    await this.options.onSettingsChange(imported);
+                    this.settings = { ...imported };
+                    this.display();
+                    this.showToast('Imported', 'success');
+                }
+            } catch { this.showToast('Import failed', 'error'); }
+        });
+        input.click();
+    }
+
+    private async resetToDefaults(): Promise<void> {
+        const { ConfirmationModal } = await import('./components/common/confirmation-modal');
+        if (await new ConfirmationModal(this.app, { title: 'Reset', message: 'Cannot be undone.', isDangerous: true }).openAndWait()) {
+            const apiKeys = {
+                geminiApiKey: this.settings.geminiApiKey,
+                groqApiKey: this.settings.groqApiKey,
+                huggingFaceApiKey: this.settings.huggingFaceApiKey,
+                openRouterApiKey: this.settings.openRouterApiKey,
+                ollamaApiKey: this.settings.ollamaApiKey,
+                ollamaEndpoint: this.settings.ollamaEndpoint,
+            };
+            this.settings = { ...apiKeys, outputPath: 'YouTube/Processed Videos', useEnvironmentVariables: false, environmentPrefix: 'YTC', performanceMode: 'balanced', enableParallelProcessing: true, enableAutoFallback: true, preferMultimodal: true, defaultMaxTokens: 4096, defaultTemperature: 0.5 };
+            void this.options.onSettingsChange(this.settings);
+            this.display();
+            this.showToast('Reset', 'info');
         }
     }
 
-    private saveDrawerStates(): void {
+    // ── Toast ────────────────────────────────────────────────────────────
+    private showToast(message: string, type: 'success' | 'error' | 'info'): void {
+        const toast = document.body.createDiv({ cls: `${CSS_PREFIX}-toast ${type}` });
+        toast.createSpan({ text: type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️' });
+        toast.createSpan({ text: message });
+        setTimeout(() => { toast.remove(); }, 2500);
+    }
+
+    // ── Section state persistence ────────────────────────────────────────
+    private loadSectionStates(): void {
+        try {
+            const stored = localStorage.getItem(this.SECTION_STATES_KEY);
+            if (stored) Object.entries(JSON.parse(stored)).forEach(([k, v]) => this.sectionStates.set(k, Boolean(v)));
+        } catch { /* use defaults */ }
+    }
+
+    private saveSectionStates(): void {
         try {
             const states: Record<string, boolean> = {};
-            this.drawerStates.forEach((value, key) => {
-                states[key] = value;
-            });
-            localStorage.setItem(this.DRAWER_STATES_KEY, JSON.stringify(states));
-        } catch (error) {
-            // Silently fail
-            logger.debug('Could not save drawer states:', 'SettingsTab', { error });
-        }
+            this.sectionStates.forEach((v, k) => { states[k] = v; });
+            localStorage.setItem(this.SECTION_STATES_KEY, JSON.stringify(states));
+        } catch { /* silently fail */ }
     }
 }

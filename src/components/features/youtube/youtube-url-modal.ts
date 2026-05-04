@@ -309,6 +309,34 @@ export class YouTubeUrlModal extends BaseModal {
         chevron.innerHTML =
             '<svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1L5 5L9 1"/></svg>';
 
+        // Provider — always visible, below the controls row
+        const providerRow = container.createDiv('ytc-provider-row');
+
+        const providerLabel = providerRow.createEl('label');
+        providerLabel.textContent = 'AI PROVIDER';
+        providerLabel.htmlFor = 'ytc-provider-select';
+        providerLabel.addClass('ytc-field-label');
+
+        this.providerSelect = providerRow.createEl('select');
+        this.providerSelect.id = 'ytc-provider-select';
+
+        const providerOptions = [
+            { value: 'Google Gemini', text: 'Google Gemini (Recommended)' },
+            { value: 'OpenRouter', text: 'OpenRouter' },
+            { value: 'Groq', text: 'Groq (Fastest)' },
+            { value: 'Ollama Cloud', text: 'Ollama Cloud' },
+            { value: 'Ollama', text: 'Ollama (Local)' },
+        ];
+
+        providerOptions.forEach(opt => {
+            if (!this.providerSelect) return;
+            const el = this.providerSelect.createEl('option');
+            el.value = opt.value;
+            el.textContent = opt.text;
+        });
+        this.providerSelect.value = this.selectedProvider ?? 'Google Gemini';
+
+        // Collapsible content (model + instructions)
         const aiContent = container.createDiv('ytc-ai-content');
 
         let isExpanded = false;
@@ -336,34 +364,7 @@ export class YouTubeUrlModal extends BaseModal {
             }
         });
 
-        // Provider Selection
-        const providerRow = aiContent.createDiv();
-
-        const providerLabel = providerRow.createEl('label');
-        providerLabel.textContent = 'AI PROVIDER';
-        providerLabel.htmlFor = 'ytc-provider-select';
-        providerLabel.addClass('ytc-field-label');
-
-        this.providerSelect = providerRow.createEl('select');
-        this.providerSelect.id = 'ytc-provider-select';
-
-        const providerOptions = [
-            { value: 'Google Gemini', text: 'Google Gemini (Recommended)' },
-            { value: 'OpenRouter', text: 'OpenRouter' },
-            { value: 'Groq', text: 'Groq (Fastest)' },
-            { value: 'Ollama Cloud', text: 'Ollama Cloud' },
-            { value: 'Ollama', text: 'Ollama (Local)' },
-        ];
-
-        providerOptions.forEach(opt => {
-            if (!this.providerSelect) return;
-            const el = this.providerSelect.createEl('option');
-            el.value = opt.value;
-            el.textContent = opt.text;
-        });
-        this.providerSelect.value = this.selectedProvider ?? 'Google Gemini';
-
-        // Model Selection
+        // Model Selection (inside collapsible content)
         const modelRow = aiContent.createDiv('ytc-model-row');
 
         const modelLabel = modelRow.createEl('label');
