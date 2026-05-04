@@ -3,7 +3,7 @@ import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
 import type { GeminiRequestBody, GeminiResponse } from '../types/api-responses';
 import type { ProviderModelEntry } from '../constants/index';
-import { formatQuotaError, formatHttpError } from './error-utils';
+import { formatQuotaError } from './error-utils';
 
 /**
  * Google Gemini AI provider implementation
@@ -58,7 +58,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (!response.ok) {
-                throw new Error(formatHttpError(response.status, 'Gemini'));
+                await this.handleAPIError(response);
             }
 
             const data = (await response.json()) as GeminiResponse;

@@ -1,5 +1,6 @@
 import { AIProvider } from '../types';
 import { ErrorHandler } from '../services/error-handler';
+import { formatQuotaError, formatHttpError } from './error-utils';
 import type { JsonObject } from '../types/api-responses';
 
 /**
@@ -101,10 +102,27 @@ export abstract class BaseAIProvider implements AIProvider {
     }
 
     /**
-     * Handle API errors consistently
+     * Handle API errors consistently using shared formatting utilities
      */
     protected async handleAPIError(response: Response): Promise<never> {
-        return ErrorHandler.handleAPIError(response, this.name);
+        const status = response.status;
+
+        // Auth errors — no body needed
+        if (status === 401 || status === 403) {
+            throw new Error(formatHttpError(status, this.name));
+        }
+
+        // Quota/rate limit — parse body for details
+        if (status === 429) {
+            const errorData = await this.safeJsonParse(response);
+            const rawMessage = (errorData as Record<string, unknown>)?.error
+                ? String(((errorData as Record<string, unknown>).error as Record<string, unknown>)?.message ?? '')
+                : String((errorData as Record<string, unknown>)?.message ?? '');
+            throw new Error(formatQuotaError(rawMessage, this.name));
+        }
+
+        // All other errors
+        throw new Error(formatHttpError(status, this.name));
     }
 
     /**

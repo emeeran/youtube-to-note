@@ -10,7 +10,7 @@ import type { OllamaGenerateRequestBody, OllamaChatRequestBody, OllamaModelsResp
  */
 
 export class OllamaProvider extends BaseAIProvider {
-    readonly name = 'Ollama';
+    readonly name: string = 'Ollama';
 
     // Ollama API base URL
     private readonly apiBaseUrl: string;

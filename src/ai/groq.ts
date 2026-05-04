@@ -2,7 +2,6 @@ import { API_ENDPOINTS, AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
 import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
-import { formatQuotaError, formatHttpError } from './error-utils';
 
 /**
  * Groq AI provider implementation
@@ -22,11 +21,6 @@ export class GroqProvider extends BaseAIProvider {
             body: JSON.stringify(this.createRequestBody(prompt)),
         });
 
-        // Handle specific Groq errors
-        if (response.status === 401) {
-            throw new Error('Groq API key is invalid or missing. Please check your key.');
-        }
-
         if (response.status === 402) {
             throw new Error('Groq API requires a paid plan. Please check your billing settings.');
         }
@@ -35,19 +29,8 @@ export class GroqProvider extends BaseAIProvider {
             throw new Error(MESSAGES.ERRORS.GROQ_MODEL_NOT_FOUND);
         }
 
-        if (response.status === 429) {
-            let errorMessage = '';
-            try {
-                const errorData = await response.json() as { error?: { message?: string }; message?: string };
-                errorMessage = errorData?.error?.message ?? errorData?.message ?? '';
-            } catch {
-                // Ignore JSON parse errors
-            }
-            throw new Error(formatQuotaError(errorMessage, 'Groq'));
-        }
-
         if (!response.ok) {
-            throw new Error(formatHttpError(response.status, 'Groq'));
+            await this.handleAPIError(response);
         }
 
         const data = (await response.json()) as OpenAICompatibleResponse;
