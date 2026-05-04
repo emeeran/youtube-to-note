@@ -11,7 +11,7 @@ export enum ErrorCategory {
     AUTH = 'auth',
     VALIDATION = 'validation',
     PROVIDER = 'provider',
-    UNKNOWN = 'unknown'
+    UNKNOWN = 'unknown',
 }
 
 /**
@@ -38,9 +38,14 @@ export class ErrorHandler implements ErrorHandlerInterface {
         const message = error.message.toLowerCase();
 
         // Network errors
-        if (message.includes('network') || message.includes('fetch') ||
-            message.includes('connection') || message.includes('timeout') ||
-            message.includes('econnrefused') || message.includes('enotfound')) {
+        if (
+            message.includes('network') ||
+            message.includes('fetch') ||
+            message.includes('connection') ||
+            message.includes('timeout') ||
+            message.includes('econnrefused') ||
+            message.includes('enotfound')
+        ) {
             return {
                 category: ErrorCategory.NETWORK,
                 message: MESSAGES.ERRORS.NETWORK_ERROR,
@@ -68,9 +73,14 @@ export class ErrorHandler implements ErrorHandlerInterface {
 
         // Authentication errors
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        if (message.includes('401') || message.includes('403') ||
-            message.includes('unauthorized') || message.includes('invalid key') ||
-            message.includes('invalid api key') || message.includes('authentication')) {
+        if (
+            message.includes('401') ||
+            message.includes('403') ||
+            message.includes('unauthorized') ||
+            message.includes('invalid key') ||
+            message.includes('invalid api key') ||
+            message.includes('authentication')
+        ) {
             return {
                 category: ErrorCategory.AUTH,
                 message: 'API key is invalid or expired. Please check your settings.',
@@ -81,8 +91,12 @@ export class ErrorHandler implements ErrorHandlerInterface {
 
         // Validation errors
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        if (message.includes('invalid url') || message.includes('video id') ||
-            message.includes('not found') || message.includes('unavailable')) {
+        if (
+            message.includes('invalid url') ||
+            message.includes('video id') ||
+            message.includes('not found') ||
+            message.includes('unavailable')
+        ) {
             return {
                 category: ErrorCategory.VALIDATION,
                 message: error.message,
@@ -92,8 +106,12 @@ export class ErrorHandler implements ErrorHandlerInterface {
         }
 
         // Provider-specific errors
-        if (message.includes('model') || message.includes('context length') ||
-            message.includes('too long') || message.includes('token')) {
+        if (
+            message.includes('model') ||
+            message.includes('context length') ||
+            message.includes('too long') ||
+            message.includes('token')
+        ) {
             return {
                 category: ErrorCategory.PROVIDER,
                 message: error.message,
@@ -128,9 +146,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
         const result = this.classifyError(error);
 
         // Create notice with guidance
-        const noticeMessage = result.userGuidance
-            ? `${result.message}\n\n💡 ${result.userGuidance}`
-            : result.message;
+        const noticeMessage = result.userGuidance ? `${result.message}\n\n💡 ${result.userGuidance}` : result.message;
 
         const noticeDuration = result.retryable ? 5000 : 8000;
         new Notice(noticeMessage, noticeDuration);
@@ -144,7 +160,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
     static async withErrorHandling<T>(
         operation: () => Promise<T>,
         context: string,
-        showNotice = true
+        showNotice = true,
     ): Promise<T | null> {
         try {
             return await operation();
@@ -157,11 +173,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
     /**
      * Execute a synchronous operation with error handling
      */
-    static withSyncErrorHandling<T>(
-        operation: () => T,
-        context: string,
-        showNotice = true
-    ): T | null {
+    static withSyncErrorHandling<T>(operation: () => T, context: string, showNotice = true): T | null {
         try {
             return operation();
         } catch (error) {
@@ -173,12 +185,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
     /**
      * Create a standardized error for API responses
      */
-    static createAPIError(
-        provider: string,
-        status: number,
-        statusText: string,
-        details?: string
-    ): Error {
+    static createAPIError(provider: string, status: number, statusText: string, details?: string): Error {
         const message = `${provider} API error: ${status} ${statusText}${details ? `. ${details}` : ''}`;
         return new Error(message);
     }
@@ -186,11 +193,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
     /**
      * Handle API response errors with consistent format
      */
-    static async handleAPIError(
-        response: Response,
-        provider: string,
-        fallbackMessage?: string
-    ): Promise<never> {
+    static async handleAPIError(response: Response, provider: string, fallbackMessage?: string): Promise<never> {
         let errorDetails = fallbackMessage ?? '';
 
         try {
@@ -340,10 +343,7 @@ export class ErrorHandler implements ErrorHandlerInterface {
         ErrorHandler.handle(error, context, showNotice);
     }
 
-    async withErrorHandling<T>(
-        operation: () => Promise<T>,
-        context: string
-    ): Promise<T | null> {
+    async withErrorHandling<T>(operation: () => Promise<T>, context: string): Promise<T | null> {
         return ErrorHandler.withErrorHandling(operation, context);
     }
 }

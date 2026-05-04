@@ -17,17 +17,13 @@ export class ConflictPrevention {
         const warnings: string[] = [];
 
         // Check for specific WebClipper plugin (not our own)
-        const suspiciousElements = [
-            'div[data-plugin="web-clipper"]',
-            '.web-clipper-modal',
-        ];
+        const suspiciousElements = ['div[data-plugin="web-clipper"]', '.web-clipper-modal'];
 
         suspiciousElements.forEach(selector => {
             const elements = document.querySelectorAll(selector);
             // Filter out our own elements
-            const foreignElements = Array.from(elements).filter(el =>
-                !el.hasAttribute('data-plugin') ||
-                el.getAttribute('data-plugin') !== this.PLUGIN_ID
+            const foreignElements = Array.from(elements).filter(
+                el => !el.hasAttribute('data-plugin') || el.getAttribute('data-plugin') !== this.PLUGIN_ID,
             );
             if (foreignElements.length > 0) {
                 warnings.push(`Detected potential plugin conflict: ${selector}`);
@@ -125,10 +121,7 @@ export class ConflictPrevention {
     /**
      * Wrap async operations with conflict checking
      */
-    static async safeOperation<T>(
-        operation: () => Promise<T>,
-        operationName: string
-    ): Promise<T | null> {
+    static async safeOperation<T>(operation: () => Promise<T>, operationName: string): Promise<T | null> {
         // Always allow operation - conflict checking was too aggressive
         try {
             this.log(`Starting ${operationName}`);

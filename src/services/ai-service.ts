@@ -11,7 +11,7 @@ export class AIService {
 
     constructor(
         providers: AIProvider[],
-        private settings: YouTubePluginSettings
+        private settings: YouTubePluginSettings,
     ) {
         if (!providers || providers.length === 0) {
             throw new Error('At least one AI provider is required');
@@ -44,7 +44,7 @@ export class AIService {
         prompt: string,
         overrideModel?: string,
         images?: (string | ArrayBuffer)[],
-        enableFallback = true
+        enableFallback = true,
     ): Promise<AIResponse> {
         const provider = this.providerMap.get(providerName);
         if (!provider) {
@@ -103,7 +103,7 @@ export class AIService {
      */
     getProviderModels(providerName: string): string[] {
         const models = PROVIDER_MODEL_OPTIONS[providerName] ?? [];
-        return models.map(m => typeof m === 'string' ? m : m.name);
+        return models.map(m => (typeof m === 'string' ? m : m.name));
     }
 
     /**

@@ -80,7 +80,7 @@ export abstract class BaseModal extends Modal {
         container: HTMLElement,
         text: string,
         isPrimary = false,
-        onClick?: () => void
+        onClick?: () => void,
     ): HTMLButtonElement {
         const button = DOMUtils.createStyledButton(container, text, isPrimary, onClick);
         button.addClass(MODAL_CSS_CLASSES.button);
@@ -100,11 +100,7 @@ export abstract class BaseModal extends Modal {
     /**
      * Create standardized input with conflict prevention and accessibility
      */
-    protected createInput(
-        container: HTMLElement,
-        type: string,
-        placeholder?: string
-    ): HTMLInputElement {
+    protected createInput(container: HTMLElement, type: string, placeholder?: string): HTMLInputElement {
         const input = container.createEl('input', {
             type,
             placeholder,
@@ -126,10 +122,7 @@ export abstract class BaseModal extends Modal {
     /**
      * Set up keyboard event handlers
      */
-    protected setupKeyHandlers(
-        onEnter: () => void | Promise<void>,
-        onEscape?: () => void | Promise<void>
-    ): void {
+    protected setupKeyHandlers(onEnter: () => void | Promise<void>, onEscape?: () => void | Promise<void>): void {
         const wrappedOnEnter = async () => {
             try {
                 await onEnter();
@@ -138,13 +131,15 @@ export abstract class BaseModal extends Modal {
             }
         };
 
-        const wrappedOnEscape = onEscape ? async () => {
-            try {
-                await onEscape();
-            } catch {
-                // Ignore error
-            }
-        } : undefined;
+        const wrappedOnEscape = onEscape
+            ? async () => {
+                  try {
+                      await onEscape();
+                  } catch {
+                      // Ignore error
+                  }
+              }
+            : undefined;
 
         DOMUtils.setupModalKeyHandlers(this.contentEl, wrappedOnEnter, wrappedOnEscape);
     }
@@ -191,7 +186,7 @@ export abstract class BaseModal extends Modal {
         message: string,
         confirmText = 'Confirm',
         cancelText = 'Cancel',
-        isDangerous = false
+        isDangerous = false,
     ): Promise<boolean> {
         const { ConfirmationModal } = await import('./confirmation-modal');
         const modal = new ConfirmationModal(this.app, {
@@ -231,7 +226,6 @@ export abstract class BaseModal extends Modal {
         // Remove unique classes and attributes
         this.modalEl.removeClass(MODAL_CSS_CLASSES.modal);
         this.modalEl.removeAttribute('data-plugin');
-
     }
 
     /**

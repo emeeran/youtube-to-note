@@ -29,7 +29,7 @@ export class DOMUtils implements DOMUtilsInterface {
         container: HTMLElement,
         text: string,
         isPrimary = false,
-        onClick?: () => void
+        onClick?: () => void,
     ): HTMLButtonElement {
         const button = container.createEl('button', { text });
 
@@ -49,12 +49,7 @@ export class DOMUtils implements DOMUtilsInterface {
     /**
      * Create a styled input field
      */
-    static createStyledInput(
-        container: HTMLElement,
-        type: string,
-        placeholder: string,
-        value = ''
-    ): HTMLInputElement {
+    static createStyledInput(container: HTMLElement, type: string, placeholder: string, value = ''): HTMLInputElement {
         const input = container.createEl('input', {
             type,
             placeholder,
@@ -97,12 +92,8 @@ export class DOMUtils implements DOMUtilsInterface {
     /**
      * Set up keyboard event handlers for modals
      */
-    static setupModalKeyHandlers(
-        element: HTMLElement,
-        onEnter: () => void,
-        onEscape?: () => void
-    ): void {
-        element.addEventListener('keydown', (e) => {
+    static setupModalKeyHandlers(element: HTMLElement, onEnter: () => void, onEscape?: () => void): void {
+        element.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 e.stopPropagation();
@@ -129,7 +120,7 @@ export class DOMUtils implements DOMUtilsInterface {
         container: HTMLElement,
         text: string,
         isPrimary = false,
-        onClick?: () => void
+        onClick?: () => void,
     ): HTMLButtonElement {
         return DOMUtils.createStyledButton(container, text, isPrimary, onClick);
     }

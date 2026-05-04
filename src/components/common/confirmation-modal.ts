@@ -26,7 +26,7 @@ export class ConfirmationModal extends BaseModal {
 
     constructor(
         app: App,
-        private options: ConfirmationModalOptions
+        private options: ConfirmationModalOptions,
     ) {
         super(app);
     }
@@ -60,37 +60,17 @@ export class ConfirmationModal extends BaseModal {
 
         if (isDangerous) {
             // Swap: cancel on left, confirm on right (for destructive actions)
-            this.cancelButton = this.createButton(
-                buttonContainer,
-                cancelText,
-                false,
-                () => this.handleCancel()
-            );
+            this.cancelButton = this.createButton(buttonContainer, cancelText, false, () => this.handleCancel());
             this.cancelButton.setAttribute('aria-label', `Cancel: ${cancelText}`);
 
-            this.confirmButton = this.createButton(
-                buttonContainer,
-                confirmText,
-                true,
-                () => this.handleConfirm()
-            );
+            this.confirmButton = this.createButton(buttonContainer, confirmText, true, () => this.handleConfirm());
             this.confirmButton.setAttribute('aria-label', `Confirm: ${confirmText}`);
         } else {
             // Default: confirm on left, cancel on right
-            this.confirmButton = this.createButton(
-                buttonContainer,
-                confirmText,
-                true,
-                () => this.handleConfirm()
-            );
+            this.confirmButton = this.createButton(buttonContainer, confirmText, true, () => this.handleConfirm());
             this.confirmButton.setAttribute('aria-label', `Confirm: ${confirmText}`);
 
-            this.cancelButton = this.createButton(
-                buttonContainer,
-                cancelText,
-                false,
-                () => this.handleCancel()
-            );
+            this.cancelButton = this.createButton(buttonContainer, cancelText, false, () => this.handleCancel());
             this.cancelButton.setAttribute('aria-label', `Cancel: ${cancelText}`);
         }
 
@@ -155,7 +135,7 @@ export class ConfirmationModal extends BaseModal {
      * Returns promise that resolves to true if confirmed, false if cancelled
      */
     public openAndWait(): Promise<boolean> {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             this.resolver = resolve;
             this.open();
         });

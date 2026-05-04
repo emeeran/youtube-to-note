@@ -45,7 +45,7 @@ export class GroqProvider extends BaseAIProvider {
     protected createHeaders(): Record<string, string> {
         return {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
         };
     }
 
@@ -55,7 +55,8 @@ export class GroqProvider extends BaseAIProvider {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability. Even with limited information, provide maximum value through structured analysis and practical recommendations.',
+                    content:
+                        'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability. Even with limited information, provide maximum value through structured analysis and practical recommendations.',
                 },
                 {
                     role: 'user',

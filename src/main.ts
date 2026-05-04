@@ -279,7 +279,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                         providerName: provider,
                         model,
                         performanceMode,
-                        enableParallel: enableParallel,
+                        enableParallel,
                         preferMultimodal,
                         maxTokens,
                         temperature,

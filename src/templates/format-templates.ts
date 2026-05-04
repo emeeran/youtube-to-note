@@ -10,12 +10,11 @@
 import { OutputFormat } from '../types';
 
 export const FORMAT_TEMPLATES: Readonly<Record<OutputFormat, string>> = {
+    // ─────────────────────────────────────────────────────────────────────────────
+    // EXECUTIVE SUMMARY — Decision-ready strategic intelligence
+    // ─────────────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EXECUTIVE SUMMARY — Decision-ready strategic intelligence
-// ─────────────────────────────────────────────────────────────────────────────
-
-'executive-summary': `[SYSTEM]: Strategic Intelligence Analyst. Distill into a decision-ready brief. Ignore intros, sponsors, filler. Rank insights by strategic significance, not chronology. Every claim must reference specific video content. Active voice. Address reader as "you."
+    'executive-summary': `[SYSTEM]: Strategic Intelligence Analyst. Distill into a decision-ready brief. Ignore intros, sponsors, filler. Rank insights by strategic significance, not chronology. Every claim must reference specific video content. Active voice. Address reader as "you."
 
 ---
 
@@ -88,11 +87,11 @@ export const FORMAT_TEMPLATES: Readonly<Record<OutputFormat, string>> = {
 
 [CONSTRAINTS]: Markdown only. No preambles. Every insight must cite specific video content. Active voice. Executive Summary = 150-250 words. No timestamps. 100% factual retention.`,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TECHNICAL ANALYSIS — Engineering-focused deep dive
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // TECHNICAL ANALYSIS — Engineering-focused deep dive
+    // ─────────────────────────────────────────────────────────────────────────────
 
-'technical-analysis': `[SYSTEM]: Senior Staff Engineer conducting a technical review. Extract precise, reproducible analysis — every claim grounded in evidence, every instruction specific enough to follow. Ignore intros, sponsors, filler. Capture ALL technical substance: code, commands, config, architecture decisions, version numbers. Active voice. Address reader as "you."
+    'technical-analysis': `[SYSTEM]: Senior Staff Engineer conducting a technical review. Extract precise, reproducible analysis — every claim grounded in evidence, every instruction specific enough to follow. Ignore intros, sponsors, filler. Capture ALL technical substance: code, commands, config, architecture decisions, version numbers. Active voice. Address reader as "you."
 
 ---
 
@@ -196,11 +195,11 @@ graph LR
 
 [CONSTRAINTS]: Markdown only. No preambles. Every technical claim must cite specific video evidence. All code in fenced blocks with correct language tags. Active voice. No timestamps. 100% factual retention for versions and commands.`,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3C ACCELERATED LEARNING — Compress → Connect → Compound
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 3C ACCELERATED LEARNING — Compress → Connect → Compound
+    // ─────────────────────────────────────────────────────────────────────────────
 
-'3c-accelerated-learning': `[SYSTEM]: Learning Science Expert. Transform into lasting, transferable knowledge using the Compress → Connect → Compound framework. Ignore intros, sponsors, filler. Identify the vital 20% that delivers 80% of the value. Active voice. Address reader as "you."
+    '3c-accelerated-learning': `[SYSTEM]: Learning Science Expert. Transform into lasting, transferable knowledge using the Compress → Connect → Compound framework. Ignore intros, sponsors, filler. Identify the vital 20% that delivers 80% of the value. Active voice. Address reader as "you."
 
 ---
 
@@ -297,11 +296,11 @@ Review at: 1 day → 3 days → 7 days → 21 days
 
 [CONSTRAINTS]: Markdown only. No preambles. Every concept must cite specific video content. Active voice. Recall questions must test understanding, not memorization. No timestamps. 100% factual retention.`,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ATOM NOTES — Atomic knowledge units with concept mapping
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ATOM NOTES — Atomic knowledge units with concept mapping
+    // ─────────────────────────────────────────────────────────────────────────────
 
-'atom-notes': `[SYSTEM]: Knowledge Architect. Decompose into atomic knowledge units — self-contained, linkable ideas that combine across contexts. Ignore intros, sponsors, filler. Identify 5-10 distinct atomic ideas. Each must be independently understandable. Active voice. Address reader as "you."
+    'atom-notes': `[SYSTEM]: Knowledge Architect. Decompose into atomic knowledge units — self-contained, linkable ideas that combine across contexts. Ignore intros, sponsors, filler. Identify 5-10 distinct atomic ideas. Each must be independently understandable. Active voice. Address reader as "you."
 
 ---
 
@@ -379,11 +378,11 @@ graph LR
 
 [CONSTRAINTS]: Markdown only. No preambles. Each atom independently understandable — no forward references. Every atom must cite specific video content. Active voice. No timestamps. 100% factual retention.`,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ARTICLE — Publication-ready long-form analysis
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ARTICLE — Publication-ready long-form analysis
+    // ─────────────────────────────────────────────────────────────────────────────
 
-'article': `[SYSTEM]: Senior Editor and Research Analyst. Convert into a publication-ready article — intellectually rigorous, information-dense, critically engaged. This reads like a polished essay, not a summary. Identify all speakers, roles, core thesis. Rank themes by significance, NOT chronology. Active voice. Address reader as "you."
+    article: `[SYSTEM]: Senior Editor and Research Analyst. Convert into a publication-ready article — intellectually rigorous, information-dense, critically engaged. This reads like a polished essay, not a summary. Identify all speakers, roles, core thesis. Rank themes by significance, NOT chronology. Active voice. Address reader as "you."
 
 ---
 
@@ -446,11 +445,11 @@ graph LR
 
 [CONSTRAINTS]: Markdown only. No preambles. No timestamps — body reads like a professional essay. Match the speaker's register. Active voice. Bold opening phrase of each Deep Dive paragraph. Every paragraph must have at least one evidence anchor. At least one challenge per major theme. 100% factual retention for proper nouns and data.`,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPLETE TRANSCRIPTION — Full structured verbatim notes
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // COMPLETE TRANSCRIPTION — Full structured verbatim notes
+    // ─────────────────────────────────────────────────────────────────────────────
 
-'complete-transcription': `[SYSTEM]: Precision Transcription Architect. Produce a complete, end-to-end structured transcription — every spoken word captured, organized by topic. Watch and listen to the ENTIRE video. Capture EVERY sentence. Identify all speakers. Read on-screen text, slides, code, diagrams. Strip fillers only ("um," "ah," "like," "you know"). DO NOT paraphrase or summarize. Flag unrecognizable words as [VERIFY].
+    'complete-transcription': `[SYSTEM]: Precision Transcription Architect. Produce a complete, end-to-end structured transcription — every spoken word captured, organized by topic. Watch and listen to the ENTIRE video. Capture EVERY sentence. Identify all speakers. Read on-screen text, slides, code, diagrams. Strip fillers only ("um," "ah," "like," "you know"). DO NOT paraphrase or summarize. Flag unrecognizable words as [VERIFY].
 
 ---
 
@@ -505,11 +504,11 @@ Organize the COMPLETE transcription into topic sections using ### headers. Every
 
 [CONSTRAINTS]: Markdown only. No preambles. This is a FULL transcription, NOT a summary. No timestamps. No line numbers. Speaker labels as **[Name]:** before each turn. **Bold** key terms on first introduction. \`Code\` for commands and functions. *Italics* for visual descriptions: *\[Visual: ...\]*. Filler words removed but ALL substantive content preserved verbatim. 100% factual retention.`,
 
-// ─────────────────────────────────────────────────────────────────────────────
-// QUICK NOTES — Ultra-compact high-signal distillation
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // QUICK NOTES — Ultra-compact high-signal distillation
+    // ─────────────────────────────────────────────────────────────────────────────
 
-'quick-notes': `[SYSTEM]: Knowledge Distiller. Extract the absolute essence. Think: "someone has 60 seconds — what do they absolutely need?" Every word earns its place. Ignore intros, sponsors, filler. Active voice. Address reader as "you."
+    'quick-notes': `[SYSTEM]: Knowledge Distiller. Extract the absolute essence. Think: "someone has 60 seconds — what do they absolutely need?" Every word earns its place. Ignore intros, sponsors, filler. Active voice. Address reader as "you."
 
 ---
 
@@ -543,7 +542,6 @@ Organize the COMPLETE transcription into topic sections using ### headers. Every
 > **Generated by**: __AI_PROVIDER__ / __AI_MODEL__
 
 [CONSTRAINTS]: Markdown only. No preambles. Maximum 300 words total. Every key point must cite specific video content. Active voice. No timestamps. 100% factual retention.`,
-
 } as const;
 
 /**
@@ -566,7 +564,7 @@ export const FORMAT_META: Readonly<Record<OutputFormat, { label: string; descrip
         label: 'Atom Notes',
         description: 'Self-contained atomic knowledge units with concept mapping and implementation seeds',
     },
-    'article': {
+    article: {
         label: 'Article',
         description: 'Publication-ready long-form essay with deep dive, glossary, and citations',
     },

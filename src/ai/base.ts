@@ -46,7 +46,11 @@ export abstract class BaseAIProvider implements AIProvider {
         this._temperature = temperature;
     }
 
-    protected constructor(protected apiKey: string, initialModel?: string, timeout?: number) {
+    protected constructor(
+        protected apiKey: string,
+        initialModel?: string,
+        timeout?: number,
+    ) {
         // Note: API key validation is now optional - some providers (like Ollama) don't require it
         this._model = initialModel ?? '';
         if (timeout) {

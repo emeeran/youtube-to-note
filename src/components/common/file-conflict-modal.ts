@@ -13,7 +13,10 @@ export class FileConflictModal extends BaseModal {
     private resolve?: (value: ConflictResolution) => void;
     private decision: ConflictResolution = 'cancel';
 
-    constructor(app: App, private file: TFile) {
+    constructor(
+        app: App,
+        private file: TFile,
+    ) {
         super(app);
     }
 
@@ -24,7 +27,7 @@ export class FileConflictModal extends BaseModal {
     }
 
     openAndWait(): Promise<ConflictResolution> {
-        return new Promise<ConflictResolution>((resolve) => {
+        return new Promise<ConflictResolution>(resolve => {
             this.resolve = resolve;
             // Ensure modal is visible and on top when opened from another modal
             this.forceVisible();

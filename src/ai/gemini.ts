@@ -33,7 +33,7 @@ export class GeminiProvider extends BaseAIProvider {
 
             // Handle specific Gemini errors with better messages
             if (response.status === 400) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = errorData?.error?.message || 'Bad request';
                 throw new Error(`Gemini API error: ${errorMessage}. Try checking the model configuration.`);
             }
@@ -43,7 +43,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (response.status === 403) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = errorData?.error?.message || '';
                 if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('billing')) {
                     throw new Error(formatQuotaError(errorMessage, 'Gemini'));
@@ -52,7 +52,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             if (response.status === 429) {
-                const errorData = await this.safeJsonParse(response) as any;
+                const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = errorData?.error?.message || errorData?.message || '';
                 throw new Error(formatQuotaError(errorMessage, 'Gemini'));
             }
@@ -72,7 +72,16 @@ export class GeminiProvider extends BaseAIProvider {
                 throw new Error('Response blocked by Gemini safety filters. Try rephrasing.');
             }
 
-            if (!this.validateResponse(data as unknown as Record<string, unknown>, ['candidates', '0', 'content', 'parts', '0', 'text'])) {
+            if (
+                !this.validateResponse(data as unknown as Record<string, unknown>, [
+                    'candidates',
+                    '0',
+                    'content',
+                    'parts',
+                    '0',
+                    'text',
+                ])
+            ) {
                 throw new Error('Invalid response format from Gemini API');
             }
 
@@ -101,9 +110,11 @@ export class GeminiProvider extends BaseAIProvider {
             normalizedPrompt.includes('youtube.com/');
 
         const baseConfig: GeminiRequestBody = {
-            contents: [{
-                parts: [{ text: prompt }],
-            }],
+            contents: [
+                {
+                    parts: [{ text: prompt }],
+                },
+            ],
             generationConfig: {
                 temperature: this._temperature,
                 maxOutputTokens: this._maxTokens,
@@ -118,10 +129,10 @@ export class GeminiProvider extends BaseAIProvider {
         if (isVideoAnalysis) {
             // Lookup the model entry in PROVIDER_MODEL_OPTIONS to see if it explicitly
             // supports audio/video tokens. This is more reliable than a name heuristic.
-            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? [] as ProviderModelEntry[];
+            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? ([] as ProviderModelEntry[]);
             const currentModelName = String(this.model ?? '').toLowerCase();
             providerModels.find(m => {
-                const name = (typeof m === 'string') ? m : (m?.name ? m.name : '');
+                const name = typeof m === 'string' ? m : m?.name ? m.name : '';
                 return String(name).toLowerCase() === currentModelName;
             });
 
@@ -133,20 +144,23 @@ export class GeminiProvider extends BaseAIProvider {
             const videoConfig: GeminiRequestBody & { systemInstruction: { parts: Array<{ text: string }> } } = {
                 ...baseConfig,
                 systemInstruction: {
-                    parts: [{
-                        text: 'You are an expert video content analyzer. ' +
-                            `Provide comprehensive, multimodal analysis using:
+                    parts: [
+                        {
+                            text:
+                                'You are an expert video content analyzer. ' +
+                                `Provide comprehensive, multimodal analysis using:
 • AUDIO STREAM: Transcribe all spoken content, identify speakers, capture tone/emphasis/emotion
 • VIDEO STREAM: Analyze visual elements, text overlays, diagrams, slides, gestures, ` +
-                            `scene changes, and visual demonstrations
+                                `scene changes, and visual demonstrations
 • INTEGRATED INSIGHTS: Synthesize audio and visual data to provide complete understanding
 
 For best results:
 - Prioritize accuracy in transcription and speaker identification` +
-                            `- Extract and explain key concepts shown visually
+                                `- Extract and explain key concepts shown visually
 - Note timing relationships between audio and visual elements
 - Identify visual cues that reinforce or clarify spoken content`,
-                    }],
+                        },
+                    ],
                 },
             };
 

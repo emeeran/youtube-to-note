@@ -132,7 +132,6 @@ Description: {{DESCRIPTION}}
  * - Readonly template constants for better optimization
  */
 export class AIPromptService implements PromptService {
-
     // ============ PRIVATE MEMBERS ============
 
     /** Cached compiled regex pattern for frontmatter key replacement */
@@ -232,13 +231,13 @@ export class AIPromptService implements PromptService {
     private buildTranscriptSection(transcript?: string, format?: OutputFormat): string {
         if (!transcript?.trim()) return '';
 
-        const budget = format && FORMAT_CONFIG[format]?.transcriptBudget
-            ? FORMAT_CONFIG[format].transcriptBudget!
-            : TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH;
+        const budget =
+            format && FORMAT_CONFIG[format]?.transcriptBudget
+                ? FORMAT_CONFIG[format].transcriptBudget!
+                : TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH;
 
-        const truncated = transcript.length > budget
-            ? `${transcript.slice(0, budget)}... [transcript truncated]`
-            : transcript;
+        const truncated =
+            transcript.length > budget ? `${transcript.slice(0, budget)}... [transcript truncated]` : transcript;
 
         return `\nVIDEO CONTENT/TRANSCRIPT:\n${truncated}`;
     }
@@ -258,15 +257,7 @@ export class AIPromptService implements PromptService {
         providerName?: string,
     ): string {
         // Enriched frontmatter with video metadata
-        const frontmatter = generateFrontmatter(
-            videoData.title,
-            videoUrl,
-            videoId,
-            format,
-            provider,
-            model,
-            videoData,
-        );
+        const frontmatter = generateFrontmatter(videoData.title, videoUrl, videoId, format, provider, model, videoData);
 
         const iframe = generateVideoIframe(videoId, videoData.title);
 
@@ -300,10 +291,7 @@ export class AIPromptService implements PromptService {
     /**
      * Single-pass placeholder replacement using a map
      */
-    private replacePlaceholders(
-        template: string,
-        replacements: Readonly<Record<string, string>>
-    ): string {
+    private replacePlaceholders(template: string, replacements: Readonly<Record<string, string>>): string {
         let result = template;
         for (const [placeholder, value] of Object.entries(replacements)) {
             const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -335,27 +323,14 @@ export class AIPromptService implements PromptService {
         });
 
         // Ensure frontmatter has correct values (fallback for malformed responses)
-        updatedContent = this.ensureFrontMatterValue(
-            updatedContent,
-            'ai_provider',
-            providerValue
-        );
-        updatedContent = this.ensureFrontMatterValue(
-            updatedContent,
-            'ai_model',
-            modelValue
-        );
+        updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_provider', providerValue);
+        updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_model', modelValue);
 
         // Append Resources section ONLY if the format doesn't already have one
         if (videoUrl && format) {
             const config = FORMAT_CONFIG[format];
             if (!config?.hasBuiltInResources) {
-                updatedContent = this.appendResourcesSection(
-                    updatedContent,
-                    videoUrl,
-                    providerValue,
-                    modelValue
-                );
+                updatedContent = this.appendResourcesSection(updatedContent, videoUrl, providerValue, modelValue);
             }
         }
 
@@ -370,12 +345,7 @@ export class AIPromptService implements PromptService {
     /**
      * Append Resources section to the end of the content
      */
-    private appendResourcesSection(
-        content: string,
-        videoUrl: string,
-        provider: string,
-        model: string
-    ): string {
+    private appendResourcesSection(content: string, videoUrl: string, provider: string, model: string): string {
         const processingDate = new Date().toISOString().split('T')[0];
         const resourcesSection = `\n\n## Resources\n- Video URL: ${videoUrl}\n- Processing Date: ${processingDate}\n- Provider: ${provider} ${model}\n`;
 
@@ -386,11 +356,7 @@ export class AIPromptService implements PromptService {
     /**
      * Ensure frontmatter key has correct value
      */
-    private ensureFrontMatterValue(
-        content: string,
-        key: string,
-        value: string
-    ): string {
+    private ensureFrontMatterValue(content: string, key: string, value: string): string {
         const pattern = new RegExp(`(${key}\\s*:\\s*)(["'])?([^"'\\n]*)(["'])?`, 'i');
 
         if (pattern.test(content)) {
@@ -450,9 +416,10 @@ export class AIPromptService implements PromptService {
             const seconds = parseInt(match[3]!);
             const title = (match[4] ?? '').trim();
             const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-            const formatted = hours > 0
-                ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-                : `${minutes}:${String(seconds).padStart(2, '0')}`;
+            const formatted =
+                hours > 0
+                    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+                    : `${minutes}:${String(seconds).padStart(2, '0')}`;
             chapters.push(`- **${formatted}** ${title}`);
         }
 
@@ -493,8 +460,8 @@ export class AIPromptService implements PromptService {
         const multimodalProviders = [
             'google gemini',
             'gemini',
-            'openrouter',        // GPT-4o, Claude 3.5, etc. via OpenRouter
-            'ollama cloud',      // Vision models via Ollama
+            'openrouter', // GPT-4o, Claude 3.5, etc. via OpenRouter
+            'ollama cloud', // Vision models via Ollama
         ];
         return multimodalProviders.some(p => lower === p || lower.includes(p));
     }
@@ -511,17 +478,21 @@ export class AIPromptService implements PromptService {
 
         // Remove duplicate iframes (keep only the first)
         let result = content;
-        const iframePattern = /<iframe[^>]*src="https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[^"]*"[^>]*><\/iframe>/g;
+        const iframePattern =
+            /<iframe[^>]*src="https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[^"]*"[^>]*><\/iframe>/g;
         const iframes = result.match(iframePattern);
         if (iframes && iframes.length > 1) {
             let firstFound = false;
-            result = result.replace(/(<div[^>]*>)?\s*<iframe[^>]*src="https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[^"]*"[^>]*><\/iframe>\s*(<\/div>)?/g, (match) => {
-                if (!firstFound) {
-                    firstFound = true;
-                    return match;
-                }
-                return '';
-            });
+            result = result.replace(
+                /(<div[^>]*>)?\s*<iframe[^>]*src="https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[^"]*"[^>]*><\/iframe>\s*(<\/div>)?/g,
+                match => {
+                    if (!firstFound) {
+                        firstFound = true;
+                        return match;
+                    }
+                    return '';
+                },
+            );
         }
 
         return result;
@@ -531,9 +502,11 @@ export class AIPromptService implements PromptService {
      * Validate prompt length and content
      */
     validatePrompt(prompt: string): boolean {
-        return Boolean(prompt) &&
-               typeof prompt === 'string' &&
-               prompt.trim().length >= TOKEN_LIMITS.MIN_PROMPT_LENGTH &&
-               prompt.length <= TOKEN_LIMITS.MAX_PROMPT_LENGTH;
+        return (
+            Boolean(prompt) &&
+            typeof prompt === 'string' &&
+            prompt.trim().length >= TOKEN_LIMITS.MIN_PROMPT_LENGTH &&
+            prompt.length <= TOKEN_LIMITS.MAX_PROMPT_LENGTH
+        );
     }
 }

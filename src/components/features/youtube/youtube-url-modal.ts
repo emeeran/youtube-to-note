@@ -430,7 +430,8 @@ export class YouTubeUrlModal extends BaseModal {
         this.userInstructionsTextarea = userInstructionsWrapper.createEl('textarea', {
             cls: 'ytc-user-instructions-textarea',
         });
-        this.userInstructionsTextarea.placeholder = 'E.g., \'Focus on specific aspects...\', \'Include code examples\', \'Highlight the debate about...\'';
+        this.userInstructionsTextarea.placeholder =
+            "E.g., 'Focus on specific aspects...', 'Include code examples', 'Highlight the debate about...'";
         this.userInstructionsTextarea.rows = 2;
         this.userInstructionsTextarea.setAttribute('aria-label', 'User Instructions');
         this.userInstructionsTextarea.addEventListener('input', () => {
@@ -777,7 +778,11 @@ export class YouTubeUrlModal extends BaseModal {
         if (!this.validationMessage) return;
 
         this.validationMessage.textContent = message;
-        this.validationMessage.classList.remove('ytc-validation-error', 'ytc-validation-success', 'ytc-validation-info');
+        this.validationMessage.classList.remove(
+            'ytc-validation-error',
+            'ytc-validation-success',
+            'ytc-validation-info',
+        );
 
         if (type === 'error') {
             this.validationMessage.classList.add('ytc-validation-error');

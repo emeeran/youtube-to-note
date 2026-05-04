@@ -20,14 +20,27 @@ export const FORMAT_CONFIG: Readonly<Record<OutputFormat, FormatConfig>> = {
     'executive-summary': {
         recommendedMaxTokens: 4096,
         temperatureHint: 0.5,
-        expectedSections: ['Executive Summary', 'Strategic Insights', 'Impact Assessment', 'Key References', 'Action Items'],
+        expectedSections: [
+            'Executive Summary',
+            'Strategic Insights',
+            'Impact Assessment',
+            'Key References',
+            'Action Items',
+        ],
         hasBuiltInResources: true,
     },
     'technical-analysis': {
         recommendedMaxTokens: 6144,
         temperatureHint: 0.3,
         transcriptBudget: 120_000,
-        expectedSections: ['Technical Overview', 'Tech Stack', 'Architecture', 'Implementation', 'Engineering Decisions', 'Resources'],
+        expectedSections: [
+            'Technical Overview',
+            'Tech Stack',
+            'Architecture',
+            'Implementation',
+            'Engineering Decisions',
+            'Resources',
+        ],
         hasBuiltInResources: true,
     },
     '3c-accelerated-learning': {
@@ -44,11 +57,17 @@ export const FORMAT_CONFIG: Readonly<Record<OutputFormat, FormatConfig>> = {
         expectedSections: ['Atomic Ideas', 'Concept Map', 'Notable Captures', 'Implementation Seeds'],
         hasBuiltInResources: false,
     },
-    'article': {
+    article: {
         recommendedMaxTokens: 8192,
         temperatureHint: 0.6,
         transcriptBudget: 150_000,
-        expectedSections: ['Executive Summary', 'The Deep Dive', 'Technical Glossary', 'Resources & Citations', 'Actionable Takeaways'],
+        expectedSections: [
+            'Executive Summary',
+            'The Deep Dive',
+            'Technical Glossary',
+            'Resources & Citations',
+            'Actionable Takeaways',
+        ],
         hasBuiltInResources: true,
     },
     'complete-transcription': {

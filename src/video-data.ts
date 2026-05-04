@@ -77,7 +77,8 @@ export class YouTubeVideoService implements VideoDataService {
             };
 
             // Check for transcript availability in background
-            if (result.duration && result.duration < 1800) { // Only check for videos < 30 mins
+            if (result.duration && result.duration < 1800) {
+                // Only check for videos < 30 mins
                 void this.checkTranscriptAvailability(videoId).then(hasTranscript => {
                     result.hasTranscript = hasTranscript;
                     // Cache the enhanced data
@@ -88,10 +89,7 @@ export class YouTubeVideoService implements VideoDataService {
             this.cache?.set(cacheKey, result, this.metadataTTL);
             return result;
         } catch (error) {
-            throw ErrorHandler.createUserFriendlyError(
-                error as Error,
-                'fetch video data'
-            );
+            throw ErrorHandler.createUserFriendlyError(error as Error, 'fetch video data');
         }
     }
 
@@ -138,11 +136,11 @@ export class YouTubeVideoService implements VideoDataService {
                 } else if (response.status === 404) {
                     throw new Error(
                         `YouTube video not found: ${videoId}. The video may be private, deleted, ` +
-                        'or the ID is incorrect.'
+                            'or the ID is incorrect.',
                     );
                 } else if (response.status === 403) {
                     throw new Error(
-                        `Access denied to YouTube video: ${videoId}. The video may be private or restricted.`
+                        `Access denied to YouTube video: ${videoId}. The video may be private or restricted.`,
                     );
                 } else {
                     throw new Error(MESSAGES.ERRORS.FETCH_VIDEO_DATA(response.status));
@@ -171,7 +169,6 @@ export class YouTubeVideoService implements VideoDataService {
                 enhancedData = { ...enhancedData, ...pageData };
             } catch (error) {
                 // Ignore scraping errors, proceed with oEmbed data
-
             }
 
             const metadata = {
@@ -248,9 +245,9 @@ export class YouTubeVideoService implements VideoDataService {
 
             // Extract description
             const descriptionMatch = html.match(/"shortDescription":"([^"]+)"/);
-            const description = descriptionMatch?.[1] ?
-                descriptionMatch[1].replace(/\\u0026/g, '&').replace(/\\n/g, '\n') :
-                undefined;
+            const description = descriptionMatch?.[1]
+                ? descriptionMatch[1].replace(/\\u0026/g, '&').replace(/\\n/g, '\n')
+                : undefined;
 
             // Extract published date
             const publishMatch = html.match(/"publishDate":"(\d{4}-\d{2}-\d{2})"/);
@@ -289,7 +286,6 @@ export class YouTubeVideoService implements VideoDataService {
             this.cache?.set(cacheKey, description, this.descriptionTTL);
             return description;
         } catch (error) {
-
             const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
             this.cache?.set(cacheKey, fallback, this.descriptionTTL);
             return fallback;
@@ -301,8 +297,7 @@ export class YouTubeVideoService implements VideoDataService {
      */
     private async fetchVideoPageHTML(videoId: string): Promise<string> {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=` +
-            `${encodeURIComponent(videoUrl)}`;
+        const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=` + `${encodeURIComponent(videoUrl)}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for page scraping
 

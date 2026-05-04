@@ -51,7 +51,6 @@ export class ObsidianFileService implements FileService {
             // Open the file
             const leaf = this.app.workspace.getLeaf(false);
             await leaf.openFile(currentFile);
-
         } catch (error) {
             throw new Error(MESSAGES.ERRORS.COULD_NOT_OPEN((error as Error).message));
         }
@@ -110,9 +109,7 @@ export class ObsidianFileService implements FileService {
      * Wait for file creation to complete
      */
     private async waitForFileCreation(): Promise<void> {
-        return new Promise(resolve =>
-            setTimeout(resolve, TIMEOUTS.FILE_CREATION_WAIT)
-        );
+        return new Promise(resolve => setTimeout(resolve, TIMEOUTS.FILE_CREATION_WAIT));
     }
 
     /**

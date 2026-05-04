@@ -55,7 +55,7 @@ export class ProcessingHistoryService {
      */
     async loadAsync(): Promise<void> {
         try {
-            const data = await this.plugin.loadData() as Record<string, unknown> | null;
+            const data = (await this.plugin.loadData()) as Record<string, unknown> | null;
             if (data?.[STORAGE_KEY] && Array.isArray(data[STORAGE_KEY])) {
                 this.entries = data[STORAGE_KEY] as HistoryEntry[];
             }
@@ -69,7 +69,7 @@ export class ProcessingHistoryService {
      */
     private async save(): Promise<void> {
         try {
-            const data = (await this.plugin.loadData()) as Record<string, unknown> | null ?? {};
+            const data = ((await this.plugin.loadData()) as Record<string, unknown> | null) ?? {};
             data[STORAGE_KEY] = this.entries;
             await this.plugin.saveData(data);
         } catch {
@@ -87,9 +87,7 @@ export class ProcessingHistoryService {
         };
 
         // Remove any existing entry for the same video+format
-        this.entries = this.entries.filter(
-            e => !(e.videoId === entry.videoId && e.format === entry.format)
-        );
+        this.entries = this.entries.filter(e => !(e.videoId === entry.videoId && e.format === entry.format));
 
         // Prepend (newest first)
         this.entries.unshift(fullEntry);

@@ -1,4 +1,3 @@
-
 /**
  * Logger service for structured logging with different levels
  */
@@ -8,7 +7,7 @@ export enum LogLevel {
     INFO = 1,
     WARN = 2,
     ERROR = 3,
-    SILENT = 4
+    SILENT = 4,
 }
 
 export interface LogEntry {
@@ -63,9 +62,7 @@ export class Logger {
 
     private formatMessage(entry: LogEntry): string {
         const levelStr = LogLevel[entry.level].padEnd(5);
-        const timestamp = this.config.enableTimestamps
-            ? `[${entry.timestamp.toISOString()}] `
-            : '';
+        const timestamp = this.config.enableTimestamps ? `[${entry.timestamp.toISOString()}] ` : '';
         const context = entry.context ? ` [${entry.context}]` : '';
         const data = entry.data ? ` ${JSON.stringify(entry.data)}` : '';
 

@@ -112,12 +112,15 @@ export function formatModelName(modelId: string): string {
  * Format base model name: capitalize, replace delimiters with spaces
  */
 function formatBaseName(name: string): string {
-    return name
-        .charAt(0).toUpperCase() + name.slice(1)
-        .replace(/[-_]/g, ' ')
-        .replace(/\b(\d+)\b/g, ' $1 ')  // space around numbers
-        .replace(/\s+/g, ' ')
-        .trim();
+    return (
+        name.charAt(0).toUpperCase() +
+        name
+            .slice(1)
+            .replace(/[-_]/g, ' ')
+            .replace(/\b(\d+)\b/g, ' $1 ') // space around numbers
+            .replace(/\s+/g, ' ')
+            .trim()
+    );
 }
 
 /**

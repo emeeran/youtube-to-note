@@ -34,7 +34,7 @@ export class ServiceContainer implements IServiceContainer {
 
     constructor(
         private settings: YouTubePluginSettings,
-        private app: App
+        private app: App,
     ) {}
 
     get aiService(): IAIService {
@@ -56,10 +56,7 @@ export class ServiceContainer implements IServiceContainer {
         }
 
         if (this.settings.ollamaApiKey) {
-            providers.push(new OllamaCloudProvider(
-                this.settings.ollamaApiKey,
-                AI_MODELS.OLLAMA_CLOUD
-            ));
+            providers.push(new OllamaCloudProvider(this.settings.ollamaApiKey, AI_MODELS.OLLAMA_CLOUD));
         }
 
         if (this.settings.huggingFaceApiKey) {
@@ -67,12 +64,14 @@ export class ServiceContainer implements IServiceContainer {
         }
 
         // Ollama local (always available, lowest priority)
-        providers.push(new OllamaProvider(
-            this.settings.ollamaApiKey || '',
-            undefined,
-            undefined,
-            this.settings.ollamaEndpoint || 'http://localhost:11434'
-        ));
+        providers.push(
+            new OllamaProvider(
+                this.settings.ollamaApiKey || '',
+                undefined,
+                undefined,
+                this.settings.ollamaEndpoint || 'http://localhost:11434',
+            ),
+        );
 
         this._aiService = new AIService(providers, this.settings);
         return this._aiService;
