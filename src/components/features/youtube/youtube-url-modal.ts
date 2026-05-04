@@ -175,8 +175,8 @@ export class YouTubeUrlModal extends BaseModal {
             this.contentEl.empty();
             this.contentEl.addClass('ytc-modal-content-wrapper');
 
-            // Apply Obsidian native theme (dark mode)
-            this.modalEl?.classList.add('ytc-themed-modal', 'ytc-modal-dark');
+            // Apply light mode by default
+            this.modalEl?.classList.add('ytc-themed-modal', 'ytc-modal-light');
 
             this.createTopBar();
             this.createUrlSection();
@@ -207,7 +207,7 @@ export class YouTubeUrlModal extends BaseModal {
         themeBtn.title = 'Toggle light/dark theme';
         themeBtn.setAttribute('aria-label', 'Toggle theme');
 
-        let isDark = true;
+        let isDark = false;
         themeBtn.addEventListener('click', () => {
             isDark = !isDark;
             this.modalEl?.classList.toggle('ytc-modal-dark', isDark);
@@ -640,26 +640,29 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.secondaryActionsRow = container.createDiv('ytc-secondary-actions');
 
-        this.copyPathButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
-        this.copyPathButton.innerHTML = '📋';
+        this.copyPathButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn ytc-icon-only-btn' });
+        this.copyPathButton.innerHTML = '<span class="ytc-btn-icon">📋</span><span class="ytc-btn-label">Copy Path</span>';
         this.copyPathButton.title = 'Copy Path';
         this.copyPathButton.addEventListener('click', () => this.handleCopyPath());
 
-        this.openButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
-        this.openButton.innerHTML = '📄 Open';
+        this.openButton = this.secondaryActionsRow.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn ytc-icon-only-btn' });
+        this.openButton.innerHTML = '<span class="ytc-btn-icon">📄</span><span class="ytc-btn-label">Open</span>';
+        this.openButton.title = 'Open';
         this.openButton.addEventListener('click', () => this.handleOpenFile());
 
         const processAnotherBtn = this.secondaryActionsRow.createEl('button', {
-            cls: 'ytc-action-btn ytc-primary-btn',
+            cls: 'ytc-action-btn ytc-primary-btn ytc-icon-only-btn',
         });
-        processAnotherBtn.innerHTML = '🔄 New';
+        processAnotherBtn.innerHTML = '<span class="ytc-btn-icon">🔄</span><span class="ytc-btn-label">New</span>';
+        processAnotherBtn.title = 'Process New';
         processAnotherBtn.addEventListener('click', () => {
             this.showInputState();
         });
 
-        this.processButton = container.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn' });
-        this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
+        this.processButton = container.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn ytc-icon-only-btn' });
+        this.processButton.innerHTML = `<span class="ytc-btn-icon">✨</span><span class="ytc-btn-label">${MESSAGES.MODALS.PROCESS}</span>`;
         this.processButton.addClass('ytc-process-btn');
+        this.processButton.title = MESSAGES.MODALS.PROCESS;
         this.processButton.addEventListener('click', () => this.handleProcess());
 
         this.updateProcessButtonState();
@@ -669,7 +672,7 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.processButton) {
             this.processButton.classList.add('is-visible');
             this.processButton.disabled = false;
-            this.processButton.innerHTML = `<span>✨</span> ${MESSAGES.MODALS.PROCESS}`;
+            this.processButton.innerHTML = `<span class="ytc-btn-icon">✨</span><span class="ytc-btn-label">${MESSAGES.MODALS.PROCESS}</span>`;
         }
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.classList.remove('is-visible');
@@ -871,7 +874,7 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.processButton) {
             this.processButton.classList.add('is-visible');
             this.processButton.disabled = true;
-            this.processButton.innerHTML = '<span>⏳</span> Processing...';
+            this.processButton.innerHTML = '<span class="ytc-btn-icon">⏳</span><span class="ytc-btn-label">Processing...</span>';
         }
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.classList.remove('is-visible');
