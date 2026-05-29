@@ -338,22 +338,6 @@ export class YouTubeVideoService implements VideoDataService {
         return MESSAGES.WARNINGS.AUTO_EXTRACTION;
     }
 
-    /**
-     * Validate YouTube URL and extract video ID
-     */
-    validateAndExtractVideoId(url: string): string {
-        if (!ValidationUtils.isValidYouTubeUrl(url)) {
-            throw new Error(MESSAGES.ERRORS.INVALID_URL);
-        }
-
-        const videoId = this.extractVideoId(url);
-        if (!videoId) {
-            throw new Error(MESSAGES.ERRORS.INVALID_URL);
-        }
-
-        return videoId;
-    }
-
     private getCacheKey(namespace: string, videoId: string): string {
         return `youtube-video-service:${namespace}:${videoId}`;
     }

@@ -193,16 +193,3 @@ export interface ModalEvents {
     onConfirm: () => void | Promise<void>;
     onCancel: () => void;
 }
-
-/** Enhanced video data with extended metadata */
-export interface EnhancedVideoData extends VideoData {
-    videoId: string;
-    duration: number;
-    channelTitle: string;
-    publishDate: string;
-    viewCount: number;
-    likeCount: number;
-    tags: string[];
-    category: string;
-    thumbnailUrl: string;
-}
