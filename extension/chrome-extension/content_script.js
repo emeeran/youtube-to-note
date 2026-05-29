@@ -45,11 +45,11 @@
     b.id = B;
     b.className = 'ytp-button';
     b.title = 'Send to Obsidian (Ctrl+Shift+Y)';
+    b.style.marginTop = '-2px';
     b.innerHTML =
-      '<svg height="100%" viewBox="0 0 24 24" width="100%" fill="none">' +
-        '<path d="M6 4h8a2 2 0 012 2v12l-6-3-6 3V6a2 2 0 012-2z" stroke="#c4b5fd" stroke-width="1.5"/>' +
-        '<path d="M9 8.5h4M9 11h4M9 13.5h2.5" stroke="#c4b5fd" stroke-width="1.2" stroke-linecap="round"/>' +
-        '<path d="M16 10.5l2.5-2.5L20 9.5l-3 3h-1v-2z" fill="#a78bfa"/>' +
+      '<svg height="100%" viewBox="0 0 128 128" width="100%" fill="none">' +
+        '<rect x="7" y="25" width="104" height="68" rx="18" fill="#FF0000"/>' +
+        '<polygon points="47,39 47,79 81,59" fill="#fff"/>' +
       '</svg>';
     b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); send(); };
     return b;
@@ -61,7 +61,18 @@
     var c = document.querySelector('.ytp-right-controls');
     if (!c) return false;
     var b = mkBtn();
-    if (b) c.insertBefore(b, c.firstChild);
+    if (b) {
+      // Insert before the "Play on TV" / cast button (must be direct child of c)
+      var castBtn = c.querySelector('.ytp-play-on-tv-button') || c.querySelector('button[aria-label*="TV"]') || c.querySelector('button[aria-label*="Cast"]');
+      var ref = null;
+      if (castBtn) {
+        // Walk up to find the direct child of c
+        var node = castBtn;
+        while (node && node.parentElement !== c) node = node.parentElement;
+        if (node) ref = node;
+      }
+      c.insertBefore(b, ref || c.firstChild);
+    }
     return true;
   }
 
