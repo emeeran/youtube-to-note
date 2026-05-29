@@ -1,5 +1,4 @@
 /* eslint-disable max-lines */
-import { ConflictPrevention } from './conflict-prevention';
 import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
 import { MESSAGES } from './constants/index';
@@ -90,7 +89,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             this.modalManager?.clear();
             this.serviceContainer?.clearServices();
             this.cleanupUIElements();
-            ConflictPrevention.cleanupAllElements();
 
             logger.plugin('Plugin unloaded successfully');
         } catch (error) {
@@ -247,12 +245,12 @@ export default class YoutubeClipperPlugin extends Plugin {
     private async openYouTubeUrlModal(initialUrl?: string): Promise<void> {
         logger.debug('[YT-CLIPPER] openYouTubeUrlModal called', 'Plugin', { initialUrl });
         if (this.isUnloading) {
-            ConflictPrevention.log('Plugin is unloading, ignoring modal request');
+            logger.info('Plugin is unloading, ignoring modal request');
             return;
         }
 
         // eslint-disable-next-line max-lines-per-function
-        ConflictPrevention.safeOperation(async () => {
+        try {
             if (!this.serviceContainer) return;
 
             const aiService = this.serviceContainer.aiService;
@@ -366,9 +364,9 @@ export default class YoutubeClipperPlugin extends Plugin {
             });
 
             modal.open();
-        }, 'YouTube URL Modal').catch(error => {
+        } catch (error) {
             ErrorHandler.handle(error as Error, 'Opening YouTube URL modal');
-        });
+        }
     }
 
     // eslint-disable-next-line max-lines-per-function
@@ -384,12 +382,12 @@ export default class YoutubeClipperPlugin extends Plugin {
             userInstructions,
         } = options;
         if (this.isUnloading) {
-            ConflictPrevention.log('Plugin is unloading, cancelling video processing');
+            logger.info('Plugin is unloading, cancelling video processing');
             throw new Error('Plugin is shutting down');
         }
 
         // eslint-disable-next-line complexity, max-lines-per-function
-        const result = await ConflictPrevention.safeOperation(async () => {
+        const result = await (async () => {
             new Notice(MESSAGES.PROCESSING);
 
             const validation = ValidationUtils.validateSettings(this._settings as unknown as Record<string, unknown>);
@@ -535,11 +533,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             new Notice(MESSAGES.SUCCESS(videoData.title));
             return filePath;
-        }, 'YouTube Video Processing');
-
-        if (!result) {
-            throw new Error('Failed to process YouTube video');
-        }
+        })();
 
         return result;
     }
