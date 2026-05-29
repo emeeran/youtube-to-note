@@ -31,18 +31,6 @@
         "node_modules",
         "**/*.test.ts",
         "**/*.spec.ts",
-        "tests/**/*",
-        "main-original.ts",
-        "main-refactored.ts",
-        "src/performance-optimizer.ts",
-        "src/security-hardener.ts",
-        "src/end-to-end-optimizer.ts",
-        "src/agent-*.ts",
-        "src/types/agent-types.ts",
-        "src/performance.ts",
-        "src/progress-modal.ts",
-        "src/video-optimization.ts",
-        "src/video-preview-modal.ts",
-        "src/services/optimized-ai-service.ts"
+        "tests/**/*"
     ]
 }

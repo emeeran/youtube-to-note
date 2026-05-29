@@ -31,7 +31,6 @@
     "devDependencies": {
         "@types/jest": "^29.5.14",
         "@types/node": "^20.11.24",
-        "@types/uuid": "^10.0.0",
         "@typescript-eslint/eslint-plugin": "^7.1.1",
         "@typescript-eslint/parser": "^7.1.1",
         "builtin-modules": "3.3.0",
@@ -60,7 +59,5 @@
             "prettier --write"
         ]
     },
-    "dependencies": {
-        "uuid": "^13.0.0"
-    }
+    "dependencies": {}
 }

@@ -1,4 +1,5 @@
 # Security - sensitive data and API keys
+.auto-claude/
 data.json
 *.key
 *.pem
