@@ -3,7 +3,6 @@ import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { logger } from './services/logger';
 import { ErrorHandler } from './services/error-handler';
 
 interface PluginWithSettings extends Plugin {
@@ -59,11 +58,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     // ── Collapsible section ──────────────────────────────────────────────
-    private createSection(
-        parent: HTMLElement,
-        title: string,
-        icon: string,
-    ): HTMLElement {
+    private createSection(parent: HTMLElement, title: string, icon: string): HTMLElement {
         const isOpen = this.sectionStates.get(title) ?? false;
         const section = parent.createDiv({ cls: `${CSS_PREFIX}-section${isOpen ? ' is-open' : ''}` });
 
@@ -105,19 +100,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const manageBtn = actions.createEl('button', { cls: `${CSS_PREFIX}-header-btn` });
         manageBtn.textContent = '⚙️';
         manageBtn.title = 'Manage';
-        manageBtn.addEventListener('click', (e: MouseEvent) => {
+        manageBtn.addEventListener('click', (_e: MouseEvent) => {
             const dropdown = this.containerEl.createDiv({ cls: `${CSS_PREFIX}-mini-menu` });
             const exportOpt = dropdown.createDiv({ cls: `${CSS_PREFIX}-mini-menu-item`, text: '📤 Export' });
-            exportOpt.addEventListener('click', () => { dropdown.remove(); this.exportSettings(); });
+            exportOpt.addEventListener('click', () => {
+                dropdown.remove();
+                this.exportSettings();
+            });
             const importOpt = dropdown.createDiv({ cls: `${CSS_PREFIX}-mini-menu-item`, text: '📥 Import' });
-            importOpt.addEventListener('click', () => { dropdown.remove(); this.importSettings(); });
+            importOpt.addEventListener('click', () => {
+                dropdown.remove();
+                this.importSettings();
+            });
             const rect = manageBtn.getBoundingClientRect();
             dropdown.style.position = 'fixed';
             dropdown.style.top = `${rect.bottom + 4}px`;
             dropdown.style.right = `${window.innerWidth - rect.right}px`;
             setTimeout(() => {
                 document.addEventListener('click', function dismiss(ev) {
-                    if (!dropdown.contains(ev.target as Node)) { dropdown.remove(); document.removeEventListener('click', dismiss); }
+                    if (!dropdown.contains(ev.target as Node)) {
+                        dropdown.remove();
+                        document.removeEventListener('click', dismiss);
+                    }
                 });
             }, 0);
         });
@@ -140,35 +144,73 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const content = this.createSection(parent, 'API Keys', '🔑');
 
         const providers = [
-            { name: 'Gemini', icon: '✦', placeholder: 'AIzaSy...', color: '#4285f4', key: 'geminiApiKey' as const,
-              validate: async (key: string) => {
-                  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              }},
-            { name: 'Groq', icon: '⚡', placeholder: 'gsk_...', color: '#f55036', key: 'groqApiKey' as const,
-              validate: async (key: string) => {
-                  const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              }},
-            { name: 'HuggingFace', icon: '🤗', placeholder: 'hf_...', color: '#ffcc00', key: 'huggingFaceApiKey' as const,
-              validate: async (key: string) => {
-                  const res = await fetch('https://huggingface.co/api/whoami-v2', { headers: { Authorization: `Bearer ${key}` } });
-                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              }},
-            { name: 'OpenRouter', icon: '🔀', placeholder: 'sk-or-...', color: '#6366f1', key: 'openRouterApiKey' as const,
-              validate: async (key: string) => {
-                  const res = await fetch('https://openrouter.ai/api/v1/models', { headers: { Authorization: `Bearer ${key}` } });
-                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              }},
-            { name: 'Ollama', icon: '🦙', placeholder: 'cloud only', color: '#6b7280', key: 'ollamaApiKey' as const,
-              validate: async (key: string) => {
-                  const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
-                  const isCloud = endpoint.includes('ollama.com') || endpoint.includes('cloud');
-                  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-                  if (isCloud && key) headers['Authorization'] = `Bearer ${key}`;
-                  const res = await fetch(`${isCloud ? 'https://ollama.com/api' : `${endpoint}/api`}/tags`, { headers });
-                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              }},
+            {
+                name: 'Gemini',
+                icon: '✦',
+                placeholder: 'AIzaSy...',
+                color: '#4285f4',
+                key: 'geminiApiKey' as const,
+                validate: async (key: string) => {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                },
+            },
+            {
+                name: 'Groq',
+                icon: '⚡',
+                placeholder: 'gsk_...',
+                color: '#f55036',
+                key: 'groqApiKey' as const,
+                validate: async (key: string) => {
+                    const res = await fetch('https://api.groq.com/openai/v1/models', {
+                        headers: { Authorization: `Bearer ${key}` },
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                },
+            },
+            {
+                name: 'HuggingFace',
+                icon: '🤗',
+                placeholder: 'hf_...',
+                color: '#ffcc00',
+                key: 'huggingFaceApiKey' as const,
+                validate: async (key: string) => {
+                    const res = await fetch('https://huggingface.co/api/whoami-v2', {
+                        headers: { Authorization: `Bearer ${key}` },
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                },
+            },
+            {
+                name: 'OpenRouter',
+                icon: '🔀',
+                placeholder: 'sk-or-...',
+                color: '#6366f1',
+                key: 'openRouterApiKey' as const,
+                validate: async (key: string) => {
+                    const res = await fetch('https://openrouter.ai/api/v1/models', {
+                        headers: { Authorization: `Bearer ${key}` },
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                },
+            },
+            {
+                name: 'Ollama',
+                icon: '🦙',
+                placeholder: 'cloud only',
+                color: '#6b7280',
+                key: 'ollamaApiKey' as const,
+                validate: async (key: string) => {
+                    const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
+                    const isCloud = endpoint.includes('ollama.com') || endpoint.includes('cloud');
+                    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                    if (isCloud && key) headers['Authorization'] = `Bearer ${key}`;
+                    const res = await fetch(`${isCloud ? 'https://ollama.com/api' : `${endpoint}/api`}/tags`, {
+                        headers,
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                },
+            },
         ];
 
         providers.forEach(p => this.createAPIKeyCard(content, p));
@@ -190,7 +232,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     private createAPIKeyCard(
         container: HTMLElement,
         opts: {
-            name: string; icon: string; placeholder: string; color: string;
+            name: string;
+            icon: string;
+            placeholder: string;
+            color: string;
             key: 'geminiApiKey' | 'groqApiKey' | 'ollamaApiKey' | 'huggingFaceApiKey' | 'openRouterApiKey';
             validate: (key: string) => Promise<void>;
         },
@@ -229,8 +274,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         eyeBtn.addEventListener('click', () => {
             visible = !visible;
             input.value = visible
-                ? (this.secureConfig.getApiKey(opts.key) || '')
-                : (actualKey ? this.secureConfig.getMaskedApiKey(opts.key) : '');
+                ? this.secureConfig.getApiKey(opts.key) || ''
+                : actualKey
+                  ? this.secureConfig.getMaskedApiKey(opts.key)
+                  : '';
             input.type = visible ? 'text' : 'password';
             eyeBtn.textContent = visible ? '🙈' : '👁';
         });
@@ -240,7 +287,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         testBtn.title = 'Test';
         testBtn.addEventListener('click', async () => {
             const key = this.secureConfig.getApiKey(opts.key);
-            if (!key && opts.key !== 'ollamaApiKey') { this.showToast(`No ${opts.name} key`, 'info'); return; }
+            if (!key && opts.key !== 'ollamaApiKey') {
+                this.showToast(`No ${opts.name} key`, 'info');
+                return;
+            }
             testBtn.disabled = true;
             testBtn.textContent = '…';
             try {
@@ -267,13 +317,21 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const content = this.createSection(parent, 'AI', '🤖');
 
         this.createSlider(content, {
-            label: 'Max Tokens', min: 512, max: 8192, step: 256,
-            value: this.settings.defaultMaxTokens || 4096, key: 'defaultMaxTokens',
+            label: 'Max Tokens',
+            min: 512,
+            max: 8192,
+            step: 256,
+            value: this.settings.defaultMaxTokens || 4096,
+            key: 'defaultMaxTokens',
         });
 
         this.createSlider(content, {
-            label: 'Temperature', min: 0, max: 1, step: 0.1,
-            value: this.settings.defaultTemperature ?? 0.5, key: 'defaultTemperature',
+            label: 'Temperature',
+            min: 0,
+            max: 1,
+            step: 0.1,
+            value: this.settings.defaultTemperature ?? 0.5,
+            key: 'defaultTemperature',
         });
 
         new Setting(content)
@@ -331,6 +389,18 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             );
 
         new Setting(content)
+            .setName('Transcript language')
+            .setDesc('Preferred caption language code (e.g. en, es, fr). Blank = auto.')
+            .addText(text =>
+                text
+                    .setPlaceholder('auto')
+                    .setValue(this.settings.transcriptLanguage ?? '')
+                    .onChange(async value => {
+                        await this.updateSetting('transcriptLanguage', value.trim().toLowerCase());
+                    }),
+            );
+
+        new Setting(content)
             .setName('Env Variables')
             .setDesc('')
             .addToggle(toggle =>
@@ -353,7 +423,14 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     // ── Slider helper ────────────────────────────────────────────────────
     private createSlider(
         container: HTMLElement,
-        opts: { label: string; min: number; max: number; step: number; value: number; key: keyof YouTubePluginSettings },
+        opts: {
+            label: string;
+            min: number;
+            max: number;
+            step: number;
+            value: number;
+            key: keyof YouTubePluginSettings;
+        },
     ): void {
         new Setting(container)
             .setName(opts.label)
@@ -385,7 +462,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 if (value) {
                     try {
                         const obfuscated = this.secureConfig.setApiKey(
-                            key as import('./secure-config').ApiKeyName, value,
+                            key as import('./secure-config').ApiKeyName,
+                            value,
                         );
                         (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
                     } catch (error) {
@@ -457,22 +535,38 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             try {
                 const imported = JSON.parse(await file.text());
                 const validation = ValidationUtils.validateSettings(imported);
-                if (!validation.isValid) { this.showToast('Invalid file', 'error'); return; }
+                if (!validation.isValid) {
+                    this.showToast('Invalid file', 'error');
+                    return;
+                }
                 const { ConfirmationModal } = await import('./components/common/confirmation-modal');
-                if (await new ConfirmationModal(this.app, { title: 'Import', message: 'Overwrite current settings?' }).openAndWait()) {
+                if (
+                    await new ConfirmationModal(this.app, {
+                        title: 'Import',
+                        message: 'Overwrite current settings?',
+                    }).openAndWait()
+                ) {
                     await this.options.onSettingsChange(imported);
                     this.settings = { ...imported };
                     this.display();
                     this.showToast('Imported', 'success');
                 }
-            } catch { this.showToast('Import failed', 'error'); }
+            } catch {
+                this.showToast('Import failed', 'error');
+            }
         });
         input.click();
     }
 
     private async resetToDefaults(): Promise<void> {
         const { ConfirmationModal } = await import('./components/common/confirmation-modal');
-        if (await new ConfirmationModal(this.app, { title: 'Reset', message: 'Cannot be undone.', isDangerous: true }).openAndWait()) {
+        if (
+            await new ConfirmationModal(this.app, {
+                title: 'Reset',
+                message: 'Cannot be undone.',
+                isDangerous: true,
+            }).openAndWait()
+        ) {
             const apiKeys = {
                 geminiApiKey: this.settings.geminiApiKey,
                 groqApiKey: this.settings.groqApiKey,
@@ -481,7 +575,18 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 ollamaApiKey: this.settings.ollamaApiKey,
                 ollamaEndpoint: this.settings.ollamaEndpoint,
             };
-            this.settings = { ...apiKeys, outputPath: 'YouTube/Processed Videos', useEnvironmentVariables: false, environmentPrefix: 'YTC', performanceMode: 'balanced', enableParallelProcessing: true, enableAutoFallback: true, preferMultimodal: true, defaultMaxTokens: 4096, defaultTemperature: 0.5 };
+            this.settings = {
+                ...apiKeys,
+                outputPath: 'YouTube/Processed Videos',
+                useEnvironmentVariables: false,
+                environmentPrefix: 'YTC',
+                performanceMode: 'balanced',
+                enableParallelProcessing: true,
+                enableAutoFallback: true,
+                preferMultimodal: true,
+                defaultMaxTokens: 4096,
+                defaultTemperature: 0.5,
+            };
             void this.options.onSettingsChange(this.settings);
             this.display();
             this.showToast('Reset', 'info');
@@ -493,7 +598,9 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const toast = document.body.createDiv({ cls: `${CSS_PREFIX}-toast ${type}` });
         toast.createSpan({ text: type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️' });
         toast.createSpan({ text: message });
-        setTimeout(() => { toast.remove(); }, 2500);
+        setTimeout(() => {
+            toast.remove();
+        }, 2500);
     }
 
     // ── Section state persistence ────────────────────────────────────────
@@ -501,14 +608,20 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         try {
             const stored = localStorage.getItem(this.SECTION_STATES_KEY);
             if (stored) Object.entries(JSON.parse(stored)).forEach(([k, v]) => this.sectionStates.set(k, Boolean(v)));
-        } catch { /* use defaults */ }
+        } catch {
+            /* use defaults */
+        }
     }
 
     private saveSectionStates(): void {
         try {
             const states: Record<string, boolean> = {};
-            this.sectionStates.forEach((v, k) => { states[k] = v; });
+            this.sectionStates.forEach((v, k) => {
+                states[k] = v;
+            });
             localStorage.setItem(this.SECTION_STATES_KEY, JSON.stringify(states));
-        } catch { /* silently fail */ }
+        } catch {
+            /* silently fail */
+        }
     }
 }

@@ -177,7 +177,9 @@ export class ObsidianFileService implements FileService {
             return '';
         }
 
-        let normalized = path.trim();
+        // Treat backslashes as path separators (defends against Windows-style input).
+        let normalized = path.trim().replace(/\\/g, '/');
+
         if (normalized.startsWith('./')) {
             normalized = normalized.slice(2);
         }
@@ -186,6 +188,13 @@ export class ObsidianFileService implements FileService {
         }
 
         normalized = normalized.replace(/\/+/g, '/');
+
+        // Reject parent-directory segments so a crafted outputPath can't escape
+        // the intended vault subtree (e.g. "../../sensitive").
+        if (normalized.split('/').some(segment => segment === '..')) {
+            throw new Error('Output path must not contain parent-directory (..) segments.');
+        }
+
         return normalized;
     }
 }

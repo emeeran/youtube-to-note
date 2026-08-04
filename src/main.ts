@@ -10,6 +10,7 @@ import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal } from './components/features/youtube';
 import { ProcessingHistoryService } from './services/processing-history';
+import { SecureConfigService } from './secure-config';
 import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
@@ -43,6 +44,7 @@ const DEFAULT_SETTINGS: YouTubePluginSettings = {
     enableParallelProcessing: true,
     enableAutoFallback: true,
     preferMultimodal: true,
+    transcriptLanguage: '',
     defaultMaxTokens: 4096,
     defaultTemperature: 0.5,
 };
@@ -297,9 +299,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                         if (!this.serviceContainer) {
                             return modelOptionsMap;
                         }
-                        const aiService = this.serviceContainer.aiService as {
-                            fetchLatestModels(): Promise<Record<string, string[]>>;
-                        };
+                        const aiService = this.serviceContainer.aiService;
                         const map = await aiService.fetchLatestModels();
                         this._settings.modelOptionsCache = map;
 
@@ -322,9 +322,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                         if (!this.serviceContainer) {
                             return [];
                         }
-                        const aiService = this.serviceContainer.aiService as {
-                            fetchLatestModelsForProvider(providerName: string, bypassCache: boolean): Promise<string[]>;
-                        };
+                        const aiService = this.serviceContainer.aiService;
                         const models = await aiService.fetchLatestModelsForProvider(provider, forceRefresh);
                         if (models && models.length > 0) {
                             // Update model cache
@@ -376,6 +374,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             format = 'executive-summary',
             providerName,
             model,
+            performanceMode,
             maxTokens,
             temperature,
             enableAutoFallback,
@@ -413,7 +412,10 @@ export default class YoutubeClipperPlugin extends Plugin {
             let transcript: string | undefined;
             try {
                 if (youtubeService.getTranscript) {
-                    const transcriptData = await youtubeService.getTranscript(videoId);
+                    const transcriptData = await youtubeService.getTranscript(
+                        videoId,
+                        this._settings.transcriptLanguage,
+                    );
                     if (transcriptData?.fullText) {
                         transcript = transcriptData.fullText;
                         logger.info('Transcript fetched successfully', 'Plugin', {
@@ -421,13 +423,15 @@ export default class YoutubeClipperPlugin extends Plugin {
                             transcriptLength: transcript.length,
                         });
                     } else {
-                        logger.debug('No transcript available for this video', 'Plugin', { videoId });
+                        logger.warn('No transcript available — generating from metadata only', 'Plugin', { videoId });
+                        new Notice('No transcript available for this video. Note will be based on metadata only.');
                     }
                 }
             } catch (error) {
-                logger.debug('Could not fetch transcript, continuing without it', 'Plugin', {
+                logger.warn('Could not fetch transcript, continuing without it', 'Plugin', {
                     error: error instanceof Error ? error.message : String(error),
                 });
+                new Notice('Could not fetch transcript. Note will be based on metadata only.');
             }
 
             const prompt = promptService.createAnalysisPrompt({
@@ -435,7 +439,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 videoUrl: url,
                 format,
                 transcript,
-                performanceMode: this._settings.performanceMode ?? 'balanced',
+                performanceMode: performanceMode ?? this._settings.performanceMode ?? 'balanced',
                 providerName,
                 userInstructions,
             });
@@ -449,41 +453,19 @@ export default class YoutubeClipperPlugin extends Plugin {
                 temperature: temperature ?? 0.7,
             });
 
-            // Set model parameters on providers if available
-            const providers =
-                (
-                    aiService as {
-                        providers?: Array<{
-                            setMaxTokens?(tokens: number): void;
-                            setTemperature?(temp: number): void;
-                        }>;
-                    }
-                ).providers ?? [];
-            for (const provider of providers) {
-                if (maxTokens && provider.setMaxTokens) {
-                    provider.setMaxTokens(maxTokens);
-                }
-                if (temperature !== undefined && provider.setTemperature) {
-                    provider.setTemperature(temperature);
-                }
-            }
+            // Apply per-run generation parameters to every provider
+            aiService.setModelParameters?.({ maxTokens, temperature });
 
             let aiResponse: AIResponse;
             try {
                 if (providerName) {
-                    // Pass enableAutoFallback to control fallback behavior
-                    const shouldFallback = enableAutoFallback ?? true;
-                    aiResponse = await (
-                        aiService as {
-                            processWith(
-                                provider: string,
-                                prompt: string,
-                                model?: string,
-                                images?: string[],
-                                enableFallback?: boolean,
-                            ): Promise<AIResponse>;
-                        }
-                    ).processWith(providerName, prompt, model, undefined, shouldFallback);
+                    aiResponse = await aiService.processWith(
+                        providerName,
+                        prompt,
+                        model,
+                        undefined,
+                        enableAutoFallback ?? true,
+                    );
                 } else {
                     aiResponse = await aiService.process(prompt);
                 }
@@ -589,6 +571,19 @@ export default class YoutubeClipperPlugin extends Plugin {
         const loadedData = await this.loadData();
         logger.debug('[YT-CLIPPER] Settings loaded from data.json:', 'Plugin', loadedData);
         this._settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+
+        // Migrate any legacy obfuscated API keys to plaintext (one-time, idempotent).
+        try {
+            if (SecureConfigService.migrateApiKeys(this._settings)) {
+                logger.info('Migrated legacy obfuscated API keys to plaintext', 'Plugin');
+                await this.saveSettings();
+            }
+        } catch (error) {
+            logger.warn('API key migration skipped', 'Plugin', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+
         logger.debug('[YT-CLIPPER] Final settings after merge:', 'Plugin', {
             hasGeminiKey: !!this._settings.geminiApiKey,
             geminiKeyLength: this._settings.geminiApiKey?.length,

@@ -5,7 +5,7 @@
  */
 
 import { OutputFormat } from '../types';
-import { App, Plugin } from 'obsidian';
+import { Plugin } from 'obsidian';
 
 export interface HistoryEntry {
     videoId: string;
@@ -29,31 +29,27 @@ const STORAGE_KEY = 'ytc-processing-history';
 export class ProcessingHistoryService {
     private entries: HistoryEntry[] = [];
     private plugin: Plugin;
+    private loadingPromise?: Promise<void>;
 
     constructor(plugin: Plugin) {
         this.plugin = plugin;
-        this.load();
+        // Kick off loading immediately; callers can also await loadAsync().
+        this.loadingPromise = this.loadAsync();
     }
 
     /**
-     * Load history from plugin data
-     */
-    private load(): void {
-        try {
-            const data = (this.plugin as { loadData(): Promise<unknown> | unknown }).loadData;
-            if (typeof data === 'function') {
-                // loadData is async, but we call it sync in constructor
-                // The plugin should call loadAsync() after construction
-            }
-        } catch {
-            // Ignore
-        }
-    }
-
-    /**
-     * Async load — call after construction
+     * Load history from plugin data. Memoized so the load runs exactly once
+     * even if the constructor and the plugin's onload both trigger it, and so
+     * that add() can safely await completion before writing.
      */
     async loadAsync(): Promise<void> {
+        if (!this.loadingPromise) {
+            this.loadingPromise = this.performLoad();
+        }
+        return this.loadingPromise;
+    }
+
+    private async performLoad(): Promise<void> {
         try {
             const data = (await this.plugin.loadData()) as Record<string, unknown> | null;
             if (data?.[STORAGE_KEY] && Array.isArray(data[STORAGE_KEY])) {
@@ -81,6 +77,10 @@ export class ProcessingHistoryService {
      * Add a new history entry
      */
     async add(entry: Omit<HistoryEntry, 'processedAt'>): Promise<void> {
+        // Ensure the in-memory entries have been loaded before we read-modify-write,
+        // otherwise an early add() could persist an empty history over the real one.
+        await this.loadAsync();
+
         const fullEntry: HistoryEntry = {
             ...entry,
             processedAt: new Date().toISOString(),

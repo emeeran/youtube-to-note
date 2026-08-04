@@ -1,10 +1,11 @@
-import { API_ENDPOINTS, API_LIMITS } from './ai/api';
+import { API_ENDPOINTS } from './ai/api';
 import { ErrorHandler } from './services/error-handler';
 import { MESSAGES } from './constants/index';
 import { ValidationUtils } from './validation';
 import { VideoAnalysisStrategy } from './constants/video-optimization';
 import { VideoDataService, VideoData, CacheService } from './types';
 import { YouTubeTranscriptService } from './services/transcript-service';
+import { fetchYouTubePage, parsePlayerResponse, extractVideoDetails } from './services/youtube-page';
 import { logger } from './services/logger';
 
 /**
@@ -23,7 +24,6 @@ export interface EnhancedVideoData extends VideoData {
 
 export class YouTubeVideoService implements VideoDataService {
     private readonly metadataTTL = 1000 * 60 * 30; // 30 minutes
-    private readonly descriptionTTL = 1000 * 60 * 30; // 30 minutes
     public transcriptService: YouTubeTranscriptService;
 
     constructor(private cache?: CacheService) {
@@ -33,9 +33,9 @@ export class YouTubeVideoService implements VideoDataService {
     /**
      * Get transcript for a video (public method for external access)
      */
-    async getTranscript(videoId: string): Promise<{ fullText: string } | null> {
+    async getTranscript(videoId: string, language?: string): Promise<{ fullText: string } | null> {
         try {
-            const transcript = await this.transcriptService.getTranscript(videoId);
+            const transcript = await this.transcriptService.getTranscript(videoId, language);
             return transcript ? { fullText: transcript.fullText } : null;
         } catch (error) {
             return null;
@@ -229,7 +229,7 @@ export class YouTubeVideoService implements VideoDataService {
     }
 
     /**
-     * Scrape additional metadata from YouTube page
+     * Scrape additional metadata from YouTube page via the shared, proxy-free parser.
      */
     private async scrapeAdditionalMetadata(videoId: string): Promise<{
         description?: string;
@@ -237,24 +237,20 @@ export class YouTubeVideoService implements VideoDataService {
         publishedAt?: string;
     }> {
         try {
-            const html = await this.fetchVideoPageHTML(videoId);
-
-            // Extract duration
-            const durationMatch = html.match(/"lengthSeconds":"(\d+)"/);
-            const duration = durationMatch?.[1] ? parseInt(durationMatch[1]) : undefined;
-
-            // Extract description
-            const descriptionMatch = html.match(/"shortDescription":"([^"]+)"/);
-            const description = descriptionMatch?.[1]
-                ? descriptionMatch[1].replace(/\\u0026/g, '&').replace(/\\n/g, '\n')
-                : undefined;
-
-            // Extract published date
-            const publishMatch = html.match(/"publishDate":"(\d{4}-\d{2}-\d{2})"/);
-            const publishedAt = publishMatch?.[1] ?? undefined;
-
-            return { description, duration, publishedAt };
+            const html = await fetchYouTubePage(videoId);
+            const playerResponse = parsePlayerResponse(html);
+            if (!playerResponse) return {};
+            const details = extractVideoDetails(playerResponse);
+            return {
+                description: details.description,
+                duration: details.duration,
+                publishedAt: details.publishedAt,
+            };
         } catch (error) {
+            logger.debug('Metadata scrape failed', 'VideoData', {
+                videoId,
+                error: error instanceof Error ? error.message : String(error),
+            });
             return {};
         }
     }
@@ -268,74 +264,6 @@ export class YouTubeVideoService implements VideoDataService {
         } catch (error) {
             return false;
         }
-    }
-
-    /**
-     * Get video description by scraping the YouTube page
-     */
-    private async getVideoDescription(videoId: string): Promise<string> {
-        const cacheKey = this.getCacheKey('description', videoId);
-        const cached = this.cache?.get<string>(cacheKey);
-        if (cached) {
-            return cached;
-        }
-
-        try {
-            const html = await this.fetchVideoPageHTML(videoId);
-            const description = this.extractDescriptionFromHTML(html);
-            this.cache?.set(cacheKey, description, this.descriptionTTL);
-            return description;
-        } catch (error) {
-            const fallback = MESSAGES.WARNINGS.EXTRACTION_FAILED;
-            this.cache?.set(cacheKey, fallback, this.descriptionTTL);
-            return fallback;
-        }
-    }
-
-    /**
-     * Fetch YouTube page HTML using CORS proxy
-     */
-    private async fetchVideoPageHTML(videoId: string): Promise<string> {
-        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=` + `${encodeURIComponent(videoUrl)}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for page scraping
-
-        try {
-            const response = await fetch(proxyUrl, { signal: controller.signal });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error(MESSAGES.WARNINGS.CORS_RESTRICTIONS);
-            }
-
-            return response.text();
-        } finally {
-            clearTimeout(timeoutId);
-        }
-    }
-
-    /**
-     * Extract description from YouTube page HTML
-     */
-    private extractDescriptionFromHTML(html: string): string {
-        const patterns = [
-            /"shortDescription":"([^"]*?)"/,
-            /"description":{"simpleText":"([^"]*?)"}/,
-            /<meta name="description" content="([^"]*?)">/,
-            /<meta property="og:description" content="([^"]*?)">/,
-        ];
-
-        for (const pattern of patterns) {
-            const match = html.match(pattern);
-            if (match?.[1]) {
-                const cleanedText = ValidationUtils.cleanText(match[1]);
-                return ValidationUtils.truncateText(cleanedText, API_LIMITS.DESCRIPTION_MAX_LENGTH);
-            }
-        }
-
-        return MESSAGES.WARNINGS.AUTO_EXTRACTION;
     }
 
     private getCacheKey(namespace: string, videoId: string): string {

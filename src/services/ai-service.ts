@@ -4,10 +4,12 @@
  */
 
 import { AIProvider, AIResponse, YouTubePluginSettings } from '../types';
-import { PROVIDER_MODEL_OPTIONS, type ProviderModelEntry } from '../ai/api';
+import { PROVIDER_MODEL_OPTIONS } from '../ai/api';
 
 export class AIService {
     private providerMap: Map<string, AIProvider> = new Map();
+    private readonly modelCacheTTL = 1000 * 60 * 60; // 1 hour
+    private modelCache = new Map<string, { models: string[]; ts: number }>();
 
     constructor(
         providers: AIProvider[],
@@ -22,7 +24,7 @@ export class AIService {
     /**
      * Process prompt with the first available provider
      */
-    async process(prompt: string, images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
+    async process(prompt: string, _images?: (string | ArrayBuffer)[]): Promise<AIResponse> {
         if (!prompt || typeof prompt !== 'string') {
             throw new Error('Valid prompt is required');
         }
@@ -107,22 +109,66 @@ export class AIService {
     }
 
     /**
-     * Fetch all available models for all providers
+     * Fetch all available models for all providers (live where supported).
      */
     async fetchLatestModels(): Promise<Record<string, string[]>> {
         const result: Record<string, string[]> = {};
-        for (const providerName of this.getProviderNames()) {
-            result[providerName] = this.getProviderModels(providerName);
-        }
+        await Promise.all(
+            this.getProviderNames().map(async name => {
+                result[name] = await this.fetchLatestModelsForProvider(name);
+            }),
+        );
         return result;
     }
 
     /**
-     * Fetch models for a specific provider
+     * Fetch models for a specific provider. Uses the provider's live `listModels`
+     * when available (with a 1-hour in-memory cache, bypassable via `bypassCache`),
+     * and falls back to the curated static list on error or for unsupported providers.
      */
-    async fetchLatestModelsForProvider(_providerName: string, _bypassCache?: boolean): Promise<string[]> {
-        // Return static model list - dynamic fetching not implemented
-        return this.getProviderModels(_providerName);
+    async fetchLatestModelsForProvider(providerName: string, bypassCache = false): Promise<string[]> {
+        const provider = this.providerMap.get(providerName);
+        const staticModels = this.getProviderModels(providerName);
+
+        if (!provider || typeof provider.listModels !== 'function') {
+            return staticModels;
+        }
+
+        if (!bypassCache) {
+            const cached = this.modelCache.get(providerName);
+            if (cached && Date.now() - cached.ts < this.modelCacheTTL) {
+                return cached.models.length > 0 ? cached.models : staticModels;
+            }
+        }
+
+        try {
+            const live = await provider.listModels();
+            const ordered = this.orderLiveModels(staticModels, live);
+            const result = ordered.length > 0 ? ordered : staticModels;
+            this.modelCache.set(providerName, { models: result, ts: Date.now() });
+            return result;
+        } catch {
+            return staticModels;
+        }
+    }
+
+    /**
+     * Order live-fetched models so curated (known-good) models appear first in
+     * their quality order, then any remaining live models alphabetically.
+     */
+    private orderLiveModels(curated: string[], live: string[]): string[] {
+        const liveSet = new Set(live);
+        const seen = new Set<string>();
+        const ordered: string[] = [];
+
+        for (const name of curated) {
+            if (liveSet.has(name) && !seen.has(name)) {
+                seen.add(name);
+                ordered.push(name);
+            }
+        }
+        const rest = live.filter(m => !seen.has(m)).sort((a, b) => a.localeCompare(b));
+        return [...ordered, ...rest];
     }
 
     /**
@@ -130,6 +176,20 @@ export class AIService {
      */
     updateSettings(newSettings: YouTubePluginSettings): void {
         this.settings = newSettings;
+    }
+
+    /**
+     * Apply generation parameters (maxTokens / temperature) to every provider.
+     */
+    setModelParameters(params: { maxTokens?: number; temperature?: number }): void {
+        for (const provider of this.providerMap.values()) {
+            if (params.maxTokens !== undefined && provider.setMaxTokens) {
+                provider.setMaxTokens(params.maxTokens);
+            }
+            if (params.temperature !== undefined && provider.setTemperature) {
+                provider.setTemperature(params.temperature);
+            }
+        }
     }
 
     /**

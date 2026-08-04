@@ -22,6 +22,8 @@ export interface YouTubePluginSettings {
     enableParallelProcessing: boolean;
     enableAutoFallback: boolean;
     preferMultimodal: boolean;
+    /** Preferred transcript language code (e.g. "en", "es"). Blank = auto (English fallback). */
+    transcriptLanguage?: string;
     defaultMaxTokens: number;
     defaultTemperature: number;
 }
@@ -76,6 +78,8 @@ export interface AIProvider {
     model: string;
     process(prompt: string): Promise<string>;
     processWithImage?(prompt: string, images?: (string | ArrayBuffer)[]): Promise<string>;
+    /** Live-fetch the models available under this provider's credentials. */
+    listModels?(): Promise<string[]>;
     setModel?(model: string): void;
     setTimeout?(timeout: number): void;
     setMaxTokens?(maxTokens: number): void;
@@ -89,7 +93,7 @@ export interface AIProvider {
 export interface VideoDataService {
     extractVideoId(url: string): string | null;
     getVideoData(videoId: string): Promise<VideoData>;
-    getTranscript?(videoId: string): Promise<{ fullText: string } | null>;
+    getTranscript?(videoId: string, language?: string): Promise<{ fullText: string } | null>;
     getPerformanceMetrics?(): Record<string, unknown>;
     cleanup?(): void;
 }
@@ -179,11 +183,14 @@ export interface AIService {
         prompt: string,
         overrideModel?: string,
         images?: (string | ArrayBuffer)[],
+        enableFallback?: boolean,
     ): Promise<AIResponse>;
+    /** Apply maxTokens / temperature to every provider for the next request. */
+    setModelParameters?(params: { maxTokens?: number; temperature?: number }): void;
     getProviderNames(): string[];
     getProviderModels(providerName: string): string[];
     fetchLatestModels(): Promise<Record<string, string[]>>;
-    fetchLatestModelsForProvider(providerName: string): Promise<string[]>;
+    fetchLatestModelsForProvider(providerName: string, bypassCache?: boolean): Promise<string[]>;
     getPerformanceMetrics?(): Record<string, unknown>;
     cleanup?(): void;
 }

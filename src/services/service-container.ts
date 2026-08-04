@@ -21,6 +21,7 @@ import {
     PromptService,
 } from '../types';
 import { AI_MODELS } from '../ai/api';
+import { SecureConfigService } from '../secure-config';
 
 /**
  * Simplified service container for the YouTube to Note plugin
@@ -40,33 +41,42 @@ export class ServiceContainer implements IServiceContainer {
     get aiService(): IAIService {
         if (this._aiService) return this._aiService;
 
+        // Resolve keys centrally through SecureConfigService so that legacy
+        // obfuscated values and environment variables are both handled.
+        const secure = new SecureConfigService(this.settings);
+
         const providers: AIProvider[] = [];
 
         // Provider priority: Groq (fast, reliable) > Gemini (multimodal) > OpenRouter > Ollama Cloud > HuggingFace > Ollama Local
-        if (this.settings.groqApiKey) {
-            providers.push(new GroqProvider(this.settings.groqApiKey));
+        const groqKey = secure.getApiKey('groqApiKey');
+        if (groqKey) {
+            providers.push(new GroqProvider(groqKey));
         }
 
-        if (this.settings.geminiApiKey) {
-            providers.push(new GeminiProvider(this.settings.geminiApiKey));
+        const geminiKey = secure.getApiKey('geminiApiKey');
+        if (geminiKey) {
+            providers.push(new GeminiProvider(geminiKey));
         }
 
-        if (this.settings.openRouterApiKey) {
-            providers.push(new OpenRouterProvider(this.settings.openRouterApiKey));
+        const openRouterKey = secure.getApiKey('openRouterApiKey');
+        if (openRouterKey) {
+            providers.push(new OpenRouterProvider(openRouterKey));
         }
 
-        if (this.settings.ollamaApiKey) {
-            providers.push(new OllamaCloudProvider(this.settings.ollamaApiKey, AI_MODELS.OLLAMA_CLOUD));
+        const ollamaCloudKey = secure.getApiKey('ollamaApiKey');
+        if (ollamaCloudKey) {
+            providers.push(new OllamaCloudProvider(ollamaCloudKey, AI_MODELS.OLLAMA_CLOUD));
         }
 
-        if (this.settings.huggingFaceApiKey) {
-            providers.push(new HuggingFaceProvider(this.settings.huggingFaceApiKey));
+        const huggingFaceKey = secure.getApiKey('huggingFaceApiKey');
+        if (huggingFaceKey) {
+            providers.push(new HuggingFaceProvider(huggingFaceKey));
         }
 
         // Ollama local (always available, lowest priority)
         providers.push(
             new OllamaProvider(
-                this.settings.ollamaApiKey || '',
+                ollamaCloudKey || '',
                 undefined,
                 undefined,
                 this.settings.ollamaEndpoint || 'http://localhost:11434',

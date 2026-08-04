@@ -171,17 +171,7 @@ export class AIPromptService implements PromptService {
         );
 
         // Build full prompt with all components
-        return this.buildFullPrompt(
-            baseContent,
-            videoData,
-            videoUrl,
-            videoId,
-            format,
-            provider,
-            model,
-            undefined,
-            providerName,
-        );
+        return this.buildFullPrompt(baseContent, videoData, videoUrl, videoId, format, provider, model, providerName);
     }
 
     // ============ PRIVATE HELPER METHODS ============
@@ -253,7 +243,6 @@ export class AIPromptService implements PromptService {
         format: OutputFormat,
         provider: string,
         model: string,
-        customPrompt?: string,
         providerName?: string,
     ): string {
         // Enriched frontmatter with video metadata
@@ -268,23 +257,23 @@ export class AIPromptService implements PromptService {
         }
 
         const separator = '---\n\n';
-        let formatTemplate = this.buildFormatTemplate(format, customPrompt);
+        let template = this.buildFormatTemplate(format);
 
         // Replace {{YOUTUBE_URL}} placeholder in format templates
-        formatTemplate = formatTemplate.replace(/\{\{YOUTUBE_URL\}\}/g, videoUrl);
+        template = template.replace(/\{\{YOUTUBE_URL\}\}/g, videoUrl);
 
         // Strip multimodal instructions for text-only providers
         if (providerName && !this.isMultimodalProvider(providerName)) {
-            formatTemplate = this.stripMultimodalInstructions(formatTemplate);
+            template = this.stripMultimodalInstructions(template);
         }
 
-        return `${frontmatter}\n\n${iframe}${thumbnailBlock}\n\n${separator}${baseContent}\n\n${formatTemplate}`;
+        return `${frontmatter}\n\n${iframe}${thumbnailBlock}\n\n${separator}${baseContent}\n\n${template}`;
     }
 
     /**
      * Build format-specific template
      */
-    private buildFormatTemplate(format: OutputFormat, customPrompt?: string): string {
+    private buildFormatTemplate(format: OutputFormat): string {
         return FORMAT_TEMPLATES[format];
     }
 
@@ -415,7 +404,6 @@ export class AIPromptService implements PromptService {
             const minutes = parseInt(match[2]!);
             const seconds = parseInt(match[3]!);
             const title = (match[4] ?? '').trim();
-            const totalSeconds = hours * 3600 + minutes * 60 + seconds;
             const formatted =
                 hours > 0
                     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`

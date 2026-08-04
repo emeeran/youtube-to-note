@@ -1,7 +1,7 @@
 import { API_ENDPOINTS, AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
-import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
+import type { OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
  * Groq AI provider implementation
@@ -72,5 +72,18 @@ export class GroqProvider extends BaseAIProvider {
     protected extractContent(response: Record<string, unknown>): string {
         const content = (response.choices as OpenAICompatibleResponse['choices'])[0]?.message?.content;
         return content ? content.trim() : '';
+    }
+
+    /** Live-fetch available model ids from Groq's /models endpoint. */
+    async listModels(): Promise<string[]> {
+        const response = await fetch('https://api.groq.com/openai/v1/models', {
+            method: 'GET',
+            headers: this.createHeaders(),
+        });
+        if (!response.ok) {
+            throw new Error(`Groq models request failed: ${response.status}`);
+        }
+        const data = (await response.json()) as { data?: Array<{ id?: string }> };
+        return (data.data ?? []).map(m => m.id).filter((id): id is string => typeof id === 'string' && id.length > 0);
     }
 }

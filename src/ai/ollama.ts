@@ -41,6 +41,20 @@ export class OllamaProvider extends BaseAIProvider {
         } else {
             this.apiBaseUrl = 'http://localhost:11434/api';
         }
+
+        // Warn if the endpoint is plain HTTP on a non-loopback host: transcripts,
+        // prompts, and any API key would traverse the network unencrypted.
+        if (this.apiBaseUrl.startsWith('http://')) {
+            const host = this.apiBaseUrl.replace(/^https?:\/\//, '').split('/')[0] ?? '';
+            const isLoopback = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/i.test(host);
+            if (!isLoopback) {
+                // eslint-disable-next-line no-console
+                console.warn(
+                    `[YouTube-to-Note] Ollama endpoint "${this.apiBaseUrl}" is unencrypted HTTP on a ` +
+                        'non-loopback host. Prompts and any API key will be sent in cleartext.',
+                );
+            }
+        }
     }
 
     /**
@@ -104,7 +118,7 @@ export class OllamaProvider extends BaseAIProvider {
                 }
                 if (response.status === 500) {
                     const errorData = await this.safeJsonParse(response);
-                    const errorMessage = errorData?.error || 'Ollama server error';
+                    const errorMessage = this.sanitizeRemoteMessage(errorData?.error) || 'Ollama server error';
                     throw new Error(`Ollama error: ${errorMessage}`);
                 }
                 throw new Error(`Ollama API error: ${response.status} - ${response.statusText}`);
@@ -206,7 +220,7 @@ export class OllamaProvider extends BaseAIProvider {
                 }
                 if (response.status === 500) {
                     const errorData = await this.safeJsonParse(response);
-                    const errorMessage = errorData?.error || 'Ollama server error';
+                    const errorMessage = this.sanitizeRemoteMessage(errorData?.error) || 'Ollama server error';
                     throw new Error(`Ollama error: ${errorMessage}`);
                 }
                 throw new Error(`Ollama API error: ${response.status} - ${response.statusText}`);
@@ -284,6 +298,24 @@ export class OllamaProvider extends BaseAIProvider {
         } catch (error) {
             return false;
         }
+    }
+
+    /**
+     * Live-fetch the names of models available on the configured Ollama instance
+     * (local: models you have pulled; cloud: cloud catalog).
+     */
+    async listModels(): Promise<string[]> {
+        const response = await fetch(this.getApiUrl('/tags'), {
+            method: 'GET',
+            headers: this.createHeaders(),
+        });
+        if (!response.ok) {
+            throw new Error(`Ollama models request failed: ${response.status}`);
+        }
+        const data = (await response.json()) as OllamaModelsResponse;
+        return (data.models ?? [])
+            .map(m => m.name)
+            .filter((name): name is string => typeof name === 'string' && name.length > 0);
     }
 
     /**

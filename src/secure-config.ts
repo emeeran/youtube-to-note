@@ -3,20 +3,23 @@ import { YouTubePluginSettings } from './types';
 /**
  * Secure configuration service for API key management
  *
- * SECURITY FEATURES:
- * - API key obfuscation at rest (XOR encryption with device-specific key)
- * - Input masking in UI (password fields)
- * - Key format validation
- * - Secure key clearing on logout/reset
- * - Environment variable support
- * - Security warnings and best practices
+ * DESIGN:
+ * - API keys are stored in plaintext inside the plugin's local data.json.
+ *   The user fully controls that file locally; this mirrors how every other
+ *   Obsidian plugin stores credentials and avoids the false security of a
+ *   reversible in-renderer "obfuscation" scheme.
+ * - Optional environment-variable resolution for users who prefer not to
+ *   persist keys to disk.
+ * - Legacy XOR-obfuscated values (written by older plugin versions) are
+ *   transparently de-obfuscated on read and migrated to plaintext on load.
+ * - Input masking + format validation for the settings UI.
  */
 
 // Security constants
 const SECURITY_VERSION = '1.0.0';
 const OBFUSCATION_KEY_PREFIX = 'ytc_sec_';
 const MIN_API_KEY_LENGTH = 20;
-const MAX_API_KEY_LENGTH = 200;
+const MAX_API_KEY_LENGTH = 400;
 
 /**
  * API key field names in settings
@@ -79,21 +82,16 @@ class SecureKeyStorage {
     }
 
     /**
-     * Obfuscate API key using XOR with device-specific key
-     * This provides basic obfuscation, not true encryption
+     * Obfuscate API key.
+     *
+     * This is now an identity function: keys are intentionally stored in
+     * plaintext (see file header). The method is retained only so that
+     * `setApiKey` can keep its existing call shape. The XOR routine below is
+     * intentionally NOT used for new writes — `deobfuscateKey` still exists
+     * solely to recover values written by older plugin versions.
      */
     obfuscateKey(apiKey: string): string {
-        if (!apiKey) return '';
-
-        const key = this.generateObfuscationKey();
-        const keyBytes = this.stringToBytes(key);
-        const dataBytes = this.stringToBytes(apiKey);
-
-        // XOR each byte with key (repeating key as needed)
-        const obfuscated = dataBytes.map((byte, i) => byte ^ keyBytes[i % keyBytes.length]!);
-
-        // Encode as base64 for storage
-        return btoa(String.fromCharCode(...obfuscated));
+        return apiKey;
     }
 
     /**
@@ -271,7 +269,7 @@ class APIKeyValidator {
     /**
      * Check if key looks weak or compromised
      */
-    checkKeyHealth(keyType: string, apiKey: string): { isHealthy: boolean; warnings: string[] } {
+    checkKeyHealth(_keyType: string, apiKey: string): { isHealthy: boolean; warnings: string[] } {
         const warnings: string[] = [];
         let isHealthy = true;
 
@@ -325,7 +323,32 @@ export class SecureConfigService {
     }
 
     /**
-     * Get API key with environment variable fallback and auto-deobfuscation
+     * Known plaintext API-key prefixes. A value beginning with one of these is
+     * always treated as plaintext (never de-obfuscated), which guarantees we
+     * can never corrupt a real key.
+     */
+    private static readonly KNOWN_KEY_PREFIXES = ['AIza', 'gsk_', 'sk-or-v1-', 'hf_', 'sk-', 'ollama-'];
+
+    /**
+     * Heuristic: does this value look like a real (plaintext) API key?
+     * Returns true for any known-prefixed key, or any non-base64 string of
+     * reasonable length (covers opaque tokens like some Ollama keys).
+     */
+    static isLikelyPlaintextKey(value: string): boolean {
+        if (!value || value.length < MIN_API_KEY_LENGTH) return false;
+        if (this.KNOWN_KEY_PREFIXES.some(prefix => value.startsWith(prefix))) return true;
+        // A real base64 blob *might* be a legacy-obfuscated value, so anything
+        // that is NOT valid base64 is safely plaintext.
+        try {
+            atob(value);
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
+    /**
+     * Get API key with environment-variable fallback and legacy de-obfuscation.
      */
     getApiKey(
         keyType: keyof Pick<
@@ -340,18 +363,45 @@ export class SecureConfigService {
             return this.getFromEnvironment(keyType);
         }
 
-        // Check if key is obfuscated and de-obfuscate if needed
-        if (this.keyStorage.isObfuscated(rawKey)) {
-            const deobfuscated = this.keyStorage.deobfuscateKey(rawKey);
-            return deobfuscated || rawKey; // Fall back to raw if de-obfuscation fails
+        // Plaintext keys are returned untouched.
+        if (SecureConfigService.isLikelyPlaintextKey(rawKey)) {
+            return rawKey;
         }
 
+        // Otherwise attempt legacy de-obfuscation (values written by old versions).
+        const deobfuscated = this.keyStorage.deobfuscateKey(rawKey);
+        if (deobfuscated && SecureConfigService.isLikelyPlaintextKey(deobfuscated)) {
+            return deobfuscated;
+        }
+
+        // Unknown opaque value — return as-is rather than risk corrupting it.
         return rawKey;
     }
 
     /**
-     * Store API key with obfuscation
-     * Returns the obfuscated value for storage
+     * One-time migration: resolve any legacy-obfuscated keys to plaintext in
+     * place so future reads are trivial and data.json is no longer mixed.
+     * Returns whether any value changed.
+     */
+    static migrateApiKeys(settings: YouTubePluginSettings): boolean {
+        const fields = ['geminiApiKey', 'groqApiKey', 'ollamaApiKey', 'huggingFaceApiKey', 'openRouterApiKey'] as const;
+        const svc = new SecureConfigService(settings);
+        let changed = false;
+        for (const field of fields) {
+            const raw = settings[field];
+            if (!raw) continue;
+            const resolved = svc.getApiKey(field);
+            if (resolved && resolved !== raw) {
+                settings[field] = resolved;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Store an API key. Keys are kept in plaintext (see file header); this
+     * validates the format and returns the trimmed value for storage.
      */
     setApiKey(keyType: ApiKeyName, apiKey: string): string {
         const trimmedKey = apiKey.trim();
@@ -359,14 +409,12 @@ export class SecureConfigService {
         // Validate before storing
         const validation = this.validator.validateKeyFormat(keyType, trimmedKey);
         if (!validation.valid) {
-            throw new Error(validation.message || 'Invalid API key format');
+            throw new Error(validation.message ?? 'Invalid API key format');
         }
 
-        // Obfuscate the key before returning for storage
-        const obfuscated = this.keyStorage.obfuscateKey(trimmedKey);
         this.keyStorage.storeMetadata(keyType, keyType);
 
-        return obfuscated;
+        return trimmedKey;
     }
 
     /**
@@ -446,7 +494,7 @@ export class SecureConfigService {
         try {
             // Try Electron/Node.js environment first
             if (typeof process !== 'undefined' && process.env) {
-                return process.env[envVarName] || '';
+                return process.env[envVarName] ?? '';
             }
 
             // Check for window-level environment (some setups)
@@ -514,14 +562,6 @@ export class SecureConfigService {
             if (!health.isHealthy) {
                 result.warnings.push(`${keyType}: ${health.warnings.join(', ')}`);
                 result.isValid = false;
-            }
-
-            // Check if key is obfuscated
-            const rawStored = this.settings[keyType];
-            if (rawStored && !this.keyStorage.isObfuscated(rawStored)) {
-                result.warnings.push(
-                    `${keyType}: Key is stored in plain text. Consider re-entering your key to enable obfuscation.`,
-                );
             }
         }
 

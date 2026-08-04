@@ -1,5 +1,4 @@
 import { AIProvider } from '../types';
-import { ErrorHandler } from '../services/error-handler';
 import { formatQuotaError, formatHttpError } from './error-utils';
 import type { JsonObject } from '../types/api-responses';
 
@@ -106,6 +105,21 @@ export abstract class BaseAIProvider implements AIProvider {
     }
 
     /**
+     * Sanitize a server-controlled message before embedding it in a thrown
+     * Error (which may be rendered to the user). Caps length and strips
+     * newlines / control characters so a malicious endpoint cannot push
+     * arbitrary multi-line content into Obsidian notices.
+     */
+    protected sanitizeRemoteMessage(message: unknown, maxLength = 200): string {
+        if (typeof message !== 'string') return '';
+        return message
+            .replace(/[\r\n\t]+/g, ' ')
+            .replace(/[^\x20-\x7E]/g, '')
+            .slice(0, maxLength)
+            .trim();
+    }
+
+    /**
      * Handle API errors consistently using shared formatting utilities
      */
     protected async handleAPIError(response: Response): Promise<never> {
@@ -122,7 +136,7 @@ export abstract class BaseAIProvider implements AIProvider {
             const rawMessage = (errorData as Record<string, unknown>)?.error
                 ? String(((errorData as Record<string, unknown>).error as Record<string, unknown>)?.message ?? '')
                 : String((errorData as Record<string, unknown>)?.message ?? '');
-            throw new Error(formatQuotaError(rawMessage, this.name));
+            throw new Error(formatQuotaError(this.sanitizeRemoteMessage(rawMessage), this.name));
         }
 
         // All other errors

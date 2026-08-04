@@ -25,7 +25,7 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             const endpoint = `${API_ENDPOINTS.GEMINI_BASE}/${this.model}:generateContent`;
-            const response = await fetch(`${endpoint}?key=${this.apiKey}`, {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(this.createRequestBody(prompt)),
@@ -97,6 +97,9 @@ export class GeminiProvider extends BaseAIProvider {
     protected createHeaders(): Record<string, string> {
         return {
             'Content-Type': 'application/json',
+            // Send the key via header rather than the URL query string, where it
+            // can leak into logs / referers.
+            'x-goog-api-key': this.apiKey,
         };
     }
 
@@ -123,65 +126,60 @@ export class GeminiProvider extends BaseAIProvider {
         };
 
         // Enable multimodal analysis for YouTube videos only when the chosen Gemini model
-        // is known to support audio/video tokens. Sending the `useAudioVideoTokens` flag
-        // to models that don't support it causes a 400 from the Gemini API (unknown field).
-        // Conservative check: only enable for newer 2.5-series models.
+        // is known to support audio/video input. We both attach the video as a `fileData`
+        // part (so Gemini ingests the actual YouTube video) and add a system instruction.
         if (isVideoAnalysis) {
-            // Lookup the model entry in PROVIDER_MODEL_OPTIONS to see if it explicitly
-            // supports audio/video tokens. This is more reliable than a name heuristic.
-            const providerModels = PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? ([] as ProviderModelEntry[]);
             const currentModelName = String(this.model ?? '').toLowerCase();
-            providerModels.find(m => {
-                const name = typeof m === 'string' ? m : m?.name ? m.name : '';
-                return String(name).toLowerCase() === currentModelName;
-            });
+            const modelSupportsAudioVideo =
+                (PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? ([] as ProviderModelEntry[])).some(m => {
+                    const name = typeof m === 'string' ? m : (m?.name ?? '');
+                    return (
+                        String(name).toLowerCase() === currentModelName &&
+                        (typeof m === 'string' ? false : Boolean(m.supportsAudioVideo))
+                    );
+                }) || /^gemini-(1\.5|2\.\d|flash|pro)/.test(currentModelName);
 
-            // Gemini automatically processes YouTube URLs and extracts both audio
-            // and video streams. Per Google's official docs, there is no special
-            // `useAudioVideoTokens` or similar parameter needed. The multimodal
-            // analysis is built-in behavior. We rely on a strong system instruction
-            // to guide comprehensive analysis of both visual and audio content.
-            const videoConfig: GeminiRequestBody & { systemInstruction: { parts: Array<{ text: string }> } } = {
+            const videoConfig: GeminiRequestBody & {
+                systemInstruction: { parts: Array<{ text: string }> };
+            } = {
                 ...baseConfig,
                 systemInstruction: {
                     parts: [
                         {
                             text:
                                 'You are an expert video content analyzer. ' +
-                                `Provide comprehensive, multimodal analysis using:
-• AUDIO STREAM: Transcribe all spoken content, identify speakers, capture tone/emphasis/emotion
-• VIDEO STREAM: Analyze visual elements, text overlays, diagrams, slides, gestures, ` +
-                                `scene changes, and visual demonstrations
-• INTEGRATED INSIGHTS: Synthesize audio and visual data to provide complete understanding
-
-For best results:
-- Prioritize accuracy in transcription and speaker identification` +
-                                `- Extract and explain key concepts shown visually
-- Note timing relationships between audio and visual elements
-- Identify visual cues that reinforce or clarify spoken content`,
+                                'Provide comprehensive, multimodal analysis using:\n' +
+                                '• AUDIO STREAM: transcribe spoken content, identify speakers, ' +
+                                'capture tone/emphasis/emotion\n' +
+                                '• VIDEO STREAM: analyze visual elements, text overlays, diagrams, ' +
+                                'slides, gestures, scene changes, demonstrations\n' +
+                                '• INTEGRATED INSIGHTS: synthesize audio and visual data\n\n' +
+                                'Prioritize accuracy in transcription, extract key concepts shown ' +
+                                'visually, and note timing relationships between audio and visuals.',
                         },
                     ],
                 },
             };
 
+            // Attach the actual YouTube video so Gemini can watch/listen to it.
+            // Gemini ingests public YouTube URLs natively via FileData.
+            if (modelSupportsAudioVideo) {
+                const youtubeUrl = this.extractYouTubeUrl(prompt);
+                if (youtubeUrl) {
+                    videoConfig.contents[0]!.parts.push({
+                        fileData: { fileUri: youtubeUrl, mimeType: 'video/mp4' },
+                    });
+                }
+            }
+
             // If the prompt contains a Google Cloud Storage URI (gs://...), attach it
             // as a FileData part for additional video analysis capability.
             const gcsMatch = prompt.match(/(gs:\/\/[\w-./]+\.(?:mp4|mov|mkv|webm))/i);
             if (gcsMatch?.[1]) {
-                const gcsUri = gcsMatch[1];
-                // Append a FileData part to contents so Gemini can process the video file
-                videoConfig.contents = videoConfig.contents || [];
                 videoConfig.contents.push({
-                    parts: [{ fileData: { fileUri: gcsUri, mimeType: 'video/mp4' } }],
+                    parts: [{ fileData: { fileUri: gcsMatch[1], mimeType: 'video/mp4' } }],
                 });
             }
-
-            // Historically we attempted to send `useAudioVideoTokens` for
-            // multimodal-capable models. That flag has caused 400 errors
-            // for some accounts / model deployments. To be safe and avoid
-            // breaking requests, we no longer send that flag. The
-            // `systemInstruction` above still guides the model to consider
-            // video/audio context when available.
 
             return videoConfig;
         }
@@ -189,8 +187,40 @@ For best results:
         return baseConfig;
     }
 
+    /**
+     * Extract a clean YouTube watch URL from a prompt, if present.
+     */
+    private extractYouTubeUrl(prompt: string): string | null {
+        const match = prompt.match(
+            /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[A-Za-z0-9_-]{11}/,
+        );
+        return match?.[0] ?? null;
+    }
+
     protected extractContent(response: Record<string, unknown>): string {
         const content = (response.candidates as GeminiResponse['candidates'])[0]?.content?.parts[0]?.text;
         return content ? content.trim() : '';
+    }
+
+    /** Live-fetch available model ids from Gemini's list endpoint. */
+    async listModels(): Promise<string[]> {
+        const response = await fetch(`${API_ENDPOINTS.GEMINI_BASE}?pageSize=200`, {
+            method: 'GET',
+            headers: this.createHeaders(),
+        });
+        if (!response.ok) {
+            throw new Error(`Gemini models request failed: ${response.status}`);
+        }
+        const data = (await response.json()) as {
+            models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
+        };
+        return (data.models ?? [])
+            .filter(
+                m =>
+                    Array.isArray(m.supportedGenerationMethods) &&
+                    m.supportedGenerationMethods.includes('generateContent'),
+            )
+            .map(m => (m.name ?? '').replace(/^models\//, ''))
+            .filter((name): name is string => name.length > 0);
     }
 }

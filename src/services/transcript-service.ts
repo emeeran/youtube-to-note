@@ -1,9 +1,19 @@
-import { API_ENDPOINTS } from '../ai/api';
 import { CacheService } from '../types';
-import { MemoryCacheService } from './cache/memory-cache';
+import { logger } from './logger';
+import {
+    fetchPlayerResponse,
+    extractCaptionTracks,
+    selectCaptionTrack,
+    fetchCaptionContent,
+    decodeEntities,
+} from './youtube-page';
 
 /**
- * YouTube transcript extraction and processing service
+ * YouTube transcript extraction service.
+ *
+ * Fetches the watch page via Obsidian's CORS-free `requestUrl`, parses the
+ * embedded `ytInitialPlayerResponse`, selects a caption track (honoring a
+ * preferred language), then downloads and parses the timedtext payload.
  */
 
 export interface TranscriptSegment {
@@ -21,301 +31,125 @@ export interface Transcript {
 
 export class YouTubeTranscriptService {
     private readonly transcriptTTL = 1000 * 60 * 60 * 24 * 7; // 7 days
-    private readonly persistentCache = new MemoryCacheService();
 
     constructor(private cache?: CacheService) {}
 
     /**
-     * Extract transcript for a YouTube video
-     * Uses both in-memory and persistent cache for optimal performance
+     * Extract a transcript for a YouTube video.
+     * @param videoId 11-character video id
+     * @param language Optional preferred language code (e.g. "en", "es"). Falls
+     *                 back to English, then the first available track.
      */
-    async getTranscript(videoId: string): Promise<Transcript | null> {
+    async getTranscript(videoId: string, language?: string): Promise<Transcript | null> {
         if (!videoId) {
             throw new Error('Video ID is required');
         }
 
-        const cacheKey = `transcript-${videoId}`;
+        const cacheKey = language ? `transcript-${videoId}-${language}` : `transcript-${videoId}`;
 
-        // Check in-memory cache first (fastest)
-        const memCached = this.cache?.get<Transcript>(cacheKey);
-        if (memCached) {
-            return memCached;
+        const cached = this.cache?.get<Transcript>(cacheKey);
+        if (cached) {
+            return cached;
         }
 
-        // Check persistent cache (survives reloads)
-        const persistentCached = this.persistentCache.get<Transcript>(videoId);
-        if (persistentCached) {
-            // Populate in-memory cache for faster subsequent access
-            this.cache?.set(cacheKey, persistentCached, this.transcriptTTL);
-            return persistentCached;
+        const transcript = await this.fetchTranscript(videoId, language);
+
+        if (transcript) {
+            this.cache?.set(cacheKey, transcript, this.transcriptTTL);
         }
 
+        return transcript;
+    }
+
+    /**
+     * Fetch transcript by parsing the watch page's caption tracks.
+     */
+    private async fetchTranscript(videoId: string, language?: string): Promise<Transcript | null> {
         try {
-            // Try multiple methods to get transcript
-            const transcript = await this.fetchTranscriptWithFallback(videoId);
-
-            if (transcript) {
-                // Save to both in-memory and persistent cache
-                this.cache?.set(cacheKey, transcript, this.transcriptTTL);
-                this.persistentCache.set(videoId, transcript, this.transcriptTTL);
-                return transcript;
+            const playerResponse = await fetchPlayerResponse(videoId);
+            if (!playerResponse) {
+                logger.warn('Transcript: could not parse player response', 'Transcript', { videoId });
+                return null;
             }
 
-            return null;
+            const tracks = extractCaptionTracks(playerResponse);
+            if (tracks.length === 0) {
+                logger.info('Transcript: no caption tracks available', 'Transcript', { videoId });
+                return null;
+            }
+
+            const track = selectCaptionTrack(tracks, language);
+            if (!track?.baseUrl) {
+                logger.warn('Transcript: no suitable caption track found', 'Transcript', {
+                    videoId,
+                    languages: tracks.map(t => t.languageCode),
+                });
+                return null;
+            }
+
+            const xml = await fetchCaptionContent(track.baseUrl);
+            const transcript = this.parseXMLTranscript(xml, track.languageCode || 'en', track.kind === 'asr');
+
+            if (transcript.segments.length === 0) {
+                logger.warn('Transcript: caption payload parsed but was empty', 'Transcript', { videoId });
+                return null;
+            }
+
+            logger.info('Transcript fetched', 'Transcript', {
+                videoId,
+                language: transcript.language,
+                segments: transcript.segments.length,
+                length: transcript.fullText.length,
+            });
+            return transcript;
         } catch (error) {
+            logger.warn('Transcript: fetch failed', 'Transcript', {
+                videoId,
+                error: error instanceof Error ? error.message : String(error),
+            });
             return null;
         }
     }
 
     /**
-     * Fetch transcript using multiple methods with fallback
+     * Parse a timedtext XML payload into segments.
+     * Handles both the default `<text start="" dur="">` shape and the
+     * srv3 `<t s="" d="">` shape so we are robust to YouTube's format variance.
      */
-    private async fetchTranscriptWithFallback(videoId: string): Promise<Transcript | null> {
-        // Method 1: Try YouTube API endpoint
-        try {
-            const transcript = await this.fetchFromYouTubeAPI(videoId);
-            if (transcript) return transcript;
-        } catch {
-            // Ignore error and try next method
-        }
-
-        // Method 2: Try video page scraping
-        try {
-            const transcript = await this.scrapeTranscriptFromPage(videoId);
-            if (transcript) return transcript;
-        } catch {
-            // Ignore error and try next method
-        }
-
-        // Method 3: Try third-party transcript service
-        try {
-            const transcript = await this.fetchFromThirdParty(videoId);
-            if (transcript) return transcript;
-        } catch {
-            // Ignore error and continue
-        }
-
-        return null;
-    }
-
-    /**
-     * Method 1: Official YouTube transcript API
-     */
-    private async fetchFromYouTubeAPI(videoId: string): Promise<Transcript | null> {
-        const url = `https://video.google.com/timedtext?lang=en&v=${videoId}`;
-
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Transcript API failed: ${response.status}`);
-        }
-
-        const xmlText = await response.text();
-        return this.parseXMLTranscript(xmlText, videoId);
-    }
-
-    /**
-     * Method 2: Scrape transcript from YouTube page
-     */
-    private async scrapeTranscriptFromPage(videoId: string): Promise<Transcript | null> {
-        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const proxyUrl = `${API_ENDPOINTS.CORS_PROXY}?url=${encodeURIComponent(videoUrl)}`;
-
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-            throw new Error('Failed to fetch video page');
-        }
-
-        const html = await response.text();
-        const transcriptData = await this.extractTranscriptFromHTML(html);
-
-        if (transcriptData) {
-            return this.createTranscript(transcriptData, videoId, true);
-        }
-
-        return null;
-    }
-
-    /**
-     * Method 3: Third-party transcript service (optional)
-     */
-    private async fetchFromThirdParty(_videoId: string): Promise<Transcript | null> {
-        // Note: This is a placeholder for third-party services
-        // You could integrate with services like:
-        // - AssemblyAI
-        // - Deepgram
-        // - AWS Transcribe
-        // - Google Speech-to-Text
-
-        // For now, return null to indicate this method is not implemented
-        return null;
-    }
-
-    /**
-     * Parse XML transcript from YouTube API
-     */
-    private parseXMLTranscript(xmlText: string, _videoId: string): Transcript {
+    private parseXMLTranscript(xmlText: string, language: string, autoGenerated: boolean): Transcript {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
         const textElements = xmlDoc.getElementsByTagName('text');
+        const elements = textElements.length > 0 ? textElements : xmlDoc.getElementsByTagName('t');
+
         const segments: TranscriptSegment[] = [];
         let fullText = '';
 
-        for (let i = 0; i < textElements.length; i++) {
-            const element = textElements[i];
+        for (let i = 0; i < elements.length; i++) {
+            const element = elements[i];
             if (!element) continue;
-            const text = element.textContent ?? '';
-            const start = parseFloat(element.getAttribute('start') ?? '0');
-            const duration = parseFloat(element.getAttribute('dur') ?? '0');
+            const raw = element.textContent ?? '';
+            const text = decodeEntities(raw).replace(/\s+/g, ' ').trim();
+            const start = parseFloat(element.getAttribute('start') ?? element.getAttribute('s') ?? '0');
+            const duration = parseFloat(element.getAttribute('dur') ?? element.getAttribute('d') ?? '0');
 
-            if (text.trim()) {
-                segments.push({ text: text.trim(), start, duration });
-                fullText += `${text.trim()} `;
+            if (text) {
+                segments.push({ text, start, duration });
+                fullText += `${text} `;
             }
         }
 
         return {
             segments,
             fullText: fullText.trim(),
-            language: 'en',
-            autoGenerated: true,
-        };
-    }
-
-    /**
-     * Extract transcript data from YouTube page HTML
-     */
-    private async extractTranscriptFromHTML(html: string): Promise<TranscriptSegment[] | null> {
-        // Look for transcript data in the page JavaScript
-        const transcriptRegex =
-            /"captions":\s*{[^}]*"playerCaptionsTracklistRenderer":\s*{[^}]*"captionTracks":\s*\[([^\]]+)\]/;
-        const match = html.match(transcriptRegex);
-
-        if (!match?.[1]) {
-            return null;
-        }
-
-        try {
-            // Extract the JSON part and parse it
-            const captionTracksJson = match[1];
-            const captionTracks = JSON.parse(`[${captionTracksJson}]`);
-
-            // Find the English caption track
-            const englishTrack = captionTracks.find(
-                (track: { languageCode: string; baseUrl?: string }) =>
-                    track.languageCode === 'en' || track.languageCode.startsWith('en'),
-            );
-
-            if (!englishTrack?.baseUrl) {
-                return null;
-            }
-
-            // Fetch the transcript content (use promise chain to avoid top-level await
-            // parsing issues in some build environments)
-            return fetch(englishTrack.baseUrl)
-                .then(resp => {
-                    if (!resp.ok) throw new Error('Failed to fetch caption track');
-                    return resp.text();
-                })
-                .then(xmlText => this.parseXMLTranscript(xmlText, '').segments)
-                .catch(() => {
-                    return null;
-                });
-        } catch {
-            return null;
-        }
-    }
-
-    /**
-     * Create transcript object from segments
-     */
-    private createTranscript(
-        segments: TranscriptSegment[] | { text: string; start: number; duration?: number }[],
-        videoId: string,
-        autoGenerated: boolean = false,
-    ): Transcript {
-        if (!Array.isArray(segments)) {
-            segments = [segments as TranscriptSegment];
-        }
-
-        const normalizedSegments = segments.map(seg => ({
-            text: seg.text,
-            start: seg.start,
-            duration: seg.duration ?? 0,
-        }));
-
-        const fullText = normalizedSegments
-            .map(seg => seg.text)
-            .join(' ')
-            .trim();
-
-        return {
-            segments: normalizedSegments,
-            fullText,
-            language: 'en',
+            language,
             autoGenerated,
         };
     }
 
     /**
-     * Get transcript summary for quick analysis
-     */
-    async getTranscriptSummary(videoId: string, maxLength: number = 2000): Promise<string | null> {
-        const transcript = await this.getTranscript(videoId);
-        if (!transcript) {
-            return null;
-        }
-
-        // If transcript is short enough, return full text
-        if (transcript.fullText.length <= maxLength) {
-            return transcript.fullText;
-        }
-
-        // For longer transcripts, return key segments
-        const keySegments = transcript.segments
-            .filter(seg => seg.text.length > 20) // Filter out very short segments
-            .slice(0, 10) // Take first 10 meaningful segments
-            .map(seg => seg.text)
-            .join(' ');
-
-        return keySegments.length > maxLength ? `${keySegments.substring(0, maxLength)}...` : keySegments;
-    }
-
-    /**
-     * Extract key time-stamped moments from transcript
-     */
-    async extractKeyMoments(videoId: string, count: number = 5): Promise<Array<{ time: number; text: string }> | null> {
-        const transcript = await this.getTranscript(videoId);
-        if (!transcript || transcript.segments.length === 0) {
-            return null;
-        }
-
-        // Filter segments by length (ignore very short ones)
-        const meaningfulSegments = transcript.segments.filter(seg => seg.text.length > 30);
-
-        if (meaningfulSegments.length === 0) {
-            return null;
-        }
-
-        // Distribute segments evenly throughout the video
-        const totalSegments = meaningfulSegments.length;
-        const step = Math.max(1, Math.floor(totalSegments / count));
-
-        const keyMoments: Array<{ time: number; text: string }> = [];
-        for (let i = 0; i < totalSegments && keyMoments.length < count; i += step) {
-            const segment = meaningfulSegments[i];
-            if (!segment) continue;
-            keyMoments.push({
-                time: segment.start,
-                text: segment.text,
-            });
-        }
-
-        return keyMoments;
-    }
-
-    /**
-     * Check if transcript is available for a video
+     * Check if a transcript is available for a video.
      */
     async isTranscriptAvailable(videoId: string): Promise<boolean> {
         const transcript = await this.getTranscript(videoId);

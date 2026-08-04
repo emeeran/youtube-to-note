@@ -1,6 +1,5 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
-import type { HuggingFaceRequestBody } from '../types/api-responses';
 
 /**
  * Hugging Face Inference API provider implementation

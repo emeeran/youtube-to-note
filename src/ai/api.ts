@@ -15,7 +15,6 @@ export const API_ENDPOINTS = {
     HUGGINGFACE: 'https://router.huggingface.co/hf-inference/models',
     OPENROUTER: 'https://openrouter.ai/api/v1/chat/completions',
     YOUTUBE_OEMBED: 'https://www.youtube.com/oembed',
-    CORS_PROXY: 'https://api.allorigins.win/raw',
 } as const;
 
 /**

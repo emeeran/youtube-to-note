@@ -1,6 +1,6 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
-import type { OpenAICompatibleRequestBody, OpenAICompatibleResponse } from '../types/api-responses';
+import type { OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
  * OpenRouter API provider implementation
@@ -126,5 +126,19 @@ export class OpenRouterProvider extends BaseAIProvider {
     protected extractContent(response: Record<string, unknown>): string {
         const content = (response.choices as OpenAICompatibleResponse['choices'])[0]?.message?.content;
         return content ? content.trim() : '';
+    }
+
+    /** Live-fetch available model ids from OpenRouter's /models endpoint. */
+    async listModels(): Promise<string[]> {
+        // The models list is public; include auth so private/free eligibility is reflected.
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.apiKey}` },
+        });
+        if (!response.ok) {
+            throw new Error(`OpenRouter models request failed: ${response.status}`);
+        }
+        const data = (await response.json()) as { data?: Array<{ id?: string }> };
+        return (data.data ?? []).map(m => m.id).filter((id): id is string => typeof id === 'string' && id.length > 0);
     }
 }

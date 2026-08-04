@@ -90,9 +90,13 @@ export class ValidationUtils {
             }
         }
 
-        // Cache result with simple LRU eviction
+        // Evict the oldest entry (FIFO via Map insertion order) instead of
+        // wiping the whole cache when it fills — preserves hot entries.
         if (this.URL_CACHE.size > 100) {
-            this.URL_CACHE.clear(); // Simple LRU by clearing when full
+            const oldest = this.URL_CACHE.keys().next().value;
+            if (oldest !== undefined) {
+                this.URL_CACHE.delete(oldest);
+            }
         }
         this.URL_CACHE.set(url, result);
 
