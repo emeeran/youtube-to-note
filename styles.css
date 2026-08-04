@@ -137,6 +137,15 @@
     color: var(--ytc-text-primary) !important;
     letter-spacing: -0.01em !important;
     margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+.ytc-title-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
 }
 .ytc-theme-toggle {
     background: var(--ytc-bg-tertiary) !important;

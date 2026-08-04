@@ -198,7 +198,9 @@ export class YouTubeUrlModal extends BaseModal {
         const topBar = this.contentEl.createDiv('ytc-top-bar');
 
         const title = topBar.createEl('h2');
-        title.textContent = 'YouTube to Note';
+        const iconSpan = title.createSpan({ cls: 'ytc-title-icon' });
+        iconSpan.innerHTML = `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" width="24" height="24"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="100%" stop-color="#16213e"/></linearGradient></defs><rect width="128" height="128" rx="24" fill="url(#bg)"/><g transform="translate(22, 16)"><rect width="60" height="76" rx="6" fill="#fff" opacity="0.95"/><rect x="8" y="12" width="44" height="3" rx="1.5" fill="#1a1a2e" opacity="0.5"/><rect x="8" y="22" width="36" height="3" rx="1.5" fill="#1a1a2e" opacity="0.35"/><rect x="8" y="32" width="40" height="3" rx="1.5" fill="#1a1a2e" opacity="0.35"/><rect x="8" y="42" width="30" height="3" rx="1.5" fill="#1a1a2e" opacity="0.35"/><rect x="8" y="52" width="38" height="3" rx="1.5" fill="#1a1a2e" opacity="0.35"/><rect x="8" y="62" width="24" height="3" rx="1.5" fill="#1a1a2e" opacity="0.35"/></g><g transform="translate(72, 72)"><rect width="44" height="32" rx="10" fill="#FF0000"/><polygon points="18,8 18,24 32,16" fill="#fff"/></g></svg>`;
+        title.appendText(' YouTube to Note');
         this.headerEl = title;
 
         // Theme toggle
