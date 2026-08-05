@@ -62,7 +62,10 @@ plugin's `data.json`.
 ### Chrome extension
 
 Load `extension/chrome-extension/` as an unpacked extension (chrome://extensions → Developer
-mode). With Obsidian running, the button on YouTube sends the video to the plugin.
+mode). With Obsidian running, the button in the YouTube player (or `Ctrl+Shift+Y`) sends the
+current video to the plugin. An **Options** help page is available from the extension's
+Details screen. To package it for the Chrome Web Store, see
+[extension/PUBLISH.md](extension/PUBLISH.md) and run `npm run package:extension`.
 
 ## Output formats
 
@@ -88,11 +91,13 @@ mode). With Obsidian running, the button on YouTube sends the video to the plugi
 ## Development
 
 ```bash
-npm run dev          # esbuild watch
-npm run type-check   # tsc --noEmit
-npm run lint         # eslint
-npm run test         # jest
-npm run build        # production bundle
+npm run dev               # esbuild watch
+npm run build             # production bundle -> main.js
+npm run type-check        # tsc --noEmit
+npm run lint              # eslint
+npm run test              # jest
+npm run test:coverage     # jest with coverage
+npm run package:extension # ZIP the Chrome extension for the Web Store -> dist/
 ```
 
 ### Architecture (service-oriented)
@@ -114,6 +119,17 @@ Key modules:
 - `src/ai/*` — one client per provider, all extending `BaseAIProvider`.
 - `src/secure-config.ts` — API-key resolution (plaintext in `data.json`, with legacy
   de-obfuscation for values written by older versions, plus env-var fallback).
+
+## Limitations
+
+- Requires at least one configured AI provider key (Gemini or Groq minimum).
+- Transcript availability depends on the video having captions; if none, the note is
+  generated from metadata only and a notice is shown.
+- Native video ingestion (Gemini actually "watching" the video) requires a multimodal
+  Gemini model; other providers summarize the transcript text.
+- The Chrome extension needs Obsidian running and the `obsidian://` protocol permitted by
+  the browser/OS.
+- Production-readiness notes (open blockers/fixes) live in [`AUDIT.md`](AUDIT.md).
 
 ## License
 
