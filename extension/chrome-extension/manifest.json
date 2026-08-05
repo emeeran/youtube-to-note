@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
   "name": "YouTube to Note for Obsidian",
+  "short_name": "YT to Note",
   "version": "2.0.0",
   "description": "Send YouTube videos to Obsidian's YouTube to Note plugin with one click. No extra plugins needed.",
+  "minimum_chrome_version": "88",
   "permissions": ["activeTab"],
   "host_permissions": ["*://*.youtube.com/*"],
   "action": {
@@ -23,6 +25,10 @@
       "run_at": "document_idle"
     }
   ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
