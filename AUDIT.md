@@ -77,9 +77,9 @@ the safety net is narrow.
 - [ ] (med) `src/main.ts:17,64` — hardcoded `PLUGIN_VERSION = '1.3.5'` is written onto
       `this.manifest.version` at runtime, while `manifest.json` says `2.0.0`. Telemetry/notices
       are inconsistent across reloads. Fix: read `this.manifest.version`, don't hardcode.
-- [ ] (med) `tests/integration/pipeline.spec.ts` is 7 `expect(true).toBe(true)` stubs —
-      missed by Phase 3 (which caught `example.spec` + `e2e/video-processing.spec`). Move to
-      `trash2review` and replace with a real pipeline integration test.
+- [x] (med) `tests/integration/pipeline.spec.ts` — 7 `expect(true).toBe(true)` stubs
+      (missed by Phase 3, surfaced by Phase 5 blind review). **Moved to `trash2review`
+      (2026-08-05).** A real pipeline integration test is still TODO (see High → test gaps).
 - [ ] (med) `package.json` — `"obsidian": "latest"` is unpinned; CI `npm ci` is not
       reproducible across Obsidian API changes.
 - [ ] (low) `src/services/url-handler.ts:310` — protocol handler logs raw `params` and
