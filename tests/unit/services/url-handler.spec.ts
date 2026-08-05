@@ -62,12 +62,7 @@ describe('UrlHandler', () => {
             tempFileAgeThreshold: 5000,
         };
 
-        urlHandler = new UrlHandler(
-            mockApp,
-            mockSettings,
-            mockOnUrlDetected,
-            config
-        );
+        urlHandler = new UrlHandler(mockApp, mockSettings, mockOnUrlDetected, config);
     });
 
     afterEach(() => {
@@ -88,12 +83,7 @@ describe('UrlHandler', () => {
                 tempFileAgeThreshold: 10000,
             };
 
-            const handler = new UrlHandler(
-                mockApp,
-                mockSettings,
-                mockOnUrlDetected,
-                customConfig
-            );
+            const handler = new UrlHandler(mockApp, mockSettings, mockOnUrlDetected, customConfig);
 
             expect(handler).toBeDefined();
         });
@@ -204,7 +194,7 @@ describe('UrlHandler', () => {
 
             mockApp.workspace.getActiveFile.mockReturnValue(mockFile);
             mockApp.vault.read.mockResolvedValue(
-                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`
+                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`,
             );
 
             await urlHandler.handleActiveLeafChange();
@@ -238,7 +228,7 @@ describe('UrlHandler', () => {
 
             mockApp.workspace.getActiveFile.mockReturnValue(mockFile);
             mockApp.vault.read.mockResolvedValue(
-                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`
+                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`,
             );
 
             // First call
@@ -346,7 +336,7 @@ describe('UrlHandler', () => {
             } as TFile;
 
             mockApp.vault.read.mockResolvedValue(
-                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`
+                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`,
             );
 
             await urlHandler.handleFileCreate(mockFile);
@@ -412,7 +402,7 @@ describe('UrlHandler', () => {
             } as TFile;
 
             mockApp.vault.read.mockResolvedValue(
-                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`
+                `<!-- ytc-extension:youtube-clipper -->\n${VALID_YOUTUBE_URLS.STANDARD}`,
             );
 
             // Trigger multiple times rapidly

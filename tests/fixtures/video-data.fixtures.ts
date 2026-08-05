@@ -57,13 +57,17 @@ export const MOCK_VIDEO_DATA = {
 
 export const MOCK_API_RESPONSES = {
     GEMINI_SUCCESS: {
-        candidates: [{
-            content: {
-                parts: [{
-                    text: 'Generated summary content from Gemini',
-                }],
+        candidates: [
+            {
+                content: {
+                    parts: [
+                        {
+                            text: 'Generated summary content from Gemini',
+                        },
+                    ],
+                },
             },
-        }],
+        ],
         usageMetadata: {
             promptTokenCount: 100,
             candidatesTokenCount: 200,
@@ -71,11 +75,13 @@ export const MOCK_API_RESPONSES = {
         },
     },
     GROQ_SUCCESS: {
-        choices: [{
-            message: {
-                content: 'Generated summary content from Groq',
+        choices: [
+            {
+                message: {
+                    content: 'Generated summary content from Groq',
+                },
             },
-        }],
+        ],
         usage: {
             prompt_tokens: 100,
             completion_tokens: 200,

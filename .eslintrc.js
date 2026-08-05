@@ -47,7 +47,8 @@ module.exports = {
         'comma-style': ['error', 'last'],
         'computed-property-spacing': ['error', 'never'],
         'func-call-spacing': ['error', 'never'],
-        'indent': ['error', 4, { SwitchCase: 1 }],
+        // Indentation is owned by prettier (see .prettierrc, tabWidth 4); an
+        // eslint `indent` rule here conflicts with it on multi-line constructs.
         'key-spacing': 'error',
         'keyword-spacing': 'error',
         'linebreak-style': ['error', 'unix'],
@@ -100,18 +101,6 @@ module.exports = {
         'coverage/',
         '*.js',
         '!*.config.js',
-        'src/performance.ts',
-        'src/performance-optimizer.ts',
-        'src/security-hardener.ts',
-        'src/end-to-end-optimizer.ts',
-        'src/agent-*.ts',
-        'src/types/agent-types.ts',
-        'src/progress-modal.ts',
-        'src/video-optimization.ts',
-        'src/video-preview-modal.ts',
-        'src/services/optimized-ai-service.ts',
-        'main-original.ts',
-        'main-refactored.ts',
         'tests/**/*',
     ],
 };

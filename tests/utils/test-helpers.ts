@@ -112,18 +112,13 @@ export function createMockErrorResponse(status: number, message: string) {
 /**
  * Stub a method and track calls
  */
-export function createStub<T extends (...args: unknown[]) => unknown>(
-    implementation?: T
-): jest.MockedFunction<T> {
+export function createStub<T extends (...args: unknown[]) => unknown>(implementation?: T): jest.MockedFunction<T> {
     return jest.fn(implementation) as jest.MockedFunction<T>;
 }
 
 /**
  * Create a spy on an object method
  */
-export function spyOn<T extends object, K extends keyof T>(
-    obj: T,
-    method: K
-): jest.SpyInstance<T[K]> {
+export function spyOn<T extends object, K extends keyof T>(obj: T, method: K): jest.SpyInstance<T[K]> {
     return jest.spyOn(obj, method);
 }

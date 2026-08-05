@@ -49,7 +49,10 @@ class MockModal {
 }
 
 class MockNotice {
-    constructor(public message: string, public duration?: number) {
+    constructor(
+        public message: string,
+        public duration?: number,
+    ) {
         mockNotice(message, duration);
     }
 }
