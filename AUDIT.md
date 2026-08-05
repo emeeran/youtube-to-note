@@ -86,8 +86,9 @@ the safety net is narrow.
       applies no length cap to `params.url` before regex/cache.
 - [ ] (low) `youtube-url-modal.ts` `handleSmartPaste` — clipboard with surrounding text
       (`"see https://youtu.be/… here"`) isn't URL-extracted; only a whole-string URL is accepted.
-- [ ] (low) `extension/chrome-extension/content_script.js:49` — button SVG via `innerHTML`
-      (hardcoded today; fragile pattern if ever templated).
+- [x] (low) `extension/chrome-extension/content_script.js:49` — button SVG via `innerHTML`
+      (hardcoded; fragile if templated). **Fixed (2026-08-05):** now built with
+      `DOMParser` + `appendChild`, closing the innerHTML sink.
 
 ## Missed by pipeline, caught by blind review (Phase 5)
 
@@ -100,12 +101,12 @@ folded into the earlier tiers.
       (YAML) and `title="${title}"` (HTML attribute). A title containing `"` or `:` produces
       malformed frontmatter or breaks out of the attribute. Fix: YAML-quote
       (`JSON.stringify(title)`) and HTML-attribute-escape.
-- [ ] **(med→high) `extension/chrome-extension/helper/server.js` — 76-line dead Express
+- [x] **(med→high) `extension/chrome-extension/helper/server.js` — 76-line dead Express
       server shipped with the repo.** `Access-Control-Allow-Origin: *`, optional token auth,
       arbitrary file-append to env-var paths, and **zero consumers** (the content script uses
       the `obsidian://` handler directly). This is an attack surface doing nothing — the Phase 1
-      purge missed it (it scanned `src/`, not `extension/`). Fix: move `helper/` to
-      `trash2review` and confirm nothing references it.
+      purge missed it (it scanned `src/`, not `extension/`). **Fixed (2026-08-05):** `helper/`
+      (server.js + package.json) moved to `trash2review`; confirmed zero references beforehand.
 - [ ] **(smell) Three parallel error-formatting systems** — `src/services/error-handler.ts`
       (~350 lines), `src/ai/error-utils.ts` (free functions), and per-provider `handleAPIError`
       methods all format the same kind of remote-error-to-user-message transform. Phase 4 noted

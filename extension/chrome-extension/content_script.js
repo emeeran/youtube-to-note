@@ -39,6 +39,20 @@
     setTimeout(function () { f.remove(); }, 2000);
   }
 
+  // Build the play-button icon as a parsed SVG element instead of innerHTML,
+  // so no markup is parsed into the page DOM. The SVG is static/trusted today;
+  // this keeps the sink closed if it is ever templated from page data.
+  function svgIcon() {
+    var doc = new DOMParser().parseFromString(
+      '<svg xmlns="http://www.w3.org/2000/svg" height="100%" viewBox="0 0 128 128" width="100%" fill="none">' +
+        '<rect x="7" y="25" width="104" height="68" rx="18" fill="#FF0000"/>' +
+        '<polygon points="47,39 47,79 81,59" fill="#fff"/>' +
+      '</svg>',
+      'image/svg+xml'
+    );
+    return doc.documentElement;
+  }
+
   function mkBtn() {
     if (document.getElementById(B)) return;
     var b = document.createElement('button');
@@ -46,11 +60,7 @@
     b.className = 'ytp-button';
     b.title = 'Send to Obsidian (Ctrl+Shift+Y)';
     b.style.marginTop = '-2px';
-    b.innerHTML =
-      '<svg height="100%" viewBox="0 0 128 128" width="100%" fill="none">' +
-        '<rect x="7" y="25" width="104" height="68" rx="18" fill="#FF0000"/>' +
-        '<polygon points="47,39 47,79 81,59" fill="#fff"/>' +
-      '</svg>';
+    b.appendChild(svgIcon());
     b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); send(); };
     return b;
   }
