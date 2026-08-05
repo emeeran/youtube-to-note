@@ -63,23 +63,6 @@ export abstract class BaseAIProvider implements AIProvider {
     abstract process(prompt: string): Promise<string>;
 
     /**
-     * Process with timeout support
-     */
-    async processWithTimeout(prompt: string, customTimeout?: number): Promise<string> {
-        const timeoutMs = customTimeout ?? this._timeout;
-
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
-                reject(new Error(`${this.name} request timed out after ${timeoutMs}ms`));
-            }, timeoutMs);
-        });
-
-        const processPromise = this.process(prompt);
-
-        return Promise.race([processPromise, timeoutPromise]);
-    }
-
-    /**
      * Validate API response structure
      */
     protected validateResponse(response: JsonObject, requiredPath: string[]): boolean {

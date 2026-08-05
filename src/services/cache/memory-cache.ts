@@ -43,7 +43,6 @@ export class MemoryCacheService implements CacheService {
             return null;
         }
 
-        // Check expiration
         if (Date.now() > item.expiresAt) {
             this.cache.delete(key);
             this.metrics.misses++;

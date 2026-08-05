@@ -19,7 +19,6 @@ export class GeminiProvider extends BaseAIProvider {
     // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string): Promise<string> {
         try {
-            // Validate inputs
             if (!this.apiKey || this.apiKey.trim().length === 0) {
                 throw new Error(MESSAGES.ERRORS.GEMINI_INVALID_KEY);
             }

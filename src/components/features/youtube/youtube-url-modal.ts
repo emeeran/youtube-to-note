@@ -66,9 +66,7 @@ export class YouTubeUrlModal extends BaseModal {
     private videoTitleEl?: HTMLDivElement;
     private videoChannelEl?: HTMLSpanElement;
     private videoDurationEl?: HTMLSpanElement;
-    private providerStatusEl?: HTMLDivElement;
     private videoPreviewContainer?: HTMLDivElement;
-    private fetchInProgress = false;
     private providerSelect?: HTMLSelectElement;
     private modelSelect?: HTMLSelectElement;
     private selectedProvider?: string;
@@ -470,7 +468,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.videoChannelEl = metaRow.createSpan();
         this.videoDurationEl = metaRow.createSpan();
 
-        this.providerStatusEl = this.videoPreviewContainer.createDiv('ytc-provider-status');
+        this.videoPreviewContainer.createDiv('ytc-provider-status');
     }
 
     /**
@@ -516,18 +514,6 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.videoPreviewContainer) {
             this.videoPreviewContainer.classList.remove('is-visible');
         }
-    }
-
-    private updateProviderStatus(provider: string, status: string): void {
-        if (!this.providerStatusEl) return;
-        this.providerStatusEl.classList.add('is-visible');
-        // Build with textContent/createSpan — never innerHTML — so untrusted
-        // status text cannot inject markup into the Electron renderer.
-        this.providerStatusEl.empty();
-        const providerSpan = this.providerStatusEl.createSpan();
-        providerSpan.style.color = 'var(--ytc-accent)';
-        providerSpan.textContent = `🤖 ${provider}`;
-        this.providerStatusEl.appendText(` — ${status}`);
     }
 
     /**
