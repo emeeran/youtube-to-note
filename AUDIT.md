@@ -89,6 +89,37 @@ the safety net is narrow.
 - [ ] (low) `extension/chrome-extension/content_script.js:49` — button SVG via `innerHTML`
       (hardcoded today; fragile pattern if ever templated).
 
+## Missed by pipeline, caught by blind review (Phase 5)
+
+A context-blind review (`pipeline/blind-review.md`) surfaced these **after** the Phase 4
+audit. They are real and were not in the Phase 4 list — logged here rather than silently
+folded into the earlier tiers.
+
+- [ ] **(high) `src/templates/index.ts:44,75` — unsanitized video title in YAML frontmatter
+      and iframe attribute.** The network-controlled title is spliced raw into `title: ${title}`
+      (YAML) and `title="${title}"` (HTML attribute). A title containing `"` or `:` produces
+      malformed frontmatter or breaks out of the attribute. Fix: YAML-quote
+      (`JSON.stringify(title)`) and HTML-attribute-escape.
+- [ ] **(med→high) `extension/chrome-extension/helper/server.js` — 76-line dead Express
+      server shipped with the repo.** `Access-Control-Allow-Origin: *`, optional token auth,
+      arbitrary file-append to env-var paths, and **zero consumers** (the content script uses
+      the `obsidian://` handler directly). This is an attack surface doing nothing — the Phase 1
+      purge missed it (it scanned `src/`, not `extension/`). Fix: move `helper/` to
+      `trash2review` and confirm nothing references it.
+- [ ] **(smell) Three parallel error-formatting systems** — `src/services/error-handler.ts`
+      (~350 lines), `src/ai/error-utils.ts` (free functions), and per-provider `handleAPIError`
+      methods all format the same kind of remote-error-to-user-message transform. Phase 4 noted
+      "per-provider HTTP handling" but not this triplication. Consolidating is behavior-sensitive
+      (copy changes) — flagged, not auto-applied.
+- The blind review **confirmed** all Phase 4 blockers/highs (B1–B4, H1–H4) by independent
+  re-read — higher confidence on those.
+
+> **Limit:** the blind reviewer ran on the same model and `AUDIT.md` was already committed
+> in the tree, so it had the answer key available (it says it re-verified each claim
+> against source rather than trusting the doc, and the net-new findings above show it
+> wasn't purely parroting). For a fully independent signal, re-run the cold-review prompt in
+> a fresh session with `AUDIT.md` excluded. See `.pipeline/blind-review.md`.
+
 ## Explicitly out of scope / accepted risk
 
 Carried from Phase 2/3 (judgment calls, intentionally not applied):
