@@ -7,6 +7,7 @@ data.json
 *.pfx
 .env
 .env.*
+!.env.example
 config/data*.json
 
 # Node.js dependencies
@@ -109,3 +110,6 @@ temp/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+
+# Local-only app-description docs (generated, not for commit)
+local/
