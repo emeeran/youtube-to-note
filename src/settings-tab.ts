@@ -2,7 +2,7 @@
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
 import { YouTubePluginSettings } from './types';
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ErrorHandler } from './services/error-handler';
 
 interface PluginWithSettings extends Plugin {
@@ -406,6 +406,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .addToggle(toggle =>
                 toggle.setValue(this.settings.useEnvironmentVariables ?? false).onChange(async value => {
                     await this.updateSetting('useEnvironmentVariables', value);
+                    if (value) this.warnIfKeysStillOnDisk();
                 }),
             );
 
@@ -484,6 +485,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
     private isApiKeyField(key: keyof YouTubePluginSettings): boolean {
         return ['geminiApiKey', 'groqApiKey', 'ollamaApiKey', 'huggingFaceApiKey', 'openRouterApiKey'].includes(key);
+    }
+
+    /**
+     * When environment-variable mode is turned on, warn if any keys are still
+     * persisted in data.json — so "no secrets on disk" is achievable and visible.
+     * Non-destructive: does not clear anything, just nudges toward "Clear Keys".
+     */
+    private warnIfKeysStillOnDisk(): void {
+        const fields: (keyof YouTubePluginSettings)[] = [
+            'geminiApiKey',
+            'groqApiKey',
+            'ollamaApiKey',
+            'huggingFaceApiKey',
+            'openRouterApiKey',
+        ];
+        const stored = fields.filter(f => Boolean(String(this.settings[f] ?? '').trim())).length;
+        if (stored > 0) {
+            new Notice(
+                `Environment mode is on, but ${stored} API key(s) are still stored in data.json. ` +
+                    'Use "Clear Keys" to remove them from disk.',
+            );
+        }
     }
 
     private async validateAndSaveSettings(): Promise<void> {
