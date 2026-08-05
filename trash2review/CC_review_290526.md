@@ -2,12 +2,12 @@
 
 ## Entry Points (all converge to `processYouTubeVideo`)
 
-| Source | File | Function |
-|---|---|---|
-| Ribbon icon / command | `main.ts:158` | `safeShowUrlModal()` |
-| Protocol handler (Chrome ext) | `url-handler.ts:294` | `handleProtocol()` |
-| Clipboard detection | `url-handler.ts:323` | `handleClipboardUrl()` |
-| File watcher | `url-handler.ts:198` | `handleFileCreate()` |
+| Source                        | File                 | Function               |
+| ----------------------------- | -------------------- | ---------------------- |
+| Ribbon icon / command         | `main.ts:158`        | `safeShowUrlModal()`   |
+| Protocol handler (Chrome ext) | `url-handler.ts:294` | `handleProtocol()`     |
+| Clipboard detection           | `url-handler.ts:323` | `handleClipboardUrl()` |
+| File watcher                  | `url-handler.ts:198` | `handleFileCreate()`   |
 
 All routes lead to `main.ts:197` — `handleUrlDetection()` → opens modal → user confirms → calls `processYouTubeVideo()`.
 
@@ -71,16 +71,16 @@ Step 7: Save File
 
 ## Architecture Overview (Service-Oriented)
 
-| Service | Role |
-|---|---|
-| URL Handler | Detects, validates, and routes YouTube URLs |
+| Service            | Role                                                                |
+| ------------------ | ------------------------------------------------------------------- |
+| URL Handler        | Detects, validates, and routes YouTube URLs                         |
 | Video Data Service | Fetches video metadata (title, duration, thumbnail) and transcripts |
-| AI Service | Unified interface to multiple AI providers with automatic fallback |
-| Prompt Service | Builds prompts from format templates + video data |
-| File Service | Creates and manages the output Markdown files in Obsidian |
-| Modal Manager | Manages UI state for the URL input modal |
-| Error Handler | User-friendly error messages |
-| Service Container | Central service manager / dependency injection |
+| AI Service         | Unified interface to multiple AI providers with automatic fallback  |
+| Prompt Service     | Builds prompts from format templates + video data                   |
+| File Service       | Creates and manages the output Markdown files in Obsidian           |
+| Modal Manager      | Manages UI state for the URL input modal                            |
+| Error Handler      | User-friendly error messages                                        |
+| Service Container  | Central service manager / dependency injection                      |
 
 ---
 
@@ -110,4 +110,4 @@ Configurable via Obsidian's settings panel: API keys (with env var support), per
 
 ---
 
-*Review generated 2026-05-29*
+_Review generated 2026-05-29_
