@@ -1,5 +1,5 @@
 {
-  "_comment": "This is a template file. Copy to data.json and add your API keys.",
+  "_comment": "Template file. Copy to data.json and add your API keys — or set useEnvironmentVariables to true and leave the key fields empty (then provide YTC_* env vars). Keys and types mirror DEFAULT_SETTINGS in src/main.ts; modelOptionsCache / modelCacheTimestamps are written by the plugin at runtime and need no entry here.",
   "geminiApiKey": "your-gemini-api-key-here",
   "groqApiKey": "your-groq-api-key-here",
   "ollamaApiKey": "your-ollama-api-key-here",
@@ -13,9 +13,11 @@
   "enableParallelProcessing": true,
   "enableAutoFallback": true,
   "preferMultimodal": true,
-  "transcriptLanguage": "en",
+  "transcriptLanguage": "",
+  "includeTimestamps": true,
+  "warnOnDuplicates": true,
+  "persistTranscriptCache": false,
+  "customPrompts": {},
   "defaultMaxTokens": 4096,
-  "defaultTemperature": 0.5,
-  "modelOptionsCache": {},
-  "modelCacheTimestamps": {}
+  "defaultTemperature": 0.5
 }
