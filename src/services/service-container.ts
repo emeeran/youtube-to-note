@@ -5,6 +5,7 @@ import { GeminiProvider } from '../ai/gemini';
 import { GroqProvider } from '../ai/groq';
 import { HuggingFaceProvider } from '../ai/huggingface';
 import { MemoryCacheService } from './cache/memory-cache';
+import { TranscriptDiskCache } from './transcript-cache';
 import { ObsidianFileService } from '../obsidian-file';
 import { OllamaProvider } from '../ai/ollama';
 import { OllamaCloudProvider } from '../ai/ollama-cloud';
@@ -32,10 +33,17 @@ export class ServiceContainer implements IServiceContainer {
     private _fileService?: FileService;
     private _cacheService?: CacheService;
     private _promptService?: PromptService;
+    private _transcriptDiskCache?: TranscriptDiskCache;
 
     constructor(
         private settings: YouTubePluginSettings,
         private app: App,
+        /**
+         * Plugin folder relative to the vault root (`manifest.dir`). Optional —
+         * when omitted the transcript disk cache falls back to the manifest id
+         * constant. main.ts should pass `this.manifest.dir`.
+         */
+        private pluginDir?: string,
     ) {}
 
     get aiService(): IAIService {
@@ -89,9 +97,34 @@ export class ServiceContainer implements IServiceContainer {
 
     get videoService(): VideoDataService {
         if (!this._videoService) {
-            this._videoService = new YouTubeVideoService(this.cacheService);
+            this._videoService = new YouTubeVideoService(this.cacheService, {
+                // Read settings lazily so toggles (e.g. persistTranscriptCache)
+                // take effect without rebuilding the service.
+                getSettings: () => this.settings,
+                diskCache: this.transcriptDiskCache,
+            });
         }
         return this._videoService;
+    }
+
+    /**
+     * Shared on-disk transcript cache. Opt-in: nothing touches the disk unless
+     * `settings.persistTranscriptCache` is true when a transcript is fetched.
+     */
+    private get transcriptDiskCache(): TranscriptDiskCache {
+        if (!this._transcriptDiskCache) {
+            this._transcriptDiskCache = new TranscriptDiskCache(this.app, this.pluginDir);
+        }
+        return this._transcriptDiskCache;
+    }
+
+    /**
+     * Delete every persisted transcript. Hook this to an explicit settings
+     * action or command — NOT to plugin unload, which would erase the cache
+     * the setting exists to preserve across Obsidian reloads.
+     */
+    async clearTranscriptCache(): Promise<void> {
+        await this.transcriptDiskCache.clear();
     }
 
     get fileService(): FileService {
@@ -146,6 +179,8 @@ export class ServiceContainer implements IServiceContainer {
         this._fileService = undefined;
         this._cacheService = undefined;
         this._promptService = undefined;
+        // The disk cache is intentionally NOT cleared here: it exists to spare
+        // YouTube refetches across reloads. Use clearTranscriptCache() instead.
     }
 
     /**
