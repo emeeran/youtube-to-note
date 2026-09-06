@@ -331,30 +331,53 @@ describe('Tier 0 — templates escape hostile titles', () => {
         expect(iframe).toContain('src="https://www.youtube-nocookie.com/embed/abc&quot;&amp;&gt;&lt;"');
     });
 
-    it('produces a full prompt whose frontmatter survives a hostile title end-to-end', () => {
+    it('keeps structural frontmatter out of the prompt and assembles the note deterministically (hostile title)', () => {
         const service = new AIPromptService();
         const segments: TranscriptSegment[] = [{ start: 30, duration: 5, text: 'hello' }];
+        const videoData = {
+            title: 'He said: "hi": ok',
+            description: 'A video about quotes: "and colons"',
+            channelName: 'Chan',
+            duration: 600,
+            publishedAt: '2024-01-01',
+        };
 
         const prompt = service.createAnalysisPrompt({
-            videoData: {
-                title: 'He said: "hi": ok',
-                description: 'A video about quotes: "and colons"',
-                channelName: 'Chan',
-                duration: 600,
-                publishedAt: '2024-01-01',
-            },
+            videoData,
             videoUrl: VIDEO_URL,
             format: 'executive-summary',
             transcript: 'the transcript body',
             segments,
         });
 
-        const parsed = parseFrontmatter(prompt);
+        // The prompt itself carries no YAML frontmatter and no iframe: the model
+        // is never asked to echo structural markup it could mangle.
+        expect(prompt).not.toContain('title:');
+        expect(prompt).not.toContain('<iframe');
+        expect(prompt).toContain('He said: "hi": ok'); // title reaches the model as data
+
+        // A minimal model response is enough — processAIResponse assembles the
+        // finished note (frontmatter + embed) from known-good values.
+        const note = service.processAIResponse(
+            '## Executive Summary\n\nBody text',
+            'Groq',
+            'llama-3.3-70b-versatile',
+            'executive-summary',
+            videoData,
+            VIDEO_URL,
+            segments,
+        );
+
+        const parsed = parseFrontmatter(note);
         expect(parsed.title).toBe('He said: "hi": ok');
         expect(parsed.video_id).toBe(VIDEO_ID);
+        expect(parsed.ai_provider).toBe('Groq');
         // The iframe is embedded with an escaped attribute, not a broken one.
-        expect(prompt).toContain('title="He said: &quot;hi&quot;: ok"');
-        expect(prompt).toContain(`<iframe width="640"`);
+        expect(note).toContain('title="He said: &quot;hi&quot;: ok"');
+        expect(note).toContain(`<iframe width="640"`);
+        // Deterministic attribution block closes the note.
+        expect(note).toContain('## Source');
+        expect(note).toContain('**Video**');
     });
 });
 

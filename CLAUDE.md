@@ -53,9 +53,12 @@ multimodal ingestion) when the model supports it.
   150k-char source ceiling, and the innertube retry for restricted videos.
 - `src/services/transcript-cache.ts` — opt-in on-disk transcript cache
   (`<plugin dir>/cache/transcripts/<videoId>.<lang>.json`, 7-day TTL, best-effort).
-- `src/services/prompt-service.ts` — prompt assembly, per-format transcript budgets,
-  `[MM:SS](url&t=…)` timestamp links, deterministic transcript index for
-  complete-transcription, `customPrompts` override resolution.
+- `src/services/prompt-service.ts` — prompt assembly (role-first, transcript-last; shared
+  rules in `SHARED_OUTPUT_RULES`), per-format transcript budgets, `[MM:SS](url&t=…)`
+  timestamp links, deterministic transcript index for complete-transcription,
+  `customPrompts` override resolution. `processAIResponse` assembles the finished note
+  deterministically — frontmatter, embed, thumbnail and `## Source` are never left to the
+  model.
 - `src/services/ai-service.ts` — provider map, `processWith` (restores the provider's model
   in `finally`), live `listModels` with a 1h cache.
 - `src/services/processing-history.ts` — history + `withPluginDataLock`, the write mutex

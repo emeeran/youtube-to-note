@@ -52,26 +52,12 @@ export { FORMAT_CONFIG };
 
 /** Token limits for different contexts */
 const TOKEN_LIMITS = {
-    /** Maximum transcript length before truncation */
+    /** Default transcript budget when a format doesn't define its own */
     MAX_TRANSCRIPT_LENGTH: 100_000,
-    /** Maximum prompt length for validation */
-    MAX_PROMPT_LENGTH: 50_000,
-    /** Minimum prompt length for validation */
-    MIN_PROMPT_LENGTH: 10,
 } as const;
 
 /** Placeholder tokens for template replacement */
 const PLACEHOLDERS = {
-    TITLE: '{{TITLE}}',
-    URL: '{{URL}}',
-    DESCRIPTION: '{{DESCRIPTION}}',
-    TRANSCRIPT_SECTION: '{{TRANSCRIPT_SECTION}}',
-    USER_INSTRUCTIONS: '{{USER_INSTRUCTIONS}}',
-    CHANNEL_NAME: '{{CHANNEL_NAME}}',
-    DURATION: '{{DURATION}}',
-    PUBLISHED_DATE: '{{PUBLISHED_DATE}}',
-    THUMBNAIL_URL: '{{THUMBNAIL_URL}}',
-    CHAPTER_MARKERS: '{{CHAPTER_MARKERS}}',
     YOUTUBE_URL: '{{YOUTUBE_URL}}',
     AI_PROVIDER: '__AI_PROVIDER__',
     AI_MODEL: '__AI_MODEL__',
@@ -147,50 +133,32 @@ export const buildTimestampedSection = (videoUrl: string, segments: TranscriptSe
     return `\n## Timestamped Transcript\n\n${lines.join('\n')}\n`;
 };
 
-// ============ BASE TEMPLATES ============
+// ============ SHARED PROMPT BLOCKS ============
 
 /**
- * Performance mode templates
- * These define the base prompt structure for each performance mode
+ * Rules shared by every format (and every custom prompt). Kept in ONE place —
+ * they used to be duplicated across per-mode base templates AND every format
+ * template's [CONSTRAINTS] line, drifting apart over time.
  */
-const BASE_TEMPLATES: Readonly<Record<PerformanceMode, string>> = {
-    fast: `Analyze this YouTube video efficiently:
-Title: {{TITLE}}
-URL: {{URL}}
-Description: {{DESCRIPTION}}
-{{TRANSCRIPT_SECTION}}
+const SHARED_OUTPUT_RULES = `**OUTPUT FORMAT RULES:**
+- Output Obsidian-flavored Markdown only: no preambles ("Sure, here is…"), no sign-off, and never wrap the response in code fences.
+- When a structure skeleton is given, follow it exactly: replace every [bracketed placeholder] with real content and delete leftover instruction lines.
+- Ground every claim in the video content below. If the video doesn't cover what a section needs, write "Not covered in the video." — never invent facts, names, numbers, versions, or quotes.
+- Do not number, label, or annotate transcript lines; numbered lists are for genuinely ordered content only.
+- No YAML frontmatter, no video embed markup, and no "Source" section — the plugin adds those automatically.
+- If the transcript ends with "[transcript truncated]", analyze only what is present; do not invent an ending.
+- Write in the video's language (default: English).`;
 
-**OUTPUT FORMAT RULES:**
-- DO NOT add line numbers to any part of the output
-- Use markdown headers (##, ###) for structure, not numbered lines
-- Numbered lists are for content only (steps, items), not for line references
-
-Focus on key insights. Process video with \`use_audio_video_tokens=True\` for comprehensive analysis.`,
-
-    balanced: `Analyze this YouTube video:
-Title: {{TITLE}}
-URL: {{URL}}
-Description: {{DESCRIPTION}}
-{{TRANSCRIPT_SECTION}}
-
-**OUTPUT FORMAT RULES:**
-- DO NOT add line numbers to any part of the output
-- Use markdown headers (##, ###) for structure, not numbered lines
-- Numbered lists are for content only (steps, items), not for line references
-
-Extract practical insights. Process video multimodally (visual/audio) for complete analysis.`,
-
-    quality: `Analyze this YouTube video comprehensively:
-Title: {{TITLE}}
-URL: {{URL}}
-Description: {{DESCRIPTION}}
-{{TRANSCRIPT_SECTION}}
-
-**OUTPUT FORMAT RULES:**
-- DO NOT add line numbers to any part of the output
-- Use markdown headers (##, ###) for structure, not numbered lines
-- Numbered lists are for content only (steps, items), not for line references
-- Process multimodally (visual/audio) for complete understanding including on-screen text and non-verbal cues`,
+/**
+ * Per-mode guidance appended to the metadata block. The quality-mode line is
+ * worded so `stripMultimodalInstructions` can remove it for text-only
+ * providers — keep that coupling in mind when editing it.
+ */
+const MODE_HINTS: Readonly<Record<PerformanceMode, string>> = {
+    fast: '*Mode: fast — prioritize the highest-value insights; keep the output tight.*',
+    balanced: '',
+    quality:
+        'Process video multimodally (visual/audio) for complete understanding including on-screen text and non-verbal cues.',
 } as const;
 
 // ============ SERVICE ============
@@ -200,13 +168,9 @@ Description: {{DESCRIPTION}}
  * under the max-params lint ceiling.
  */
 interface FullPromptContext {
-    baseContent: string;
-    videoData: VideoData;
+    dataSection: string;
     videoUrl: string;
-    videoId: string;
     format: OutputFormat;
-    provider: string;
-    model: string;
     providerName?: string;
     customPrompts?: Partial<Record<OutputFormat, string>>;
     segments?: TranscriptSegment[];
@@ -223,12 +187,6 @@ interface FullPromptContext {
  */
 export class AIPromptService implements PromptService {
     // ============ PRIVATE MEMBERS ============
-
-    /** Cached compiled regex pattern for frontmatter key replacement */
-    private static readonly FRONTMATTER_KEY_PATTERN = /(\w+)\s*:\s*(["'])?([^"'\n]*)(["'])?/gi;
-
-    /** Pattern for AI provider/model placeholders */
-    private static readonly PLACEHOLDER_PATTERN = /__(AI_PROVIDER|AI_MODEL)__/g;
 
     /**
      * The "No timestamps." clause baked into every format template's
@@ -258,12 +216,8 @@ export class AIPromptService implements PromptService {
             segments,
         } = options;
 
-        const videoId = ValidationUtils.extractVideoId(videoUrl) ?? DEFAULTS.VIDEO_ID;
-        const provider = PLACEHOLDERS.AI_PROVIDER;
-        const model = PLACEHOLDERS.AI_MODEL;
-
-        // Build base content using single-pass replacement
-        const baseContent = this.buildBaseContent(
+        // Build the data section (metadata + transcript + instructions)
+        const dataSection = this.buildDataSection(
             videoData,
             videoUrl,
             transcript,
@@ -274,13 +228,9 @@ export class AIPromptService implements PromptService {
 
         // Build full prompt with all components
         return this.buildFullPrompt({
-            baseContent,
-            videoData,
+            dataSection,
             videoUrl,
-            videoId,
             format,
-            provider,
-            model,
             providerName,
             customPrompts,
             segments,
@@ -290,10 +240,11 @@ export class AIPromptService implements PromptService {
     // ============ PRIVATE HELPER METHODS ============
 
     /**
-     * Build base content from video data and transcript
-     * Uses single-pass template replacement for better performance
+     * Build the data section: metadata + transcript + user instructions.
+     * Placed LAST in the prompt (role and output contract come first) so the
+     * model's attention lands on the source material right before generation.
      */
-    private buildBaseContent(
+    private buildDataSection(
         videoData: VideoData,
         videoUrl: string,
         transcript?: string,
@@ -301,30 +252,29 @@ export class AIPromptService implements PromptService {
         format: OutputFormat = 'executive-summary',
         userInstructions?: string,
     ): string {
-        const baseTemplate = BASE_TEMPLATES[performanceMode];
         const transcriptSection = this.buildTranscriptSection(transcript, format);
-
-        // Build chapter markers from description
         const chapterMarkers = this.extractChapterMarkers(videoData.description);
+        const modeHint = MODE_HINTS[performanceMode] ? `\n${MODE_HINTS[performanceMode]}` : '';
 
-        // Build user instructions block
         const userInstructionsBlock = userInstructions?.trim()
             ? `\n\n**USER INSTRUCTIONS** (prioritize these over defaults):\n${userInstructions.trim()}\n`
             : '';
 
-        // Single-pass replacement using placeholder map
-        return this.replacePlaceholders(baseTemplate, {
-            [PLACEHOLDERS.TITLE]: videoData.title,
-            [PLACEHOLDERS.URL]: videoUrl,
-            [PLACEHOLDERS.DESCRIPTION]: videoData.description,
-            [PLACEHOLDERS.TRANSCRIPT_SECTION]: transcriptSection,
-            [PLACEHOLDERS.USER_INSTRUCTIONS]: userInstructionsBlock,
-            [PLACEHOLDERS.CHANNEL_NAME]: videoData.channelName ?? 'Unknown',
-            [PLACEHOLDERS.DURATION]: this.formatDuration(videoData.duration),
-            [PLACEHOLDERS.PUBLISHED_DATE]: videoData.publishedAt ?? 'Unknown',
-            [PLACEHOLDERS.THUMBNAIL_URL]: videoData.thumbnail ?? '',
-            [PLACEHOLDERS.CHAPTER_MARKERS]: chapterMarkers,
-        });
+        const lines = [
+            '**VIDEO METADATA**',
+            `- Title: ${videoData.title}`,
+            `- Channel: ${videoData.channelName ?? 'Unknown'}`,
+            `- Duration: ${this.formatDuration(videoData.duration)}`,
+            `- Published: ${videoData.publishedAt ?? 'Unknown'}`,
+            `- URL: ${videoUrl}`,
+            `- Description: ${videoData.description || 'None'}`,
+        ];
+        if (chapterMarkers) {
+            lines.push(chapterMarkers.trimEnd());
+        }
+
+        const dataSection = lines.join('\n');
+        return `${dataSection}${modeHint}\n\n${transcriptSection.trimStart()}${userInstructionsBlock}`;
     }
 
     /**
@@ -346,34 +296,22 @@ export class AIPromptService implements PromptService {
     }
 
     /**
-     * Build complete prompt with frontmatter, video iframe, and format template
+     * Build the complete prompt.
+     *
+     * Layout (role-first, data-last):
+     *   1. format template  — role, output skeleton, format constraints
+     *   2. timestamp links  — when enabled
+     *   3. shared rules     — grounding, no preambles, no invented content
+     *   4. data section     — metadata + transcript + user instructions
+     *
+     * Frontmatter / iframe / thumbnail / Source block are deliberately NOT in
+     * the prompt: they contain nothing the model needs, and `processAIResponse`
+     * assembles them deterministically after generation — so the model can't
+     * mangle the frontmatter or waste tokens echoing placeholders.
      */
     private buildFullPrompt(context: FullPromptContext): string {
-        const {
-            baseContent,
-            videoData,
-            videoUrl,
-            videoId,
-            format,
-            provider,
-            model,
-            providerName,
-            customPrompts,
-            segments,
-        } = context;
+        const { dataSection, videoUrl, format, providerName, customPrompts, segments } = context;
 
-        // Enriched frontmatter with video metadata
-        const frontmatter = generateFrontmatter(videoData.title, videoUrl, videoId, format, provider, model, videoData);
-
-        const iframe = generateVideoIframe(videoId, videoData.title);
-
-        // Add thumbnail image for article/complete-transcription
-        let thumbnailBlock = '';
-        if ((format === 'article' || format === 'complete-transcription') && videoData.thumbnail) {
-            thumbnailBlock = `\n\n![Video Thumbnail](${videoData.thumbnail})`;
-        }
-
-        const separator = '---\n\n';
         // Segments are only passed when settings.includeTimestamps is on. The
         // complete-transcription format is excluded: its timestamp index is
         // generated deterministically in processAIResponse, so the model is left
@@ -382,25 +320,34 @@ export class AIPromptService implements PromptService {
         let template = this.resolveFormatTemplate(format, customPrompts);
 
         // Replace {{YOUTUBE_URL}} placeholder in format templates (built-in and custom alike)
-        template = template.replace(/\{\{YOUTUBE_URL\}\}/g, videoUrl);
+        template = this.replacePlaceholders(template, { [PLACEHOLDERS.YOUTUBE_URL]: videoUrl });
 
         // Timestamp links contradict the templates' "No timestamps." constraint,
         // so drop that clause whenever the feature is on.
         if (citeTimestamps) {
             template = template.replace(AIPromptService.TIMESTAMPS_DISABLED_PATTERN, '');
+            template = template.replace(/\s+$/, '');
         }
 
-        // Strip multimodal instructions for text-only providers
-        if (providerName && !this.isMultimodalProvider(providerName)) {
-            template = this.stripMultimodalInstructions(template);
-        }
+        const parts: string[] = [template];
 
         // Centralized timestamp-link instruction (see settings.includeTimestamps)
         if (citeTimestamps) {
-            template += this.buildTimestampInstruction(videoUrl);
+            parts.push(this.buildTimestampInstruction(videoUrl));
         }
 
-        return `${frontmatter}\n\n${iframe}${thumbnailBlock}\n\n${separator}${baseContent}\n\n${template}`;
+        parts.push(SHARED_OUTPUT_RULES);
+        parts.push(dataSection);
+
+        let prompt = parts.join('\n\n');
+
+        // Strip multimodal instructions for text-only providers — applied to the
+        // whole prompt so mode hints strip cleanly too.
+        if (providerName && !this.isMultimodalProvider(providerName)) {
+            prompt = this.stripMultimodalInstructions(prompt);
+        }
+
+        return prompt;
     }
 
     /**
@@ -452,7 +399,12 @@ export class AIPromptService implements PromptService {
     }
 
     /**
-     * Process AI response and inject actual provider/model information
+     * Assemble the finished note from the raw AI response.
+     *
+     * The model is never trusted with structural elements: frontmatter, the
+     * video embed, the thumbnail, and the Source attribution are all generated
+     * HERE, deterministically, from known-good values — so a misbehaving model
+     * cannot mangle YAML, drop the embed, or forge attribution.
      */
     processAIResponse(
         content: string,
@@ -468,21 +420,38 @@ export class AIPromptService implements PromptService {
         const providerValue = provider ?? DEFAULTS.PROVIDER;
         const modelValue = model ?? DEFAULTS.MODEL;
 
-        // Replace all placeholder tokens using a single pass
+        // Replace any placeholder tokens (custom prompts may still reference them)
         let updatedContent = this.replacePlaceholders(content, {
             [PLACEHOLDERS.AI_PROVIDER]: providerValue,
             [PLACEHOLDERS.AI_MODEL]: modelValue,
         });
 
-        // Ensure frontmatter has correct values (fallback for malformed responses)
+        // Deterministic note header: frontmatter + embed (+ thumbnail for
+        // long-form formats). Skipped when the content already carries
+        // frontmatter — then only the ai_* values below are corrected in place.
+        if (format && videoData && videoUrl && !this.hasFrontMatter(updatedContent)) {
+            const videoId = ValidationUtils.extractVideoId(videoUrl) ?? DEFAULTS.VIDEO_ID;
+            const frontmatter = generateFrontmatter(
+                videoData.title,
+                videoUrl,
+                videoId,
+                format,
+                providerValue,
+                modelValue,
+                videoData,
+            );
+            const iframe = generateVideoIframe(videoId, videoData.title);
+            let header = `${frontmatter}\n\n${iframe}`;
+            if ((format === 'article' || format === 'complete-transcription') && videoData.thumbnail) {
+                header += `\n\n![Video Thumbnail](${videoData.thumbnail})`;
+            }
+            updatedContent = `${header}\n\n${updatedContent.trimStart()}`;
+        }
+
+        // Frontmatter safety net (also repairs custom-prompt outputs that made
+        // their own frontmatter).
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_provider', providerValue);
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_model', modelValue);
-
-        // Deterministic timestamp index for full transcriptions — built here, from
-        // the real caption timings, rather than trusting the model to recall them.
-        if (format === 'complete-transcription' && videoUrl && segments?.length) {
-            updatedContent = this.insertTimestampedSection(updatedContent, videoUrl, segments);
-        }
 
         // Append Resources section ONLY if the format doesn't already have one
         if (videoUrl && format) {
@@ -492,12 +461,47 @@ export class AIPromptService implements PromptService {
             }
         }
 
+        // Deterministic Source attribution — appended before the timestamp
+        // index so the index lands directly above it.
+        if (videoUrl && !updatedContent.includes('\n## Source')) {
+            updatedContent = this.appendSourceSection(updatedContent, videoUrl, providerValue, modelValue);
+        }
+
+        // Deterministic timestamp index for full transcriptions — built here, from
+        // the real caption timings, rather than trusting the model to recall them.
+        if (format === 'complete-transcription' && videoUrl && segments?.length) {
+            updatedContent = this.insertTimestampedSection(updatedContent, videoUrl, segments);
+        }
+
         // Validate format structure (remove duplicate iframes, check sections)
         if (format) {
             updatedContent = this.validateFormatStructure(updatedContent, format);
         }
 
         return updatedContent;
+    }
+
+    /**
+     * True when content already opens with a YAML frontmatter block
+     * (`---` … `---`), so the deterministic header must not be prepended.
+     */
+    private hasFrontMatter(content: string): boolean {
+        return /^\s*---\s*\n[\s\S]*?\n---/.test(content);
+    }
+
+    /**
+     * Append the canonical Source attribution block. Values are sanitized so a
+     * hostile provider/model string cannot forge extra lines or sections.
+     */
+    private appendSourceSection(content: string, videoUrl: string, provider: string, model: string): string {
+        const processingDate = new Date().toISOString().split('T')[0];
+        const sourceSection =
+            '\n\n## Source\n\n' +
+            '> [!info] Attribution\n' +
+            `> **Video**: ${sanitizeInlineText(videoUrl)}\n` +
+            `> **Generated by**: ${sanitizeInlineText(`${provider} / ${model}`)}\n` +
+            `> **Generated on**: ${processingDate}\n`;
+        return content.trimEnd() + sourceSection;
     }
 
     /**
@@ -673,17 +677,5 @@ export class AIPromptService implements PromptService {
         }
 
         return result;
-    }
-
-    /**
-     * Validate prompt length and content
-     */
-    validatePrompt(prompt: string): boolean {
-        return (
-            Boolean(prompt) &&
-            typeof prompt === 'string' &&
-            prompt.trim().length >= TOKEN_LIMITS.MIN_PROMPT_LENGTH &&
-            prompt.length <= TOKEN_LIMITS.MAX_PROMPT_LENGTH
-        );
     }
 }
