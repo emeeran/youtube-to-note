@@ -22,6 +22,8 @@ export class ValidationUtils {
         /(?:https?:\/\/)?(?:m\.)?youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})(?:[&?#].*)?$/,
         // youtube.com/shorts format (handling Shorts URLs)
         /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})(?:[?#].*)?$/,
+        // youtube.com/live format (live streams / premieres)
+        /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/live\/([a-zA-Z0-9_-]{11})(?:[?#].*)?$/,
     ];
 
     // Memoized regex for video ID validation (hot path optimization)
@@ -207,6 +209,6 @@ export class ValidationUtils {
             .replace(/\\n/g, '\n')
             .replace(/\\"/g, '"')
             .replace(/\\'/g, "'")
-            .replace(/\\u([0-9a-fA-F]{4})/g, (match, code) => String.fromCharCode(parseInt(code, 16)));
+            .replace(/\\u([0-9a-fA-F]{4})/g, (_match, code) => String.fromCharCode(parseInt(code, 16)));
     }
 }
