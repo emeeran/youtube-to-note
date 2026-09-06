@@ -1,5 +1,12 @@
-import { AIProvider } from '../types';
-import { formatQuotaError, formatHttpError } from './error-utils';
+import { AIProvider, AIRequestOptions } from '../types';
+import {
+    MODEL_LIST_TIMEOUT_MS,
+    createAbortSignal,
+    formatQuotaError,
+    formatHttpError,
+    isTimeoutAbort,
+    sanitizeRemoteMessage,
+} from './error-utils';
 import type { JsonObject } from '../types/api-responses';
 
 /**
@@ -60,7 +67,7 @@ export abstract class BaseAIProvider implements AIProvider {
     /**
      * Process a prompt and return the response
      */
-    abstract process(prompt: string): Promise<string>;
+    abstract process(prompt: string, options?: AIRequestOptions): Promise<string>;
 
     /**
      * Validate API response structure
@@ -89,17 +96,54 @@ export abstract class BaseAIProvider implements AIProvider {
 
     /**
      * Sanitize a server-controlled message before embedding it in a thrown
-     * Error (which may be rendered to the user). Caps length and strips
-     * newlines / control characters so a malicious endpoint cannot push
-     * arbitrary multi-line content into Obsidian notices.
+     * Error (which may be rendered to the user). Delegates to the shared
+     * implementation in `./error-utils` so non-provider code (error handling)
+     * applies the exact same rules.
      */
     protected sanitizeRemoteMessage(message: unknown, maxLength = 200): string {
-        if (typeof message !== 'string') return '';
-        return message
-            .replace(/[\r\n\t]+/g, ' ')
-            .replace(/[^\x20-\x7E]/g, '')
-            .slice(0, maxLength)
-            .trim();
+        return sanitizeRemoteMessage(message, maxLength);
+    }
+
+    /**
+     * Build the AbortSignal for a provider fetch. Combines the caller's signal
+     * (when one was threaded down) with an optional timeout. Returns
+     * `undefined` when neither applies so existing behavior is unchanged.
+     */
+    protected requestSignal(options?: { timeoutMs?: number; signal?: AbortSignal }): AbortSignal | undefined {
+        return createAbortSignal(options);
+    }
+
+    /**
+     * Run a bounded request (model lists and other auxiliary calls): a hard
+     * timeout always applies, and timeout/network failures are rethrown as a
+     * plain, provider-labelled Error so callers treat them like any other
+     * failure rather than an unhandled abort.
+     */
+    protected async fetchWithTimeout(
+        url: string,
+        init: RequestInit,
+        context: string,
+        timeoutMs = MODEL_LIST_TIMEOUT_MS,
+    ): Promise<Response> {
+        try {
+            // `RequestInit.signal` may be null in the DOM typings — normalize it.
+            return await fetch(url, {
+                ...init,
+                signal: this.requestSignal({ timeoutMs, signal: init.signal ?? undefined }),
+            });
+        } catch (error) {
+            const reason = isTimeoutAbort(error)
+                ? `timed out after ${timeoutMs}ms`
+                : this.describeRequestFailure(error);
+            throw new Error(`${context}: ${reason}`);
+        }
+    }
+
+    private describeRequestFailure(error: unknown): string {
+        if (error instanceof Error && error.message) {
+            return sanitizeRemoteMessage(error.message, 120) || 'request failed';
+        }
+        return 'request failed';
     }
 
     /**

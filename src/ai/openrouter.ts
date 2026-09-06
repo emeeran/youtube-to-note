@@ -1,5 +1,6 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
+import type { AIRequestOptions } from '../types';
 import type { OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
@@ -45,7 +46,7 @@ export class OpenRouterProvider extends BaseAIProvider {
     }
 
     // eslint-disable-next-line complexity, max-lines-per-function
-    async process(prompt: string): Promise<string> {
+    async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
             if (!this.apiKey || this.apiKey.trim().length === 0) {
                 throw new Error('OpenRouter API key is required. Get one at openrouter.ai/keys');
@@ -55,6 +56,7 @@ export class OpenRouterProvider extends BaseAIProvider {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(this.createRequestBody(prompt)),
+                signal: this.requestSignal({ signal: options?.signal }),
             });
 
             if (response.status === 401) {
@@ -131,10 +133,14 @@ export class OpenRouterProvider extends BaseAIProvider {
     /** Live-fetch available model ids from OpenRouter's /models endpoint. */
     async listModels(): Promise<string[]> {
         // The models list is public; include auth so private/free eligibility is reflected.
-        const response = await fetch('https://openrouter.ai/api/v1/models', {
-            method: 'GET',
-            headers: { Authorization: `Bearer ${this.apiKey}` },
-        });
+        const response = await this.fetchWithTimeout(
+            'https://openrouter.ai/api/v1/models',
+            {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${this.apiKey}` },
+            },
+            'OpenRouter models request failed',
+        );
         if (!response.ok) {
             throw new Error(`OpenRouter models request failed: ${response.status}`);
         }

@@ -3,7 +3,7 @@
  * Handles provider management, request processing, and fallback strategies
  */
 
-import { AIProvider, AIResponse, YouTubePluginSettings } from '../types';
+import { AIProvider, AIRequestOptions, AIResponse, YouTubePluginSettings } from '../types';
 import { PROVIDER_MODEL_OPTIONS } from '../ai/api';
 
 export class AIService {
@@ -47,18 +47,25 @@ export class AIService {
         overrideModel?: string,
         images?: (string | ArrayBuffer)[],
         enableFallback = true,
+        options?: AIRequestOptions,
     ): Promise<AIResponse> {
         const provider = this.providerMap.get(providerName);
         if (!provider) {
             throw new Error(`Provider "${providerName}" not found`);
         }
 
-        if (overrideModel && provider.setModel) {
-            provider.setModel(overrideModel);
+        // Providers are shared singletons, so a model override must be restored
+        // afterwards — otherwise it leaks into every later call and concurrent
+        // runs clobber each other's model.
+        const previousModel = provider.model;
+        const applyModel = provider.setModel?.bind(provider);
+        const modelWasOverridden = Boolean(overrideModel && applyModel);
+        if (applyModel && overrideModel) {
+            applyModel(overrideModel);
         }
 
         try {
-            const content = await provider.process(prompt);
+            const content = await provider.process(prompt, options);
             return {
                 content,
                 provider: provider.name,
@@ -70,7 +77,7 @@ export class AIService {
                 for (const [name, fallbackProvider] of this.providerMap) {
                     if (name !== providerName) {
                         try {
-                            const content = await fallbackProvider.process(prompt);
+                            const content = await fallbackProvider.process(prompt, options);
                             return {
                                 content,
                                 provider: fallbackProvider.name,
@@ -83,6 +90,10 @@ export class AIService {
                 }
             }
             throw error;
+        } finally {
+            if (applyModel && modelWasOverridden) {
+                applyModel(previousModel);
+            }
         }
     }
 

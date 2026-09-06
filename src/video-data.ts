@@ -80,9 +80,9 @@ export class YouTubeVideoService implements VideoDataService {
             if (result.duration && result.duration < 1800) {
                 // Only check for videos < 30 mins
                 void this.checkTranscriptAvailability(videoId).then(hasTranscript => {
-                    result.hasTranscript = hasTranscript;
-                    // Cache the enhanced data
-                    this.cache?.set(cacheKey, result, this.metadataTTL);
+                    // Cache a copy: `result` was already handed to the caller, so
+                    // mutating it here would change an object we no longer own.
+                    this.cache?.set(cacheKey, { ...result, hasTranscript }, this.metadataTTL);
                 });
             }
 

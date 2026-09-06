@@ -1,5 +1,6 @@
 import { ErrorHandlerInterface } from '../types';
 import { MESSAGES } from '../constants/index';
+import { sanitizeRemoteMessage } from '../ai/error-utils';
 import { Notice } from 'obsidian';
 
 /**
@@ -183,10 +184,13 @@ export class ErrorHandler implements ErrorHandlerInterface {
     }
 
     /**
-     * Create a standardized error for API responses
+     * Create a standardized error for API responses.
+     * `details` comes from the provider's response body (server-controlled), so
+     * it is sanitized before it can reach a user-facing notice.
      */
     static createAPIError(provider: string, status: number, statusText: string, details?: string): Error {
-        const message = `${provider} API error: ${status} ${statusText}${details ? `. ${details}` : ''}`;
+        const safeDetails = details ? sanitizeRemoteMessage(details) : '';
+        const message = `${provider} API error: ${status} ${statusText}${safeDetails ? `. ${safeDetails}` : ''}`;
         return new Error(message);
     }
 

@@ -14,7 +14,6 @@ import { SecureConfigService } from './secure-config';
 import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
-const PLUGIN_VERSION = '1.3.5';
 
 interface ProcessVideoOptions {
     url: string;
@@ -60,9 +59,8 @@ export default class YoutubeClipperPlugin extends Plugin {
     private historyService?: ProcessingHistoryService;
 
     async onload(): Promise<void> {
-        // Set plugin version
-        this.manifest.version = PLUGIN_VERSION;
-        logger.info(`Initializing YoutubeClipper Plugin v${PLUGIN_VERSION}...`);
+        // Version comes from manifest.json — never hardcode it here.
+        logger.info(`Initializing YoutubeClipper Plugin v${this.manifest.version}...`);
 
         try {
             await this.loadSettings();

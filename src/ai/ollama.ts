@@ -1,5 +1,6 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
+import type { AIRequestOptions } from '../types';
 import type {
     OllamaGenerateRequestBody,
     OllamaChatRequestBody,
@@ -57,7 +58,7 @@ export class OllamaProvider extends BaseAIProvider {
         return `${this.apiBaseUrl}${path}`;
     }
 
-    async process(prompt: string): Promise<string> {
+    async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
             if (!prompt || prompt.trim().length === 0) {
                 throw new Error('Prompt cannot be empty');
@@ -74,6 +75,7 @@ export class OllamaProvider extends BaseAIProvider {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(requestBody),
+                signal: this.requestSignal({ signal: options?.signal }),
             });
 
             await this.throwIfOllamaError(response);
@@ -88,7 +90,11 @@ export class OllamaProvider extends BaseAIProvider {
         }
     }
 
-    async processWithImage(prompt: string, images?: (string | ArrayBuffer)[]): Promise<string> {
+    async processWithImage(
+        prompt: string,
+        images?: (string | ArrayBuffer)[],
+        options?: AIRequestOptions,
+    ): Promise<string> {
         try {
             if (!prompt || prompt.trim().length === 0) {
                 throw new Error('Prompt cannot be empty');
@@ -116,6 +122,7 @@ export class OllamaProvider extends BaseAIProvider {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(requestBody),
+                signal: this.requestSignal({ signal: options?.signal }),
             });
 
             await this.throwIfOllamaError(response);
@@ -177,6 +184,9 @@ export class OllamaProvider extends BaseAIProvider {
      */
     private asNetworkError(error: unknown): Error {
         if (error instanceof Error) {
+            if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+                return new Error('Ollama request was cancelled or timed out.');
+            }
             if (
                 error.message.includes('fetch') ||
                 error.message.includes('network') ||
@@ -218,10 +228,14 @@ export class OllamaProvider extends BaseAIProvider {
      * (local: models you have pulled; cloud: cloud catalog).
      */
     async listModels(): Promise<string[]> {
-        const response = await fetch(this.getApiUrl('/tags'), {
-            method: 'GET',
-            headers: this.createHeaders(),
-        });
+        const response = await this.fetchWithTimeout(
+            this.getApiUrl('/tags'),
+            {
+                method: 'GET',
+                headers: this.createHeaders(),
+            },
+            'Ollama models request failed',
+        );
         if (!response.ok) {
             throw new Error(`Ollama models request failed: ${response.status}`);
         }

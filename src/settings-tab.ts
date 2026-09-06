@@ -151,7 +151,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 color: '#4285f4',
                 key: 'geminiApiKey' as const,
                 validate: async (key: string) => {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                    // Send the key as a header (matches the provider path) so it
+                    // cannot leak into URL-based logs.
+                    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+                        headers: { 'x-goog-api-key': key },
+                    });
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 },
             },

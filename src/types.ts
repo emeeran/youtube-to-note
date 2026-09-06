@@ -18,7 +18,6 @@ export interface YouTubePluginSettings {
     modelOptionsCache?: Record<string, string[]>;
     modelCacheTimestamps?: Record<string, number>; // Cache timestamps for each provider
     performanceMode: PerformanceMode;
-    customTimeouts?: CustomTimeoutSettings;
     enableParallelProcessing: boolean;
     enableAutoFallback: boolean;
     preferMultimodal: boolean;
@@ -38,13 +37,6 @@ export interface YouTubePluginSettings {
 
 /** Performance mode options */
 export type PerformanceMode = 'fast' | 'balanced' | 'quality';
-
-/** Timeout settings for API endpoints */
-export interface CustomTimeoutSettings {
-    geminiTimeout: number;
-    groqTimeout: number;
-    metadataTimeout: number;
-}
 
 /** Output formats for video analysis */
 export type OutputFormat =

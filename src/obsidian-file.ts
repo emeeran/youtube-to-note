@@ -65,13 +65,19 @@ export class ObsidianFileService implements FileService {
     }
 
     /**
-     * Ensure the output directory exists
+     * Ensure the output directory exists.
+     * Only the "already exists" outcome is swallowed; anything else (permission
+     * denied, invalid path, adapter failure) is rethrown so it reaches the user.
      */
     private async ensureDirectoryExists(outputPath: string): Promise<void> {
         try {
             await this.app.vault.createFolder(outputPath);
         } catch (error) {
-            // Folder might already exist, ignore error
+            if (this.app.vault.getAbstractFileByPath(outputPath) != null) {
+                return;
+            }
+            const detail = error instanceof Error ? error.message : String(error);
+            throw new Error(`Could not create folder "${outputPath}": ${detail}`);
         }
     }
 

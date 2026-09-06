@@ -11,9 +11,6 @@ import { logger } from './logger';
  * robust than regex scraping of a shape YouTube changes frequently).
  */
 
-const PAGE_TIMEOUT_MS = 20000;
-const CAPTION_TIMEOUT_MS = 20000;
-
 export interface CaptionTrack {
     baseUrl: string;
     languageCode: string;
@@ -196,5 +193,3 @@ export async function fetchPlayerResponse(videoId: string): Promise<ReturnType<t
     const html = await fetchYouTubePage(videoId);
     return parsePlayerResponse(html);
 }
-
-export { PAGE_TIMEOUT_MS, CAPTION_TIMEOUT_MS };

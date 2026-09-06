@@ -1,6 +1,7 @@
 import { API_ENDPOINTS, AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
+import type { AIRequestOptions } from '../types';
 import type { OpenAICompatibleResponse } from '../types/api-responses';
 
 /**
@@ -14,11 +15,12 @@ export class GroqProvider extends BaseAIProvider {
         super(apiKey, model ?? AI_MODELS.GROQ, timeout);
     }
 
-    async process(prompt: string): Promise<string> {
+    async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         const response = await fetch(API_ENDPOINTS.GROQ, {
             method: 'POST',
             headers: this.createHeaders(),
             body: JSON.stringify(this.createRequestBody(prompt)),
+            signal: this.requestSignal({ signal: options?.signal }),
         });
 
         if (response.status === 402) {
@@ -76,10 +78,14 @@ export class GroqProvider extends BaseAIProvider {
 
     /** Live-fetch available model ids from Groq's /models endpoint. */
     async listModels(): Promise<string[]> {
-        const response = await fetch('https://api.groq.com/openai/v1/models', {
-            method: 'GET',
-            headers: this.createHeaders(),
-        });
+        const response = await this.fetchWithTimeout(
+            'https://api.groq.com/openai/v1/models',
+            {
+                method: 'GET',
+                headers: this.createHeaders(),
+            },
+            'Groq models request failed',
+        );
         if (!response.ok) {
             throw new Error(`Groq models request failed: ${response.status}`);
         }

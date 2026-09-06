@@ -1,11 +1,19 @@
 import { logger } from './logger';
-import { App, TFile } from 'obsidian';
+import { App, Notice, TFile } from 'obsidian';
 import { ValidationUtils } from '../validation';
 import { YouTubePluginSettings } from '../types';
 
 /**
  * URL handling service for detecting and processing YouTube URLs from various sources
  */
+
+/** Upper bound for a protocol-supplied URL — anything longer is not a YouTube link. */
+const MAX_PROTOCOL_URL_LENGTH = 2048;
+
+/** Pull the 11-char video id out of a YouTube URL (empty when there is none). */
+function extractVideoIdFromUrl(url: string): string {
+    return url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/)?.[1] ?? '';
+}
 
 export interface UrlDetectionResult {
     url: string;
@@ -294,24 +302,41 @@ export class UrlHandler {
     public handleProtocol(params: Record<string, string>): void {
         try {
             const url = params.url ?? params.content ?? params.path ?? '';
+
+            // `params` is attacker-controlled (any web page can open the
+            // obsidian:// URL), so bound its length and never log it verbatim.
+            if (url.length > MAX_PROTOCOL_URL_LENGTH) {
+                new Notice('⚠️ That link is too long to be a YouTube URL.');
+                logger.error('Protocol handler URL exceeds length cap — rejected', 'UrlHandler', {
+                    length: url.length,
+                    max: MAX_PROTOCOL_URL_LENGTH,
+                });
+                return;
+            }
+
             if (url && ValidationUtils.isValidYouTubeUrl(url)) {
                 const result: UrlDetectionResult = {
                     url,
                     source: 'protocol',
                 };
 
-                logger.info('Protocol handler received valid URL', 'UrlHandler', { ...result });
+                logger.info('Protocol handler received valid URL', 'UrlHandler', {
+                    videoId: extractVideoIdFromUrl(url),
+                });
 
                 // Defer into the plugin main loop
                 setTimeout(() => {
                     this.onUrlDetected(result);
                 }, 200);
             } else {
-                logger.debug('Protocol handler received no valid URL', 'UrlHandler', { params });
+                logger.debug('Protocol handler received no valid URL', 'UrlHandler', {
+                    hasUrlParam: Boolean(params.url),
+                    hasContentParam: Boolean(params.content),
+                    hasPathParam: Boolean(params.path),
+                });
             }
         } catch (error) {
             logger.error('Error in protocol handler', 'UrlHandler', {
-                params,
                 error: error instanceof Error ? error.message : String(error),
             });
         }
