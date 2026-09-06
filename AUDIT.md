@@ -122,7 +122,7 @@ tests but still does not reach the pipeline, providers or settings UI.
       **(fixed 2026-09-06, branch feature/production-readiness)** — removed from the settings
       type and from `data.json.example`.
 - [x] (med) `src/main.ts:17,64` — hardcoded `PLUGIN_VERSION = '1.3.5'` is written onto
-      `this.manifest.version` at runtime, while `manifest.json` says `2.0.0`. Telemetry/notices
+      `this.manifest.version` at runtime, while `manifest.json` said `2.0.0`. Telemetry/notices
       are inconsistent across reloads. Fix: read `this.manifest.version`, don't hardcode.
       **(fixed 2026-09-06, branch feature/production-readiness)** — the constant is gone; the
       version is read from `this.manifest.version`.

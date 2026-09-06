@@ -7,7 +7,7 @@ Reference for anyone (human or AI) working in this repo. Keep this in sync with 
 An Obsidian plugin (+ companion Chrome extension) that turns a YouTube video into a
 structured Markdown note in the vault: fetches transcript + metadata, asks a configured AI
 provider to analyze it, and saves the result. TypeScript, esbuild, MIT. Plugin and extension
-are both at **2.0.0** and versioned independently.
+are versioned independently (currently **2.1.0**).
 
 ## Architecture (service-oriented)
 
