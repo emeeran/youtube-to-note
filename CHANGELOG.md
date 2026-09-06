@@ -24,8 +24,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`✅ 4 created · ⚠️ 1 duplicate · ❌ 1 failed`) and per-note attribution.
 - **Typed transcript failures.** `fetchTranscriptOutcome` reports _why_ a transcript is
   missing — restricted / private / unavailable / no-captions / network / unknown — and each
-  reason gets its own Notice. A missing transcript now stops the run instead of producing a
-  metadata-only note.
+  reason gets its own Notice. Hard failures (restricted, private, unavailable) stop the run;
+  a video that merely has no captions still produces a metadata-only note, with a warning.
 - **Innertube fallback for restricted videos.** Age-restricted videos are retried once through
   YouTube's innertube ANDROID player endpoint (no API key, 15s timeout) before giving up.
 - **Timestamp links** (`includeTimestamps`, default on). Key claims are cited as
