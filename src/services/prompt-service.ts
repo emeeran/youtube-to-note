@@ -1,8 +1,8 @@
-import { PromptService, VideoData, OutputFormat, PerformanceMode } from '../types';
+import { PromptService, VideoData, OutputFormat, PerformanceMode, TranscriptSegment } from '../types';
 import { ValidationUtils } from '../validation';
 import { FORMAT_TEMPLATES, FORMAT_META } from '../templates/format-templates';
 import { FORMAT_CONFIG, FormatConfig } from '../templates/format-config';
-import { generateFrontmatter, generateVideoIframe } from '../templates';
+import { escapeYamlScalar, generateFrontmatter, generateVideoIframe } from '../templates';
 
 /**
  * Optimized prompt generation service for AI processing
@@ -32,6 +32,16 @@ interface AnalysisPromptOptions {
     providerName?: string;
     /** Custom user instructions injected into prompt */
     userInstructions?: string;
+    /**
+     * Per-format prompt overrides. A non-empty entry replaces that format's
+     * built-in template body (metadata + transcript + shared rules still apply).
+     */
+    customPrompts?: Partial<Record<OutputFormat, string>>;
+    /**
+     * Timed transcript segments. Their presence is the "timestamps enabled"
+     * signal: callers omit them when `includeTimestamps` is off.
+     */
+    segments?: TranscriptSegment[];
 }
 
 // Re-export FormatConfig for backward compatibility
@@ -73,6 +83,69 @@ const DEFAULTS = {
     PROVIDER: 'unknown',
     MODEL: 'unknown',
 } as const;
+
+// ============ TIMESTAMP HELPERS ============
+
+/**
+ * Format seconds as a clickable timestamp label: MM:SS, switching to HH:MM:SS
+ * once the video passes one hour. Invalid input collapses to 00:00.
+ */
+export const formatTimestamp = (seconds: number): string => {
+    const total = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    const two = (n: number) => String(n).padStart(2, '0');
+    return hours > 0 ? `${hours}:${two(minutes)}:${two(secs)}` : `${two(minutes)}:${two(secs)}`;
+};
+
+/**
+ * Append a `t=<seconds>` deep link to a YouTube URL, coping with URLs that have
+ * no query string yet (`youtu.be/<id>`).
+ */
+export const withTimestampParam = (videoUrl: string, seconds: number): string =>
+    `${videoUrl}${videoUrl.includes('?') ? '&' : '?'}t=${Math.max(0, Math.floor(seconds))}`;
+
+/**
+ * Strip line breaks and control characters from a value interpolated into a
+ * markdown body line, so a hostile URL / provider string cannot break the note
+ * out of its section or forge extra lines.
+ */
+const sanitizeInlineText = (value: string): string =>
+    String(value ?? '')
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+/**
+ * Escape markdown link syntax in caption text so a transcript line cannot
+ * forge a link or a heading inside the generated note.
+ */
+const escapeMarkdownText = (value: string): string =>
+    sanitizeInlineText(value)
+        .replace(/([[\]])/g, '\\$1')
+        .replace(/^(\s*)(#{1,6}\s)/, '$1\\$2');
+
+/**
+ * Build the deterministic `## Timestamped Transcript` section from caption
+ * segments. Used for the complete-transcription format, where the index must
+ * be exact rather than model-reconstructed.
+ */
+export const buildTimestampedSection = (videoUrl: string, segments: TranscriptSegment[]): string => {
+    const lines = segments
+        .filter(segment => segment && typeof segment.start === 'number')
+        .map(segment => {
+            const start = Math.max(0, Math.floor(segment.start));
+            return `- [${formatTimestamp(start)}](${withTimestampParam(videoUrl, start)}) ${escapeMarkdownText(
+                segment.text,
+            )}`;
+        });
+
+    if (lines.length === 0) return '';
+
+    return `\n## Timestamped Transcript\n\n${lines.join('\n')}\n`;
+};
 
 // ============ BASE TEMPLATES ============
 
@@ -123,6 +196,23 @@ Description: {{DESCRIPTION}}
 // ============ SERVICE ============
 
 /**
+ * Everything buildFullPrompt needs, packed as one object so the helper stays
+ * under the max-params lint ceiling.
+ */
+interface FullPromptContext {
+    baseContent: string;
+    videoData: VideoData;
+    videoUrl: string;
+    videoId: string;
+    format: OutputFormat;
+    provider: string;
+    model: string;
+    providerName?: string;
+    customPrompts?: Partial<Record<OutputFormat, string>>;
+    segments?: TranscriptSegment[];
+}
+
+/**
  * AI Prompt Service
  *
  * @remarks
@@ -140,6 +230,16 @@ export class AIPromptService implements PromptService {
     /** Pattern for AI provider/model placeholders */
     private static readonly PLACEHOLDER_PATTERN = /__(AI_PROVIDER|AI_MODEL)__/g;
 
+    /**
+     * The "No timestamps." clause baked into every format template's
+     * [CONSTRAINTS] line. Removed whenever timestamp links are enabled, since
+     * it would otherwise contradict the timestamp instruction.
+     */
+    private static readonly TIMESTAMPS_DISABLED_PATTERN = /\s*No timestamps[^.]*\./g;
+
+    /** Heading the deterministic timestamp section is inserted before. */
+    private static readonly SOURCE_HEADING = '\n## Source';
+
     // ============ PUBLIC METHODS ============
 
     /**
@@ -154,6 +254,8 @@ export class AIPromptService implements PromptService {
             performanceMode = 'balanced',
             providerName,
             userInstructions,
+            customPrompts,
+            segments,
         } = options;
 
         const videoId = ValidationUtils.extractVideoId(videoUrl) ?? DEFAULTS.VIDEO_ID;
@@ -171,7 +273,18 @@ export class AIPromptService implements PromptService {
         );
 
         // Build full prompt with all components
-        return this.buildFullPrompt(baseContent, videoData, videoUrl, videoId, format, provider, model, providerName);
+        return this.buildFullPrompt({
+            baseContent,
+            videoData,
+            videoUrl,
+            videoId,
+            format,
+            provider,
+            model,
+            providerName,
+            customPrompts,
+            segments,
+        });
     }
 
     // ============ PRIVATE HELPER METHODS ============
@@ -235,16 +348,20 @@ export class AIPromptService implements PromptService {
     /**
      * Build complete prompt with frontmatter, video iframe, and format template
      */
-    private buildFullPrompt(
-        baseContent: string,
-        videoData: VideoData,
-        videoUrl: string,
-        videoId: string,
-        format: OutputFormat,
-        provider: string,
-        model: string,
-        providerName?: string,
-    ): string {
+    private buildFullPrompt(context: FullPromptContext): string {
+        const {
+            baseContent,
+            videoData,
+            videoUrl,
+            videoId,
+            format,
+            provider,
+            model,
+            providerName,
+            customPrompts,
+            segments,
+        } = context;
+
         // Enriched frontmatter with video metadata
         const frontmatter = generateFrontmatter(videoData.title, videoUrl, videoId, format, provider, model, videoData);
 
@@ -257,17 +374,62 @@ export class AIPromptService implements PromptService {
         }
 
         const separator = '---\n\n';
-        let template = this.buildFormatTemplate(format);
+        // Segments are only passed when settings.includeTimestamps is on. The
+        // complete-transcription format is excluded: its timestamp index is
+        // generated deterministically in processAIResponse, so the model is left
+        // under its "No timestamps." constraint rather than invited to guess.
+        const citeTimestamps = Boolean(segments?.length) && format !== 'complete-transcription';
+        let template = this.resolveFormatTemplate(format, customPrompts);
 
-        // Replace {{YOUTUBE_URL}} placeholder in format templates
+        // Replace {{YOUTUBE_URL}} placeholder in format templates (built-in and custom alike)
         template = template.replace(/\{\{YOUTUBE_URL\}\}/g, videoUrl);
+
+        // Timestamp links contradict the templates' "No timestamps." constraint,
+        // so drop that clause whenever the feature is on.
+        if (citeTimestamps) {
+            template = template.replace(AIPromptService.TIMESTAMPS_DISABLED_PATTERN, '');
+        }
 
         // Strip multimodal instructions for text-only providers
         if (providerName && !this.isMultimodalProvider(providerName)) {
             template = this.stripMultimodalInstructions(template);
         }
 
+        // Centralized timestamp-link instruction (see settings.includeTimestamps)
+        if (citeTimestamps) {
+            template += this.buildTimestampInstruction(videoUrl);
+        }
+
         return `${frontmatter}\n\n${iframe}${thumbnailBlock}\n\n${separator}${baseContent}\n\n${template}`;
+    }
+
+    /**
+     * Pick the prompt body for a format: the user's custom prompt when present,
+     * otherwise the built-in template. Metadata, transcript and the shared
+     * formatting rules live in `baseContent`, so a custom prompt keeps the
+     * output parseable by `processAIResponse`.
+     */
+    private resolveFormatTemplate(format: OutputFormat, customPrompts?: Partial<Record<OutputFormat, string>>): string {
+        const custom = customPrompts?.[format]?.trim();
+        if (custom) return custom;
+        return this.buildFormatTemplate(format);
+    }
+
+    /**
+     * Instruction appended to the prompt whenever timestamp links are enabled.
+     * Centralized here so every format cites moments the same way.
+     */
+    private buildTimestampInstruction(videoUrl: string): string {
+        // Short URLs (`youtu.be/<id>`) have no query string to append to.
+        const joiner = videoUrl.includes('?') ? '&' : '?';
+        return [
+            '',
+            '**TIMESTAMP LINKS** (required):',
+            `- Cite key claims as clickable links in the form \`[MM:SS](${videoUrl}${joiner}t=SECONDS)\`.`,
+            '- Use ONLY the segment start times supplied with the transcript — never invent or estimate one.',
+            '- Label MM:SS, switching to HH:MM:SS once past one hour.',
+            '- Add one wherever a reader would want to jump: each insight, quote, command or step.',
+        ].join('\n');
     }
 
     /**
@@ -299,6 +461,7 @@ export class AIPromptService implements PromptService {
         format?: OutputFormat,
         videoData?: VideoData,
         videoUrl?: string,
+        segments?: TranscriptSegment[],
     ): string {
         if (!content) return content;
 
@@ -314,6 +477,12 @@ export class AIPromptService implements PromptService {
         // Ensure frontmatter has correct values (fallback for malformed responses)
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_provider', providerValue);
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_model', modelValue);
+
+        // Deterministic timestamp index for full transcriptions — built here, from
+        // the real caption timings, rather than trusting the model to recall them.
+        if (format === 'complete-transcription' && videoUrl && segments?.length) {
+            updatedContent = this.insertTimestampedSection(updatedContent, videoUrl, segments);
+        }
 
         // Append Resources section ONLY if the format doesn't already have one
         if (videoUrl && format) {
@@ -332,31 +501,51 @@ export class AIPromptService implements PromptService {
     }
 
     /**
+     * Insert the deterministic timestamped transcript section just before the
+     * attribution block, or append it when no `## Source` heading exists.
+     */
+    private insertTimestampedSection(content: string, videoUrl: string, segments: TranscriptSegment[]): string {
+        const section = buildTimestampedSection(videoUrl, segments);
+        if (!section) return content;
+
+        const sourceAt = content.lastIndexOf(AIPromptService.SOURCE_HEADING);
+        if (sourceAt <= 0) return `${content.trimEnd()}\n${section}`;
+
+        return `${content.slice(0, sourceAt).trimEnd()}\n${section}${content.slice(sourceAt)}`;
+    }
+
+    /**
      * Append Resources section to the end of the content
      */
     private appendResourcesSection(content: string, videoUrl: string, provider: string, model: string): string {
         const processingDate = new Date().toISOString().split('T')[0];
-        const resourcesSection = `\n\n## Resources\n- Video URL: ${videoUrl}\n- Processing Date: ${processingDate}\n- Provider: ${provider} ${model}\n`;
+        // URL / provider strings are remote-controlled: flatten them so they
+        // cannot break out of the list or forge additional lines.
+        const resourcesSection =
+            '\n\n## Resources\n' +
+            `- Video URL: ${sanitizeInlineText(videoUrl)}\n` +
+            `- Processing Date: ${processingDate}\n` +
+            `- Provider: ${sanitizeInlineText(`${provider} ${model}`)}\n`;
 
         const trimmedContent = content.trimEnd();
         return trimmedContent + resourcesSection;
     }
 
     /**
-     * Ensure frontmatter key has correct value
+     * Ensure frontmatter key has the given value. Values are written as YAML
+     * double-quoted scalars (JSON encoding) so a provider/model string coming
+     * back from the network cannot break out of the frontmatter or inject keys.
      */
     private ensureFrontMatterValue(content: string, key: string, value: string): string {
+        const safeValue = escapeYamlScalar(value);
         const pattern = new RegExp(`(${key}\\s*:\\s*)(["'])?([^"'\\n]*)(["'])?`, 'i');
 
         if (pattern.test(content)) {
-            return content.replace(pattern, (_, prefix, openQuote, _existing, closeQuote) => {
-                const quote = (openQuote ?? closeQuote) ? '"' : '';
-                return `${prefix}${quote}${value}${quote}`;
-            });
+            return content.replace(pattern, (_match, prefix) => `${prefix}${safeValue}`);
         }
 
         if (content.startsWith('---')) {
-            return content.replace(/^---\s*\n/, `---\n${key}: "${value}"\n`);
+            return content.replace(/^---\s*\n/, `---\n${key}: ${safeValue}\n`);
         }
 
         return content;

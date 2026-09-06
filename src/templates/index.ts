@@ -26,7 +26,7 @@ const YOUTUBE_EMBED = {
  * must not be able to break out of the frontmatter or inject extra keys.
  * JSON string encoding is a safe YAML double-quoted scalar encoding.
  */
-const escapeYamlScalar = (value: string): string => JSON.stringify(String(value ?? ''));
+export const escapeYamlScalar = (value: string): string => JSON.stringify(String(value ?? ''));
 
 /**
  * Escape a value for use inside a double-quoted HTML attribute.

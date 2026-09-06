@@ -221,6 +221,8 @@ export interface PromptService {
         performanceMode?: PerformanceMode;
         providerName?: string;
         userInstructions?: string;
+        /** Per-format prompt overrides; a non-empty entry replaces the built-in template body. */
+        customPrompts?: Partial<Record<OutputFormat, string>>;
     }): string;
     processAIResponse(
         content: string,
@@ -229,6 +231,8 @@ export interface PromptService {
         format?: OutputFormat,
         videoData?: VideoData,
         videoUrl?: string,
+        /** Present when timestamps are enabled; drives the deterministic transcript index. */
+        segments?: TranscriptSegment[],
     ): string;
 }
 
