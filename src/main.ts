@@ -65,6 +65,9 @@ const NO_CAPTIONS_MESSAGE = TRANSCRIPT_FAILURE_MESSAGES['no-captions'];
 const TRANSCRIPT_TRUNCATED_WARNING =
     'Transcript truncated at 100,000 characters — the analysis covers the first portion only.';
 
+const METADATA_ONLY_WARNING =
+    'No captions available — the note was generated from video metadata only, so it may be thin.';
+
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
     groqApiKey: '',
@@ -509,6 +512,9 @@ export default class YoutubeClipperPlugin extends Plugin {
                 result.error = transcript.error;
                 return result;
             }
+            if (!transcript.fullText) {
+                warnings.push(METADATA_ONLY_WARNING);
+            }
             if (transcript.truncated) {
                 result.transcriptTruncated = true;
                 warnings.push(TRANSCRIPT_TRUNCATED_WARNING);
@@ -543,7 +549,11 @@ export default class YoutubeClipperPlugin extends Plugin {
             aiService.setModelParameters?.({ maxTokens, temperature });
 
             progress('ai', 'Contacting AI providers…');
-            const chain = this.buildProviderChain(providerName, aiService, enableAutoFallback ?? true);
+            const chain = this.buildProviderChain(
+                providerName,
+                aiService,
+                enableAutoFallback ?? this._settings.enableAutoFallback ?? true,
+            );
             const failedProviders: string[] = [];
             let aiResponse: AIResponse | undefined;
             let lastError: unknown;
@@ -651,7 +661,7 @@ export default class YoutubeClipperPlugin extends Plugin {
         videoId: string,
     ): Promise<
         | { ok: true; fullText?: string; segments?: TranscriptSegment[]; truncated?: boolean }
-        | { ok: false; error: string }
+        | { ok: false; error: string; reason?: TranscriptFailureReason }
     > {
         const language = this._settings.transcriptLanguage;
 
@@ -662,7 +672,9 @@ export default class YoutubeClipperPlugin extends Plugin {
                 if (outcome.ok) {
                     const { fullText, segments, truncated } = outcome.transcript;
                     if (!fullText?.trim()) {
-                        return { ok: false, error: NO_CAPTIONS_MESSAGE };
+                        // Matches the legacy contract below: an empty transcript is
+                        // "metadata only", not a failed run.
+                        return { ok: true };
                     }
                     logger.info('Transcript fetched successfully', 'Plugin', {
                         videoId,
@@ -680,7 +692,13 @@ export default class YoutubeClipperPlugin extends Plugin {
                     detail: outcome.message,
                 });
                 new Notice(message);
-                return { ok: false, error: message };
+                // A video without captions can still produce a metadata-only note
+                // (and Gemini multimodal ingests it natively) — mirror the legacy
+                // path instead of failing the run.
+                if (outcome.reason === 'no-captions') {
+                    return { ok: true };
+                }
+                return { ok: false, error: message, reason: outcome.reason };
             } catch (error) {
                 logger.warn('Typed transcript fetch failed — falling back to legacy path', 'Plugin', {
                     error: error instanceof Error ? error.message : String(error),
