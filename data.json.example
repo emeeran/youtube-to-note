@@ -13,6 +13,7 @@
   "enableParallelProcessing": true,
   "enableAutoFallback": true,
   "preferMultimodal": true,
+  "transcriptLanguage": "en",
   "defaultMaxTokens": 4096,
   "defaultTemperature": 0.5,
   "modelOptionsCache": {},
