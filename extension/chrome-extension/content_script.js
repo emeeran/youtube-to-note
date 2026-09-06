@@ -1,47 +1,121 @@
 /**
- * YouTube to Note — Content Script v2.1
- * Compact button in YouTube player controls + keyboard shortcut
- * Protocol: obsidian://youtube-clipper?url=...
+ * YouTube to Note — Content Script v2.0.0 (keep in sync with manifest.json "version")
+ *
+ * Adds a compact "send to Obsidian" button to the YouTube player controls and
+ * handles Ctrl+Shift+Y (registered in manifest.json "commands").
+ * Protocol: obsidian://youtube-clipper?url=<canonical watch URL>
+ *
+ * Video pages: /watch?v=, /shorts/ID, /embed/ID, /live/ID, music.youtube.com/watch?v=
+ * (youtu.be/ID is parsed too but is never reached: youtu.be redirects immediately).
+ * Any other page (home, search, channel…) gets no button, and a stale one is removed.
+ *
+ * Top frames only: an <iframe> of youtube.com/embed inside another site cannot
+ * launch an external protocol handler reliably, so those frames do nothing.
+ *
+ * The URL is normalised to https://www.youtube.com/watch?v=ID because the Obsidian
+ * plugin's URL validator does not accept every shape (/live/ID for one), and a
+ * canonical watch link is valid there wherever the video was playing. Only the
+ * timestamp survives; every other parameter is dropped.
  */
 (function () {
-  var B = 'yt2n-btn', T = 'yt2n-toast';
+  if (window.top !== window) return; // top frames only — see header
 
-  function watch() {
-    try { return location.pathname === '/watch' && new URL(location.href).searchParams.get('v'); }
-    catch (e) { return false; }
+  var BTN = 'yt2n-btn';
+  var TOAST = 'yt2n-toast';
+  var HANDOFF = 'obsidian://youtube-clipper?url=';
+  var ID_RE = /^[A-Za-z0-9_-]{11}$/;
+
+  /* ---------------- video detection ---------------- */
+
+  // Video ID in the current URL, or null when this page shows no video.
+  function videoId(href) {
+    try {
+      var u = new URL(href);
+      var m;
+      if (u.pathname === '/watch') return id(u.searchParams.get('v')); // www / m / music
+      if ((m = u.pathname.match(/^\/(?:shorts|embed|live|v)\/([^/?#]+)/))) return id(m[1]);
+      if (u.hostname === 'youtu.be') return id(u.pathname.slice(1).split('/')[0]);
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
-  function vid() {
-    try { var id = new URL(location.href).searchParams.get('v'); if (id) return 'https://www.youtube.com/watch?v=' + id; }
-    catch (e) {}
-    return location.href;
+  function id(raw) {
+    return raw && ID_RE.test(raw) ? raw : null;
   }
 
-  function toast(t, err) {
-    var el = document.getElementById(T);
-    if (!el) { el = document.createElement('div'); el.id = T; document.body.appendChild(el); }
-    el.textContent = t;
+  // YouTube stores the seek position as `t` (watch/shorts), `start` or
+  // `time_continue` (embeds and deep links). The value's own format — "90",
+  // "1m30s" — is passed through untouched; everything but `v` is dropped.
+  function timestamp(href) {
+    try {
+      var p = new URL(href).searchParams;
+      var t = p.get('t') || p.get('start') || p.get('time_continue');
+      return t && /^[0-9hms.]+$/.test(t) ? t : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function canonicalUrl(href) {
+    var v = videoId(href);
+    if (!v) return null;
+    var url = 'https://www.youtube.com/watch?v=' + encodeURIComponent(v);
+    var t = timestamp(href);
+    return t ? url + '&t=' + encodeURIComponent(t) : url;
+  }
+
+  /* ---------------- feedback ---------------- */
+
+  // Toasts are pointer-events:none (never in the way) and remove themselves.
+  function toast(text, isError) {
+    if (!document.body) return;
+    var el = document.getElementById(TOAST);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = TOAST;
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
     el.style.cssText =
-      'position:fixed;bottom:56px;right:12px;padding:6px 14px;border-radius:6px;z-index:999999;' +
+      'position:fixed;bottom:56px;right:12px;max-width:340px;padding:6px 14px;border-radius:6px;z-index:999999;' +
       'font:500 12px/1.4 system-ui,sans-serif;color:#fff;pointer-events:none;' +
-      'background:' + (err ? '#DC2626' : '#7C3AED') + ';opacity:1;transition:opacity .25s';
-    clearTimeout(el._t);
-    el._t = setTimeout(function () { el.style.opacity = '0'; }, 2000);
+      'background:' + (isError ? '#DC2626' : '#7C3AED') + ';opacity:1;transition:opacity .3s';
+    clearTimeout(el._fade);
+    clearTimeout(el._gone);
+    el._fade = setTimeout(function () { el.style.opacity = '0'; }, 3200);
+    el._gone = setTimeout(function () { el.remove(); }, 3600);
   }
 
-  function send() {
-    if (!watch()) { toast('Not a video page', 1); return; }
-    toast('Opening Obsidian\u2026');
-    var f = document.createElement('iframe');
-    f.style.display = 'none';
-    f.src = 'obsidian://youtube-clipper?url=' + encodeURIComponent(vid());
-    document.body.appendChild(f);
-    setTimeout(function () { f.remove(); }, 2000);
+  /* ---------------- hand-off ---------------- */
+
+  // A content script cannot tell whether the OS launched the handler, so the
+  // toast reports only what happened (the hand-off) and names the usual
+  // culprits for silence. Top-level navigation is used instead of a hidden
+  // iframe: Chrome increasingly blocks protocol navigations started from a
+  // subframe, while a top-level one leaves the YouTube page untouched.
+  function sendToObsidian() {
+    var url = canonicalUrl(location.href);
+    if (!url) {
+      toast('No YouTube video on this page', true);
+      return;
+    }
+    toast('Sent to Obsidian ✓ — nothing happened? Make sure Obsidian is running with the plugin enabled.');
+    try {
+      location.href = HANDOFF + encodeURIComponent(url);
+    } catch (e) {
+      toast('Could not hand off to Obsidian', true);
+    }
   }
 
-  // Build the play-button icon as a parsed SVG element instead of innerHTML,
-  // so no markup is parsed into the page DOM. The SVG is static/trusted today;
-  // this keeps the sink closed if it is ever templated from page data.
+  /* ---------------- button ---------------- */
+
+  // The SVG is built through DOMParser instead of innerHTML, so no markup is
+  // parsed into the page DOM. It is static/trusted today; this keeps the sink
+  // closed if it is ever templated from page data.
   function svgIcon() {
     var doc = new DOMParser().parseFromString(
       '<svg xmlns="http://www.w3.org/2000/svg" height="100%" viewBox="0 0 128 128" width="100%" fill="none">' +
@@ -53,49 +127,136 @@
     return doc.documentElement;
   }
 
-  function mkBtn() {
-    if (document.getElementById(B)) return;
+  // Player control containers, most specific first. The desktop player (.ytp-*),
+  // YouTube Music's bar (.ytmusic-*) and the /embed player do not share markup.
+  // styled:false → keep the native .ytp-button metrics; styled:true → our own.
+  var CONTAINERS = [
+    { sel: '.ytp-right-controls', styled: false },
+    { sel: '#movie_player .ytp-right-controls', styled: false },
+    { sel: 'ytmusic-player-bar .right-controls-buttons', styled: true },
+    { sel: 'ytmusic-player-bar .middle-controls-buttons', styled: true },
+    { sel: '.ytmusic-player-bar', styled: true },
+    { sel: 'ytmusic-player-bar', styled: true }
+  ];
+
+  // Returns { el, styled, overlay } or null when there is no player at all.
+  function findContainer() {
+    for (var i = 0; i < CONTAINERS.length; i++) {
+      var c = document.querySelector(CONTAINERS[i].sel);
+      if (c) return { el: c, styled: CONTAINERS[i].styled, overlay: false };
+    }
+    var p = document.querySelector('#movie_player, .html5-video-player, ytmusic-player');
+    if (!p) {
+      var video = document.querySelector('video');
+      if (!video || !video.parentElement) return null;
+      p = video.parentElement;
+    }
+    return { el: p, styled: true, overlay: true };
+  }
+
+  function mkBtn(styled) {
     var b = document.createElement('button');
-    b.id = B;
+    b.id = BTN;
     b.className = 'ytp-button';
     b.title = 'Send to Obsidian (Ctrl+Shift+Y)';
-    b.style.marginTop = '-2px';
+    b.setAttribute('aria-label', 'Send this video to Obsidian');
+    if (styled) {
+      b.style.cssText =
+        'display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0 4px;' +
+        'padding:0;background:none;border:0;cursor:pointer;opacity:.9';
+    } else {
+      b.style.marginTop = '-2px';
+    }
     b.appendChild(svgIcon());
-    b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); send(); };
+    b.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      sendToObsidian();
+    });
     return b;
   }
 
+  // Only used in the overlay fallback: anchor the button to the player box.
+  // Declarations are set one by one — `style.cssText +=` re-parses the already
+  // serialised text and quietly loses declarations.
+  function asOverlay(host, btn) {
+    var pos = window.getComputedStyle(host).position;
+    if (pos === 'static' || pos === '') host.style.setProperty('position', 'relative');
+    btn.style.setProperty('position', 'absolute');
+    btn.style.setProperty('top', '10px');
+    btn.style.setProperty('right', '56px');
+    btn.style.setProperty('z-index', '64');
+    btn.style.setProperty('border-radius', '6px');
+    btn.style.setProperty('box-shadow', '0 1px 4px rgba(0,0,0,.4)');
+  }
+
+  function removeBtn() {
+    var b = document.getElementById(BTN);
+    if (b) b.remove();
+  }
+
   function inject() {
-    if (document.getElementById(B)) return true;
-    if (!watch()) return false;
-    var c = document.querySelector('.ytp-right-controls');
-    if (!c) return false;
-    var b = mkBtn();
-    if (b) {
-      // Insert before the "Play on TV" / cast button (must be direct child of c)
-      var castBtn = c.querySelector('.ytp-play-on-tv-button') || c.querySelector('button[aria-label*="TV"]') || c.querySelector('button[aria-label*="Cast"]');
-      var ref = null;
-      if (castBtn) {
-        // Walk up to find the direct child of c
-        var node = castBtn;
-        while (node && node.parentElement !== c) node = node.parentElement;
-        if (node) ref = node;
-      }
-      c.insertBefore(b, ref || c.firstChild);
+    if (!videoId(location.href)) {
+      removeBtn(); // SPA navigation to a non-video page must not leave a stale button
+      return false;
     }
+    if (document.getElementById(BTN)) return true; // id-based duplicate guard
+    var c = findContainer();
+    if (!c) return false;
+    var b = mkBtn(c.styled);
+    if (c.overlay) asOverlay(c.el, b);
+    // Sit before the cast / "play on TV" button on the desktop player.
+    var cast = c.el.querySelector('.ytp-play-on-tv-button, button[aria-label*="TV"], button[aria-label*="Cast"]');
+    var node = cast;
+    while (node && node.parentElement !== c.el) node = node.parentElement;
+    c.el.insertBefore(b, node || c.el.firstChild);
     return true;
   }
 
-  try { chrome.runtime.onMessage.addListener(function (m) { if (m && m.t === 's') send(); }); } catch (e) {}
+  /* ---------------- lifecycle ---------------- */
 
-  var url = location.href, n = 0;
-  function retry() { if (inject()) return; if (++n < 30) setTimeout(retry, 500); }
-  new MutationObserver(function () {
-    if (location.href !== url) { url = location.href; n = 0; retry(); }
-    else if (watch() && !document.getElementById(B)) inject();
-  }).observe(document.body, { childList: true, subtree: true });
+  try {
+    chrome.runtime.onMessage.addListener(function (m) {
+      if (m && m.type === 'send') sendToObsidian();
+    });
+  } catch (e) {}
 
-  function go() { retry(); }
-  if (document.readyState === 'complete') setTimeout(go, 600);
-  else window.addEventListener('load', function () { setTimeout(go, 600); });
+  var navUrl = location.href;
+  var retries = 0;
+  var lastSync = 0;
+
+  function retry() {
+    if (inject()) return;
+    if (++retries < 30) setTimeout(retry, 500);
+  }
+
+  // Navigation is a discrete, user-visible event, so it skips the throttle
+  // below and restarts the retry chain: the stale button must not outlive it.
+  function onNavigate() {
+    var unchanged = location.href === navUrl;
+    navUrl = location.href;
+    lastSync = Date.now();
+    retries = 0;
+    if (unchanged && document.getElementById(BTN)) return; // already in place
+    retry();
+  }
+
+  // Throttled: YouTube mutates the DOM constantly and this runs per mutation.
+  function sync() {
+    var now = Date.now();
+    if (now - lastSync < 250) return;
+    lastSync = now;
+    if (location.href !== navUrl) onNavigate();
+    else inject();
+  }
+
+  // YouTube is a SPA: yt-navigate-finish fires on every internal navigation
+  // (it is heard on window and document, whichever dispatches it); the
+  // MutationObserver is the fallback and covers the very first paint.
+  window.addEventListener('yt-navigate-finish', onNavigate);
+  document.addEventListener('yt-navigate-finish', onNavigate);
+  new MutationObserver(sync).observe(document.body, { childList: true, subtree: true });
+
+  if (document.readyState === 'complete') setTimeout(retry, 600);
+  else window.addEventListener('load', function () { setTimeout(retry, 600); });
 })();

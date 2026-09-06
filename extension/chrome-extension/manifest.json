@@ -5,8 +5,6 @@
   "version": "2.0.0",
   "description": "Send YouTube videos to Obsidian's YouTube to Note plugin with one click. No extra plugins needed.",
   "minimum_chrome_version": "88",
-  "permissions": ["activeTab"],
-  "host_permissions": ["*://*.youtube.com/*"],
   "action": {
     "default_title": "Send to Obsidian Note",
     "default_icon": {
