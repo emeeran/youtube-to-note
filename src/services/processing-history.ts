@@ -24,6 +24,32 @@ const MAX_HISTORY_ENTRIES = 200;
 const STORAGE_KEY = 'ytc-processing-history';
 
 /**
+ * Serializes every data.json read-modify-write cycle performed here.
+ *
+ * `loadData()` / `saveData()` round-trip the *whole* plugin data file, so two
+ * concurrent cycles can interleave as read → read → write → write and the
+ * loser's write silently reverts the winner's changes (a history write landing
+ * after a settings write would resurrect stale settings). Chaining a shared
+ * promise makes each cycle run to completion before the next one starts.
+ */
+let writeLock: Promise<void> = Promise.resolve();
+
+/**
+ * Enqueue `task` on the plugin-data lock. Exported so any other writer of
+ * plugin data (e.g. the plugin's `saveSettings`) can join the same queue
+ * instead of racing it.
+ */
+export function withPluginDataLock<T>(task: () => Promise<T>): Promise<T> {
+    const run = writeLock.then(task, task);
+    // Keep the chain alive regardless of success/failure of this task.
+    writeLock = run.then(
+        () => undefined,
+        () => undefined,
+    );
+    return run;
+}
+
+/**
  * Manages processing history for the plugin
  */
 export class ProcessingHistoryService {
@@ -51,10 +77,12 @@ export class ProcessingHistoryService {
 
     private async performLoad(): Promise<void> {
         try {
-            const data = (await this.plugin.loadData()) as Record<string, unknown> | null;
-            if (data?.[STORAGE_KEY] && Array.isArray(data[STORAGE_KEY])) {
-                this.entries = data[STORAGE_KEY] as HistoryEntry[];
-            }
+            await withPluginDataLock(async () => {
+                const data = (await this.plugin.loadData()) as Record<string, unknown> | null;
+                if (data?.[STORAGE_KEY] && Array.isArray(data[STORAGE_KEY])) {
+                    this.entries = data[STORAGE_KEY] as HistoryEntry[];
+                }
+            });
         } catch {
             this.entries = [];
         }
@@ -65,9 +93,11 @@ export class ProcessingHistoryService {
      */
     private async save(): Promise<void> {
         try {
-            const data = ((await this.plugin.loadData()) as Record<string, unknown> | null) ?? {};
-            data[STORAGE_KEY] = this.entries;
-            await this.plugin.saveData(data);
+            await withPluginDataLock(async () => {
+                const data = ((await this.plugin.loadData()) as Record<string, unknown> | null) ?? {};
+                data[STORAGE_KEY] = this.entries;
+                await this.plugin.saveData(data);
+            });
         } catch {
             // Ignore
         }

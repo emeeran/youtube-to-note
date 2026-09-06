@@ -11,9 +11,6 @@ import { logger } from './logger';
  * robust than regex scraping of a shape YouTube changes frequently).
  */
 
-const PAGE_TIMEOUT_MS = 20000;
-const CAPTION_TIMEOUT_MS = 20000;
-
 export interface CaptionTrack {
     baseUrl: string;
     languageCode: string;
@@ -40,45 +37,80 @@ export async function fetchYouTubePage(videoId: string): Promise<string> {
             'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
                 '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
+            // Deliberately no Accept-Language: sending one biases YouTube's
+            // caption track list (and default track order) toward that locale.
         },
     });
     return response.text;
 }
 
-/**
- * Extract and parse the `ytInitialPlayerResponse` object from watch-page HTML.
- * Uses brace balancing that respects string literals, so braces inside strings
- * or regex do not prematurely terminate the object.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parsePlayerResponse(html: string): any | null {
-    const marker = 'ytInitialPlayerResponse';
-    const markerIdx = html.indexOf(marker);
-    if (markerIdx === -1) return null;
+/** The assignment YouTube embeds the player response behind in watch-page HTML. */
+const PLAYER_RESPONSE_MARKER = 'ytInitialPlayerResponse';
 
-    const start = html.indexOf('{', markerIdx);
-    if (start === -1) return null;
-
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-
-    for (let i = start; i < html.length; i++) {
+/** Index just past the string literal opening at `openIdx`, or the end of input. */
+function skipStringLiteral(html: string, openIdx: number): number {
+    const quote = html[openIdx];
+    for (let i = openIdx + 1; i < html.length; i++) {
         const ch = html[i];
-        if (inString) {
-            if (escape) {
-                escape = false;
-            } else if (ch === '\\') {
-                escape = true;
-            } else if (ch === '"') {
-                inString = false;
-            }
+        if (ch === '\\') {
+            i++;
+        } else if (ch === quote) {
+            return i + 1;
+        }
+    }
+    return html.length;
+}
+
+/** Index just past a `//` comment starting at `start`, or the end of input. */
+function skipLineComment(html: string, start: number): number {
+    const end = html.indexOf('\n', start);
+    return end === -1 ? html.length : end + 1;
+}
+
+/** Index just past a block comment starting at `start`, or the end of input. */
+function skipBlockComment(html: string, start: number): number {
+    const end = html.indexOf('*/', start + 2);
+    return end === -1 ? html.length : end + 2;
+}
+
+/**
+ * Index of the next code character at or after `i`, skipping over any string
+ * literal or comment that starts there. Returns `i` unchanged when the
+ * character at `i` is plain code.
+ */
+function skipStringOrComment(html: string, i: number): number {
+    const ch = html[i];
+    const next = html[i + 1];
+
+    if (ch === '"' || ch === "'") return skipStringLiteral(html, i);
+    if (ch === '/' && next === '/') return skipLineComment(html, i);
+    if (ch === '/' && next === '*') return skipBlockComment(html, i);
+    return i;
+}
+
+/**
+ * Walk forward from `start` (an opening `{`) to its matching `}` and parse the
+ * slice. String literals (double- and single-quoted, with escapes), `//` line
+ * comments and block comments are skipped wholesale, so braces and quotes
+ * inside any of them do not prematurely terminate the object. Regex literals
+ * are deliberately NOT detected — disambiguating division from a regex is too
+ * risky to get right on minified output.
+ *
+ * Returns the parsed object, or null when the JSON is unbalanced or invalid.
+ */
+function extractJsonObject(html: string, start: number): unknown {
+    let depth = 0;
+
+    let i = start;
+    while (i < html.length) {
+        const skipped = skipStringOrComment(html, i);
+        if (skipped !== i) {
+            i = skipped;
             continue;
         }
-        if (ch === '"') {
-            inString = true;
-        } else if (ch === '{') {
+
+        const ch = html[i];
+        if (ch === '{') {
             depth++;
         } else if (ch === '}') {
             depth--;
@@ -93,8 +125,34 @@ export function parsePlayerResponse(html: string): any | null {
                 }
             }
         }
+        i++;
     }
     return null;
+}
+
+/**
+ * Extract and parse the `ytInitialPlayerResponse` object from watch-page HTML.
+ * Uses brace balancing that respects string literals and comments, so braces
+ * inside strings or comments do not prematurely terminate the object. If the
+ * first `ytInitialPlayerResponse =` occurrence yields no valid JSON, later
+ * occurrences are tried before giving up.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function parsePlayerResponse(html: string): any | null {
+    let from = 0;
+    for (;;) {
+        const markerIdx = html.indexOf(PLAYER_RESPONSE_MARKER, from);
+        if (markerIdx === -1) return null;
+
+        const start = html.indexOf('{', markerIdx + PLAYER_RESPONSE_MARKER.length);
+        if (start === -1) return null;
+
+        const parsed = extractJsonObject(html, start);
+        if (parsed !== null && typeof parsed === 'object') return parsed;
+
+        // This occurrence was malformed — keep scanning subsequent ones.
+        from = start + 1;
+    }
 }
 
 /** Decode the common HTML/unicode entities YouTube embeds in JSON strings. */
@@ -197,4 +255,72 @@ export async function fetchPlayerResponse(videoId: string): Promise<ReturnType<t
     return parsePlayerResponse(html);
 }
 
-export { PAGE_TIMEOUT_MS, CAPTION_TIMEOUT_MS };
+/** Reject a promise after `ms`, so a hung request cannot stall the pipeline. */
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+    });
+    // If the fetch wins the race, the timeout rejection must stay handled.
+    timeout.catch(() => undefined);
+
+    try {
+        return await Promise.race([promise, timeout]);
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+/** Hard ceiling for the innertube fallback so a hung request can't stall a run. */
+const INNERTUBE_TIMEOUT_MS = 15_000;
+
+/** YouTube's innertube player endpoint. */
+const INNERTUBE_PLAYER_ENDPOINT = 'https://www.youtube.com/youtubei/v1/player';
+
+/**
+ * ANDROID client context. This client still serves player responses (caption
+ * tracks included) without credentials, and needs no API key — so none is sent.
+ */
+const INNERTUBE_ANDROID_CONTEXT = {
+    context: {
+        client: {
+            clientName: 'ANDROID',
+            clientVersion: '19.09.37',
+            androidSdkVersion: 30,
+            hl: 'en',
+            gl: 'US',
+        },
+    },
+};
+
+/**
+ * Ask YouTube's innertube player API for a video's player response.
+ *
+ * This is the age-restriction fallback: the watch page hides `captions` behind
+ * an age/sign-in gate, while the ANDROID innertube client frequently returns
+ * them without credentials. Thrown on any non-2xx or transport failure, so the
+ * caller can fall back to its original (restricted) result.
+ */
+export async function fetchInnertubePlayerResponse(videoId: string): Promise<unknown> {
+    const response = await withTimeout(
+        requestUrl({
+            url: INNERTUBE_PLAYER_ENDPOINT,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+            },
+            body: JSON.stringify({
+                ...INNERTUBE_ANDROID_CONTEXT,
+                videoId,
+            }),
+        }),
+        INNERTUBE_TIMEOUT_MS,
+    );
+
+    const json = response.json as unknown;
+    if (!json || typeof json !== 'object') {
+        throw new Error('innertube response was not a JSON object');
+    }
+    return json;
+}

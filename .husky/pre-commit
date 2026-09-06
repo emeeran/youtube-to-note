@@ -1,10 +1,8 @@
-#!/usr/bin/env sh
-
 # Run lint-staged to format and lint changed files
-npx lint-staged 2>/dev/null || echo "Lint-staged skipped"
+npx lint-staged
 
 # Run type checking
-npm run type-check 2>/dev/null || echo "Type check skipped"
+npm run type-check
 
-# Run tests on affected files
-npx jest --passWithNoTests --bail 2>/dev/null || echo "Tests skipped"
+# Run the test suite
+npx jest

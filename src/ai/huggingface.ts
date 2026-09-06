@@ -1,5 +1,7 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
+import type { AIRequestOptions } from '../types';
+import { sanitizeRemoteMessage } from './error-utils';
 
 /**
  * Hugging Face Inference API provider implementation
@@ -9,29 +11,32 @@ import { BaseAIProvider } from './base';
 const HUGGINGFACE_API_URL = 'https://router.huggingface.co/hf-inference/models';
 
 /**
- * Extract clean error message from HuggingFace API response
+ * Extract clean error message from HuggingFace API response.
+ * The body is server-controlled, so it is sanitized before it can reach a
+ * user-facing notice.
  */
 function formatHuggingFaceError(rawMessage: string): string {
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
+    const message = sanitizeRemoteMessage(rawMessage);
+    const retryMatch = message.match(/retry in ([\d.]+)/i) ?? message.match(/(\d+)\s*seconds?/i);
     const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
 
-    if (rawMessage.toLowerCase().includes('rate limit')) {
+    if (message.toLowerCase().includes('rate limit')) {
         return `Hugging Face rate limit reached.${retryInfo}`;
     }
 
-    if (rawMessage.toLowerCase().includes('loading')) {
+    if (message.toLowerCase().includes('loading')) {
         return 'Model is loading. Wait ~20s and try again.';
     }
 
-    if (rawMessage.toLowerCase().includes('paused')) {
+    if (message.toLowerCase().includes('paused')) {
         return 'Model endpoint is paused. Try a different model like Qwen/Qwen3-8B';
     }
 
-    if (rawMessage.toLowerCase().includes('quota')) {
+    if (message.toLowerCase().includes('quota')) {
         return `Hugging Face quota exceeded.${retryInfo}`;
     }
 
-    return rawMessage || 'Hugging Face API error';
+    return message || 'Hugging Face API error';
 }
 
 export class HuggingFaceProvider extends BaseAIProvider {
@@ -43,7 +48,7 @@ export class HuggingFaceProvider extends BaseAIProvider {
     }
 
     // eslint-disable-next-line complexity, max-lines-per-function
-    async process(prompt: string): Promise<string> {
+    async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
             if (!this.apiKey || this.apiKey.trim().length === 0) {
                 throw new Error('Hugging Face API key is required. Get one at huggingface.co/settings/tokens');
@@ -54,17 +59,15 @@ export class HuggingFaceProvider extends BaseAIProvider {
                 throw new Error(`Invalid model format: ${this._model}. Use format: owner/model-name`);
             }
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this._timeout ?? 60000);
+            // Combine this provider's own timeout with any caller-supplied signal.
+            const signal = this.requestSignal({ timeoutMs: this._timeout ?? 60000, signal: options?.signal });
 
             const response = await fetch(`${HUGGINGFACE_API_URL}/${this._model}`, {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(this.createRequestBody(prompt)),
-                signal: controller.signal,
+                signal,
             });
-
-            clearTimeout(timeoutId);
 
             // Check if response is HTML (error page) instead of JSON
             const contentType = response.headers.get('content-type') ?? '';
@@ -107,10 +110,10 @@ export class HuggingFaceProvider extends BaseAIProvider {
 
             if (!response.ok) {
                 const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMsg = errorData?.error || response.statusText;
+                const errorMsg = sanitizeRemoteMessage(errorData?.error || response.statusText);
 
                 // Check for redirect message
-                if (typeof errorMsg === 'string' && errorMsg.includes('router.huggingface.co')) {
+                if (errorMsg.includes('router.huggingface.co')) {
                     throw new Error('HuggingFace API endpoint changed. Please update the plugin.');
                 }
 
@@ -121,7 +124,10 @@ export class HuggingFaceProvider extends BaseAIProvider {
             return this.extractContent(data);
         } catch (error) {
             if (error instanceof Error) {
-                if (error.name === 'AbortError') {
+                if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+                    if (options?.signal?.aborted) {
+                        throw new Error('Request cancelled.');
+                    }
                     throw new Error('Hugging Face request timed out. Try a smaller model.');
                 }
                 throw error;

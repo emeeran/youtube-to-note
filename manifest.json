@@ -1,10 +1,10 @@
 {
     "id": "youtube-to-note",
     "name": "YouTube to Note",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "minAppVersion": "0.15.0",
     "description": "Generate structured notes from YouTube videos using AI",
     "author": "Meeran E Mandhini",
-    "authorUrl": "https://github.com/emeeran/youtube-to-note.git",
+    "authorUrl": "https://github.com/emeeran",
     "isDesktopOnly": false
 }

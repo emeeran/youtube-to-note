@@ -4,32 +4,58 @@ import { ErrorHandler } from '../../../services/error-handler';
 import { logger } from '../../../services/logger';
 import { MESSAGES } from '../../../constants/index';
 import { PROVIDER_MODEL_OPTIONS } from '../../../ai/api';
-import { OutputFormat, PerformanceMode } from '../../../types';
+import {
+    BatchItemResult,
+    OutputFormat,
+    PerformanceMode,
+    ProcessingOptions,
+    ProcessingResult,
+    ProgressUpdate,
+} from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
-import { FORMAT_CONFIG } from '../../../services/prompt-service';
 import { FORMAT_META } from '../../../templates/format-templates';
 import { formatModelNameWithMultimodal } from '../../../services/model-formatter';
+import {
+    BatchSummary,
+    extractYouTubeUrls,
+    FORMAT_ORDER,
+    formatAttribution,
+    formatBatchSummary,
+    formatReadyMessage,
+    isCancelledResult,
+    noteNameFromPath,
+    parseUrlInput,
+    ParsedUrls,
+    PROGRESS_STEPS,
+    resolveProgressDetail,
+    stepIndexForStage,
+    summarizeBatch,
+} from './youtube-modal-utils';
 import { App, Notice } from 'obsidian';
 
 /**
  * YouTube URL input modal component
+ *
+ * Runs one or many videos through the pipeline sequentially, reporting honest
+ * (stage-driven) progress, and renders per-URL results with attribution.
  */
 
+/** Everything needed to re-run a submission exactly as the user configured it. */
+interface ModalSubmission {
+    urls: string[];
+    format: OutputFormat;
+    model?: string;
+    instructions: string;
+}
+
+const PROCESS_BUTTON_HTML = [
+    '<span class="ytc-btn-icon">✨</span>',
+    `<span class="ytc-btn-label">${MESSAGES.MODALS.PROCESS}</span>`,
+].join('');
+
 export interface YouTubeUrlModalOptions {
-    onProcess: (
-        url: string,
-        format: OutputFormat,
-        provider?: string,
-        model?: string,
-        performanceMode?: PerformanceMode,
-        enableParallel?: boolean,
-        preferMultimodal?: boolean,
-        maxTokens?: number,
-        temperature?: number,
-        enableAutoFallback?: boolean,
-        userInstructions?: string,
-    ) => Promise<string>; // Return file path
+    onProcess: (url: string, options?: ProcessingOptions) => Promise<ProcessingResult>;
     onOpenFile?: (filePath: string) => Promise<void>;
     initialUrl?: string;
     providers?: string[]; // available provider names
@@ -73,16 +99,29 @@ export class YouTubeUrlModal extends BaseModal {
     private selectedModel?: string;
     private progressContainer?: HTMLDivElement;
     private progressBar?: HTMLDivElement;
+    private progressBarTrack?: HTMLDivElement;
     private progressText?: HTMLDivElement;
     private validationMessage?: HTMLDivElement;
+    private urlCountHint?: HTMLDivElement;
+    private stageEls: HTMLElement[] = [];
+    private resultContainer?: HTMLDivElement;
+    private retryButton?: HTMLButtonElement;
+    private copyErrorButton?: HTMLButtonElement;
+    private clearInstructionsButton?: HTMLButtonElement;
     private userInstructionsTextarea?: HTMLTextAreaElement;
     private userInstructions = '';
     private isProcessing = false;
     private processedFilePath?: string;
-    private autoFallbackEnabled = true;
     private timerInterval?: number;
     private timerEl?: HTMLSpanElement;
     private validationTimer?: number;
+
+    // Run state
+    private abortController?: AbortController;
+    private results: BatchItemResult[] = [];
+    private lastRun?: ModalSubmission;
+    private runPrefix = '';
+    private lastErrorMessage = '';
 
     // Format dropdown
     private formatSelect?: HTMLSelectElement;
@@ -99,7 +138,6 @@ export class YouTubeUrlModal extends BaseModal {
         const smartDefaults = UserPreferencesService.getSmartDefaultPerformanceSettings();
         const lastProvider = UserPreferencesService.getSmartDefaultProvider() ?? 'Google Gemini';
         const lastFormat = UserPreferencesService.getSmartDefaultFormat() ?? 'executive-summary';
-        const smartAutoFallback = UserPreferencesService.getSmartDefaultAutoFallback() ?? true;
 
         const preferredModel = UserPreferencesService.getPreference('preferredModel');
         const lastModel = UserPreferencesService.getPreference('lastModel');
@@ -107,7 +145,6 @@ export class YouTubeUrlModal extends BaseModal {
         this.selectedProvider = lastProvider ?? 'Google Gemini';
         this.selectedModel = preferredModel ?? lastModel ?? 'gemini-2.5-pro';
         this.format = lastFormat;
-        this.autoFallbackEnabled = smartAutoFallback;
 
         UserPreferencesService.updateLastUsed({
             format: lastFormat,
@@ -227,7 +264,7 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.urlInput = inputWrapper.createEl('input');
         this.urlInput.type = 'url';
-        this.urlInput.placeholder = 'Paste YouTube URL here...';
+        this.urlInput.placeholder = 'Paste YouTube URL(s) here...';
         this.urlInput.setAttribute('aria-label', 'YouTube URL Input');
 
         this.pasteButton = inputWrapper.createEl('button', { cls: 'ytc-paste-btn-integrated' });
@@ -239,6 +276,9 @@ export class YouTubeUrlModal extends BaseModal {
             e.preventDefault();
             void this.handleSmartPaste();
         });
+
+        this.urlCountHint = urlContainer.createDiv('ytc-url-count-hint');
+        this.urlCountHint.setAttribute('aria-live', 'polite');
 
         this.validationMessage = urlContainer.createDiv('ytc-validation-message');
         this.validationMessage.setAttribute('aria-live', 'polite');
@@ -267,17 +307,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.formatSelect = formatWrapper.createEl('select');
         this.formatSelect.id = 'ytc-format-select';
 
-        const formatOrder: OutputFormat[] = [
-            'quick-notes',
-            'executive-summary',
-            'technical-analysis',
-            '3c-accelerated-learning',
-            'atom-notes',
-            'article',
-            'complete-transcription',
-        ];
-
-        formatOrder.forEach(format => {
+        FORMAT_ORDER.forEach(format => {
             if (!this.formatSelect) return;
             const meta = FORMAT_META[format];
             const optionEl = this.formatSelect.createEl('option');
@@ -422,14 +452,42 @@ export class YouTubeUrlModal extends BaseModal {
             updateSummary();
         };
 
-        // User Instructions Textarea (inside AI config)
-        const userInstructionsWrapper = aiContent.createDiv('ytc-user-instructions-wrapper');
+        this.createUserInstructionsSection(aiContent);
+    }
 
-        const userInstructionsLabel = userInstructionsWrapper.createEl('label');
-        userInstructionsLabel.textContent = 'USER INSTRUCTIONS (optional)';
-        userInstructionsLabel.addClass('ytc-field-label');
+    /**
+     * User instructions survive across runs (so a retry or a follow-up video
+     * keeps the same direction); they are only cleared explicitly, or when the
+     * user starts over with a fresh video ("New").
+     */
+    private createUserInstructionsSection(aiContent: HTMLElement): void {
+        const wrapper = aiContent.createDiv('ytc-user-instructions-wrapper');
 
-        this.userInstructionsTextarea = userInstructionsWrapper.createEl('textarea', {
+        const headerRow = wrapper.createDiv('ytc-user-instructions-header');
+        headerRow.style.display = 'flex';
+        headerRow.style.alignItems = 'center';
+        headerRow.style.justifyContent = 'space-between';
+
+        const label = headerRow.createEl('label');
+        label.textContent = 'USER INSTRUCTIONS (optional)';
+        label.addClass('ytc-field-label');
+
+        this.clearInstructionsButton = headerRow.createEl('button');
+        this.clearInstructionsButton.type = 'button';
+        this.clearInstructionsButton.textContent = '✖ Clear';
+        this.clearInstructionsButton.title = 'Clear instructions';
+        this.clearInstructionsButton.setAttribute('aria-label', 'Clear user instructions');
+        this.clearInstructionsButton.style.cssText = [
+            'background: none',
+            'border: none',
+            'cursor: pointer',
+            'font-size: 11px',
+            'color: var(--text-muted)',
+            'padding: 0 2px',
+        ].join(';');
+        this.clearInstructionsButton.addEventListener('click', () => this.clearUserInstructions());
+
+        this.userInstructionsTextarea = wrapper.createEl('textarea', {
             cls: 'ytc-user-instructions-textarea',
         });
         this.userInstructionsTextarea.placeholder =
@@ -438,6 +496,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.userInstructionsTextarea.setAttribute('aria-label', 'User Instructions');
         this.userInstructionsTextarea.addEventListener('input', () => {
             this.userInstructions = this.userInstructionsTextarea?.value ?? '';
+            this.updateClearInstructionsVisibility();
         });
         this.userInstructionsTextarea.addEventListener('focus', () => {
             if (this.userInstructionsTextarea) {
@@ -449,6 +508,21 @@ export class YouTubeUrlModal extends BaseModal {
                 this.userInstructionsTextarea.style.borderColor = 'var(--ytc-border)';
             }
         });
+        this.updateClearInstructionsVisibility();
+    }
+
+    private clearUserInstructions(): void {
+        this.userInstructions = '';
+        if (this.userInstructionsTextarea) {
+            this.userInstructionsTextarea.value = '';
+        }
+        this.updateClearInstructionsVisibility();
+    }
+
+    private updateClearInstructionsVisibility(): void {
+        if (this.clearInstructionsButton) {
+            this.clearInstructionsButton.style.visibility = this.userInstructions.trim() ? 'visible' : 'hidden';
+        }
     }
 
     private createVideoPreviewSection(parent: HTMLElement): void {
@@ -613,14 +687,71 @@ export class YouTubeUrlModal extends BaseModal {
         this.timerEl = infoRow.createSpan('ytc-progress-timer');
         this.timerEl.textContent = '0.0s';
 
+        this.createStageChecklist(this.progressContainer);
+
         const progressBarContainer = this.progressContainer.createDiv('ytc-progress-bar-track');
         progressBarContainer.setAttribute('role', 'progressbar');
-        progressBarContainer.setAttribute('aria-valuenow', '0');
         progressBarContainer.setAttribute('aria-valuemin', '0');
         progressBarContainer.setAttribute('aria-valuemax', '100');
         progressBarContainer.setAttribute('aria-labelledby', 'progress-text');
 
+        this.progressBarTrack = progressBarContainer;
         this.progressBar = progressBarContainer.createDiv('ytc-progress-bar-fill');
+
+        this.resultContainer = this.progressContainer.createDiv('ytc-progress-result');
+    }
+
+    /** '📡 Metadata → 📝 Transcript → 🧠 AI → 💾 Save' checklist, advanced by onProgress. */
+    private createStageChecklist(parent: HTMLElement): void {
+        const list = parent.createDiv('ytc-progress-stages');
+        list.style.display = 'flex';
+        list.style.gap = '10px';
+        list.style.flexWrap = 'wrap';
+        list.style.marginBottom = '6px';
+        list.style.fontSize = '12px';
+
+        this.stageEls = PROGRESS_STEPS.map(step => {
+            const el = list.createSpan('ytc-progress-stage');
+            el.setAttribute('data-step', step.key);
+            el.textContent = `${step.icon} ${step.label}`;
+            this.setStepState(el, 'pending');
+            return el;
+        });
+    }
+
+    private setStepState(el: HTMLElement, state: 'pending' | 'active' | 'done'): void {
+        const styles: Record<typeof state, string> = {
+            pending: 'color: var(--text-muted); opacity: 0.55; font-weight: 400;',
+            active: 'color: var(--ytc-accent, #00b894); opacity: 1; font-weight: 600;',
+            done: 'color: var(--text-muted); opacity: 0.9; font-weight: 400;',
+        };
+        el.style.cssText = styles[state];
+    }
+
+    private resetStageChecklist(): void {
+        this.stageEls.forEach(el => this.setStepState(el, 'pending'));
+    }
+
+    /** Advance the checklist to `activeIndex`, marking earlier steps done. */
+    private setActiveStep(activeIndex: number): void {
+        this.stageEls.forEach((el, index) => {
+            if (index < activeIndex) {
+                this.setStepState(el, 'done');
+                if (!el.textContent?.startsWith('✓')) el.textContent = `✓ ${el.textContent ?? ''}`;
+            } else {
+                this.setStepState(el, index === activeIndex ? 'active' : 'pending');
+                if (index > activeIndex && el.textContent?.startsWith('✓')) {
+                    el.textContent = el.textContent.replace('✓ ', '');
+                }
+            }
+        });
+    }
+
+    private markAllStepsDone(): void {
+        this.stageEls.forEach(el => {
+            this.setStepState(el, 'done');
+            if (!el.textContent?.startsWith('✓')) el.textContent = `✓ ${el.textContent ?? ''}`;
+        });
     }
 
     private createActionButtons(): void {
@@ -628,7 +759,12 @@ export class YouTubeUrlModal extends BaseModal {
 
         const cancelBtn = container.createEl('button', { cls: 'ytc-action-btn ytc-ghost-btn' });
         cancelBtn.textContent = 'Cancel';
-        cancelBtn.addEventListener('click', () => this.close());
+        cancelBtn.addEventListener('click', () => {
+            if (this.isProcessing) {
+                this.abortController?.abort();
+            }
+            this.close();
+        });
 
         container.createDiv('ytc-actions-spacer');
 
@@ -659,7 +795,7 @@ export class YouTubeUrlModal extends BaseModal {
         });
 
         this.processButton = container.createEl('button', { cls: 'ytc-action-btn ytc-primary-btn ytc-icon-only-btn' });
-        this.processButton.innerHTML = `<span class="ytc-btn-icon">✨</span><span class="ytc-btn-label">${MESSAGES.MODALS.PROCESS}</span>`;
+        this.processButton.innerHTML = PROCESS_BUTTON_HTML;
         this.processButton.addClass('ytc-process-btn');
         this.processButton.title = MESSAGES.MODALS.PROCESS;
         this.processButton.addEventListener('click', () => this.handleProcess());
@@ -668,10 +804,12 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     private showInputState(): void {
+        this.isProcessing = false;
+        this.stopTimer();
         if (this.processButton) {
             this.processButton.classList.add('is-visible');
             this.processButton.disabled = false;
-            this.processButton.innerHTML = `<span class="ytc-btn-icon">✨</span><span class="ytc-btn-label">${MESSAGES.MODALS.PROCESS}</span>`;
+            this.processButton.innerHTML = PROCESS_BUTTON_HTML;
         }
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.classList.remove('is-visible');
@@ -684,10 +822,17 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.headerEl) {
             this.headerEl.textContent = MESSAGES.MODALS.PROCESS_VIDEO;
         }
-        if (this.userInstructionsTextarea) {
-            this.userInstructionsTextarea.value = '';
-            this.userInstructions = '';
+        if (this.progressContainer) {
+            this.progressContainer.classList.remove('is-visible');
         }
+        if (this.resultContainer) {
+            this.resultContainer.empty();
+        }
+        this.retryButton = undefined;
+        this.copyErrorButton = undefined;
+        this.lastErrorMessage = '';
+        this.results = [];
+        this.lastRun = undefined;
         this.processedFilePath = '';
         this.updateProcessButtonState();
         this.focusUrlInput();
@@ -724,9 +869,9 @@ export class YouTubeUrlModal extends BaseModal {
         this.scope.register(['Ctrl', 'Shift'], 'v', async () => {
             try {
                 const clipText = await navigator.clipboard.readText();
-                if (this.urlInput && ValidationUtils.isValidYouTubeUrl(clipText)) {
-                    this.urlInput.value = clipText;
-                    this.url = clipText;
+                const urls = extractYouTubeUrls(clipText);
+                if (this.urlInput && urls.length > 0) {
+                    this.setUrl(urls.join(' '));
                     this.updateProcessButtonState();
                     if (this.processButton && !this.processButton.disabled) {
                         this.processButton.click();
@@ -755,25 +900,50 @@ export class YouTubeUrlModal extends BaseModal {
     private updateProcessButtonState(): void {
         if (!this.processButton) return;
 
-        const trimmedUrl = this.url.trim();
-        const isValid = ValidationUtils.isValidYouTubeUrl(trimmedUrl);
+        const parsed = parseUrlInput(this.url);
+        const hasUrls = parsed.urls.length > 0;
 
-        this.processButton.disabled = !isValid || this.isProcessing;
+        this.processButton.disabled = !hasUrls || this.isProcessing;
         this.processButton.style.opacity = this.processButton.disabled ? '0.5' : '1';
 
-        if (trimmedUrl.length === 0) {
+        this.updateUrlCountHint(parsed);
+
+        if (this.url.trim().length === 0) {
             this.setValidationMessage('Paste a YouTube link to begin processing.', 'info');
             this.hideVideoPreview();
-        } else if (isValid) {
-            this.setValidationMessage('Ready to process this video.', 'success');
-            const videoId = ValidationUtils.extractVideoId(trimmedUrl);
-            if (videoId) {
-                void this.showVideoPreview(videoId);
-            }
-        } else {
+            return;
+        }
+
+        if (!hasUrls) {
             this.setValidationMessage('Enter a valid YouTube video URL.', 'error');
             this.hideVideoPreview();
+            return;
         }
+
+        this.setValidationMessage(formatReadyMessage(parsed), 'success');
+
+        const videoId = ValidationUtils.extractVideoId(parsed.urls[0] ?? '');
+        if (videoId) {
+            void this.showVideoPreview(videoId);
+        }
+    }
+
+    /** Small live hint while typing, e.g. '🎬 3 videos detected — one at a time.' */
+    private updateUrlCountHint(parsed: ParsedUrls): void {
+        if (!this.urlCountHint) return;
+
+        const parts: string[] = [];
+        if (parsed.urls.length > 1) {
+            parts.push(`🎬 ${parsed.urls.length} videos detected — they'll be processed one at a time.`);
+        }
+        if (parsed.invalidCount > 0 && this.url.trim().length > 0) {
+            parts.push(`⚠️ ${parsed.invalidCount} entr${parsed.invalidCount === 1 ? 'y' : 'ies'} not recognized.`);
+        }
+
+        this.urlCountHint.textContent = parts.join(' ');
+        this.urlCountHint.style.cssText = parts.length
+            ? 'font-size: 12px; color: var(--text-muted); margin-top: 4px;'
+            : '';
     }
 
     private setValidationMessage(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
@@ -799,74 +969,130 @@ export class YouTubeUrlModal extends BaseModal {
      * Handle process button click
      */
     private async handleProcess(): Promise<void> {
-        const trimmedUrl = this.url.trim();
-        if (!trimmedUrl) {
-            new Notice(MESSAGES.ERRORS.ENTER_URL);
+        if (this.isProcessing) return;
+
+        const parsed = parseUrlInput(this.url);
+        if (parsed.urls.length === 0) {
+            new Notice(this.url.trim() ? MESSAGES.ERRORS.INVALID_URL : MESSAGES.ERRORS.ENTER_URL);
             this.focusUrlInput();
             return;
         }
 
-        if (!ValidationUtils.isValidYouTubeUrl(trimmedUrl)) {
-            new Notice(MESSAGES.ERRORS.INVALID_URL);
-            this.focusUrlInput();
-            return;
-        }
+        this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
+        this.selectedProvider = this.providerSelect?.value;
+        this.selectedModel = this.modelSelect?.value;
 
-        try {
-            this.showProcessingState();
-            this.updateProgress(0, 'Starting...');
+        const submission: ModalSubmission = {
+            urls: parsed.urls,
+            format: this.format,
+            model: this.selectedModel,
+            instructions: this.userInstructions,
+        };
+        this.lastRun = submission;
 
-            this.updateProgress(25, 'Validating URL...');
+        await this.runSubmission(submission);
+    }
 
-            const videoId = ValidationUtils.extractVideoId(trimmedUrl);
-            if (!videoId) {
-                throw new Error('Could not extract YouTube video ID');
+    /** Run every URL of a submission, one at a time, sharing the progress UI. */
+    private async runSubmission(submission: ModalSubmission): Promise<void> {
+        this.abortController = new AbortController();
+        this.results = [];
+        this.processedFilePath = '';
+        this.runPrefix = submission.urls.length > 1 ? `1/${submission.urls.length}: ` : '';
+        this.showProcessingState(submission.urls.length);
+
+        for (let index = 0; index < submission.urls.length; index++) {
+            if (await this.processNext(index, submission)) {
+                this.showCancelledState();
+                return;
             }
+        }
 
-            this.updateProgress(50, 'Fetching video data...');
+        const firstFailure = this.results.find(item => !item.result.success);
+        if (firstFailure) {
+            this.showErrorState(new Error(firstFailure.result.error ?? MESSAGES.ERRORS.AI_PROCESSING('failed')));
+            return;
+        }
 
-            this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
-            this.selectedProvider = this.providerSelect?.value;
-            this.selectedModel = this.modelSelect?.value;
+        this.showCompletionState();
+    }
 
-            const providerDisplayName = this.selectedProvider
-                ? this.selectedProvider.charAt(0).toUpperCase() + this.selectedProvider.slice(1)
-                : 'AI';
-            this.updateProgress(75, `Processing with ${providerDisplayName}...`);
+    /** Runs the URL at `index`; returns true when the run was cancelled and must stop. */
+    private async processNext(index: number, submission: ModalSubmission): Promise<boolean> {
+        if (this.abortController?.signal.aborted) return true;
 
-            const formatConfig = FORMAT_CONFIG[this.format] ?? FORMAT_CONFIG['executive-summary'];
-            const maxTokens = this.options.defaultMaxTokens ?? formatConfig.recommendedMaxTokens;
-            const temperature = this.options.defaultTemperature ?? formatConfig.temperatureHint;
+        const url = submission.urls[index];
+        if (!url) return false;
 
-            const filePath = await this.options.onProcess(
-                trimmedUrl,
-                this.format,
-                this.selectedProvider,
-                this.selectedModel,
-                this.options.performanceMode ?? 'balanced',
-                this.options.enableParallelProcessing ?? false,
-                this.options.preferMultimodal ?? false,
-                maxTokens,
-                temperature,
-                this.autoFallbackEnabled,
-                this.userInstructions,
-            );
+        this.runPrefix = submission.urls.length > 1 ? `${index + 1}/${submission.urls.length}: ` : '';
+        this.resetStageChecklist();
 
-            this.updateProgress(100, 'Complete!');
+        const result = await this.processOne(url, submission);
+        this.results.push({ url, result });
 
-            this.processedFilePath = filePath;
-            this.showCompletionState();
+        return !result.success && this.isCancellation(result);
+    }
+
+    /** Never throws — a pipeline failure becomes a failed ProcessingResult. */
+    private async processOne(url: string, submission: ModalSubmission): Promise<ProcessingResult> {
+        try {
+            return await this.options.onProcess(url, {
+                format: submission.format,
+                model: submission.model,
+                userInstructions: submission.instructions,
+                onProgress: update => this.handleProgressUpdate(update),
+                signal: this.abortController?.signal,
+            });
         } catch (error) {
-            this.showErrorState(error as Error);
-            ErrorHandler.handle(error as Error, 'YouTube URL processing');
+            return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
     }
 
-    private showProcessingState(): void {
+    private isCancellation(result: ProcessingResult): boolean {
+        return isCancelledResult(result.error, this.abortController?.signal.aborted === true);
+    }
+
+    private handleProgressUpdate(update: ProgressUpdate): void {
+        const stepIndex = stepIndexForStage(update.stage);
+        this.setActiveStep(stepIndex);
+
+        if (this.progressText) {
+            this.progressText.textContent = `${this.runPrefix}${resolveProgressDetail(update)}`;
+        }
+
+        this.setProgressBar(stepIndex, update.percent);
+    }
+
+    /**
+     * Stage-driven bar: it advances as stages complete. A numeric `percent` is
+     * only used when the pipeline actually knows one — never invented here.
+     */
+    private setProgressBar(stepIndex: number, percent?: number): void {
+        if (!this.progressBar) return;
+
+        const known = typeof percent === 'number' && percent >= 0;
+        const width = known ? Math.min(100, percent) : (stepIndex / PROGRESS_STEPS.length) * 100;
+        this.progressBar.style.width = `${width}%`;
+
+        if (this.progressBarTrack) {
+            if (known) {
+                this.progressBarTrack.setAttribute('aria-valuenow', String(Math.round(percent)));
+            } else {
+                this.progressBarTrack.removeAttribute('aria-valuenow');
+            }
+        }
+    }
+
+    private showProcessingState(videoCount: number): void {
         this.isProcessing = true;
         if (this.progressContainer) {
             this.progressContainer.classList.add('is-visible');
         }
+        if (this.resultContainer) {
+            this.resultContainer.empty();
+        }
+        this.retryButton = undefined;
+        this.copyErrorButton = undefined;
         if (this.urlInput) {
             this.urlInput.disabled = true;
         }
@@ -879,8 +1105,19 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.secondaryActionsRow) {
             this.secondaryActionsRow.classList.remove('is-visible');
         }
+        if (this.headerEl && videoCount > 1) {
+            this.headerEl.textContent = `⏳ Processing ${videoCount} videos…`;
+        }
 
-        if (this.timerInterval) window.clearInterval(this.timerInterval);
+        this.resetStageChecklist();
+        if (this.progressText) {
+            this.progressText.textContent = `${this.runPrefix}Starting…`;
+        }
+        this.startTimer();
+    }
+
+    private startTimer(): void {
+        this.stopTimer();
         const startTime = Date.now();
         if (this.timerEl) this.timerEl.textContent = '0.0s';
 
@@ -892,27 +1129,25 @@ export class YouTubeUrlModal extends BaseModal {
         }, 100);
     }
 
-    private updateProgress(percent: number, text: string): void {
-        if (this.progressBar) {
-            this.progressBar.style.width = `${percent}%`;
-        }
-        if (this.progressText) {
-            this.progressText.textContent = text;
+    private stopTimer(): void {
+        if (this.timerInterval) {
+            window.clearInterval(this.timerInterval);
+            this.timerInterval = undefined;
         }
     }
 
     private showCompletionState(): void {
         this.isProcessing = false;
-        if (this.timerInterval) {
-            window.clearInterval(this.timerInterval);
-            this.timerInterval = undefined;
-        }
+        this.stopTimer();
+        this.markAllStepsDone();
+        this.setProgressBar(PROGRESS_STEPS.length, 100);
 
         if (this.urlInput) {
             this.urlInput.disabled = false;
             this.urlInput.value = '';
-            this.url = '';
         }
+        this.url = '';
+        this.updateUrlCountHint({ urls: [], invalidCount: 0 });
 
         if (this.processButton) {
             this.processButton.classList.remove('is-visible');
@@ -921,26 +1156,160 @@ export class YouTubeUrlModal extends BaseModal {
             this.secondaryActionsRow.classList.add('is-visible');
         }
 
-        if (this.headerEl) {
-            this.headerEl.textContent = '✅ Video Processed Successfully!';
+        const lastCreated = [...this.results].reverse().find(item => item.result.filePath)?.result.filePath;
+        if (lastCreated) {
+            this.processedFilePath = lastCreated;
         }
-        this.setValidationMessage('Note saved. You can open it now or process another video.', 'success');
+
+        if (this.headerEl) {
+            this.headerEl.textContent =
+                this.results.length > 1
+                    ? `✅ ${this.results.length} Videos Processed!`
+                    : '✅ Video Processed Successfully!';
+        }
+
+        if (this.results.length > 1) {
+            this.setValidationMessage('Notes saved. Open any of them below or process more videos.', 'success');
+        } else {
+            this.setValidationMessage('Note saved. You can open it now or process another video.', 'success');
+        }
+
+        this.renderResultDetails();
         this.focusUrlInput();
+    }
+
+    /** Attribution, fallbacks, warnings and the batch list — muted, under the bar. */
+    private renderResultDetails(): void {
+        if (!this.resultContainer) return;
+        this.resultContainer.empty();
+
+        if (this.results.length > 1) {
+            this.renderBatchSummary(this.resultContainer, summarizeBatch(this.results));
+            const list = this.resultContainer.createDiv('ytc-batch-list');
+            this.results.forEach((item, index) => this.renderBatchRow(list, item, index));
+            return;
+        }
+
+        const item = this.results[0];
+        if (item) {
+            this.renderSuccessDetails(this.resultContainer, item.result);
+        }
+    }
+
+    private renderBatchSummary(parent: HTMLElement, summary: BatchSummary): void {
+        const line = parent.createDiv('ytc-batch-summary');
+        line.textContent = formatBatchSummary(summary);
+        line.style.cssText = 'font-size: 13px; font-weight: 600; margin: 8px 0 4px;';
+    }
+
+    private renderBatchRow(parent: HTMLElement, item: BatchItemResult, index: number): void {
+        const row = parent.createDiv('ytc-batch-row');
+        row.style.cssText = 'display: flex; align-items: baseline; gap: 6px; font-size: 12px; margin-top: 4px;';
+
+        const result = item.result;
+        const icon = !result.success ? '❌' : result.duplicateOfPath ? '⚠️' : '✅';
+        const label = row.createSpan();
+        label.style.flexShrink = '0';
+        label.textContent = `${index + 1}. ${icon}`;
+
+        if (result.success && result.filePath) {
+            this.createNoteLink(row, result.filePath);
+            const attribution = formatAttribution(result);
+            if (attribution) {
+                const meta = row.createSpan();
+                meta.textContent = `· 🧠 ${attribution}`;
+                meta.style.color = 'var(--text-muted)';
+            }
+        } else if (result.success) {
+            const fallback = row.createSpan();
+            fallback.textContent = 'Note created';
+        } else {
+            const failure = row.createSpan();
+            failure.textContent = `${item.url} — ${result.error ?? 'Processing failed'}`;
+            failure.style.color = 'var(--text-muted)';
+        }
+
+        if (result.duplicateOfPath) {
+            const dup = row.createSpan();
+            dup.style.color = 'var(--text-muted)';
+            dup.appendText(' · 📑 earlier note: ');
+            this.createNoteLink(row, result.duplicateOfPath, noteNameFromPath(result.duplicateOfPath));
+        }
+
+        result.warnings?.forEach(warning => this.createDetailLine(parent, `⚠️ ${warning}`));
+    }
+
+    private renderSuccessDetails(parent: HTMLElement, result: ProcessingResult): void {
+        const details = parent.createDiv('ytc-result-details');
+
+        const attribution = formatAttribution(result);
+        if (attribution) {
+            this.createDetailLine(details, `🧠 Generated with ${attribution}`);
+        }
+
+        if (result.failedProviders && result.failedProviders.length > 0) {
+            this.createDetailLine(details, `↩️ Fell back from: ${result.failedProviders.join(', ')}`);
+        }
+
+        if (result.transcriptTruncated) {
+            this.createDetailLine(details, '✂️ Transcript was truncated to fit the prompt budget');
+        }
+
+        result.warnings?.forEach(warning => this.createDetailLine(details, `⚠️ ${warning}`));
+
+        if (result.duplicateOfPath) {
+            const line = this.createDetailLine(details, '📑 Already processed before — new note created anyway');
+            line.appendText(' ');
+            this.createNoteLink(line, result.duplicateOfPath, noteNameFromPath(result.duplicateOfPath));
+        }
+    }
+
+    private createDetailLine(parent: HTMLElement, text: string): HTMLDivElement {
+        const line = parent.createDiv('ytc-detail-line');
+        line.textContent = text;
+        line.style.cssText = 'font-size: 12px; color: var(--text-muted); margin-top: 4px;';
+        return line;
+    }
+
+    /** Clickable link to a note in the vault (opened through onOpenFile). */
+    private createNoteLink(parent: HTMLElement, filePath: string, label?: string): void {
+        const link = parent.createEl('a', { text: label ?? noteNameFromPath(filePath) });
+        link.setAttribute('role', 'button');
+        link.setAttribute('tabindex', '0');
+        link.title = filePath;
+        link.style.cssText = 'cursor: pointer; text-decoration: underline;';
+        const open = () => void this.openNote(filePath);
+        link.addEventListener('click', open);
+        link.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open();
+            }
+        });
+    }
+
+    private async openNote(filePath: string): Promise<void> {
+        if (!this.options.onOpenFile) return;
+        try {
+            await this.options.onOpenFile(filePath);
+        } catch (error) {
+            ErrorHandler.handle(error as Error, 'Opening file');
+        }
     }
 
     private showErrorState(error: Error): void {
         this.isProcessing = false;
-        if (this.timerInterval) {
-            window.clearInterval(this.timerInterval);
-            this.timerInterval = undefined;
-        }
+        this.stopTimer();
+        this.lastErrorMessage = error.message;
 
         if (this.urlInput) {
             this.urlInput.disabled = false;
         }
         if (this.processButton) {
             this.processButton.disabled = false;
-            this.processButton.textContent = MESSAGES.MODALS.PROCESS;
+            this.processButton.style.opacity = '1';
+            this.processButton.classList.add('is-visible');
+            this.processButton.innerHTML = PROCESS_BUTTON_HTML;
         }
         if (this.openButton) {
             this.openButton.classList.remove('is-visible');
@@ -948,13 +1317,131 @@ export class YouTubeUrlModal extends BaseModal {
         if (this.copyPathButton) {
             this.copyPathButton.classList.remove('is-visible');
         }
+        if (this.secondaryActionsRow) {
+            this.secondaryActionsRow.classList.remove('is-visible');
+        }
         if (this.progressContainer) {
-            this.progressContainer.classList.remove('is-visible');
+            this.progressContainer.classList.add('is-visible');
         }
         if (this.headerEl) {
             this.headerEl.textContent = '❌ Processing Failed';
         }
+
+        this.renderErrorDetails();
         this.setValidationMessage(error.message, 'error');
+    }
+
+    private renderErrorDetails(): void {
+        if (!this.resultContainer) return;
+        this.resultContainer.empty();
+
+        if (this.results.length > 1) {
+            const done = this.results.filter(item => item.result.success).length;
+            this.createDetailLine(
+                this.resultContainer,
+                `✅ ${done} of ${this.results.length} finished before this failure.`,
+            );
+        }
+
+        const message = this.createDetailLine(this.resultContainer, `❌ ${this.lastErrorMessage}`);
+        message.style.color = 'var(--text-error, #d63031)';
+
+        const actions = this.resultContainer.createDiv('ytc-error-actions');
+        actions.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
+
+        this.retryButton = actions.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
+        this.retryButton.innerHTML = '<span class="ytc-btn-icon">🔄</span><span class="ytc-btn-label">Retry</span>';
+        this.retryButton.title = 'Retry with the same videos, format, model, and instructions';
+        this.retryButton.addEventListener('click', () => void this.handleRetry());
+
+        this.copyErrorButton = actions.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
+        this.copyErrorButton.innerHTML =
+            '<span class="ytc-btn-icon">📋</span><span class="ytc-btn-label">Copy error</span>';
+        this.copyErrorButton.title = 'Copy the error message';
+        this.copyErrorButton.addEventListener('click', () => void this.handleCopyError());
+    }
+
+    /** Re-run the exact same submission (same URLs, format, model, instructions). */
+    private async handleRetry(): Promise<void> {
+        if (!this.lastRun || this.isProcessing) return;
+        this.applySubmissionToControls(this.lastRun);
+        await this.runSubmission(this.lastRun);
+    }
+
+    private applySubmissionToControls(submission: ModalSubmission): void {
+        this.format = submission.format;
+        if (this.formatSelect) {
+            this.formatSelect.value = submission.format;
+        }
+        this.userInstructions = submission.instructions;
+        if (this.userInstructionsTextarea) {
+            this.userInstructionsTextarea.value = submission.instructions;
+        }
+        this.updateClearInstructionsVisibility();
+        if (submission.model && this.modelSelect) {
+            this.modelSelect.value = submission.model;
+            this.selectedModel = submission.model;
+        }
+    }
+
+    private async handleCopyError(): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(this.lastErrorMessage);
+            this.flashButtonLabel(this.copyErrorButton, '✅ Copied!');
+        } catch {
+            if (this.copyErrorWithFallback()) {
+                this.flashButtonLabel(this.copyErrorButton, '✅ Copied!');
+            } else {
+                new Notice('❌ Could not copy the error message');
+            }
+        }
+    }
+
+    /** Clipboard API fallback for environments where writeText is unavailable. */
+    private copyErrorWithFallback(): boolean {
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = this.lastErrorMessage;
+            textarea.setAttribute('readonly', 'true');
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            const copied = document.execCommand('copy');
+            textarea.remove();
+            return copied;
+        } catch {
+            return false;
+        }
+    }
+
+    private flashButtonLabel(button: HTMLButtonElement | undefined, text: string): void {
+        if (!button) return;
+        const original = button.innerHTML;
+        button.textContent = text;
+        window.setTimeout(() => {
+            if (button.isConnected) {
+                button.innerHTML = original;
+            }
+        }, 1500);
+    }
+
+    private showCancelledState(): void {
+        this.isProcessing = false;
+        this.stopTimer();
+        if (this.progressContainer) {
+            this.progressContainer.classList.remove('is-visible');
+        }
+        if (this.urlInput) {
+            this.urlInput.disabled = false;
+        }
+        if (this.processButton) {
+            this.processButton.disabled = false;
+            this.processButton.style.opacity = '1';
+            this.processButton.innerHTML = PROCESS_BUTTON_HTML;
+        }
+        // Deliberately no error Notice — cancelling is not a failure.
+        this.setValidationMessage('⏹️ Processing cancelled.', 'info');
     }
 
     private async handleOpenFile(): Promise<void> {
@@ -995,31 +1482,33 @@ export class YouTubeUrlModal extends BaseModal {
         this.updateProcessButtonState();
     }
 
+    /**
+     * Paste from clipboard, pulling YouTube URLs out of surrounding prose
+     * ('see https://youtu.be/x here') as well as plain single URLs.
+     */
     private async handleSmartPaste(): Promise<void> {
         try {
             const text = await navigator.clipboard.readText();
-            const trimmed = text.trim();
+            const urls = extractYouTubeUrls(text);
 
-            if (ValidationUtils.isValidYouTubeUrl(trimmed)) {
-                this.setUrl(trimmed);
-                new Notice('YouTube URL detected and pasted!');
-            } else {
-                const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)/;
-                const embedRegex = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/;
-                const ytMatch = trimmed.match(ytRegex);
-                const embedMatch = trimmed.match(embedRegex);
-                const urlMatch = ytMatch ?? embedMatch;
-                if (urlMatch) {
-                    const videoId = urlMatch[1];
-                    const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                    this.setUrl(fullUrl);
-                    new Notice('YouTube URL extracted from clipboard!');
-                } else {
-                    new Notice('No YouTube URL found in clipboard');
-                }
+            if (urls.length === 0) {
+                new Notice('No YouTube URL found in clipboard');
+                this.focusUrlInput();
+                return;
             }
 
-            if (this.processButton && !this.isProcessing && ValidationUtils.isValidYouTubeUrl(trimmed)) {
+            this.setUrl(urls.join(' '));
+
+            const isExact = ValidationUtils.isValidYouTubeUrl(text.trim());
+            if (isExact) {
+                new Notice('YouTube URL detected and pasted!');
+            } else if (urls.length === 1) {
+                new Notice('YouTube URL extracted from clipboard!');
+            } else {
+                new Notice(`🎬 ${urls.length} YouTube URLs extracted from clipboard!`);
+            }
+
+            if (this.processButton && !this.isProcessing && this.processButton.disabled === false) {
                 this.processButton.focus();
             } else {
                 this.focusUrlInput();
@@ -1039,6 +1528,10 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     onClose(): void {
+        this.stopTimer();
+        // Abort (and keep) the controller so an in-flight run stops instead of
+        // marching on against a DOM that no longer exists.
+        this.abortController?.abort();
         if (this.validationTimer) {
             clearTimeout(this.validationTimer);
         }

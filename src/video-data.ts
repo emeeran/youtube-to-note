@@ -3,8 +3,9 @@ import { ErrorHandler } from './services/error-handler';
 import { MESSAGES } from './constants/index';
 import { ValidationUtils } from './validation';
 import { VideoAnalysisStrategy } from './constants/video-optimization';
-import { VideoDataService, VideoData, CacheService } from './types';
+import { TranscriptOutcome, VideoDataService, VideoData, CacheService, YouTubePluginSettings } from './types';
 import { YouTubeTranscriptService } from './services/transcript-service';
+import { TranscriptDiskCache } from './services/transcript-cache';
 import { fetchYouTubePage, parsePlayerResponse, extractVideoDetails } from './services/youtube-page';
 import { logger } from './services/logger';
 
@@ -22,12 +23,28 @@ export interface EnhancedVideoData extends VideoData {
     publishedAt?: string;
 }
 
+/** Optional wiring the service container supplies. */
+export interface VideoServiceOptions {
+    /** Live settings accessor so toggles (e.g. the disk cache) apply immediately. */
+    getSettings?: () => YouTubePluginSettings | undefined;
+    /** On-disk transcript cache; only consulted when settings.persistTranscriptCache is on. */
+    diskCache?: TranscriptDiskCache;
+}
+
 export class YouTubeVideoService implements VideoDataService {
     private readonly metadataTTL = 1000 * 60 * 30; // 30 minutes
     public transcriptService: YouTubeTranscriptService;
+    private diskCache?: TranscriptDiskCache;
 
-    constructor(private cache?: CacheService) {
-        this.transcriptService = new YouTubeTranscriptService(cache);
+    constructor(
+        private cache?: CacheService,
+        options: VideoServiceOptions = {},
+    ) {
+        this.diskCache = options.diskCache;
+        this.transcriptService = new YouTubeTranscriptService(cache, {
+            diskCache: this.diskCache,
+            getSettings: options.getSettings,
+        });
     }
 
     /**
@@ -38,9 +55,31 @@ export class YouTubeVideoService implements VideoDataService {
             const transcript = await this.transcriptService.getTranscript(videoId, language);
             return transcript ? { fullText: transcript.fullText } : null;
         } catch (error) {
+            logger.debug('Transcript fetch failed', 'VideoData', {
+                videoId,
+                error: error instanceof Error ? error.message : String(error),
+            });
             return null;
         }
     }
+
+    /**
+     * Typed transcript fetch: success carries segments + language, failure
+     * carries a machine-readable reason (restricted / private / unavailable /
+     * no-captions / network) so the UI can explain what happened.
+     */
+    async fetchTranscriptOutcome(videoId: string, language?: string): Promise<TranscriptOutcome> {
+        return this.transcriptService.fetchTranscriptOutcome(videoId, language);
+    }
+
+    /**
+     * Delete every persisted transcript. Intended for an explicit settings
+     * action — not for plugin unload, which would defeat the cache's purpose.
+     */
+    async clearTranscriptCache(): Promise<void> {
+        await this.diskCache?.clear();
+    }
+
     /**
      * Extract video ID from YouTube URL
      */
@@ -80,9 +119,9 @@ export class YouTubeVideoService implements VideoDataService {
             if (result.duration && result.duration < 1800) {
                 // Only check for videos < 30 mins
                 void this.checkTranscriptAvailability(videoId).then(hasTranscript => {
-                    result.hasTranscript = hasTranscript;
-                    // Cache the enhanced data
-                    this.cache?.set(cacheKey, result, this.metadataTTL);
+                    // Cache a copy: `result` was already handed to the caller, so
+                    // mutating it here would change an object we no longer own.
+                    this.cache?.set(cacheKey, { ...result, hasTranscript }, this.metadataTTL);
                 });
             }
 

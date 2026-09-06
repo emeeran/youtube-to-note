@@ -3,32 +3,70 @@ import { ErrorHandler } from './services/error-handler';
 import { logger, LogLevel } from './services/logger';
 import { MESSAGES } from './constants/index';
 import { ModalManager } from './services/modal-manager';
-import { OutputFormat, YouTubePluginSettings, PerformanceMode, AIResponse } from './types';
+import {
+    AIResponse,
+    AIService,
+    PerformanceMode,
+    ProcessStage,
+    ProcessingOptions,
+    ProcessingResult,
+    TranscriptFailureReason,
+    TranscriptSegment,
+    VideoDataService,
+    YouTubePluginSettings,
+} from './types';
 import { ServiceContainer } from './services/service-container';
 import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal } from './components/features/youtube';
-import { ProcessingHistoryService } from './services/processing-history';
+import { ProcessingHistoryService, withPluginDataLock } from './services/processing-history';
 import { SecureConfigService } from './secure-config';
 import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
-const PLUGIN_VERSION = '1.3.5';
 
-interface ProcessVideoOptions {
-    url: string;
-    format?: OutputFormat;
+/**
+ * A single processYouTubeVideo run: the shared {@link ProcessingOptions}
+ * contract, plus the per-run knobs the modal used to pass positionally. The
+ * extras are optional, so callers passing only the shared contract keep working.
+ */
+interface ProcessRunOptions extends ProcessingOptions {
     providerName?: string;
-    model?: string;
     performanceMode?: PerformanceMode;
-    enableParallel?: boolean;
-    preferMultimodal?: boolean;
     maxTokens?: number;
     temperature?: number;
     enableAutoFallback?: boolean;
-    userInstructions?: string;
 }
+
+/**
+ * Thrown (internally) when a run is aborted. Caught at the top of
+ * processYouTubeVideo and turned into a clean result, not an error notice.
+ */
+class ProcessingCancelled extends Error {
+    constructor() {
+        super('Processing cancelled');
+        this.name = 'ProcessingCancelled';
+    }
+}
+
+/** User-facing copy per typed transcript failure, as distinct as the reasons. */
+const TRANSCRIPT_FAILURE_MESSAGES: Record<TranscriptFailureReason, string> = {
+    restricted: '🔒 Age/region restricted — YouTube will not serve captions for this video.',
+    private: '🔒 This video is private, so its transcript is unavailable.',
+    unavailable: '🔍 This video is unavailable — it may have been removed, or the link is wrong.',
+    'no-captions': '🚫 No captions available for this video',
+    network: '🌐 Network error while fetching the transcript. Check your connection and try again.',
+    unknown: '⚠️ Transcript could not be fetched for this video.',
+};
+
+const NO_CAPTIONS_MESSAGE = TRANSCRIPT_FAILURE_MESSAGES['no-captions'];
+
+const TRANSCRIPT_TRUNCATED_WARNING =
+    'Transcript truncated at 100,000 characters — the analysis covers the first portion only.';
+
+const METADATA_ONLY_WARNING =
+    'No captions available — the note was generated from video metadata only, so it may be thin.';
 
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
@@ -45,6 +83,10 @@ const DEFAULT_SETTINGS: YouTubePluginSettings = {
     enableAutoFallback: true,
     preferMultimodal: true,
     transcriptLanguage: '',
+    includeTimestamps: true,
+    warnOnDuplicates: true,
+    persistTranscriptCache: false,
+    customPrompts: {},
     defaultMaxTokens: 4096,
     defaultTemperature: 0.5,
 };
@@ -58,11 +100,12 @@ export default class YoutubeClipperPlugin extends Plugin {
     private urlHandler?: UrlHandler;
     private modalManager?: ModalManager;
     private historyService?: ProcessingHistoryService;
+    /** Controllers of runs that had no signal of their own, aborted on unload. */
+    private readonly activeRunControllers = new Set<AbortController>();
 
     async onload(): Promise<void> {
-        // Set plugin version
-        this.manifest.version = PLUGIN_VERSION;
-        logger.info(`Initializing YoutubeClipper Plugin v${PLUGIN_VERSION}...`);
+        // Version comes from manifest.json — never hardcode it here.
+        logger.info(`Initializing YoutubeClipper Plugin v${this.manifest.version}...`);
 
         try {
             await this.loadSettings();
@@ -87,6 +130,11 @@ export default class YoutubeClipperPlugin extends Plugin {
         this.isUnloading = true;
 
         try {
+            // Cancel in-flight runs so their fetches and writes stop immediately.
+            for (const controller of this.activeRunControllers) {
+                controller.abort();
+            }
+            this.activeRunControllers.clear();
             this.urlHandler?.clear();
             this.modalManager?.clear();
             this.serviceContainer?.clearServices();
@@ -112,7 +160,8 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async initializeServices(): Promise<void> {
-        this.serviceContainer = new ServiceContainer(this._settings, this.app);
+        // `manifest.dir` scopes the opt-in on-disk transcript cache to this plugin.
+        this.serviceContainer = new ServiceContainer(this._settings, this.app, this.manifest.dir);
         this.modalManager = new ModalManager();
         this.urlHandler = new UrlHandler(this.app, this._settings, this.handleUrlDetection.bind(this));
         this.historyService = new ProcessingHistoryService(this);
@@ -144,7 +193,12 @@ export default class YoutubeClipperPlugin extends Plugin {
     private setupProtocolHandler(): void {
         try {
             this.registerObsidianProtocolHandler('youtube-clipper', params => {
-                logger.info('[YT-Clipper] Protocol received:', 'Plugin', { params });
+                // `params` is attacker-controlled (any web page can open the
+                // obsidian:// URL) — never log it verbatim, the video id is enough.
+                const raw = params.url ?? params.content ?? params.path ?? '';
+                logger.info('[YT-Clipper] Protocol received', 'Plugin', {
+                    videoId: ValidationUtils.extractVideoId(raw) ?? '',
+                });
                 this.urlHandler?.handleProtocol(params);
             });
             logger.info('[YT-Clipper] Protocol handler registered successfully', 'Plugin');
@@ -183,6 +237,19 @@ export default class YoutubeClipperPlugin extends Plugin {
             name: 'YouTube Clipper: Open URL Modal (from clipboard)',
             callback: async () => {
                 await this.handleClipboardUrl();
+            },
+        });
+
+        this.addCommand({
+            id: `${PLUGIN_PREFIX}-clear-transcript-cache`,
+            name: 'Clear transcript cache',
+            callback: async () => {
+                if (!this.serviceContainer) {
+                    return;
+                }
+                await this.serviceContainer.clearTranscriptCache();
+                new Notice('🧹 Transcript cache cleared.');
+                logger.plugin('Transcript cache cleared via command');
             },
         });
     }
@@ -261,31 +328,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             const modelOptionsMap: Record<string, string[]> = this._settings.modelOptionsCache ?? {};
 
             const modal = new YouTubeUrlModal(this.app, {
-                onProcess: async (
-                    url: string,
-                    format: OutputFormat,
-                    provider?: string,
-                    model?: string,
-                    performanceMode?: PerformanceMode,
-                    enableParallel?: boolean,
-                    preferMultimodal?: boolean,
-                    maxTokens?: number,
-                    temperature?: number,
-                    enableAutoFallback?: boolean,
-                ) => {
-                    return this.processYouTubeVideo({
-                        url,
-                        format,
-                        providerName: provider,
-                        model,
-                        performanceMode,
-                        enableParallel,
-                        preferMultimodal,
-                        maxTokens,
-                        temperature,
-                        enableAutoFallback,
-                    });
-                },
+                onProcess: (url: string, runOptions?: ProcessingOptions) => this.processYouTubeVideo(url, runOptions),
                 onOpenFile: this.openFileByPath.bind(this),
                 ...(initialUrl && { initialUrl }),
                 providers,
@@ -357,7 +400,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                     this._settings.enableParallelProcessing = enableParallel;
                     this._settings.preferMultimodal = preferMultimodal;
                     await this.saveSettings();
-                    this.serviceContainer = new ServiceContainer(this._settings, this.app);
+                    this.serviceContainer = new ServiceContainer(this._settings, this.app, this.manifest.dir);
                 },
             });
 
@@ -367,26 +410,71 @@ export default class YoutubeClipperPlugin extends Plugin {
         }
     }
 
-    // eslint-disable-next-line max-lines-per-function
-    private async processYouTubeVideo(options: ProcessVideoOptions): Promise<string> {
+    /**
+     * Turn a YouTube URL into a note in the vault.
+     *
+     * Never throws: every outcome — success, failure and cancellation — comes
+     * back as a {@link ProcessingResult} so the caller can render it.
+     *
+     * @param url YouTube video URL
+     * @param options Per-run overrides, progress callback and abort signal
+     */
+    // eslint-disable-next-line max-lines-per-function, complexity
+    async processYouTubeVideo(url: string, options: ProcessRunOptions = {}): Promise<ProcessingResult> {
         const {
-            url,
             format = 'executive-summary',
-            providerName,
             model,
+            providerName,
             performanceMode,
             maxTokens,
             temperature,
             enableAutoFallback,
             userInstructions,
+            onProgress,
+            signal: externalSignal,
         } = options;
+
         if (this.isUnloading) {
-            logger.info('Plugin is unloading, cancelling video processing');
-            throw new Error('Plugin is shutting down');
+            logger.warn('Plugin is unloading — ignoring video processing request', 'Plugin');
+            return { success: false, error: 'Plugin is shutting down' };
         }
 
-        // eslint-disable-next-line complexity, max-lines-per-function
-        const result = await (async () => {
+        // One controller per run. An external signal (modal close) aborts it;
+        // with no external signal, onunload owns the abort instead.
+        const controller = new AbortController();
+        const signal = controller.signal;
+        const onExternalAbort = () => controller.abort();
+        if (externalSignal) {
+            if (externalSignal.aborted) controller.abort();
+            else externalSignal.addEventListener('abort', onExternalAbort);
+        } else {
+            this.activeRunControllers.add(controller);
+        }
+
+        const result: ProcessingResult = { success: false };
+        const warnings: string[] = [];
+        result.warnings = warnings;
+
+        let userNotified = false;
+
+        /** Throws once the run has been cancelled. */
+        const assertLive = (): void => {
+            if (signal.aborted) throw new ProcessingCancelled();
+        };
+
+        const progress = (stage: ProcessStage, detail?: string): void => {
+            if (!onProgress) return;
+            try {
+                onProgress({ stage, detail });
+            } catch (error) {
+                logger.warn('Progress callback failed', 'Plugin', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        };
+
+        try {
+            assertLive();
             new Notice(MESSAGES.PROCESSING);
 
             const validation = ValidationUtils.validateSettings(this._settings as unknown as Record<string, unknown>);
@@ -396,52 +484,56 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             if (!this.serviceContainer) throw new Error('Service container not initialized');
 
-            const youtubeService = this.serviceContainer.videoService;
-            const aiService = this.serviceContainer.aiService;
-            const fileService = this.serviceContainer.fileService;
-            const promptService = this.serviceContainer.promptService;
+            const { videoService, aiService, fileService, promptService } = this.serviceContainer;
 
-            const videoId = youtubeService.extractVideoId(url);
+            const videoId = videoService.extractVideoId(url);
             if (!videoId) {
                 throw new Error(MESSAGES.ERRORS.VIDEO_ID_EXTRACTION);
             }
 
-            const videoData = await youtubeService.getVideoData(videoId);
-
-            // Fetch transcript to provide actual video content to AI
-            let transcript: string | undefined;
-            try {
-                if (youtubeService.getTranscript) {
-                    const transcriptData = await youtubeService.getTranscript(
-                        videoId,
-                        this._settings.transcriptLanguage,
-                    );
-                    if (transcriptData?.fullText) {
-                        transcript = transcriptData.fullText;
-                        logger.info('Transcript fetched successfully', 'Plugin', {
-                            videoId,
-                            transcriptLength: transcript.length,
-                        });
-                    } else {
-                        logger.warn('No transcript available — generating from metadata only', 'Plugin', { videoId });
-                        new Notice('No transcript available for this video. Note will be based on metadata only.');
-                    }
-                }
-            } catch (error) {
-                logger.warn('Could not fetch transcript, continuing without it', 'Plugin', {
-                    error: error instanceof Error ? error.message : String(error),
-                });
-                new Notice('Could not fetch transcript. Note will be based on metadata only.');
+            // Duplicate check, before any AI work. Warn and continue — never block.
+            const existing = this.historyService?.find(videoId);
+            if (existing && this._settings.warnOnDuplicates !== false) {
+                result.duplicateOfPath = existing.filePath;
+                const processedOn = new Date(existing.processedAt);
+                const when = Number.isNaN(processedOn.getTime()) ? 'an unknown date' : processedOn.toLocaleDateString();
+                warnings.push(`This video was already processed on ${when} — a duplicate note may be created`);
+                new Notice(`ℹ️ Duplicate: this video was already processed on ${when}.`);
             }
 
+            progress('metadata', 'Fetching video metadata…');
+            const videoData = await videoService.getVideoData(videoId);
+            assertLive();
+
+            progress('transcript', 'Fetching transcript…');
+            const transcript = await this.fetchTranscript(videoService, videoId);
+            assertLive();
+            if (!transcript.ok) {
+                result.error = transcript.error;
+                return result;
+            }
+            if (!transcript.fullText) {
+                warnings.push(METADATA_ONLY_WARNING);
+            }
+            if (transcript.truncated) {
+                result.transcriptTruncated = true;
+                warnings.push(TRANSCRIPT_TRUNCATED_WARNING);
+            }
+
+            // Segments are only handed over when timestamp links are enabled.
+            const segments = this._settings.includeTimestamps !== false ? transcript.segments : undefined;
+
+            progress('prompt', 'Building prompt…');
             const prompt = promptService.createAnalysisPrompt({
                 videoData,
                 videoUrl: url,
                 format,
-                transcript,
+                transcript: transcript.fullText,
+                segments,
                 performanceMode: performanceMode ?? this._settings.performanceMode ?? 'balanced',
                 providerName,
                 userInstructions,
+                customPrompts: this._settings.customPrompts,
             });
 
             logger.aiService('Processing video', {
@@ -456,37 +548,58 @@ export default class YoutubeClipperPlugin extends Plugin {
             // Apply per-run generation parameters to every provider
             aiService.setModelParameters?.({ maxTokens, temperature });
 
-            let aiResponse: AIResponse;
-            try {
-                if (providerName) {
-                    aiResponse = await aiService.processWith(
-                        providerName,
-                        prompt,
-                        model,
-                        undefined,
-                        enableAutoFallback ?? true,
-                    );
-                } else {
-                    aiResponse = await aiService.process(prompt);
-                }
+            progress('ai', 'Contacting AI providers…');
+            const chain = this.buildProviderChain(
+                providerName,
+                aiService,
+                enableAutoFallback ?? this._settings.enableAutoFallback ?? true,
+            );
+            const failedProviders: string[] = [];
+            let aiResponse: AIResponse | undefined;
+            let lastError: unknown;
 
-                logger.aiService('AI Response received', {
-                    provider: aiResponse.provider,
-                    model: aiResponse.model,
-                    contentLength: aiResponse.content?.length ?? 0,
-                });
-            } catch (error) {
-                logger.error('AI Processing failed', 'Plugin', {
-                    error: error instanceof Error ? error.message : String(error),
-                });
-
-                // Use enhanced error handling for quota issues
-                if (error instanceof Error) {
-                    ErrorHandler.handleEnhanced(error, 'AI Processing');
+            // The fallback chain is driven here rather than inside the AI service
+            // so each provider's failure can be attributed in the result.
+            for (const name of chain) {
+                assertLive();
+                progress('ai', `Trying ${name}…`);
+                try {
+                    aiResponse = await aiService.processWith(name, prompt, model, undefined, false, { signal });
+                    break;
+                } catch (error) {
+                    if (signal.aborted) throw new ProcessingCancelled();
+                    failedProviders.push(name);
+                    lastError = error;
+                    logger.warn('Provider failed — trying the next one', 'Plugin', {
+                        provider: name,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
                 }
+            }
+
+            if (!aiResponse) {
+                const error = lastError instanceof Error ? lastError : new Error('All AI providers failed');
+                logger.error('AI Processing failed', 'Plugin', { error: error.message });
+                result.failedProviders = failedProviders;
+                userNotified = true;
+                ErrorHandler.handleEnhanced(error, 'AI Processing');
                 throw error;
             }
 
+            logger.aiService('AI Response received', {
+                provider: aiResponse.provider,
+                model: aiResponse.model,
+                contentLength: aiResponse.content?.length ?? 0,
+            });
+
+            result.providerUsed = aiResponse.provider;
+            result.modelUsed = aiResponse.model;
+            if (failedProviders.length > 0) {
+                result.failedProviders = failedProviders;
+                warnings.push(`⚠️ Fell back to ${aiResponse.provider} after ${failedProviders.join(', ')} failed.`);
+            }
+
+            progress('ai', 'Formatting note…');
             const formattedContent = promptService.processAIResponse(
                 aiResponse.content,
                 aiResponse.provider,
@@ -494,8 +607,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                 format,
                 videoData,
                 url,
+                segments,
             );
 
+            progress('save', 'Saving note…');
             const filePath = await fileService.saveToFile(videoData.title, formattedContent, this._settings.outputPath);
 
             // Record in processing history
@@ -514,10 +629,122 @@ export default class YoutubeClipperPlugin extends Plugin {
             }
 
             new Notice(MESSAGES.SUCCESS(videoData.title));
-            return filePath;
-        })();
+            result.success = true;
+            result.filePath = filePath;
+            return result;
+        } catch (error) {
+            if (error instanceof ProcessingCancelled || signal.aborted) {
+                logger.info('Video processing cancelled', 'Plugin', { url });
+                return { ...result, error: 'Processing cancelled' };
+            }
 
-        return result;
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error('Video processing failed', 'Plugin', { error: message });
+            if (!userNotified) {
+                new Notice(`❌ ${message}`);
+            }
+            return { ...result, error: message };
+        } finally {
+            if (externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
+            this.activeRunControllers.delete(controller);
+        }
+    }
+
+    /**
+     * Fetch a transcript, preferring the typed outcome API (which explains
+     * *why* a transcript is missing) and falling back to the legacy
+     * `{ fullText }` API when the service does not implement it.
+     */
+    // eslint-disable-next-line max-lines-per-function
+    private async fetchTranscript(
+        videoService: VideoDataService,
+        videoId: string,
+    ): Promise<
+        | { ok: true; fullText?: string; segments?: TranscriptSegment[]; truncated?: boolean }
+        | { ok: false; error: string; reason?: TranscriptFailureReason }
+    > {
+        const language = this._settings.transcriptLanguage;
+
+        if (typeof videoService.fetchTranscriptOutcome === 'function') {
+            try {
+                const outcome = await videoService.fetchTranscriptOutcome(videoId, language);
+
+                if (outcome.ok) {
+                    const { fullText, segments, truncated } = outcome.transcript;
+                    if (!fullText?.trim()) {
+                        // Matches the legacy contract below: an empty transcript is
+                        // "metadata only", not a failed run.
+                        return { ok: true };
+                    }
+                    logger.info('Transcript fetched successfully', 'Plugin', {
+                        videoId,
+                        transcriptLength: fullText.length,
+                        segments: segments.length,
+                        truncated: truncated === true,
+                    });
+                    return { ok: true, fullText, segments, truncated: truncated === true };
+                }
+
+                const message = TRANSCRIPT_FAILURE_MESSAGES[outcome.reason];
+                logger.warn('Transcript unavailable', 'Plugin', {
+                    videoId,
+                    reason: outcome.reason,
+                    detail: outcome.message,
+                });
+                new Notice(message);
+                // A video without captions can still produce a metadata-only note
+                // (and Gemini multimodal ingests it natively) — mirror the legacy
+                // path instead of failing the run.
+                if (outcome.reason === 'no-captions') {
+                    return { ok: true };
+                }
+                return { ok: false, error: message, reason: outcome.reason };
+            } catch (error) {
+                logger.warn('Typed transcript fetch failed — falling back to legacy path', 'Plugin', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        }
+
+        // Legacy path: `{ fullText } | null` — no segments, no typed failures.
+        try {
+            if (!videoService.getTranscript) return { ok: true };
+
+            const transcriptData = await videoService.getTranscript(videoId, language);
+            if (transcriptData?.fullText) {
+                logger.info('Transcript fetched successfully', 'Plugin', {
+                    videoId,
+                    transcriptLength: transcriptData.fullText.length,
+                });
+                return { ok: true, fullText: transcriptData.fullText };
+            }
+
+            logger.warn('No transcript available — generating from metadata only', 'Plugin', { videoId });
+            new Notice(NO_CAPTIONS_MESSAGE);
+            return { ok: true };
+        } catch (error) {
+            logger.warn('Could not fetch transcript, continuing without it', 'Plugin', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            new Notice('Could not fetch transcript. Note will be based on metadata only.');
+            return { ok: true };
+        }
+    }
+
+    /**
+     * Providers to try, in try order. Each `processWith` call runs with
+     * fallback disabled so the failures stay attributable here instead of being
+     * swallowed inside the AI service.
+     */
+    private buildProviderChain(
+        providerName: string | undefined,
+        aiService: AIService,
+        enableFallback: boolean,
+    ): string[] {
+        const names = aiService.getProviderNames();
+        if (!enableFallback) return providerName ? [providerName] : names.slice(0, 1);
+        if (!providerName) return names;
+        return [providerName, ...names.filter(name => name !== providerName)];
     }
 
     private async openFileByPath(filePath: string): Promise<void> {
@@ -593,7 +820,10 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async saveSettings(): Promise<void> {
-        await this.saveData(this._settings);
+        // Join the shared plugin-data lock: `saveData` round-trips the whole
+        // data.json, so a settings write racing a history write would otherwise
+        // resurrect stale history (or vice versa).
+        await withPluginDataLock(() => this.saveData(this._settings));
     }
 
     private async safeOperation<T>(operation: () => Promise<T>, operationName: string): Promise<T | null> {

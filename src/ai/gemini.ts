@@ -1,6 +1,7 @@
 import { API_ENDPOINTS, AI_MODELS, PROVIDER_MODEL_OPTIONS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import { MESSAGES } from '../constants/index';
+import type { AIRequestOptions } from '../types';
 import type { GeminiRequestBody, GeminiResponse } from '../types/api-responses';
 import type { ProviderModelEntry } from '../constants/index';
 import { formatQuotaError } from './error-utils';
@@ -17,7 +18,7 @@ export class GeminiProvider extends BaseAIProvider {
     }
 
     // eslint-disable-next-line complexity, max-lines-per-function
-    async process(prompt: string): Promise<string> {
+    async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
             if (!this.apiKey || this.apiKey.trim().length === 0) {
                 throw new Error(MESSAGES.ERRORS.GEMINI_INVALID_KEY);
@@ -28,12 +29,13 @@ export class GeminiProvider extends BaseAIProvider {
                 method: 'POST',
                 headers: this.createHeaders(),
                 body: JSON.stringify(this.createRequestBody(prompt)),
+                signal: this.requestSignal({ signal: options?.signal }),
             });
 
             // Handle specific Gemini errors with better messages
             if (response.status === 400) {
                 const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMessage = errorData?.error?.message || 'Bad request';
+                const errorMessage = this.sanitizeRemoteMessage(errorData?.error?.message) || 'Bad request';
                 throw new Error(`Gemini API error: ${errorMessage}. Try checking the model configuration.`);
             }
 
@@ -43,7 +45,7 @@ export class GeminiProvider extends BaseAIProvider {
 
             if (response.status === 403) {
                 const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMessage = errorData?.error?.message || '';
+                const errorMessage = this.sanitizeRemoteMessage(errorData?.error?.message);
                 if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('billing')) {
                     throw new Error(formatQuotaError(errorMessage, 'Gemini'));
                 }
@@ -52,7 +54,7 @@ export class GeminiProvider extends BaseAIProvider {
 
             if (response.status === 429) {
                 const errorData = (await this.safeJsonParse(response)) as any;
-                const errorMessage = errorData?.error?.message || errorData?.message || '';
+                const errorMessage = this.sanitizeRemoteMessage(errorData?.error?.message || errorData?.message);
                 throw new Error(formatQuotaError(errorMessage, 'Gemini'));
             }
 
@@ -203,10 +205,14 @@ export class GeminiProvider extends BaseAIProvider {
 
     /** Live-fetch available model ids from Gemini's list endpoint. */
     async listModels(): Promise<string[]> {
-        const response = await fetch(`${API_ENDPOINTS.GEMINI_BASE}?pageSize=200`, {
-            method: 'GET',
-            headers: this.createHeaders(),
-        });
+        const response = await this.fetchWithTimeout(
+            `${API_ENDPOINTS.GEMINI_BASE}?pageSize=200`,
+            {
+                method: 'GET',
+                headers: this.createHeaders(),
+            },
+            'Gemini models request failed',
+        );
         if (!response.ok) {
             throw new Error(`Gemini models request failed: ${response.status}`);
         }

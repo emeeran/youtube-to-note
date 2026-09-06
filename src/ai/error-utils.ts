@@ -1,6 +1,71 @@
 /**
- * Shared error formatting utilities for AI providers
+ * Shared error formatting / message-sanitizing / request-signal utilities
+ * for AI providers
  */
+
+/** Hard timeout applied to auxiliary (model-list) requests. */
+export const MODEL_LIST_TIMEOUT_MS = 15000;
+
+type AbortSignalStatic = typeof AbortSignal & {
+    any?: (signals: AbortSignal[]) => AbortSignal;
+    timeout?: (ms: number) => AbortSignal;
+};
+
+/**
+ * Sanitize a server-controlled message before embedding it in a thrown Error
+ * (which may be rendered to the user). Caps length and strips newlines /
+ * control characters so a malicious endpoint cannot push arbitrary multi-line
+ * content into Obsidian notices.
+ */
+export function sanitizeRemoteMessage(message: unknown, maxLength = 200): string {
+    if (typeof message !== 'string') return '';
+    return message
+        .replace(/[\r\n\t]+/g, ' ')
+        .replace(/[^\x20-\x7E]/g, '')
+        .slice(0, maxLength)
+        .trim();
+}
+
+/**
+ * Build the AbortSignal for an outbound request.
+ *
+ * Combines an optional hard timeout with an optional caller-supplied signal so
+ * either one can cancel the request. Returns `undefined` when neither is
+ * requested, which leaves the fetch's behavior untouched.
+ */
+export function createAbortSignal(options: { timeoutMs?: number; signal?: AbortSignal } = {}): AbortSignal | undefined {
+    const signalStatic = AbortSignal as AbortSignalStatic;
+    const timeoutSignal =
+        options.timeoutMs && options.timeoutMs > 0 && typeof signalStatic.timeout === 'function'
+            ? signalStatic.timeout(options.timeoutMs)
+            : undefined;
+
+    if (!options.signal) return timeoutSignal;
+    if (!timeoutSignal) return options.signal;
+
+    if (typeof signalStatic.any === 'function') {
+        return signalStatic.any([options.signal, timeoutSignal]);
+    }
+
+    // Older runtimes without AbortSignal.any: wire both sources onto one
+    // controller. The fallback timer is unref'd so it never holds the process.
+    const controller = new AbortController();
+    const forwardAbort = () => controller.abort();
+    options.signal.addEventListener('abort', forwardAbort, { once: true });
+    const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+    const cancellable = timer as unknown as { unref?: () => void };
+    if (typeof cancellable.unref === 'function') {
+        cancellable.unref();
+    }
+    return controller.signal;
+}
+
+/** True when a thrown value is the abort produced by a request timeout. */
+export function isTimeoutAbort(error: unknown): boolean {
+    if (!error) return false;
+    const name = (error as { name?: unknown }).name;
+    return name === 'TimeoutError' || name === 'AbortError';
+}
 
 /**
  * Extract retry time from error message

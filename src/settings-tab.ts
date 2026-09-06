@@ -1,9 +1,11 @@
 /* eslint-disable max-lines */
 import { SecureConfigService } from './secure-config';
 import { ValidationUtils } from './validation';
-import { YouTubePluginSettings } from './types';
+import { OutputFormat, YouTubePluginSettings } from './types';
 import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ErrorHandler } from './services/error-handler';
+import { FORMAT_META } from './templates/format-templates';
+import { FORMAT_ORDER } from './components/features/youtube/youtube-modal-utils';
 
 interface PluginWithSettings extends Plugin {
     settings: YouTubePluginSettings;
@@ -46,9 +48,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         // Two-column grid
         const grid = containerEl.createDiv({ cls: `${CSS_PREFIX}-grid` });
 
-        // Left column: API Keys
+        // Left column: API Keys + prompt templates
         const left = grid.createDiv({ cls: `${CSS_PREFIX}-col` });
         this.createAPISection(left);
+        this.createPromptTemplatesSection(left);
 
         // Right column: AI + Output + Advanced stacked
         const right = grid.createDiv({ cls: `${CSS_PREFIX}-col` });
@@ -151,7 +154,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 color: '#4285f4',
                 key: 'geminiApiKey' as const,
                 validate: async (key: string) => {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                    // Send the key as a header (matches the provider path) so it
+                    // cannot leak into URL-based logs.
+                    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+                        headers: { 'x-goog-api-key': key },
+                    });
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 },
             },
@@ -349,6 +356,73 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             );
     }
 
+    // ── Prompt templates ─────────────────────────────────────────────────
+    private createPromptTemplatesSection(parent: HTMLElement): void {
+        const content = this.createSection(parent, 'Prompt templates', '📝');
+
+        const help = content.createDiv({ cls: `${CSS_PREFIX}-template-help` });
+        help.textContent =
+            'The transcript, video metadata, and formatting rules are added automatically — ' +
+            'write only the extra instructions you want for a format.';
+        help.style.cssText = 'font-size: 12px; color: var(--text-muted); margin-bottom: 8px;';
+
+        FORMAT_ORDER.forEach(format => this.createTemplateEditor(content, format));
+    }
+
+    private createTemplateEditor(container: HTMLElement, format: OutputFormat): void {
+        const meta = FORMAT_META[format];
+        const override = this.settings.customPrompts?.[format] ?? '';
+
+        new Setting(container)
+            .setName(meta.label)
+            .setDesc(meta.description)
+            .addTextArea(text => {
+                text.setPlaceholder('Built-in template used when empty')
+                    .setValue(override)
+                    .onChange(async value => {
+                        await this.updateCustomPrompt(format, value);
+                    });
+                text.inputEl.style.cssText =
+                    'width: 100%; min-height: 88px; font-family: var(--font-monospace); font-size: 12px;';
+                return text;
+            })
+            .addButton(button => {
+                button
+                    .setButtonText('↺ Reset')
+                    .setTooltip('Reset to built-in')
+                    .onClick(() => void this.resetCustomPrompt(format));
+                button.buttonEl.setAttribute('aria-label', `Reset ${meta.label} to the built-in template`);
+            });
+    }
+
+    private async updateCustomPrompt(format: OutputFormat, value: string): Promise<void> {
+        try {
+            const prompts = { ...(this.settings.customPrompts ?? {}) };
+            if (value.trim()) {
+                prompts[format] = value;
+            } else {
+                delete prompts[format];
+            }
+            this.settings.customPrompts = prompts;
+            await this.validateAndSaveSettings();
+        } catch (error) {
+            ErrorHandler.handle(error as Error, `Prompt template: ${format}`);
+        }
+    }
+
+    private async resetCustomPrompt(format: OutputFormat): Promise<void> {
+        try {
+            const prompts = { ...(this.settings.customPrompts ?? {}) };
+            delete prompts[format];
+            this.settings.customPrompts = prompts;
+            await this.validateAndSaveSettings();
+            this.display();
+            this.showToast(`${FORMAT_META[format]?.label ?? format} template reset`, 'info');
+        } catch (error) {
+            ErrorHandler.handle(error as Error, `Prompt template reset: ${format}`);
+        }
+    }
+
     // ── Output ───────────────────────────────────────────────────────────
     private createOutputSection(parent: HTMLElement): void {
         const content = this.createSection(parent, 'Output', '📁');
@@ -363,6 +437,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     .onChange(async value => {
                         await this.updateSetting('outputPath', value.trim() || 'YouTube/Processed Videos');
                     }),
+            );
+
+        new Setting(content)
+            .setName('Include timestamp links')
+            .setDesc('Add [MM:SS] links that jump straight to that moment in the video.')
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.includeTimestamps ?? true).onChange(async value => {
+                    await this.updateSetting('includeTimestamps', value);
+                }),
             );
     }
 
@@ -398,6 +481,26 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                     .onChange(async value => {
                         await this.updateSetting('transcriptLanguage', value.trim().toLowerCase());
                     }),
+            );
+
+        new Setting(content)
+            .setName('Warn about already-processed videos')
+            .setDesc('Tell you when a note for this video already exists instead of duplicating it silently.')
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.warnOnDuplicates ?? true).onChange(async value => {
+                    await this.updateSetting('warnOnDuplicates', value);
+                }),
+            );
+
+        new Setting(content)
+            .setName('Cache transcripts on disk')
+            .setDesc(
+                'Keep fetched transcripts inside the plugin folder so they can be reused without re-downloading them.',
+            )
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.persistTranscriptCache ?? false).onChange(async value => {
+                    await this.updateSetting('persistTranscriptCache', value);
+                }),
             );
 
         new Setting(content)
@@ -607,6 +710,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 enableParallelProcessing: true,
                 enableAutoFallback: true,
                 preferMultimodal: true,
+                transcriptLanguage: '',
+                customPrompts: {},
+                includeTimestamps: true,
+                warnOnDuplicates: true,
+                persistTranscriptCache: false,
                 defaultMaxTokens: 4096,
                 defaultTemperature: 0.5,
             };

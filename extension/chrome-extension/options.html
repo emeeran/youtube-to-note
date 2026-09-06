@@ -13,12 +13,21 @@ li{margin-bottom:2px}
 </style></head><body>
 <h1>YouTube to Note</h1>
 <p class="sub">Companion for the Obsidian plugin</p>
-<p>Click the purple icon in YouTube player controls or press <kbd>Ctrl+Shift+Y</kbd>.</p>
+<p>Click the purple icon in the YouTube player, click the toolbar button, or press <kbd>Ctrl+Shift+Y</kbd> (<kbd>⌘+Shift+Y</kbd> on macOS).</p>
+<div class="tip">Works on <strong>watch pages</strong>, <strong>Shorts</strong>, <strong>live streams</strong>, <strong>embedded players</strong> opened as a page, and <strong>music.youtube.com</strong>. Your current playback position is carried over as a timestamp.</div>
+<p style="margin-top:10px">Every video is sent to Obsidian as a plain watch link:</p>
+<p><code>https://www.youtube.com/watch?v=ID&amp;t=1m30s</code></p>
 <div class="tip">Uses <code>obsidian://youtube-clipper?url=</code> — no extra plugins needed.</div>
-<p style="margin-top:10px;font-size:12px;color:#666"><strong>If it doesn't work:</strong></p>
+<p style="margin-top:10px;font-size:12px;color:#666"><strong>Nothing opened?</strong></p>
 <ul>
-<li>Obsidian must be running with the plugin enabled</li>
-<li>Browser must allow <code>obsidian://</code> links</li>
+<li>Obsidian must be running with the YouTube to Note plugin enabled</li>
+<li>The browser must be allowed to open <code>obsidian://</code> links — if Chrome asks "Open Obsidian?", tick <em>Always allow</em></li>
+<li>The confirmation bubble appears as soon as the link is handed to your operating system; it cannot confirm that Obsidian actually opened</li>
+</ul>
+<p style="margin-top:10px;font-size:12px;color:#666"><strong>There is no button:</strong></p>
+<ul>
+<li>Only YouTube pages show one — not the home, search or channel pages, and not players embedded in other websites</li>
+<li>Navigating inside YouTube (next video, back to home) adds or removes it automatically; reload the tab if it goes missing</li>
 </ul>
 <p style="margin-top:14px;font-size:10px;color:#aaa">Unofficial companion — not affiliated with, or endorsed by, YouTube or Obsidian.</p>
 </body></html>

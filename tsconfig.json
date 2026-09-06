@@ -16,6 +16,7 @@
         "noFallthroughCasesInSwitch": true,
         "noUncheckedIndexedAccess": true,
         "moduleResolution": "node",
+        "esModuleInterop": true,
         "importHelpers": true,
         "isolatedModules": true,
         "types": ["jest", "node"],
