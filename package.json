@@ -48,12 +48,14 @@
         "typescript": "5.3.3"
     },
     "lint-staged": {
-        "*.{ts,tsx}": [
+        "src/**/*.{ts,tsx}": [
             "eslint --fix",
             "prettier --write"
         ],
-        "*.{js,jsx}": [
-            "eslint --fix",
+        "tests/**/*.{ts,tsx}": [
+            "prettier --write"
+        ],
+        "*.{js,mjs,cjs,jsx}": [
             "prettier --write"
         ],
         "*.{json,md,yml,yaml}": [

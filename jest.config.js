@@ -19,6 +19,13 @@ module.exports = {
     ],
     coverageDirectory: 'coverage',
     coverageReporters: ['text', 'lcov', 'html'],
+    // Floor sits ~2 points below the measured value (34.31% lines when set) so a
+    // coverage regression fails CI without the gate being brittle for new code.
+    coverageThreshold: {
+        global: {
+            lines: 32
+        }
+    },
     setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
