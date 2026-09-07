@@ -13,7 +13,7 @@ li{margin-bottom:2px}
 </style></head><body>
 <h1>YouTube to Note</h1>
 <p class="sub">Companion for the Obsidian plugin</p>
-<p>Click the purple icon in the YouTube player, click the toolbar button, or press <kbd>Ctrl+Shift+Y</kbd> (<kbd>⌘+Shift+Y</kbd> on macOS).</p>
+<p>Click the red play icon in the YouTube player, click the toolbar button, or press <kbd>Ctrl+Shift+Y</kbd> (<kbd>⌘+Shift+Y</kbd> on macOS).</p>
 <div class="tip">Works on <strong>watch pages</strong>, <strong>Shorts</strong>, <strong>live streams</strong>, <strong>embedded players</strong> opened as a page, and <strong>music.youtube.com</strong>. Your current playback position is carried over as a timestamp.</div>
 <p style="margin-top:10px">Every video is sent to Obsidian as a plain watch link:</p>
 <p><code>https://www.youtube.com/watch?v=ID&amp;t=1m30s</code></p>
@@ -23,6 +23,7 @@ li{margin-bottom:2px}
 <li>Obsidian must be running with the YouTube to Note plugin enabled</li>
 <li>The browser must be allowed to open <code>obsidian://</code> links — if Chrome asks "Open Obsidian?", tick <em>Always allow</em></li>
 <li>The confirmation bubble appears as soon as the link is handed to your operating system; it cannot confirm that Obsidian actually opened</li>
+<li>The toolbar button and <kbd>Ctrl+Shift+Y</kbd> only act on a <code>youtube.com</code> tab — on any other page they deliberately do nothing. The extension requests no permissions, so it cannot show a badge or a warning to say so.</li>
 </ul>
 <p style="margin-top:10px;font-size:12px;color:#666"><strong>There is no button:</strong></p>
 <ul>

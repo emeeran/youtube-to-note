@@ -112,9 +112,9 @@ extension/chrome-extension/
 
 - Videos are recognised on `/watch?v=`, `/shorts/`, `/embed/`, `/live/` and
   `music.youtube.com/watch?v=`. Everything is normalised to a canonical
-  `https://www.youtube.com/watch?v=ID` URL because the Obsidian plugin's validator does not
-  accept every shape (`/live/ID` in particular), and a canonical watch link is valid there
-  regardless of where the video was playing.
+  `https://www.youtube.com/watch?v=ID` URL for consistency: the plugin accepts every one
+  of those shapes already, and a canonical watch link means the same URL is handed off
+  wherever the video was playing.
 - The playback timestamp (`t`, or `start` on embeds) is preserved; all other parameters are
   dropped.
 - Hand-off uses a top-level `obsidian://` navigation. Chrome increasingly blocks protocol
@@ -125,3 +125,7 @@ extension/chrome-extension/
 - The button is removed when YouTube's SPA navigates to a non-video page (`yt-navigate-finish`,
   with a MutationObserver fallback), and content scripts only run in top-level frames, so no
   button appears inside players embedded in other sites.
+- The MutationObserver is disarmed as soon as the button is in place on a stable URL, and
+  re-armed by `yt-navigate-finish` or by a 1.5s watchdog, so the extension does no
+  per-mutation work once a page has settled. Retry chains are per navigation, stop early on
+  pages with no video, and give up after ~15s.

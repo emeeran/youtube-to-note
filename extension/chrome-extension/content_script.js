@@ -12,10 +12,18 @@
  * Top frames only: an <iframe> of youtube.com/embed inside another site cannot
  * launch an external protocol handler reliably, so those frames do nothing.
  *
- * The URL is normalised to https://www.youtube.com/watch?v=ID because the Obsidian
- * plugin's URL validator does not accept every shape (/live/ID for one), and a
- * canonical watch link is valid there wherever the video was playing. Only the
- * timestamp survives; every other parameter is dropped.
+ * The URL is normalised to https://www.youtube.com/watch?v=ID for consistency: every
+ * shape this script recognises is already accepted by the Obsidian plugin's validator
+ * (/live/ID included), and a canonical watch link means the same URL is handed off
+ * wherever the video was playing. Only the timestamp survives; every other parameter
+ * is dropped.
+ *
+ * Watching the DOM: YouTube is a SPA, so the button must be re-placed after every
+ * internal navigation. A MutationObserver is the fast path, but it is disarmed as
+ * soon as the button sits on a stable URL and re-armed by yt-navigate-finish — or
+ * by the 1.5s watchdog, which stands in for "the next mutation" (a disconnected
+ * observer cannot hear one). Retry chains are per navigation and give up after
+ * ~15s, so nothing polls a page that has no player.
  */
 (function () {
   if (window.top !== window) return; // top frames only — see header
@@ -43,6 +51,20 @@
 
   function id(raw) {
     return raw && ID_RE.test(raw) ? raw : null;
+  }
+
+  // Same question as videoId(location.href), memoised on the href string. The
+  // watchdog below asks it every 1.5s, and there is no reason to build a URL
+  // object and run four regexes for an answer that cannot have changed.
+  var vidHref = null;
+  var vidAns = false;
+  function isVideo() {
+    var href = location.href;
+    if (href !== vidHref) {
+      vidHref = href;
+      vidAns = videoId(href) !== null;
+    }
+    return vidAns;
   }
 
   // YouTube stores the seek position as `t` (watch/shorts), `start` or
@@ -196,7 +218,7 @@
   }
 
   function inject() {
-    if (!videoId(location.href)) {
+    if (!isVideo()) {
       removeBtn(); // SPA navigation to a non-video page must not leave a stale button
       return false;
     }
@@ -221,42 +243,136 @@
     });
   } catch (e) {}
 
-  var navUrl = location.href;
-  var retries = 0;
-  var lastSync = 0;
+  var IDLE_MS = 250; // mutation batches are throttled to this
+  var RETRY_MS = 500; // poll cadence while the player has not mounted yet
+  var RETRY_LIMIT = 30; // 30 × 500ms ≈ 15s, and only ever on a video page
+  var WATCHDOG_MS = 1500;
 
-  function retry() {
-    if (inject()) return;
-    if (++retries < 30) setTimeout(retry, 500);
+  var navUrl = location.href;
+  var gen = 0; // bumped on every navigation; a chain dies when it goes stale
+  var lastSync = 0;
+  var exhausted = false; // this page's chain spent its budget: stop re-arming for it
+
+  // Exactly one observer for the whole life of the script: `arm` starts it,
+  // `sleep` stops it, and `observing` turns a second start into a no-op, so two
+  // observers can never pile up. observe() on the same instance would replace
+  // its registration anyway, but the flag makes the invariant explicit.
+  var observer = typeof MutationObserver === 'function' ? new MutationObserver(sync) : null;
+  var observing = false;
+
+  function arm() {
+    if (observing || !observer || !document.body) return;
+    observing = true;
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function sleep() {
+    if (!observing) return;
+    observing = false;
+    observer.disconnect();
+  }
+
+  // Watch again + one fresh chain for the page we are on now.
+  function wake() {
+    arm();
+    startChain();
+  }
+
+  function startChain() {
+    gen += 1; // orphans every step still pending from the previous page
+    attempt(gen, 0);
+  }
+
+  // One chain per navigation. `forGen` is the generation the chain was started
+  // for, so a newer navigation invalidates the pending steps instead of letting
+  // a second chain eat the same budget — the old shared counter reset to zero
+  // for every chain still in flight. A page that is not a video page stops
+  // immediately: whether there is anything to inject into is decided by the URL
+  // alone, so polling cannot possibly help there.
+  function attempt(forGen, tries) {
+    if (forGen !== gen) return; // superseded by a newer navigation
+    if (!isVideo()) {
+      removeBtn();
+      sleep();
+      return;
+    }
+    if (inject()) {
+      sleep(); // placed and the URL is stable → nothing left to watch for
+      return;
+    }
+    if (tries + 1 >= RETRY_LIMIT) {
+      exhausted = true;
+      return;
+    }
+    setTimeout(function () {
+      attempt(forGen, tries + 1);
+    }, RETRY_MS);
   }
 
   // Navigation is a discrete, user-visible event, so it skips the throttle
-  // below and restarts the retry chain: the stale button must not outlive it.
+  // below and starts a fresh chain: the stale button must not outlive it.
   function onNavigate() {
     var unchanged = location.href === navUrl;
     navUrl = location.href;
     lastSync = Date.now();
-    retries = 0;
+    exhausted = false;
     if (unchanged && document.getElementById(BTN)) return; // already in place
-    retry();
+    if (!isVideo()) {
+      gen += 1; // kill whatever the previous page left pending
+      removeBtn();
+      sleep();
+      return;
+    }
+    wake();
   }
 
-  // Throttled: YouTube mutates the DOM constantly and this runs per mutation.
+  // Only runs while armed, and is the only per-mutation work. Once the button
+  // sits on a stable URL it disarms the observer, so YouTube's constant DOM
+  // churn costs nothing from then on; the watchdog below takes over.
   function sync() {
     var now = Date.now();
-    if (now - lastSync < 250) return;
+    if (now - lastSync < IDLE_MS) return;
     lastSync = now;
-    if (location.href !== navUrl) onNavigate();
-    else inject();
+    if (location.href !== navUrl) {
+      onNavigate();
+      return;
+    }
+    if (!isVideo()) {
+      removeBtn();
+      sleep();
+      return;
+    }
+    if (inject()) sleep();
   }
 
-  // YouTube is a SPA: yt-navigate-finish fires on every internal navigation
-  // (it is heard on window and document, whichever dispatches it); the
-  // MutationObserver is the fallback and covers the very first paint.
+  // The one timer that never stops, and the wake-up path for a disarmed
+  // observer: a disconnected observer cannot hear the next mutation, so a player
+  // rebuild that silently drops the button (theatre mode, miniplayer) would stay
+  // invisible until the next navigation. That is why this heartbeat exists
+  // instead of re-arming on mutation. Per tick it is a string compare plus — on
+  // a video page only — one getElementById; `exhausted` keeps a page that has no
+  // player at all from being re-armed forever, which is the deliberate
+  // trade-off: such a page is given up on until the next navigation rather than
+  // polled indefinitely.
+  setInterval(function () {
+    if (location.href !== navUrl) {
+      onNavigate();
+      return;
+    }
+    if (!isVideo() || observing || exhausted || document.getElementById(BTN)) return;
+    wake();
+  }, WATCHDOG_MS);
+
+  // yt-navigate-finish fires on every internal navigation (heard on window and
+  // document, whichever dispatches it). The observer is the fast path — it covers
+  // the very first paint and any player that mounts late — and is disarmed again
+  // as soon as the button sits. The delayed chain below is the slow path, and
+  // exists because an observer only hears future mutations: a player that was
+  // already in the DOM when this script ran will never announce itself.
   window.addEventListener('yt-navigate-finish', onNavigate);
   document.addEventListener('yt-navigate-finish', onNavigate);
-  new MutationObserver(sync).observe(document.body, { childList: true, subtree: true });
+  arm();
 
-  if (document.readyState === 'complete') setTimeout(retry, 600);
-  else window.addEventListener('load', function () { setTimeout(retry, 600); });
+  if (document.readyState === 'complete') setTimeout(startChain, 600);
+  else window.addEventListener('load', function () { setTimeout(startChain, 600); });
 })();
