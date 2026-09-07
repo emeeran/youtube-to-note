@@ -55,7 +55,7 @@
         "tests/**/*.{ts,tsx}": [
             "prettier --write"
         ],
-        "*.{js,mjs,cjs,jsx}": [
+        "!(main).{js,mjs,cjs,jsx}": [
             "prettier --write"
         ],
         "*.{json,md,yml,yaml}": [

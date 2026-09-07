@@ -5,10 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- Next release: 2.1.0 (plugin + extension are versioned independently; see
+<!-- Next release: 2.2.0 (plugin + extension are versioned independently; see
      CONTRIBUTING.md for the release flow and extension/PUBLISH.md for the extension). -->
 
-## [Unreleased]
+## [2.1.0] - 2026-09-07
 
 ### Added
 
@@ -143,4 +143,5 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   documented as an accepted risk in `AUDIT.md`; `YTC_*` environment variables are available if
   you want them off disk entirely.
 
-[Unreleased]: https://github.com/emeeran/youtube-to-note/compare/v1.4.0...HEAD
+[2.1.0]: https://github.com/emeeran/youtube-to-note/compare/v1.4.0...v2.1.0
+[Unreleased]: https://github.com/emeeran/youtube-to-note/compare/v2.1.0...HEAD

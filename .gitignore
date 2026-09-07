@@ -8,7 +8,9 @@ data.json
 .env
 .env.*
 !.env.example
-config/data*.json
+
+# Claude Code - per-user, non-shareable session settings
+.claude/settings.local.json
 
 # Node.js dependencies
 node_modules/
