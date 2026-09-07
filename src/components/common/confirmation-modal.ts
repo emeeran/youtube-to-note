@@ -50,9 +50,8 @@ export class ConfirmationModal extends BaseModal {
         messageContainer.setAttribute('id', 'confirmation-modal-description');
         messageContainer.textContent = this.options.message;
 
-        // Buttons container
+        // Buttons container (spacing comes from `.ytc-modal-button-container` in styles.css)
         const buttonContainer = this.createButtonContainer();
-        buttonContainer.style.marginTop = '20px';
 
         const confirmText = this.options.confirmText ?? 'Confirm';
         const cancelText = this.options.cancelText ?? 'Cancel';

@@ -1,13 +1,21 @@
 import { DOMUtilsInterface, StyleObject } from './types';
-import { MODAL_STYLES, INPUT_STYLES } from './constants/index';
+import { MODAL_CSS_CLASSES } from './constants/index';
 
 /**
  * DOM manipulation utilities to eliminate code duplication
+ *
+ * Presentation is owned by `styles.css`: the helpers below only attach the
+ * semantic classes from `MODAL_CSS_CLASSES`. `applyStyles` stays available for
+ * genuinely dynamic values (positions, measured widths, progress), not for
+ * static styling.
  */
 
 export class DOMUtils implements DOMUtilsInterface {
     /**
-     * Apply styles to an HTML element
+     * Apply styles to an HTML element.
+     *
+     * Reserved for runtime-computed values; static appearance belongs in
+     * `styles.css` behind a class from `MODAL_CSS_CLASSES`.
      */
     static applyStyles(element: HTMLElement, styles: StyleObject): void {
         Object.assign(element.style, styles);
@@ -17,9 +25,7 @@ export class DOMUtils implements DOMUtilsInterface {
      * Create a standardized button container
      */
     static createButtonContainer(parent: HTMLElement): HTMLDivElement {
-        const container = parent.createDiv();
-        this.applyStyles(container, MODAL_STYLES.buttonContainer);
-        return container;
+        return parent.createDiv(MODAL_CSS_CLASSES.buttonContainer);
     }
 
     /**
@@ -31,13 +37,10 @@ export class DOMUtils implements DOMUtilsInterface {
         isPrimary = false,
         onClick?: () => void,
     ): HTMLButtonElement {
-        const button = container.createEl('button', { text });
-
-        if (isPrimary) {
-            button.classList.add('mod-cta');
-        }
-
-        this.applyStyles(button, MODAL_STYLES.button);
+        const button = container.createEl('button', {
+            text,
+            cls: isPrimary ? `${MODAL_CSS_CLASSES.button} mod-cta` : MODAL_CSS_CLASSES.button,
+        });
 
         if (onClick) {
             button.addEventListener('click', onClick);
@@ -47,46 +50,25 @@ export class DOMUtils implements DOMUtilsInterface {
     }
 
     /**
-     * Create a styled input field
-     */
-    static createStyledInput(container: HTMLElement, type: string, placeholder: string, value = ''): HTMLInputElement {
-        const input = container.createEl('input', {
-            type,
-            placeholder,
-            value,
-        });
-
-        this.applyStyles(input, INPUT_STYLES);
-        return input;
-    }
-
-    /**
      * Set up modal base styling for consistency
      */
     static setupModalStyling(modalEl: HTMLElement): void {
-        this.applyStyles(modalEl, {
-            zIndex: MODAL_STYLES.zIndex,
-            display: MODAL_STYLES.display,
-        });
+        // `display` and `z-index` come from `.ytc-modal` in styles.css.
+        modalEl.addClass(MODAL_CSS_CLASSES.modal);
     }
 
     /**
      * Create a header element with consistent styling
      */
     static createModalHeader(parent: HTMLElement, text: string): HTMLHeadingElement {
-        const header = parent.createEl('h2', { text });
-        this.applyStyles(header, MODAL_STYLES.header);
-        return header;
+        return parent.createEl('h2', { text, cls: MODAL_CSS_CLASSES.header });
     }
 
     /**
      * Create a message paragraph with consistent styling
      */
     static createModalMessage(parent: HTMLElement, text: string): HTMLParagraphElement {
-        const message = parent.createEl('p');
-        message.setText(text);
-        this.applyStyles(message, MODAL_STYLES.message);
-        return message;
+        return parent.createEl('p', { text, cls: MODAL_CSS_CLASSES.message });
     }
 
     /**

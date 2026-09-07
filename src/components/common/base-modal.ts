@@ -1,22 +1,16 @@
 import { DOMUtils } from '../../dom';
-import { INPUT_STYLES } from '../../constants/index';
+import { MODAL_CSS_CLASSES, TIMEOUTS } from '../../constants/index';
 import { ModalEvents } from '../../types';
-import { TIMEOUTS } from '../../constants/index';
 import { App, Modal } from 'obsidian';
 
 /**
  * Base modal class with shared functionality and consistent styling
  * Designed to prevent conflicts with other plugin modals
+ *
+ * Every visual property (including the old inline `z-index` / input padding /
+ * `#ffa500` heading) lives in `styles.css` under the `ytc-modal*` classes from
+ * `MODAL_CSS_CLASSES`; this class only attaches classes and attributes.
  */
-
-// Unique CSS classes to prevent conflicts
-const MODAL_CSS_CLASSES = {
-    modal: 'ytc-modal',
-    header: 'ytc-modal-header',
-    content: 'ytc-modal-content',
-    button: 'ytc-modal-button',
-    input: 'ytc-modal-input',
-} as const;
 
 export abstract class BaseModal extends Modal {
     protected events: Partial<ModalEvents> = {};
@@ -32,10 +26,10 @@ export abstract class BaseModal extends Modal {
      * Set up base modal styling for consistency
      */
     private setupModalStyling(): void {
+        // Adds `ytc-modal` (see `.ytc-modal` in styles.css for display/z-index)
         DOMUtils.setupModalStyling(this.modalEl);
 
         // Add unique CSS class to prevent conflicts
-        this.modalEl.addClass(MODAL_CSS_CLASSES.modal);
         this.contentEl.addClass(MODAL_CSS_CLASSES.content);
     }
 
@@ -46,17 +40,15 @@ export abstract class BaseModal extends Modal {
         // Add unique attribute for identification
         this.modalEl.setAttribute('data-plugin', 'youtube-clipper');
 
-        // Ensure modal has high z-index but not conflicting
-        this.modalEl.style.zIndex = '9999';
+        // Stacking above other plugins' overlays is owned by `.ytc-modal` in styles.css.
     }
 
     /**
      * Create standardized modal header with conflict prevention
      */
     protected createHeader(text: string): HTMLHeadingElement {
-        const header = DOMUtils.createModalHeader(this.contentEl, text);
-        header.addClass(MODAL_CSS_CLASSES.header);
-        return header;
+        // `ytc-modal-header` (theme-accent colour, sizing) is attached by DOMUtils.
+        return DOMUtils.createModalHeader(this.contentEl, text);
     }
 
     /**
@@ -83,7 +75,6 @@ export abstract class BaseModal extends Modal {
         onClick?: () => void,
     ): HTMLButtonElement {
         const button = DOMUtils.createStyledButton(container, text, isPrimary, onClick);
-        button.addClass(MODAL_CSS_CLASSES.button);
 
         // Add unique data attribute
         button.setAttribute('data-plugin', 'youtube-clipper');
@@ -106,8 +97,7 @@ export abstract class BaseModal extends Modal {
             placeholder,
         });
 
-        // Apply styles and add unique class
-        DOMUtils.applyStyles(input, INPUT_STYLES);
+        // Styling (width/padding/border) comes from `.ytc-modal-input` in styles.css
         input.addClass(MODAL_CSS_CLASSES.input);
         input.setAttribute('data-plugin', 'youtube-clipper');
 
@@ -201,6 +191,9 @@ export abstract class BaseModal extends Modal {
 
     /**
      * Force modal visibility (for stubborn modals)
+     *
+     * Styling is declarative now, so this only re-asserts the modal class —
+     * useful when the modal is opened from inside another modal.
      */
     protected forceVisible(): void {
         setTimeout(() => {
