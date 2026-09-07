@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 import { SecureConfigService } from './secure-config';
-import { ValidationUtils } from './validation';
+import { API_KEY_FIELDS, MAX_CUSTOM_PROMPT_LENGTH, ValidationUtils } from './validation';
 import { OutputFormat, YouTubePluginSettings } from './types';
 import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ErrorHandler } from './services/error-handler';
@@ -13,6 +13,13 @@ interface PluginWithSettings extends Plugin {
 
 const CSS_PREFIX = 'ytc-settings';
 
+/** Delay before a keystroke in a prompt textarea is persisted to data.json. */
+const PROMPT_SAVE_DEBOUNCE_MS = 500;
+
+const DEFAULT_OUTPUT_PATH = 'YouTube/Processed Videos';
+const DEFAULT_ENV_PREFIX = 'YTC';
+const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434';
+
 export interface SettingsTabOptions {
     plugin: PluginWithSettings;
     onSettingsChange: (settings: YouTubePluginSettings) => Promise<void>;
@@ -21,9 +28,15 @@ export interface SettingsTabOptions {
 export class YouTubeSettingsTab extends PluginSettingTab {
     private settings: YouTubePluginSettings;
     private validationErrors: string[] = [];
+    private validationWarnings: string[] = [];
     private secureConfig: SecureConfigService;
     private sectionStates: Map<string, boolean> = new Map();
     private readonly SECTION_STATES_KEY = 'ytc-settings-section-states';
+    /** Live validation banner, updated in place instead of rebuilding the tab. */
+    private validationBox?: HTMLElement;
+    /** Prompt values awaiting their debounced write to data.json. */
+    private readonly pendingPromptSaves = new Map<OutputFormat, string>();
+    private readonly promptSaveTimers = new Map<OutputFormat, number>();
 
     constructor(
         app: App,
@@ -45,6 +58,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         this.createHeader();
 
+        // Persistent banner for validation errors/warnings. It survives input
+        // events: feedback is patched into it in place rather than triggering a
+        // full rebuild (which would drop focus mid-keystroke).
+        this.validationBox = containerEl.createDiv({ cls: `${CSS_PREFIX}-validation` });
+        this.validationBox.style.cssText =
+            'display: flex; flex-direction: column; gap: 4px; margin: 8px 0 12px; ' +
+            'font-size: 12px; line-height: 1.4;';
+        this.renderValidationFeedback();
+
         // Two-column grid
         const grid = containerEl.createDiv({ cls: `${CSS_PREFIX}-grid` });
 
@@ -58,6 +80,14 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         this.createAISection(right);
         this.createOutputSection(right);
         this.createAdvancedSection(right);
+    }
+
+    /**
+     * Obsidian calls this when the settings tab closes. Flush anything typed in
+     * the last debounce window so a quick edit is never lost.
+     */
+    hide(): void {
+        this.flushAllPromptSaves();
     }
 
     // ── Collapsible section ──────────────────────────────────────────────
@@ -90,7 +120,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         const left = header.createDiv({ cls: `${CSS_PREFIX}-header-left` });
         left.createSpan({ text: '🎬' });
-        left.createSpan({ text: 'YT Clipper' });
+        left.createSpan({ text: 'YouTube to Note' });
 
         const isReady = this.validateConfiguration();
         this.headerBadge = header.createDiv({
@@ -229,8 +259,8 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         epLeft.createSpan({ cls: `${CSS_PREFIX}-api-name`, text: 'Endpoint' });
         const epInput = endpointCard.createEl('input', { cls: `${CSS_PREFIX}-api-input` });
         epInput.type = 'text';
-        epInput.placeholder = 'http://localhost:11434';
-        epInput.value = this.settings.ollamaEndpoint || 'http://localhost:11434';
+        epInput.placeholder = DEFAULT_OLLAMA_ENDPOINT;
+        epInput.value = this.settings.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT;
         epInput.addEventListener('change', async () => {
             await this.updateSetting('ollamaEndpoint', epInput.value.trim());
         });
@@ -379,11 +409,18 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .addTextArea(text => {
                 text.setPlaceholder('Built-in template used when empty')
                     .setValue(override)
-                    .onChange(async value => {
-                        await this.updateCustomPrompt(format, value);
+                    .onChange(value => {
+                        // In-memory first so the value is never lost, then a
+                        // debounced write: this textarea fires `onChange` on
+                        // every keystroke and a full data.json rewrite per
+                        // character is far too expensive.
+                        this.updateCustomPrompt(format, value);
+                        this.schedulePromptSave(format, value);
                     });
                 text.inputEl.style.cssText =
                     'width: 100%; min-height: 88px; font-family: var(--font-monospace); font-size: 12px;';
+                text.inputEl.maxLength = MAX_CUSTOM_PROMPT_LENGTH;
+                text.inputEl.addEventListener('blur', () => this.flushPromptSave(format));
                 return text;
             })
             .addButton(button => {
@@ -395,27 +432,69 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             });
     }
 
-    private async updateCustomPrompt(format: OutputFormat, value: string): Promise<void> {
-        try {
-            const prompts = { ...(this.settings.customPrompts ?? {}) };
-            if (value.trim()) {
-                prompts[format] = value;
-            } else {
-                delete prompts[format];
-            }
-            this.settings.customPrompts = prompts;
-            await this.validateAndSaveSettings();
-        } catch (error) {
-            ErrorHandler.handle(error as Error, `Prompt template: ${format}`);
+    private updateCustomPrompt(format: OutputFormat, value: string): void {
+        const prompts = { ...(this.settings.customPrompts ?? {}) };
+        if (value.trim()) {
+            prompts[format] = value;
+        } else {
+            delete prompts[format];
+        }
+        this.settings.customPrompts = prompts;
+    }
+
+    /**
+     * Queue a debounced persist for one prompt template. Re-typing within the
+     * window resets the timer, so a burst of keystrokes costs a single write.
+     */
+    private schedulePromptSave(format: OutputFormat, value: string): void {
+        this.pendingPromptSaves.set(format, value);
+        const existing = this.promptSaveTimers.get(format);
+        if (existing !== undefined) {
+            window.clearTimeout(existing);
+        }
+        const timer = window.setTimeout(() => {
+            this.promptSaveTimers.delete(format);
+            this.flushPromptSave(format);
+        }, PROMPT_SAVE_DEBOUNCE_MS);
+        this.promptSaveTimers.set(format, timer);
+    }
+
+    /** Write a pending prompt edit immediately (blur, close, reset). */
+    private flushPromptSave(format: OutputFormat): void {
+        if (!this.pendingPromptSaves.has(format)) {
+            return;
+        }
+        this.pendingPromptSaves.delete(format);
+        const timer = this.promptSaveTimers.get(format);
+        if (timer !== undefined) {
+            window.clearTimeout(timer);
+            this.promptSaveTimers.delete(format);
+        }
+        void this.persistSettings(`Prompt template: ${format}`);
+    }
+
+    private flushAllPromptSaves(): void {
+        const formats = [...this.pendingPromptSaves.keys()];
+        formats.forEach(format => this.flushPromptSave(format));
+    }
+
+    private cancelPromptSave(format: OutputFormat): void {
+        this.pendingPromptSaves.delete(format);
+        const timer = this.promptSaveTimers.get(format);
+        if (timer !== undefined) {
+            window.clearTimeout(timer);
+            this.promptSaveTimers.delete(format);
         }
     }
 
     private async resetCustomPrompt(format: OutputFormat): Promise<void> {
         try {
+            // A queued keystroke must not resurrect the value we are clearing.
+            this.cancelPromptSave(format);
             const prompts = { ...(this.settings.customPrompts ?? {}) };
             delete prompts[format];
             this.settings.customPrompts = prompts;
-            await this.validateAndSaveSettings();
+            await this.persistSettings(`Prompt template reset: ${format}`);
             this.display();
             this.showToast(`${FORMAT_META[format]?.label ?? format} template reset`, 'info');
         } catch (error) {
@@ -432,10 +511,10 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             .setDesc('')
             .addText(text =>
                 text
-                    .setPlaceholder('YouTube/Processed Videos')
-                    .setValue(this.settings.outputPath || 'YouTube/Processed Videos')
+                    .setPlaceholder(DEFAULT_OUTPUT_PATH)
+                    .setValue(this.settings.outputPath || DEFAULT_OUTPUT_PATH)
                     .onChange(async value => {
-                        await this.updateSetting('outputPath', value.trim() || 'YouTube/Processed Videos');
+                        await this.updateSetting('outputPath', value.trim() || DEFAULT_OUTPUT_PATH);
                     }),
             );
 
@@ -503,15 +582,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 }),
             );
 
-        new Setting(content)
-            .setName('Env Variables')
-            .setDesc('')
-            .addToggle(toggle =>
-                toggle.setValue(this.settings.useEnvironmentVariables ?? false).onChange(async value => {
-                    await this.updateSetting('useEnvironmentVariables', value);
-                    if (value) this.warnIfKeysStillOnDisk();
-                }),
-            );
+        this.createEnvironmentSettings(content);
 
         const actionsDiv = content.createDiv({ cls: `${CSS_PREFIX}-compact-actions` });
         const clearBtn = actionsDiv.createEl('button', { text: '🗑️ Clear Keys', cls: 'mod-warning' });
@@ -522,6 +593,39 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 this.display();
             }
         });
+    }
+
+    /**
+     * Environment-variable intake: the toggle plus the prefix it reads keys
+     * from. Exposing the prefix here is what makes the "env mode without a
+     * stored key" configuration reachable from the UI instead of only by
+     * hand-editing data.json.
+     */
+    private createEnvironmentSettings(content: HTMLElement): void {
+        new Setting(content)
+            .setName('Env Variables')
+            .setDesc('')
+            .addToggle(toggle =>
+                toggle.setValue(this.settings.useEnvironmentVariables ?? false).onChange(async value => {
+                    await this.updateSetting('useEnvironmentVariables', value);
+                    if (value) this.warnIfKeysStillOnDisk();
+                }),
+            );
+
+        new Setting(content)
+            .setName('Environment variable prefix')
+            .setDesc(
+                'Prefix for the environment variables keys are read from, e.g. YTC_GEMINI_API_KEY. ' +
+                    'Required when "Env Variables" is on.',
+            )
+            .addText(text =>
+                text
+                    .setPlaceholder(DEFAULT_ENV_PREFIX)
+                    .setValue(this.settings.environmentPrefix || DEFAULT_ENV_PREFIX)
+                    .onChange(async value => {
+                        await this.updateSetting('environmentPrefix', value.trim());
+                    }),
+            );
     }
 
     // ── Slider helper ────────────────────────────────────────────────────
@@ -551,43 +655,101 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     // ── Settings persistence ─────────────────────────────────────────────
+    /**
+     * READY/SETUP badge rule: any one provider key (not just Gemini/Groq), or
+     * environment-variable mode with a usable prefix.
+     */
     private validateConfiguration(): boolean {
-        const hasKey = this.settings.geminiApiKey?.trim() || this.settings.groqApiKey?.trim();
-        const hasPath = ValidationUtils.isValidPath(this.settings.outputPath);
-        return Boolean(hasKey && hasPath);
+        const hasKey = API_KEY_FIELDS.some(field => Boolean(String(this.settings[field] ?? '').trim()));
+        const hasEnv =
+            Boolean(this.settings.useEnvironmentVariables) &&
+            Boolean(String(this.settings.environmentPrefix ?? '').trim());
+        return Boolean((hasKey || hasEnv) && ValidationUtils.isValidPath(this.settings.outputPath));
     }
 
     private async updateSetting(
         key: keyof YouTubePluginSettings,
         value: string | boolean | number | 'fast' | 'balanced' | 'quality',
     ): Promise<void> {
-        try {
-            if (this.isApiKeyField(key) && typeof value === 'string') {
-                if (value) {
-                    try {
-                        const obfuscated = this.secureConfig.setApiKey(
-                            key as import('./secure-config').ApiKeyName,
-                            value,
-                        );
-                        (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
-                    } catch (error) {
-                        ErrorHandler.handle(error as Error, `API Key: ${key}`, true);
-                        return;
-                    }
-                } else {
-                    (this.settings as unknown as Record<string, unknown>)[key] = '';
+        if (this.isApiKeyField(key) && typeof value === 'string') {
+            if (value) {
+                try {
+                    const obfuscated = this.secureConfig.setApiKey(key as import('./secure-config').ApiKeyName, value);
+                    (this.settings as unknown as Record<string, unknown>)[key] = obfuscated;
+                } catch (error) {
+                    ErrorHandler.handle(error as Error, `API Key: ${key}`, true);
+                    return;
                 }
             } else {
-                (this.settings as unknown as Record<string, unknown>)[key] = value;
+                (this.settings as unknown as Record<string, unknown>)[key] = '';
             }
-            await this.validateAndSaveSettings();
-        } catch (error) {
-            ErrorHandler.handle(error as Error, `Settings: ${key}`);
+        } else {
+            (this.settings as unknown as Record<string, unknown>)[key] = value;
         }
+        await this.persistSettings(`Settings: ${key}`);
     }
 
     private isApiKeyField(key: keyof YouTubePluginSettings): boolean {
-        return ['geminiApiKey', 'groqApiKey', 'ollamaApiKey', 'huggingFaceApiKey', 'openRouterApiKey'].includes(key);
+        return (API_KEY_FIELDS as readonly string[]).includes(key);
+    }
+
+    /**
+     * Validate, then persist. Validation feedback is rendered into the live
+     * banner and the header badge; the save only happens when the settings are
+     * valid, so an invalid edit never reaches data.json.
+     */
+    private async validateAndSaveSettings(): Promise<void> {
+        const validation = ValidationUtils.validateSettings(this.settings as unknown as Record<string, unknown>);
+        this.validationErrors = validation.errors;
+        this.validationWarnings = validation.warnings;
+
+        if (validation.isValid) {
+            await this.options.onSettingsChange(this.settings);
+        }
+        this.renderValidationFeedback();
+    }
+
+    /** Same as {@link validateAndSaveSettings} but user-facing failures become a Notice. */
+    private async persistSettings(context: string): Promise<void> {
+        try {
+            await this.validateAndSaveSettings();
+        } catch (error) {
+            ErrorHandler.handle(error as Error, context);
+        }
+    }
+
+    /**
+     * Patch the validation banner and header badge in place. Rebuilding the
+     * whole tab here used to yank focus away from the control the user was
+     * typing in whenever the error set flipped.
+     */
+    private renderValidationFeedback(): void {
+        const isReady = this.validateConfiguration();
+        this.updateHeaderBadge(isReady);
+
+        const box = this.validationBox;
+        if (!box) {
+            return;
+        }
+        box.empty();
+
+        if (this.validationErrors.length === 0 && this.validationWarnings.length === 0) {
+            box.style.display = 'none';
+            return;
+        }
+        box.style.display = 'flex';
+
+        const render = (messages: string[], cls: string, icon: string): void => {
+            messages.forEach(message => {
+                const row = box.createDiv({ cls: `${CSS_PREFIX}-validation-row ${cls}` });
+                row.style.cssText = 'display: flex; gap: 6px; align-items: baseline;';
+                const iconEl = row.createSpan({ text: icon });
+                iconEl.style.flex = '0 0 auto';
+                row.createSpan({ text: message });
+            });
+        };
+        render(this.validationErrors, 'is-error', '⚠️');
+        render(this.validationWarnings, 'is-warning', 'ℹ️');
     }
 
     /**
@@ -596,37 +758,12 @@ export class YouTubeSettingsTab extends PluginSettingTab {
      * Non-destructive: does not clear anything, just nudges toward "Clear Keys".
      */
     private warnIfKeysStillOnDisk(): void {
-        const fields: (keyof YouTubePluginSettings)[] = [
-            'geminiApiKey',
-            'groqApiKey',
-            'ollamaApiKey',
-            'huggingFaceApiKey',
-            'openRouterApiKey',
-        ];
-        const stored = fields.filter(f => Boolean(String(this.settings[f] ?? '').trim())).length;
+        const stored = API_KEY_FIELDS.filter(field => Boolean(String(this.settings[field] ?? '').trim())).length;
         if (stored > 0) {
             new Notice(
                 `Environment mode is on, but ${stored} API key(s) are still stored in data.json. ` +
                     'Use "Clear Keys" to remove them from disk.',
             );
-        }
-    }
-
-    private async validateAndSaveSettings(): Promise<void> {
-        const validation = ValidationUtils.validateSettings(this.settings as unknown as Record<string, unknown>);
-        const hadErrors = this.validationErrors.length > 0;
-        const hasErrors = validation.errors.length > 0;
-        this.validationErrors = validation.errors;
-
-        if (validation.isValid) {
-            await this.options.onSettingsChange(this.settings);
-            this.updateHeaderBadge(true);
-        } else {
-            this.updateHeaderBadge(false);
-        }
-
-        if (hadErrors !== hasErrors) {
-            this.display();
         }
     }
 
@@ -640,15 +777,27 @@ export class YouTubeSettingsTab extends PluginSettingTab {
     }
 
     // ── Export / Import / Reset ──────────────────────────────────────────
+    /**
+     * Export the settings as JSON. API keys are deliberately stripped: the
+     * download is a plaintext file that easily ends up in shared folders,
+     * screenshots and issue reports, so it must never carry credentials.
+     */
     private exportSettings(): void {
-        const blob = new Blob([JSON.stringify(this.settings, null, 2)], { type: 'application/json' });
+        const exported: Record<string, unknown> = { ...(this.settings as unknown as Record<string, unknown>) };
+        API_KEY_FIELDS.forEach(field => delete exported[field]);
+        exported.keysExported = false;
+        exported.keysNote =
+            'API keys are never exported. Re-enter them in the plugin settings after importing, ' +
+            'or provide them through environment variables.';
+
+        const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `yt-clipper-settings-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `youtube-to-note-settings-${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        this.showToast('Exported', 'success');
+        new Notice('📤 Settings exported — API keys are not included. Add them back after importing.');
     }
 
     private importSettings(): void {
@@ -659,21 +808,28 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file) return;
             try {
-                const imported = JSON.parse(await file.text());
-                const validation = ValidationUtils.validateSettings(imported);
+                const imported = JSON.parse(await file.text()) as unknown;
+                const merged =
+                    imported && typeof imported === 'object'
+                        ? this.mergeImportedSettings(imported as Record<string, unknown>)
+                        : this.settings;
+                // Validate what will actually be stored, not the raw file: an
+                // export without keys must still import into a vault that has them.
+                const validation = ValidationUtils.validateSettings(merged as unknown as Record<string, unknown>);
                 if (!validation.isValid) {
-                    this.showToast('Invalid file', 'error');
+                    this.showToast(`Invalid file: ${validation.errors[0] ?? 'unexpected content'}`, 'error');
                     return;
                 }
                 const { ConfirmationModal } = await import('./components/common/confirmation-modal');
                 if (
                     await new ConfirmationModal(this.app, {
                         title: 'Import',
-                        message: 'Overwrite current settings?',
+                        message:
+                            'Overwrite current settings? Your API keys are kept unless the file provides new ones.',
                     }).openAndWait()
                 ) {
-                    await this.options.onSettingsChange(imported);
-                    this.settings = { ...imported };
+                    await this.options.onSettingsChange(merged);
+                    this.settings = { ...merged };
                     this.display();
                     this.showToast('Imported', 'success');
                 }
@@ -682,6 +838,25 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             }
         });
         input.click();
+    }
+
+    /**
+     * Overlay an imported settings object onto the live one. Provider keys are
+     * only taken from the file when it carries a non-empty value — exports never
+     * do, so an import can never blank out the keys already stored in data.json.
+     */
+    private mergeImportedSettings(imported: Record<string, unknown>): YouTubePluginSettings {
+        const clean = { ...imported };
+        delete clean.keysExported;
+        delete clean.keysNote;
+
+        API_KEY_FIELDS.forEach(field => {
+            if (!ValidationUtils.isNonEmptyString(clean[field])) {
+                delete clean[field];
+            }
+        });
+
+        return { ...this.settings, ...(clean as Partial<YouTubePluginSettings>) };
     }
 
     private async resetToDefaults(): Promise<void> {
@@ -703,9 +878,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
             };
             this.settings = {
                 ...apiKeys,
-                outputPath: 'YouTube/Processed Videos',
+                outputPath: DEFAULT_OUTPUT_PATH,
                 useEnvironmentVariables: false,
-                environmentPrefix: 'YTC',
+                environmentPrefix: DEFAULT_ENV_PREFIX,
+                // Model listings are a cache, not a preference — drop them so a
+                // reset also forces a fresh `listModels` per provider.
+                modelOptionsCache: {},
+                modelCacheTimestamps: {},
                 performanceMode: 'balanced',
                 enableParallelProcessing: true,
                 enableAutoFallback: true,
@@ -718,7 +897,13 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 defaultMaxTokens: 4096,
                 defaultTemperature: 0.5,
             };
-            void this.options.onSettingsChange(this.settings);
+            try {
+                await this.options.onSettingsChange(this.settings);
+            } catch (error) {
+                // The in-memory reset already happened; surface the write failure
+                // instead of letting the rejection vanish.
+                ErrorHandler.handle(error as Error, 'Reset settings');
+            }
             this.display();
             this.showToast('Reset', 'info');
         }
