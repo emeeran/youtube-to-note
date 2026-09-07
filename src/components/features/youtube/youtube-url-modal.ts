@@ -4,26 +4,27 @@ import { ErrorHandler } from '../../../services/error-handler';
 import { logger } from '../../../services/logger';
 import { MESSAGES } from '../../../constants/index';
 import { PROVIDER_MODEL_OPTIONS } from '../../../ai/api';
-import {
-    BatchItemResult,
-    OutputFormat,
-    PerformanceMode,
-    ProcessingOptions,
-    ProcessingResult,
-    ProgressUpdate,
-} from '../../../types';
+import { BatchItemResult, OutputFormat, ProcessingOptions, ProcessingResult, ProgressUpdate } from '../../../types';
 import { UserPreferencesService } from '../../../services/user-preferences-service';
 import { ValidationUtils } from '../../../validation';
 import { FORMAT_META } from '../../../templates/format-templates';
 import { formatModelNameWithMultimodal } from '../../../services/model-formatter';
 import {
     BatchSummary,
+    buildFailureRetry,
+    EMPTY_PARSED_URLS,
     extractYouTubeUrls,
+    firstCreatedFilePath,
     FORMAT_ORDER,
     formatAttribution,
     formatBatchSummary,
     formatReadyMessage,
+    formatRetryLabel,
+    hasTextSelection,
     isCancelledResult,
+    isMultilineField,
+    MAX_BATCH_URLS,
+    ModalSubmission,
     noteNameFromPath,
     parseUrlInput,
     ParsedUrls,
@@ -31,8 +32,9 @@ import {
     resolveProgressDetail,
     stepIndexForStage,
     summarizeBatch,
+    withTimeout,
 } from './youtube-modal-utils';
-import { App, Notice } from 'obsidian';
+import { App, Notice, requestUrl } from 'obsidian';
 
 /**
  * YouTube URL input modal component
@@ -41,44 +43,45 @@ import { App, Notice } from 'obsidian';
  * (stage-driven) progress, and renders per-URL results with attribution.
  */
 
-/** Everything needed to re-run a submission exactly as the user configured it. */
-interface ModalSubmission {
-    urls: string[];
-    format: OutputFormat;
-    model?: string;
-    instructions: string;
-}
-
 const PROCESS_BUTTON_HTML = [
     '<span class="ytc-btn-icon">✨</span>',
     `<span class="ytc-btn-label">${MESSAGES.MODALS.PROCESS}</span>`,
 ].join('');
 
+/** The parts of a YouTube oEmbed answer the preview renders. */
+interface PreviewMetadata {
+    title?: string;
+    author_name?: string;
+}
+
 export interface YouTubeUrlModalOptions {
     onProcess: (url: string, options?: ProcessingOptions) => Promise<ProcessingResult>;
     onOpenFile?: (filePath: string) => Promise<void>;
+    /**
+     * Called from the modal's onClose so the owner can release the single-modal
+     * slot it claimed (see ModalManager). Without this, the flag set before
+     * `open()` would never clear and every later open would look like a dupe.
+     */
+    onModalClosed?: () => void;
     initialUrl?: string;
     providers?: string[]; // available provider names
     modelOptions?: Record<string, string[]>; // mapping providerName -> models
-    defaultProvider?: string;
-    defaultModel?: string;
     defaultMaxTokens?: number;
     defaultTemperature?: number;
     fetchModels?: () => Promise<Record<string, string[]>>;
     fetchModelsForProvider?: (provider: string, forceRefresh?: boolean) => Promise<string[]>;
     // Performance settings from plugin settings
-    performanceMode?: PerformanceMode;
-    enableParallelProcessing?: boolean;
     enableAutoFallback?: boolean;
-    preferMultimodal?: boolean;
-    onPerformanceSettingsChange?: (
-        performanceMode: PerformanceMode,
-        enableParallel: boolean,
-        preferMultimodal: boolean,
-    ) => Promise<void>;
 }
 
 export class YouTubeUrlModal extends BaseModal {
+    /**
+     * The one modal allowed to be on screen. Ribbon, command palette, clipboard
+     * watcher and the obsidian:// handler can all race to open one, and stacked
+     * modals fight over the same scope handlers.
+     */
+    private static activeInstance?: YouTubeUrlModal;
+
     private url = '';
     private format: OutputFormat = 'executive-summary';
     private headerEl?: HTMLHeadingElement;
@@ -114,7 +117,20 @@ export class YouTubeUrlModal extends BaseModal {
     private processedFilePath?: string;
     private timerInterval?: number;
     private timerEl?: HTMLSpanElement;
-    private validationTimer?: number;
+    private retryAllButton?: HTMLButtonElement;
+
+    // Timers that outlive a single render must all be reachable from onClose,
+    // otherwise they fire against a DOM that no longer exists.
+    private pendingTimers = new Set<number>();
+    private copyPathTimer?: number;
+    private dropdownFlashTimer?: number;
+    private previewDebounceTimer?: number;
+
+    // Video preview state
+    /** Monotonic id of the newest preview request; only it may render. */
+    private previewRequestSeq = 0;
+    /** Video whose preview is currently on screen (skips a redundant refetch). */
+    private previewRenderedVideoId = '';
 
     // Run state
     private abortController?: AbortController;
@@ -125,6 +141,11 @@ export class YouTubeUrlModal extends BaseModal {
 
     // Format dropdown
     private formatSelect?: HTMLSelectElement;
+
+    /** One oEmbed lookup per pause in typing — never one per keystroke. */
+    private static readonly PREVIEW_DEBOUNCE_MS = 400;
+    /** A preview request that hangs must not pin the modal's network stack. */
+    private static readonly PREVIEW_TIMEOUT_MS = 10000;
 
     constructor(
         app: App,
@@ -160,6 +181,20 @@ export class YouTubeUrlModal extends BaseModal {
 
     onOpen(): void {
         logger.debug('[YT-CLIPPER] YouTubeUrlModal.onOpen called', 'Modal');
+        const incumbent = YouTubeUrlModal.activeInstance;
+        if (incumbent && incumbent !== this) {
+            // Ribbon, command palette and clipboard intake can all fire in the
+            // same tick; a second modal would only fight over the first one's
+            // scope handlers, so refuse it instead of stacking.
+            logger.warn('[YT-CLIPPER] A YouTube modal is already open — ignoring duplicate open', 'Modal');
+            new Notice('📝 YouTube to Note is already open — finish or close that one first.');
+            // Obsidian is still mid-open() here, so the close has to wait for it
+            // to finish before the backdrop can be torn down cleanly.
+            this.later(() => this.close(), 0);
+            return;
+        }
+        YouTubeUrlModal.activeInstance = this;
+
         try {
             this.createModalContent();
             this.setupEventHandlers();
@@ -546,9 +581,37 @@ export class YouTubeUrlModal extends BaseModal {
     }
 
     /**
-     * Show video preview with thumbnail and metadata
+     * setTimeout that onClose can clear, so no callback ever writes to a modal
+     * that has already gone away.
      */
-    private async showVideoPreview(videoId: string): Promise<void> {
+    private later(callback: () => void, delayMs: number): number {
+        const id = window.setTimeout(() => {
+            this.pendingTimers.delete(id);
+            callback();
+        }, delayMs);
+        this.pendingTimers.add(id);
+        return id;
+    }
+
+    private cancelLater(id: number | undefined): void {
+        if (id === undefined) return;
+        window.clearTimeout(id);
+        this.pendingTimers.delete(id);
+    }
+
+    private clearPendingTimers(): void {
+        this.pendingTimers.forEach(id => window.clearTimeout(id));
+        this.pendingTimers.clear();
+    }
+
+    /**
+     * Show video preview with thumbnail and metadata.
+     *
+     * The thumbnail is a local, cheap image so it tracks the keystrokes; the
+     * oEmbed lookup is debounced, token-guarded and time-capped so a slow
+     * answer for an earlier video can never overwrite the current preview.
+     */
+    private showVideoPreview(videoId: string): void {
         if (!this.videoPreviewContainer || !this.thumbnailEl) return;
 
         this.videoPreviewContainer.classList.add('is-visible');
@@ -561,30 +624,72 @@ export class YouTubeUrlModal extends BaseModal {
 
         this.thumbnailEl.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 
+        this.cancelLater(this.previewDebounceTimer);
+        const token = ++this.previewRequestSeq;
+        this.previewDebounceTimer = this.later(() => {
+            this.previewDebounceTimer = undefined;
+            if (token !== this.previewRequestSeq) return; // superseded while waiting
+            void this.loadVideoPreview(videoId);
+        }, YouTubeUrlModal.PREVIEW_DEBOUNCE_MS);
+    }
+
+    /**
+     * Fetch the preview metadata over Obsidian's CORS-free `requestUrl`.
+     * Never throws; a failure just leaves the thumbnail-only preview.
+     */
+    private async loadVideoPreview(videoId: string): Promise<void> {
+        if (this.previewRenderedVideoId === videoId) return; // already on screen
+
+        const token = this.previewRequestSeq;
+        const isCurrent = () => token === this.previewRequestSeq;
+
         try {
-            const response = await fetch(
-                `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+            const response = await withTimeout(
+                requestUrl({
+                    url: `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+                    method: 'GET',
+                    throw: false,
+                }),
+                YouTubeUrlModal.PREVIEW_TIMEOUT_MS,
             );
-            if (response.ok) {
-                const data = await response.json();
-                if (this.videoTitleEl) {
-                    this.videoTitleEl.textContent = data.title || 'Unknown Title';
-                }
-                if (this.videoChannelEl) {
-                    this.videoChannelEl.textContent = `📺 ${data.author_name || 'Unknown Channel'}`;
-                }
-                if (this.videoDurationEl) {
-                    this.videoDurationEl.textContent = '';
-                }
+
+            // A newer keystroke owns the preview now — drop this stale answer.
+            if (!isCurrent()) return;
+
+            if (response.status === 200) {
+                this.renderPreviewMetadata(videoId, response.json);
+            } else {
+                this.renderPreviewFallback(videoId);
             }
         } catch {
-            if (this.videoTitleEl) {
-                this.videoTitleEl.textContent = 'Video Preview';
-            }
+            if (isCurrent()) this.renderPreviewFallback(videoId);
+        }
+    }
+
+    /** Fill in title + channel once the oEmbed answer is in. */
+    private renderPreviewMetadata(videoId: string, data: PreviewMetadata): void {
+        this.previewRenderedVideoId = videoId;
+        if (this.videoTitleEl) {
+            this.videoTitleEl.textContent = data.title ?? 'Unknown Title';
+        }
+        if (this.videoChannelEl) {
+            this.videoChannelEl.textContent = `📺 ${data.author_name ?? 'Unknown Channel'}`;
+        }
+        if (this.videoDurationEl) {
+            this.videoDurationEl.textContent = '';
+        }
+    }
+
+    /** No metadata (bad status / request failure) — keep the thumbnail, say why. */
+    private renderPreviewFallback(videoId: string): void {
+        this.previewRenderedVideoId = videoId;
+        if (this.videoTitleEl) {
+            this.videoTitleEl.textContent = 'Video Preview';
         }
     }
 
     private hideVideoPreview(): void {
+        this.previewRenderedVideoId = '';
         if (this.videoPreviewContainer) {
             this.videoPreviewContainer.classList.remove('is-visible');
         }
@@ -664,7 +769,8 @@ export class YouTubeUrlModal extends BaseModal {
         if (models.length > 0) {
             this.modelSelect.style.transition = 'background 0.3s ease';
             this.modelSelect.style.background = 'var(--background-modifier-hover)';
-            setTimeout(() => {
+            this.cancelLater(this.dropdownFlashTimer);
+            this.dropdownFlashTimer = this.later(() => {
                 if (this.modelSelect) {
                     this.modelSelect.style.background = '';
                 }
@@ -829,6 +935,7 @@ export class YouTubeUrlModal extends BaseModal {
             this.resultContainer.empty();
         }
         this.retryButton = undefined;
+        this.retryAllButton = undefined;
         this.copyErrorButton = undefined;
         this.lastErrorMessage = '';
         this.results = [];
@@ -840,6 +947,10 @@ export class YouTubeUrlModal extends BaseModal {
 
     private setupEventHandlers(): void {
         this.scope.register([], 'Enter', () => {
+            // In a multi-line field Enter means "new line" — starting a run
+            // instead would make the instructions box impossible to type in.
+            if (isMultilineField(document.activeElement)) return true;
+
             if (this.processButton && !this.processButton.disabled) {
                 this.processButton.click();
             }
@@ -859,6 +970,10 @@ export class YouTubeUrlModal extends BaseModal {
         });
 
         this.scope.register(['Ctrl'], 'c', () => {
+            // Selected text must stay copyable — only offer the note path when
+            // there is nothing selected to copy instead.
+            if (hasTextSelection()) return true;
+
             if (document.activeElement !== this.urlInput && this.processedFilePath) {
                 void this.handleCopyPath();
                 return false;
@@ -920,11 +1035,11 @@ export class YouTubeUrlModal extends BaseModal {
             return;
         }
 
-        this.setValidationMessage(formatReadyMessage(parsed), 'success');
+        this.setValidationMessage(formatReadyMessage(parsed), parsed.droppedCount > 0 ? 'error' : 'success');
 
         const videoId = ValidationUtils.extractVideoId(parsed.urls[0] ?? '');
         if (videoId) {
-            void this.showVideoPreview(videoId);
+            this.showVideoPreview(videoId);
         }
     }
 
@@ -938,6 +1053,9 @@ export class YouTubeUrlModal extends BaseModal {
         }
         if (parsed.invalidCount > 0 && this.url.trim().length > 0) {
             parts.push(`⚠️ ${parsed.invalidCount} entr${parsed.invalidCount === 1 ? 'y' : 'ies'} not recognized.`);
+        }
+        if (parsed.droppedCount > 0) {
+            parts.push(`🚫 ${parsed.droppedCount} more over the ${MAX_BATCH_URLS}-video limit.`);
         }
 
         this.urlCountHint.textContent = parts.join(' ');
@@ -978,6 +1096,13 @@ export class YouTubeUrlModal extends BaseModal {
             return;
         }
 
+        if (parsed.droppedCount > 0) {
+            // Never silently shorten a batch the user pasted in good faith.
+            new Notice(
+                `🚫 ${MAX_BATCH_URLS}-video limit — ${parsed.droppedCount} URL${parsed.droppedCount === 1 ? '' : 's'} will not be processed.`,
+            );
+        }
+
         this.format = (this.formatSelect?.value as OutputFormat) ?? 'executive-summary';
         this.selectedProvider = this.providerSelect?.value;
         this.selectedModel = this.modelSelect?.value;
@@ -993,11 +1118,16 @@ export class YouTubeUrlModal extends BaseModal {
         await this.runSubmission(submission);
     }
 
-    /** Run every URL of a submission, one at a time, sharing the progress UI. */
-    private async runSubmission(submission: ModalSubmission): Promise<void> {
+    /**
+     * Run every URL of a submission, one at a time, sharing the progress UI.
+     *
+     * `preserved` carries earlier successes into the run (a failures-only retry
+     * passes them back in) so the batch view keeps showing what already saved.
+     */
+    private async runSubmission(submission: ModalSubmission, preserved: BatchItemResult[] = []): Promise<void> {
         this.abortController = new AbortController();
-        this.results = [];
-        this.processedFilePath = '';
+        this.results = [...preserved];
+        this.processedFilePath = firstCreatedFilePath(preserved);
         this.runPrefix = submission.urls.length > 1 ? `1/${submission.urls.length}: ` : '';
         this.showProcessingState(submission.urls.length);
 
@@ -1010,6 +1140,9 @@ export class YouTubeUrlModal extends BaseModal {
 
         const firstFailure = this.results.find(item => !item.result.success);
         if (firstFailure) {
+            // Whatever did succeed stays reachable (Open / Copy Path) from the
+            // error view instead of being lost with the run.
+            this.processedFilePath = firstCreatedFilePath(this.results);
             this.showErrorState(new Error(firstFailure.result.error ?? MESSAGES.ERRORS.AI_PROCESSING('failed')));
             return;
         }
@@ -1092,6 +1225,7 @@ export class YouTubeUrlModal extends BaseModal {
             this.resultContainer.empty();
         }
         this.retryButton = undefined;
+        this.retryAllButton = undefined;
         this.copyErrorButton = undefined;
         if (this.urlInput) {
             this.urlInput.disabled = true;
@@ -1147,7 +1281,7 @@ export class YouTubeUrlModal extends BaseModal {
             this.urlInput.value = '';
         }
         this.url = '';
-        this.updateUrlCountHint({ urls: [], invalidCount: 0 });
+        this.updateUrlCountHint(EMPTY_PARSED_URLS);
 
         if (this.processButton) {
             this.processButton.classList.remove('is-visible');
@@ -1335,24 +1469,41 @@ export class YouTubeUrlModal extends BaseModal {
         if (!this.resultContainer) return;
         this.resultContainer.empty();
 
-        if (this.results.length > 1) {
-            const done = this.results.filter(item => item.result.success).length;
-            this.createDetailLine(
-                this.resultContainer,
-                `✅ ${done} of ${this.results.length} finished before this failure.`,
-            );
+        const failures = this.results.filter(item => !item.result.success);
+
+        if (failures.length < this.results.length) {
+            // Partial successes stay visible — and clickable — above the failure,
+            // so a batch that got halfway is never a dead end.
+            this.renderBatchSummary(this.resultContainer, summarizeBatch(this.results));
+            const list = this.resultContainer.createDiv('ytc-batch-list');
+            this.results.forEach((item, index) => this.renderBatchRow(list, item, index));
+        } else if (this.results.length > 1) {
+            this.createDetailLine(this.resultContainer, `✅ 0 of ${this.results.length} finished before this failure.`);
         }
 
         const message = this.createDetailLine(this.resultContainer, `❌ ${this.lastErrorMessage}`);
         message.style.color = 'var(--text-error, #d63031)';
 
         const actions = this.resultContainer.createDiv('ytc-error-actions');
-        actions.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
+        actions.style.cssText = 'display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;';
 
         this.retryButton = actions.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
-        this.retryButton.innerHTML = '<span class="ytc-btn-icon">🔄</span><span class="ytc-btn-label">Retry</span>';
-        this.retryButton.title = 'Retry with the same videos, format, model, and instructions';
+        this.retryButton.innerHTML = [
+            '<span class="ytc-btn-icon">🔄</span>',
+            `<span class="ytc-btn-label">${formatRetryLabel(failures.length)}</span>`,
+        ].join('');
+        this.retryButton.title = 'Retry only the videos that failed — notes already created are kept';
         this.retryButton.addEventListener('click', () => void this.handleRetry());
+
+        // A full re-run is only distinguishable from a retry when something
+        // already succeeded; otherwise the two buttons would do the same thing.
+        if (failures.length < this.results.length) {
+            this.retryAllButton = actions.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
+            this.retryAllButton.innerHTML =
+                '<span class="ytc-btn-icon">🔁</span><span class="ytc-btn-label">Retry all</span>';
+            this.retryAllButton.title = 'Re-run every video, including the ones that already saved';
+            this.retryAllButton.addEventListener('click', () => void this.handleRetryAll());
+        }
 
         this.copyErrorButton = actions.createEl('button', { cls: 'ytc-action-btn ytc-secondary-btn' });
         this.copyErrorButton.innerHTML =
@@ -1361,9 +1512,26 @@ export class YouTubeUrlModal extends BaseModal {
         this.copyErrorButton.addEventListener('click', () => void this.handleCopyError());
     }
 
-    /** Re-run the exact same submission (same URLs, format, model, instructions). */
+    /** Re-run only the failed URLs of the last run, keeping what already saved. */
     private async handleRetry(): Promise<void> {
         if (!this.lastRun || this.isProcessing) return;
+
+        const submission = buildFailureRetry(this.lastRun, this.results);
+        if (!submission) {
+            new Notice('🎉 Nothing left to retry — every video already succeeded.');
+            return;
+        }
+
+        this.applySubmissionToControls(submission);
+        await this.runSubmission(
+            submission,
+            this.results.filter(item => item.result.success),
+        );
+    }
+
+    /** Re-run the exact same submission (same URLs, format, model, instructions). */
+    private async handleRetryAll(): Promise<void> {
+        if (!this.lastRun || this.isProcessing || this.lastRun.urls.length === 0) return;
         this.applySubmissionToControls(this.lastRun);
         await this.runSubmission(this.lastRun);
     }
@@ -1419,7 +1587,7 @@ export class YouTubeUrlModal extends BaseModal {
         if (!button) return;
         const original = button.innerHTML;
         button.textContent = text;
-        window.setTimeout(() => {
+        this.later(() => {
             if (button.isConnected) {
                 button.innerHTML = original;
             }
@@ -1462,7 +1630,8 @@ export class YouTubeUrlModal extends BaseModal {
                 if (this.copyPathButton) {
                     const originalText = this.copyPathButton.textContent;
                     this.copyPathButton.textContent = '✅ Copied!';
-                    setTimeout(() => {
+                    this.cancelLater(this.copyPathTimer);
+                    this.copyPathTimer = this.later(() => {
                         if (this.copyPathButton) {
                             this.copyPathButton.textContent = originalText;
                         }
@@ -1529,12 +1698,18 @@ export class YouTubeUrlModal extends BaseModal {
 
     onClose(): void {
         this.stopTimer();
+        this.cancelLater(this.copyPathTimer);
+        this.cancelLater(this.dropdownFlashTimer);
+        this.cancelLater(this.previewDebounceTimer);
+        this.clearPendingTimers();
         // Abort (and keep) the controller so an in-flight run stops instead of
         // marching on against a DOM that no longer exists.
         this.abortController?.abort();
-        if (this.validationTimer) {
-            clearTimeout(this.validationTimer);
+        if (YouTubeUrlModal.activeInstance === this) {
+            YouTubeUrlModal.activeInstance = undefined;
         }
+        // Hand the single-modal slot back (ModalManager) before the DOM goes.
+        this.options.onModalClosed?.();
         super.onClose();
     }
 }

@@ -55,32 +55,57 @@ const URL_SPLIT_RE = /[\s,;]+/;
 /** Punctuation that may stick to a URL when it is copied out of prose. */
 const TRAILING_PUNCT_RE = /[)\]}.,;:!?"'`]+$/;
 
+/** Upper bound on how many videos a single run may queue. */
+export const MAX_BATCH_URLS = 50;
+
 export interface ParsedUrls {
     urls: string[];
     /** Tokens the user typed that were not recognizable YouTube URLs. */
     invalidCount: number;
+    /** Recognized URLs dropped because the batch hit {@link MAX_BATCH_URLS}. */
+    droppedCount: number;
 }
+
+/** An empty parse — "nothing typed", used to reset the modal's hints. */
+export const EMPTY_PARSED_URLS: ParsedUrls = { urls: [], invalidCount: 0, droppedCount: 0 };
 
 /**
  * Split free-form input into YouTube URLs (whitespace, commas, semicolons and
  * newlines all count as separators). Validity is decided by ValidationUtils so
  * the URL grammar lives in exactly one place.
+ *
+ * Deduplication is on the extracted video id, not the string: `youtu.be/ID` and
+ * `watch?v=ID` are the same video and must not be processed twice. The first
+ * spelling the user typed wins. Past {@link MAX_BATCH_URLS} the extra URLs are
+ * counted in `droppedCount` rather than run.
  */
 export function parseUrlInput(raw: string): ParsedUrls {
     const urls: string[] = [];
+    const seenIds = new Set<string>();
     let invalidCount = 0;
+    let droppedCount = 0;
 
     for (const token of raw.split(URL_SPLIT_RE)) {
         const candidate = token.replace(TRAILING_PUNCT_RE, '');
         if (!candidate) continue;
-        if (ValidationUtils.isValidYouTubeUrl(candidate)) {
-            if (!urls.includes(candidate)) urls.push(candidate);
-        } else {
+        if (!ValidationUtils.isValidYouTubeUrl(candidate)) {
             invalidCount += 1;
+            continue;
         }
+
+        const videoId = ValidationUtils.extractVideoId(candidate) ?? candidate;
+        if (seenIds.has(videoId)) continue;
+
+        if (urls.length >= MAX_BATCH_URLS) {
+            droppedCount += 1;
+            continue;
+        }
+
+        seenIds.add(videoId);
+        urls.push(candidate);
     }
 
-    return { urls, invalidCount };
+    return { urls, invalidCount, droppedCount };
 }
 
 /** Extract every YouTube URL embedded in arbitrary text ("see https://youtu.be/x here"). */
@@ -90,14 +115,21 @@ export function extractYouTubeUrls(text: string): string[] {
 
 /** Copy for the validation line once input has been parsed. */
 export function formatReadyMessage(parsed: ParsedUrls): string {
+    const count = parsed.urls.length;
+    let message: string;
     if (parsed.invalidCount > 0) {
-        const count = parsed.urls.length;
-        return `${count} video${count === 1 ? '' : 's'} will be processed · ${parsed.invalidCount} skipped.`;
+        message = `${count} video${count === 1 ? '' : 's'} will be processed`;
+    } else if (count === 1) {
+        message = 'Ready to process this video';
+    } else {
+        message = `Ready to process ${count} videos`;
     }
-    if (parsed.urls.length === 1) {
-        return 'Ready to process this video.';
-    }
-    return `Ready to process ${parsed.urls.length} videos.`;
+
+    const caveats: string[] = [];
+    if (parsed.invalidCount > 0) caveats.push(`${parsed.invalidCount} skipped`);
+    if (parsed.droppedCount > 0) caveats.push(`${parsed.droppedCount} over the ${MAX_BATCH_URLS}-video limit`);
+
+    return caveats.length > 0 ? `${message} · ${caveats.join(' · ')}.` : `${message}.`;
 }
 
 // ── Batch results ────────────────────────────────────────────────────────────
@@ -162,6 +194,88 @@ export function isCancelledResult(message: string | undefined, signalAborted: bo
     const text = (message ?? '').trim();
     if (signalAborted) return /cancel/i.test(text);
     return /^processing cancelled\.?$/i.test(text);
+}
+
+// ── Retry selection ──────────────────────────────────────────────────────────
+
+/** Everything needed to re-run a submission exactly as the user configured it. */
+export interface ModalSubmission {
+    urls: string[];
+    format: OutputFormat;
+    model?: string;
+    instructions: string;
+}
+
+/** URLs that still need a run: the failures only, in their original order. */
+export function failedUrlsOf(items: BatchItemResult[]): string[] {
+    return items.filter(item => !item.result.success).map(item => item.url);
+}
+
+/**
+ * The submission a "Retry" should run: the user's settings unchanged, with just
+ * the URLs that failed. Notes already created are therefore never re-asked for.
+ * Returns `undefined` when nothing failed, which the modal reports as "nothing
+ * to retry" instead of silently running an empty batch.
+ */
+export function buildFailureRetry(lastRun: ModalSubmission, items: BatchItemResult[]): ModalSubmission | undefined {
+    const urls = failedUrlsOf(items);
+    return urls.length > 0 ? { ...lastRun, urls } : undefined;
+}
+
+/** Path of the first note a run actually created ('' when none did). */
+export function firstCreatedFilePath(items: BatchItemResult[]): string {
+    return items.find(item => item.result.success && item.result.filePath)?.result.filePath ?? '';
+}
+
+/** Retry button label — 'Retry' for a single video, else how many are left. */
+export function formatRetryLabel(failedCount: number): string {
+    return failedCount <= 1 ? 'Retry' : `Retry ${failedCount} failed`;
+}
+
+// ── Keyboard + timing helpers ────────────────────────────────────────────────
+
+/** True when the user has text selected — Ctrl+C must copy that, not our note path. */
+export function hasTextSelection(doc: Document = document): boolean {
+    const selection = doc.getSelection?.()?.toString() ?? '';
+    return selection.trim().length > 0;
+}
+
+/** True when Enter should keep its editing meaning (multi-line field). */
+export function isMultilineField(target: EventTarget | null): boolean {
+    return target instanceof HTMLTextAreaElement;
+}
+
+type AbortSignalWithTimeout = typeof AbortSignal & { timeout?: (milliseconds: number) => AbortSignal };
+
+/**
+ * An AbortSignal that fires after `ms`, or `undefined` on engines without
+ * `AbortSignal.timeout` (older Electron builds) so callers can degrade quietly.
+ */
+export function timeoutSignal(ms: number): AbortSignal | undefined {
+    const ctor = AbortSignal as AbortSignalWithTimeout;
+    return typeof ctor.timeout === 'function' ? ctor.timeout(ms) : undefined;
+}
+
+/**
+ * Reject if `promise` has not settled within `ms`, so a hung request cannot pin
+ * the modal. The loser of the race is still observed, so nothing is left
+ * unhandled.
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    let timer: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms);
+    });
+    return Promise.race([promise, timeout]).then(
+        value => {
+            if (timer !== undefined) window.clearTimeout(timer);
+            return value;
+        },
+        reason => {
+            if (timer !== undefined) window.clearTimeout(timer);
+            throw reason;
+        },
+    );
 }
 
 // ── Format picker order (shared by the modal and the settings tab) ──────────
