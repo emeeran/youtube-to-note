@@ -107,6 +107,7 @@ interface ContainerMocks {
     getVideoData: jest.Mock;
     fetchTranscriptOutcome: jest.Mock;
     getProviderNames: jest.Mock;
+    getProviderModels: jest.Mock;
     setModelParameters: jest.Mock;
     processWith: jest.Mock;
     createAnalysisPrompt: jest.Mock;
@@ -120,6 +121,7 @@ function makeContainer(
         transcriptOutcome?: TranscriptOutcome;
         processWith?: jest.Mock;
         videoData?: VideoData;
+        getProviderModels?: jest.Mock;
     } = {},
 ): { container: ServiceContainer; mocks: ContainerMocks } {
     const processWith = overrides.processWith ?? jest.fn(async () => SUCCESS_RESPONSE);
@@ -129,6 +131,17 @@ function makeContainer(
         getVideoData: jest.fn(async () => overrides.videoData ?? VIDEO_DATA),
         fetchTranscriptOutcome: jest.fn(async () => overrides.transcriptOutcome ?? OK_TRANSCRIPT),
         getProviderNames: jest.fn(() => ['Google Gemini', 'Groq']),
+        getProviderModels:
+            overrides.getProviderModels ??
+            jest.fn(
+                (provider: string) =>
+                    (
+                        ({
+                            'Google Gemini': ['gemini-2.5-flash-lite', 'gemini-2.5-pro'],
+                            Groq: ['llama-3.3-70b-versatile'],
+                        }) as Record<string, string[]>
+                    )[provider],
+            ),
         setModelParameters: jest.fn(),
         processWith,
         createAnalysisPrompt: jest.fn(() => 'ANALYSIS PROMPT'),
@@ -139,6 +152,7 @@ function makeContainer(
     const container = {
         aiService: {
             getProviderNames: mocks.getProviderNames,
+            getProviderModels: mocks.getProviderModels,
             setModelParameters: mocks.setModelParameters,
             processWith: mocks.processWith,
         },
@@ -448,7 +462,7 @@ describe('processYouTubeVideo pipeline', () => {
             expect(mocks.saveToFile).not.toHaveBeenCalled();
         });
 
-        it('scopes a model override to the selected provider — fallbacks use their own defaults', async () => {
+        it('scopes a model override to providers that actually offer it (auto mode)', async () => {
             const processWith = jest
                 .fn<() => Promise<AIResponse>>()
                 .mockRejectedValueOnce(new Error('quota exhausted'))
@@ -459,12 +473,50 @@ describe('processYouTubeVideo pipeline', () => {
             const result = await plugin.processYouTubeVideo(VIDEO_URL, { model: 'gemini-2.5-flash-lite' });
 
             expect(result.success).toBe(true);
-            const primaryArgs = (mocks.processWith.mock.calls[0] as unknown[])[2] as string | undefined;
-            const fallbackArgs = (mocks.processWith.mock.calls[1] as unknown[])[2] as string | undefined;
-            // The user's Gemini model rides with Gemini…
-            expect(primaryArgs).toBe('gemini-2.5-flash-lite');
-            // …but must never be sent to the fallback provider as a model name.
-            expect(fallbackArgs).toBeUndefined();
+            const geminiModelArg = (mocks.processWith.mock.calls[0] as unknown[])[2] as string | undefined;
+            const groqModelArg = (mocks.processWith.mock.calls[1] as unknown[])[2] as string | undefined;
+            // The Gemini model rides with Gemini…
+            expect(geminiModelArg).toBe('gemini-2.5-flash-lite');
+            // …and never reaches Groq as a model name — Groq uses its default.
+            expect(groqModelArg).toBeUndefined();
+        });
+
+        it('delivers a model override only to the provider that lists it when the chain falls back', async () => {
+            // A Groq-only model name: Gemini must not receive it as its model.
+            const processWith = jest
+                .fn<() => Promise<AIResponse>>()
+                .mockRejectedValueOnce(new Error('quota exhausted'))
+                .mockResolvedValueOnce({ content: 'ok', provider: 'Groq', model: 'llama-3.3-70b-versatile' });
+            const { container, mocks } = makeContainer({ processWith });
+            const plugin = makePlugin(makeSettings(), container);
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL, { model: 'llama-3.3-70b-versatile' });
+
+            expect(result.success).toBe(true);
+            const geminiModelArg = (mocks.processWith.mock.calls[0] as unknown[])[2] as string | undefined;
+            const groqModelArg = (mocks.processWith.mock.calls[1] as unknown[])[2] as string | undefined;
+            expect(geminiModelArg).toBeUndefined();
+            expect(groqModelArg).toBe('llama-3.3-70b-versatile');
+        });
+
+        it('honors an explicit provider selection: chain starts there and the override rides with it', async () => {
+            const processWith = jest.fn<() => Promise<AIResponse>>().mockResolvedValue({
+                content: 'ok',
+                provider: 'Groq',
+                model: 'gemini-2.5-flash-lite',
+            });
+            const { container, mocks } = makeContainer({ processWith });
+            const plugin = makePlugin(makeSettings(), container);
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL, {
+                providerName: 'Groq',
+                model: 'llama-3.3-70b-versatile',
+            });
+
+            expect(result.success).toBe(true);
+            // Explicit selection: Groq first, override attached.
+            expect(mocks.processWith.mock.calls[0]![0]).toBe('Groq');
+            expect((mocks.processWith.mock.calls[0] as unknown[])[2]).toBe('llama-3.3-70b-versatile');
         });
 
         it('tries only the pinned provider when auto-fallback is off', async () => {

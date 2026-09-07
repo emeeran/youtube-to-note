@@ -87,6 +87,8 @@ export interface ProcessingResult {
 /** Options for a single processYouTubeVideo run. */
 export interface ProcessingOptions {
     format?: OutputFormat;
+    /** Provider to try first; the fallback chain follows with the rest. */
+    providerName?: string;
     model?: string;
     userInstructions?: string;
     /** Called as the pipeline moves between stages, for honest progress display. */

@@ -33,7 +33,6 @@ const PLUGIN_PREFIX = 'ytp';
  * extras are optional, so callers passing only the shared contract keep working.
  */
 interface ProcessRunOptions extends ProcessingOptions {
-    providerName?: string;
     performanceMode?: PerformanceMode;
     maxTokens?: number;
     temperature?: number;
@@ -610,6 +609,16 @@ export default class YoutubeClipperPlugin extends Plugin {
             // must NOT be sent to Ollama/OpenRouter/etc. when the chain falls
             // back — each fallback provider uses its own default model.
             const [primaryProvider] = chain;
+            const modelOverrideFor = (provider: string): string | undefined => {
+                if (!model) return undefined;
+                // Explicit selection: the override rides with the chosen provider.
+                if (providerName) return provider === primaryProvider ? model : undefined;
+                // Auto mode: only hand the model to a provider that actually
+                // offers it (per its known model list) — otherwise a Gemini
+                // model name would land on Groq and fail spuriously.
+                const known = aiService.getProviderModels(provider);
+                return Array.isArray(known) && known.includes(model) ? model : undefined;
+            };
 
             // The fallback chain is driven here rather than inside the AI service
             // so each provider's failure can be attributed in the result.
@@ -617,18 +626,11 @@ export default class YoutubeClipperPlugin extends Plugin {
                 assertLive();
                 progress('ai', `Trying ${name}…`);
                 try {
-                    aiResponse = await aiService.processWith(
-                        name,
-                        prompt,
-                        name === primaryProvider ? model : undefined,
-                        undefined,
-                        false,
-                        {
-                            signal,
-                            maxTokens: effectiveMaxTokens,
-                            temperature: effectiveTemperature,
-                        },
-                    );
+                    aiResponse = await aiService.processWith(name, prompt, modelOverrideFor(name), undefined, false, {
+                        signal,
+                        maxTokens: effectiveMaxTokens,
+                        temperature: effectiveTemperature,
+                    });
                     break;
                 } catch (error) {
                     if (signal.aborted) throw new ProcessingCancelled();

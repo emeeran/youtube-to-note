@@ -202,6 +202,8 @@ export function isCancelledResult(message: string | undefined, signalAborted: bo
 export interface ModalSubmission {
     urls: string[];
     format: OutputFormat;
+    /** Provider chosen in the dropdown — the pipeline puts it first in the chain. */
+    providerName?: string;
     model?: string;
     instructions: string;
 }

@@ -1110,6 +1110,7 @@ export class YouTubeUrlModal extends BaseModal {
         const submission: ModalSubmission = {
             urls: parsed.urls,
             format: this.format,
+            providerName: this.selectedProvider,
             model: this.selectedModel,
             instructions: this.userInstructions,
         };
@@ -1171,6 +1172,7 @@ export class YouTubeUrlModal extends BaseModal {
         try {
             return await this.options.onProcess(url, {
                 format: submission.format,
+                providerName: submission.providerName,
                 model: submission.model,
                 userInstructions: submission.instructions,
                 onProgress: update => this.handleProgressUpdate(update),
