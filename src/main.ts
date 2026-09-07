@@ -602,8 +602,14 @@ export default class YoutubeClipperPlugin extends Plugin {
                 enableAutoFallback ?? this._settings.enableAutoFallback ?? true,
             );
             const failedProviders: string[] = [];
+            const failedReasons = new Map<string, string>();
             let aiResponse: AIResponse | undefined;
             let lastError: unknown;
+
+            // A model override is provider-specific: the user's Gemini model name
+            // must NOT be sent to Ollama/OpenRouter/etc. when the chain falls
+            // back — each fallback provider uses its own default model.
+            const [primaryProvider] = chain;
 
             // The fallback chain is driven here rather than inside the AI service
             // so each provider's failure can be attributed in the result.
@@ -611,30 +617,47 @@ export default class YoutubeClipperPlugin extends Plugin {
                 assertLive();
                 progress('ai', `Trying ${name}…`);
                 try {
-                    aiResponse = await aiService.processWith(name, prompt, model, undefined, false, {
-                        signal,
-                        maxTokens: effectiveMaxTokens,
-                        temperature: effectiveTemperature,
-                    });
+                    aiResponse = await aiService.processWith(
+                        name,
+                        prompt,
+                        name === primaryProvider ? model : undefined,
+                        undefined,
+                        false,
+                        {
+                            signal,
+                            maxTokens: effectiveMaxTokens,
+                            temperature: effectiveTemperature,
+                        },
+                    );
                     break;
                 } catch (error) {
                     if (signal.aborted) throw new ProcessingCancelled();
                     failedProviders.push(name);
+                    const message = (error instanceof Error ? error.message : String(error)).slice(0, 160);
+                    failedReasons.set(name, message);
                     lastError = error;
                     logger.warn('Provider failed — trying the next one', 'Plugin', {
                         provider: name,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: message,
                     });
                 }
             }
 
             if (!aiResponse) {
+                // Surface WHY each provider failed, not just the last one's
+                // message — the tail of the chain is usually the least
+                // informative (e.g. local Ollama missing a model).
+                const summary =
+                    [...failedReasons.entries()].map(([name, message]) => `${name}: ${message}`).join(' · ') ||
+                    'no provider was attempted';
                 const error = lastError instanceof Error ? lastError : new Error('All AI providers failed');
-                logger.error('AI Processing failed', 'Plugin', { error: error.message });
+                const enriched = new Error(`All AI providers failed — ${summary}`.slice(0, 600));
+                logger.error('AI Processing failed', 'Plugin', { error: error.message, summary });
                 result.failedProviders = failedProviders;
+                result.error = enriched.message;
                 userNotified = true;
-                ErrorHandler.handleEnhanced(error, 'AI Processing');
-                throw error;
+                ErrorHandler.handleEnhanced(enriched, 'AI Processing');
+                throw enriched;
             }
 
             logger.aiService('AI Response received', {

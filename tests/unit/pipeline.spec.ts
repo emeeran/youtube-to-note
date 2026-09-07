@@ -426,19 +426,45 @@ describe('processYouTubeVideo pipeline', () => {
         });
 
         it('fails with every provider attributed when the whole chain fails', async () => {
-            const processWith = jest.fn<() => Promise<AIResponse>>().mockRejectedValue(new Error('down'));
+            const processWith = jest
+                .fn<() => Promise<AIResponse>>()
+                .mockRejectedValueOnce(new Error('quota exhausted'))
+                .mockRejectedValue(new Error('model not found: gemini-2.5-flash-lite'));
             const { container, mocks } = makeContainer({ processWith });
             const plugin = makePlugin(makeSettings(), container);
 
             const result = await plugin.processYouTubeVideo(VIDEO_URL);
 
             expect(result.success).toBe(false);
-            expect(result.error).toBe('down');
+            // Every provider's reason is surfaced, not just the chain tail's.
+            expect(result.error).toContain('All AI providers failed');
+            expect(result.error).toContain('Google Gemini: quota exhausted');
+            expect(result.error).toContain('Groq: model not found: gemini-2.5-flash-lite');
             expect(result.failedProviders).toEqual(['Google Gemini', 'Groq']);
             expect(result.providerUsed).toBeUndefined();
             expect(getNoticeCalls()).toHaveLength(2); // "processing" + the failure notice
-            expect(getNoticeCalls()[1]?.message).toContain('down');
+            expect(getNoticeCalls()[1]?.message).toContain('All AI providers failed');
+            expect(getNoticeCalls()[1]?.message).toContain('Google Gemini: quota exhausted');
             expect(mocks.saveToFile).not.toHaveBeenCalled();
+        });
+
+        it('scopes a model override to the selected provider — fallbacks use their own defaults', async () => {
+            const processWith = jest
+                .fn<() => Promise<AIResponse>>()
+                .mockRejectedValueOnce(new Error('quota exhausted'))
+                .mockResolvedValueOnce({ content: 'ok', provider: 'Groq', model: 'llama-3.3-70b-versatile' });
+            const { container, mocks } = makeContainer({ processWith });
+            const plugin = makePlugin(makeSettings(), container);
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL, { model: 'gemini-2.5-flash-lite' });
+
+            expect(result.success).toBe(true);
+            const primaryArgs = (mocks.processWith.mock.calls[0] as unknown[])[2] as string | undefined;
+            const fallbackArgs = (mocks.processWith.mock.calls[1] as unknown[])[2] as string | undefined;
+            // The user's Gemini model rides with Gemini…
+            expect(primaryArgs).toBe('gemini-2.5-flash-lite');
+            // …but must never be sent to the fallback provider as a model name.
+            expect(fallbackArgs).toBeUndefined();
         });
 
         it('tries only the pinned provider when auto-fallback is off', async () => {
