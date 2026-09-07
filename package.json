@@ -1,6 +1,6 @@
 {
     "name": "obsidian-youtube-to-note",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "description": "YouTube to Note - Generate structured notes from YouTube videos in Obsidian",
     "main": "main.js",
     "scripts": {

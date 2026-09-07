@@ -5,10 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- Next release: 2.2.0 (plugin + extension are versioned independently; see
+<!-- Shipped 2.2.0 on 2026-09-07. Next release: 2.3.0 (plugin + extension are versioned independently; see
      CONTRIBUTING.md for the release flow and extension/PUBLISH.md for the extension). -->
 
-## [Unreleased]
+## [2.2.0] - 2026-09-07
 
 A second hardening pass over v2.1.0. IDs refer to the 2026-09-07 audit ledger
 (`local/improvement-report-2026-09-07.md`, summarised in `AUDIT.md`).
@@ -255,5 +255,6 @@ A second hardening pass over v2.1.0. IDs refer to the 2026-09-07 audit ledger
   documented as an accepted risk in `AUDIT.md`; `YTC_*` environment variables are available if
   you want them off disk entirely.
 
+[2.2.0]: https://github.com/emeeran/youtube-to-note/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/emeeran/youtube-to-note/compare/v1.4.0...v2.1.0
 [Unreleased]: https://github.com/emeeran/youtube-to-note/compare/v2.1.0...HEAD
