@@ -139,6 +139,42 @@ export const buildTimestampedSection = (videoUrl: string, segments: TranscriptSe
     return `\n## Timestamped Transcript\n\n${lines.join('\n')}\n`;
 };
 
+/**
+ * Render the transcript from caption segments with an inline `[MM:SS]` marker
+ * at each minute boundary: every new minute opens with a marker and the
+ * captions inside that minute are joined with spaces.
+ *
+ * The timestamp-links instruction tells the model to use ONLY the times
+ * supplied with the transcript, so the times have to actually be there — a
+ * plain-text transcript gives it nothing to cite. One marker per minute (not
+ * per caption) bounds the marker count to the video's minute count while
+ * keeping every caption's text content intact.
+ *
+ * Caption text is flattened to a single line so a caption cannot break the
+ * marker layout or forge a heading of its own.
+ */
+export const buildMinuteMarkedTranscript = (segments: TranscriptSegment[]): string => {
+    const lines: string[][] = [];
+    let currentMinute = Number.NaN;
+
+    for (const segment of segments ?? []) {
+        if (!segment || !Number.isFinite(segment.start)) continue;
+        const text = sanitizeInlineText(segment.text);
+        if (!text) continue;
+
+        const start = Math.max(0, Math.floor(segment.start));
+        const minute = Math.floor(start / 60);
+        if (minute === currentMinute) {
+            lines[lines.length - 1]?.push(text);
+            continue;
+        }
+        currentMinute = minute;
+        lines.push([`[${formatTimestamp(start)}]`, text]);
+    }
+
+    return lines.map(parts => parts.join(' ')).join('\n');
+};
+
 // ============ SHARED PROMPT BLOCKS ============
 
 /**
@@ -170,6 +206,28 @@ const MODE_HINTS: Readonly<Record<PerformanceMode, string>> = {
 // ============ SERVICE ============
 
 /**
+ * Everything buildDataSection needs, packed as one object so the helper stays
+ * under the max-params lint ceiling.
+ */
+interface DataSectionContext {
+    videoData: VideoData;
+    videoUrl: string;
+    transcript?: string;
+    performanceMode?: PerformanceMode;
+    format: OutputFormat;
+    userInstructions?: string;
+    /**
+     * Segments to render the transcript from. Only supplied when timestamp
+     * citation is on — otherwise the plain transcript text is used unchanged.
+     */
+    segments?: TranscriptSegment[];
+    /** True for text-only providers: the multimodal mode hint is dropped. */
+    textOnlyProvider?: boolean;
+    /** See {@link AnalysisPromptOptions.onTruncated}. */
+    onTruncated?: (info: { budget: number; originalLength: number }) => void;
+}
+
+/**
  * Everything buildFullPrompt needs, packed as one object so the helper stays
  * under the max-params lint ceiling.
  */
@@ -179,7 +237,8 @@ interface FullPromptContext {
     format: OutputFormat;
     providerName?: string;
     customPrompts?: Partial<Record<OutputFormat, string>>;
-    segments?: TranscriptSegment[];
+    /** True when segments are present and the format cites timestamps. */
+    citeTimestamps: boolean;
 }
 
 /**
@@ -201,8 +260,14 @@ export class AIPromptService implements PromptService {
      */
     private static readonly TIMESTAMPS_DISABLED_PATTERN = /\s*No timestamps[^.]*\./g;
 
-    /** Heading the deterministic timestamp section is inserted before. */
-    private static readonly SOURCE_HEADING = '\n## Source';
+    /**
+     * Matches an existing `## Resources` / `## Source` heading. Case-insensitive
+     * and tolerant of a missing space after `##`, so a heading the model (or a
+     * custom prompt) emitted on its own still counts as present. `im` makes the
+     * check work anywhere in the assembled note, not just at its start.
+     */
+    private static readonly RESOURCES_HEADING_PATTERN = /^##\s*resources\b/im;
+    private static readonly SOURCE_HEADING_PATTERN = /^##\s*source\b/im;
 
     // ============ PUBLIC METHODS ============
 
@@ -220,17 +285,27 @@ export class AIPromptService implements PromptService {
             userInstructions,
             customPrompts,
             segments,
+            onTruncated,
         } = options;
 
+        // Segments are only passed when settings.includeTimestamps is on. The
+        // complete-transcription format is excluded: its timestamp index is
+        // generated deterministically in processAIResponse, so the model is left
+        // under its "No timestamps." constraint rather than invited to guess.
+        const citeTimestamps = Boolean(segments?.length) && format !== 'complete-transcription';
+
         // Build the data section (metadata + transcript + instructions)
-        const dataSection = this.buildDataSection(
+        const dataSection = this.buildDataSection({
             videoData,
             videoUrl,
             transcript,
             performanceMode,
             format,
             userInstructions,
-        );
+            segments: citeTimestamps ? segments : undefined,
+            textOnlyProvider: Boolean(providerName) && !this.isMultimodalProvider(providerName ?? ''),
+            onTruncated,
+        });
 
         // Build full prompt with all components
         return this.buildFullPrompt({
@@ -239,7 +314,7 @@ export class AIPromptService implements PromptService {
             format,
             providerName,
             customPrompts,
-            segments,
+            citeTimestamps,
         });
     }
 
@@ -250,17 +325,22 @@ export class AIPromptService implements PromptService {
      * Placed LAST in the prompt (role and output contract come first) so the
      * model's attention lands on the source material right before generation.
      */
-    private buildDataSection(
-        videoData: VideoData,
-        videoUrl: string,
-        transcript?: string,
-        performanceMode: PerformanceMode = 'balanced',
-        format: OutputFormat = 'executive-summary',
-        userInstructions?: string,
-    ): string {
-        const transcriptSection = this.buildTranscriptSection(transcript, format);
+    private buildDataSection(context: DataSectionContext): string {
+        const {
+            videoData,
+            videoUrl,
+            transcript,
+            performanceMode = 'balanced',
+            format,
+            userInstructions,
+            segments,
+            textOnlyProvider,
+            onTruncated,
+        } = context;
+
+        const transcriptSection = this.buildTranscriptSection(transcript, format, segments, onTruncated);
         const chapterMarkers = this.extractChapterMarkers(videoData.description);
-        const modeHint = MODE_HINTS[performanceMode] ? `\n${MODE_HINTS[performanceMode]}` : '';
+        const modeHint = this.resolveModeHint(performanceMode, textOnlyProvider === true);
 
         const userInstructionsBlock = userInstructions?.trim()
             ? `\n\n**USER INSTRUCTIONS** (prioritize these over defaults):\n${userInstructions.trim()}\n`
@@ -280,25 +360,51 @@ export class AIPromptService implements PromptService {
         }
 
         const dataSection = lines.join('\n');
-        return `${dataSection}${modeHint}\n\n${transcriptSection.trimStart()}${userInstructionsBlock}`;
+        return `${dataSection}${modeHint ? `\n${modeHint}` : ''}\n\n${transcriptSection.trimStart()}${userInstructionsBlock}`;
     }
 
     /**
-     * Build transcript section with truncation for token efficiency
-     * Uses per-format transcript budget when available
+     * The per-mode guidance line. Mode hints are instructions, not source
+     * material, so the multimodal one is dropped for text-only providers HERE —
+     * scoping the strip pass to it keeps the same pass from ever eating a
+     * transcript caption that happens to read like a multimodal instruction.
      */
-    private buildTranscriptSection(transcript?: string, format?: OutputFormat): string {
+    private resolveModeHint(performanceMode: PerformanceMode, textOnlyProvider: boolean): string {
+        const hint = MODE_HINTS[performanceMode];
+        if (!hint) return '';
+        if (!textOnlyProvider) return hint;
+        return this.stripMultimodalInstructions(hint).trim();
+    }
+
+    /**
+     * Build transcript section with truncation for token efficiency.
+     * Uses the per-format transcript budget when available, and reports real
+     * trimming through `onTruncated` instead of trimming silently.
+     *
+     * When caption segments are supplied (timestamp citation is on) the
+     * transcript is rebuilt from them with inline `[MM:SS]` markers — see
+     * {@link buildMinuteMarkedTranscript}. Without segments the plain text is
+     * emitted byte-for-byte.
+     */
+    private buildTranscriptSection(
+        transcript?: string,
+        format?: OutputFormat,
+        segments?: TranscriptSegment[],
+        onTruncated?: (info: { budget: number; originalLength: number }) => void,
+    ): string {
         if (!transcript?.trim()) return '';
 
         const budget =
-            format && FORMAT_CONFIG[format]?.transcriptBudget
-                ? FORMAT_CONFIG[format].transcriptBudget!
-                : TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH;
+            (format ? FORMAT_CONFIG[format]?.transcriptBudget : undefined) ?? TOKEN_LIMITS.MAX_TRANSCRIPT_LENGTH;
 
-        const truncated =
-            transcript.length > budget ? `${transcript.slice(0, budget)}... [transcript truncated]` : transcript;
+        const body = segments?.length ? buildMinuteMarkedTranscript(segments) : transcript;
 
-        return `\nVIDEO CONTENT/TRANSCRIPT:\n${truncated}`;
+        if (body.length > budget) {
+            onTruncated?.({ budget, originalLength: body.length });
+            return `\nVIDEO CONTENT/TRANSCRIPT:\n${body.slice(0, budget)}... [transcript truncated]`;
+        }
+
+        return `\nVIDEO CONTENT/TRANSCRIPT:\n${body}`;
     }
 
     /**
@@ -316,13 +422,8 @@ export class AIPromptService implements PromptService {
      * mangle the frontmatter or waste tokens echoing placeholders.
      */
     private buildFullPrompt(context: FullPromptContext): string {
-        const { dataSection, videoUrl, format, providerName, customPrompts, segments } = context;
+        const { dataSection, videoUrl, format, providerName, customPrompts, citeTimestamps } = context;
 
-        // Segments are only passed when settings.includeTimestamps is on. The
-        // complete-transcription format is excluded: its timestamp index is
-        // generated deterministically in processAIResponse, so the model is left
-        // under its "No timestamps." constraint rather than invited to guess.
-        const citeTimestamps = Boolean(segments?.length) && format !== 'complete-transcription';
         let template = this.resolveFormatTemplate(format, customPrompts);
 
         // Replace {{YOUTUBE_URL}} placeholder in format templates (built-in and custom alike)
@@ -335,25 +436,27 @@ export class AIPromptService implements PromptService {
             template = template.replace(/\s+$/, '');
         }
 
-        const parts: string[] = [template];
+        const instructionParts: string[] = [template];
 
         // Centralized timestamp-link instruction (see settings.includeTimestamps)
         if (citeTimestamps) {
-            parts.push(this.buildTimestampInstruction(videoUrl));
+            instructionParts.push(this.buildTimestampInstruction(videoUrl));
         }
 
-        parts.push(SHARED_OUTPUT_RULES);
-        parts.push(dataSection);
+        instructionParts.push(SHARED_OUTPUT_RULES);
 
-        let prompt = parts.join('\n\n');
+        let instructions = instructionParts.join('\n\n');
 
-        // Strip multimodal instructions for text-only providers — applied to the
-        // whole prompt so mode hints strip cleanly too.
+        // Strip multimodal instructions for text-only providers. Applied to the
+        // instruction half ONLY: the transcript is source material, and a caption
+        // that happens to read like a multimodal directive must survive. The mode
+        // hint — the one instruction living in the data section — is stripped
+        // separately, in buildDataSection.
         if (providerName && !this.isMultimodalProvider(providerName)) {
-            prompt = this.stripMultimodalInstructions(prompt);
+            instructions = this.stripMultimodalInstructions(instructions);
         }
 
-        return prompt;
+        return `${instructions}\n\n${dataSection}`;
     }
 
     /**
@@ -436,21 +539,7 @@ export class AIPromptService implements PromptService {
         // long-form formats). Skipped when the content already carries
         // frontmatter — then only the ai_* values below are corrected in place.
         if (format && videoData && videoUrl && !this.hasFrontMatter(updatedContent)) {
-            const videoId = ValidationUtils.extractVideoId(videoUrl) ?? DEFAULTS.VIDEO_ID;
-            const frontmatter = generateFrontmatter(
-                videoData.title,
-                videoUrl,
-                videoId,
-                format,
-                providerValue,
-                modelValue,
-                videoData,
-            );
-            const iframe = generateVideoIframe(videoId, videoData.title);
-            let header = `${frontmatter}\n\n${iframe}`;
-            if ((format === 'article' || format === 'complete-transcription') && videoData.thumbnail) {
-                header += `\n\n![Video Thumbnail](${videoData.thumbnail})`;
-            }
+            const header = this.buildNoteHeader(format, videoData, videoUrl, providerValue, modelValue);
             updatedContent = `${header}\n\n${updatedContent.trimStart()}`;
         }
 
@@ -460,16 +549,19 @@ export class AIPromptService implements PromptService {
         updatedContent = this.ensureFrontMatterValue(updatedContent, 'ai_model', modelValue);
 
         // Append Resources section ONLY if the format doesn't already have one
+        // (either from its template or from the model's own output).
         if (videoUrl && format) {
             const config = FORMAT_CONFIG[format];
-            if (!config?.hasBuiltInResources) {
+            if (!config?.hasBuiltInResources && !AIPromptService.RESOURCES_HEADING_PATTERN.test(updatedContent)) {
                 updatedContent = this.appendResourcesSection(updatedContent, videoUrl, providerValue, modelValue);
             }
         }
 
         // Deterministic Source attribution — appended before the timestamp
-        // index so the index lands directly above it.
-        if (videoUrl && !updatedContent.includes('\n## Source')) {
+        // index so the index lands directly above it. A Source section the
+        // model (or a custom prompt) already wrote is left alone: not
+        // duplicated, not deleted.
+        if (videoUrl && !AIPromptService.SOURCE_HEADING_PATTERN.test(updatedContent)) {
             updatedContent = this.appendSourceSection(updatedContent, videoUrl, providerValue, modelValue);
         }
 
@@ -488,11 +580,43 @@ export class AIPromptService implements PromptService {
     }
 
     /**
+     * Build the deterministic note header: YAML frontmatter, the video embed,
+     * and — for the long-form formats — the thumbnail. Long-form formats
+     * surface the thumbnail because their notes are meant to stand alone.
+     */
+    private buildNoteHeader(
+        format: OutputFormat,
+        videoData: VideoData,
+        videoUrl: string,
+        provider: string,
+        model: string,
+    ): string {
+        const videoId = ValidationUtils.extractVideoId(videoUrl) ?? DEFAULTS.VIDEO_ID;
+        const frontmatter = generateFrontmatter(videoData.title, videoUrl, videoId, format, provider, model, videoData);
+        let header = `${frontmatter}\n\n${generateVideoIframe(videoId, videoData.title)}`;
+
+        // The thumbnail URL is remote-controlled: flatten it so it cannot break
+        // out of the image syntax, and skip the block entirely when nothing
+        // usable is left.
+        const thumbnail = sanitizeInlineText(videoData.thumbnail ?? '');
+        if ((format === 'article' || format === 'complete-transcription') && thumbnail) {
+            header += `\n\n![Video Thumbnail](${thumbnail})`;
+        }
+
+        return header;
+    }
+
+    /**
      * True when content already opens with a YAML frontmatter block
      * (`---` … `---`), so the deterministic header must not be prepended.
+     *
+     * The opening fence must be followed by a YAML-looking `key:` line: a bare
+     * `---` is also how Markdown writes a horizontal rule, and treating a rule
+     * as frontmatter skipped the deterministic note header entirely and let the
+     * ai_* safety net inject keys underneath it.
      */
     private hasFrontMatter(content: string): boolean {
-        return /^\s*---\s*\n[\s\S]*?\n---/.test(content);
+        return /^\s*---\s*\n[A-Za-z_][\w-]*\s*:/.test(content);
     }
 
     /**
@@ -518,14 +642,35 @@ export class AIPromptService implements PromptService {
         const section = buildTimestampedSection(videoUrl, segments);
         if (!section) return content;
 
-        const sourceAt = content.lastIndexOf(AIPromptService.SOURCE_HEADING);
+        const sourceAt = AIPromptService.findHeadingIndex(content, AIPromptService.SOURCE_HEADING_PATTERN);
         if (sourceAt <= 0) return `${content.trimEnd()}\n${section}`;
 
         return `${content.slice(0, sourceAt).trimEnd()}\n${section}${content.slice(sourceAt)}`;
     }
 
     /**
-     * Append Resources section to the end of the content
+     * Index of the LAST line matching a `## Heading` pattern, or -1. Used to
+     * splice sections in ahead of an existing heading wherever it sits in the
+     * note — the model may emit headings in any case, with or without a space
+     * after `##`.
+     */
+    private static findHeadingIndex(content: string, pattern: RegExp): number {
+        // The shared patterns are deliberately non-global (stateless `.test`);
+        // clone them with `g` for the scan.
+        const matcher = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+
+        let index = -1;
+        let match: RegExpExecArray | null;
+        while ((match = matcher.exec(content)) !== null) {
+            index = match.index;
+        }
+        return index;
+    }
+
+    /**
+     * Append the Resources section to the end of the content. Callers must
+     * check {@link AIPromptService.RESOURCES_HEADING_PATTERN} first — a
+     * Resources section the model already wrote is never duplicated.
      */
     private appendResourcesSection(content: string, videoUrl: string, provider: string, model: string): string {
         const processingDate = new Date().toISOString().split('T')[0];

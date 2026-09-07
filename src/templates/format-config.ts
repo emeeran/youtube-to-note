@@ -73,7 +73,10 @@ export const FORMAT_CONFIG: Readonly<Record<OutputFormat, FormatConfig>> = {
     'complete-transcription': {
         recommendedMaxTokens: 16384,
         temperatureHint: 0.3,
-        transcriptBudget: 200_000,
+        // Equal to MAX_TRANSCRIPT_CHARS in transcript-service.ts — the source
+        // transcript never exceeds it, so a larger budget here could only ever
+        // promise characters that do not exist.
+        transcriptBudget: 150_000,
         expectedSections: ['Overview', 'Structured Transcript', 'Key Terms', 'Resources Mentioned'],
         hasBuiltInResources: true,
     },

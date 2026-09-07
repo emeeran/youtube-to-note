@@ -8,6 +8,7 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import {
     AIPromptService,
+    buildMinuteMarkedTranscript,
     buildTimestampedSection,
     formatTimestamp,
     withTimestampParam,
@@ -83,6 +84,47 @@ describe('buildTimestampedSection', () => {
 
     it('returns an empty string when there is nothing to render', () => {
         expect(buildTimestampedSection(VIDEO_URL, [])).toBe('');
+    });
+});
+
+describe('buildMinuteMarkedTranscript', () => {
+    it('opens each new minute with one [MM:SS] marker and joins that minute with spaces', () => {
+        const timed = buildMinuteMarkedTranscript([
+            { start: 0, duration: 2, text: 'Welcome back' },
+            { start: 4, duration: 2, text: 'to the show' },
+            { start: 65, duration: 3, text: 'Today we build' },
+            { start: 66, duration: 3, text: 'a thing' },
+            { start: 3671, duration: 2, text: 'Final thoughts' },
+        ]);
+        expect(timed).toBe(
+            '[00:00] Welcome back to the show\n[01:05] Today we build a thing\n[1:01:11] Final thoughts',
+        );
+    });
+
+    it('never emits more markers than minutes of video', () => {
+        // 90 captions crammed into three minutes: three markers, not 90.
+        const dense: TranscriptSegment[] = Array.from({ length: 90 }, (_, index) => ({
+            start: index * 2,
+            duration: 1,
+            text: `caption ${index}`,
+        }));
+
+        const timed = buildMinuteMarkedTranscript(dense);
+        expect(timed.match(/^\[\d{2}:\d{2}\]/gm)).toHaveLength(3);
+        // Every caption's text still reaches the model.
+        expect(timed).toContain('caption 0');
+        expect(timed).toContain('caption 89');
+    });
+
+    it('skips segments without a usable start or text, and renders nothing for no segments', () => {
+        expect(buildMinuteMarkedTranscript([])).toBe('');
+
+        const timed = buildMinuteMarkedTranscript([
+            { start: Number.NaN, duration: 1, text: 'no timestamp' },
+            { start: 10, duration: 1, text: '   ' },
+            { start: 30, duration: 1, text: 'the real caption' },
+        ]);
+        expect(timed).toBe('[00:30] the real caption');
     });
 });
 
@@ -195,5 +237,100 @@ describe('AIPromptService timestamps and custom prompts', () => {
         // Other formats keep the model's own output untouched.
         const quickNote = service.processAIResponse('Body', 'P', 'm', 'quick-notes', videoData, VIDEO_URL, segments);
         expect(quickNote).not.toContain('## Timestamped Transcript');
+    });
+});
+
+describe('AIPromptService transcript rendering and truncation', () => {
+    const service = new AIPromptService();
+
+    it('supplies real times: the transcript carries inline minute markers when citing is on', () => {
+        const prompt = service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'quick-notes',
+            transcript: 'Welcome back to the show. Today we build a thing.',
+            segments: [
+                { start: 0, duration: 3, text: 'Welcome back to the show.' },
+                { start: 65, duration: 4, text: 'Today we build a thing.' },
+            ],
+        });
+        expect(prompt).toContain(
+            'VIDEO CONTENT/TRANSCRIPT:\n[00:00] Welcome back to the show.\n[01:05] Today we build a thing.',
+        );
+    });
+
+    it('leaves the plain transcript byte-for-byte without segments, and for complete-transcription', () => {
+        const plain = service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'quick-notes',
+            transcript: 'Plain body text',
+        });
+        expect(plain).toContain('VIDEO CONTENT/TRANSCRIPT:\nPlain body text');
+        expect(plain).not.toMatch(/^\[\d{2}:\d{2}\]/m);
+
+        // complete-transcription gets its index deterministically instead.
+        const full = service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'complete-transcription',
+            transcript: 'Plain body text',
+            segments,
+        });
+        expect(full).toContain('VIDEO CONTENT/TRANSCRIPT:\nPlain body text');
+        expect(full).not.toMatch(/^\[\d{2}:\d{2}\]/m);
+    });
+
+    it('reports real truncation instead of trimming silently', () => {
+        const onTruncated = jest.fn<{ budget: number; originalLength: number }, []>();
+        const prompt = service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'quick-notes', // transcriptBudget: 100_000
+            transcript: 'x'.repeat(100_500),
+            onTruncated,
+        });
+
+        expect(onTruncated).toHaveBeenCalledTimes(1);
+        expect(onTruncated).toHaveBeenCalledWith({ budget: 100_000, originalLength: 100_500 });
+        expect(prompt.endsWith('... [transcript truncated]')).toBe(true);
+    });
+
+    it('budgets the minute-marked rendering, and stays silent when nothing was cut', () => {
+        const onTruncated = jest.fn<{ budget: number; originalLength: number }, []>();
+        service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'quick-notes',
+            transcript: 'ignored: the segments are rendered instead',
+            segments: [{ start: 0, duration: 1, text: 'z'.repeat(100_200) }],
+            onTruncated,
+        });
+        // "[00:00] " + 100_200 caption characters = 100_208.
+        expect(onTruncated).toHaveBeenCalledWith({ budget: 100_000, originalLength: 100_208 });
+
+        const fitting = jest.fn<{ budget: number; originalLength: number }, []>();
+        service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'quick-notes',
+            transcript: 'a short transcript',
+            onTruncated: fitting,
+        });
+        expect(fitting).not.toHaveBeenCalled();
+    });
+
+    it('caps complete-transcription at the transcript source ceiling', () => {
+        const onTruncated = jest.fn<{ budget: number; originalLength: number }, []>();
+        service.createAnalysisPrompt({
+            videoData,
+            videoUrl: VIDEO_URL,
+            format: 'complete-transcription',
+            transcript: 'y'.repeat(150_500),
+            onTruncated,
+        });
+        // The source transcript is capped at 150k chars, so the budget cannot
+        // promise more than that.
+        expect(onTruncated).toHaveBeenCalledWith({ budget: 150_000, originalLength: 150_500 });
     });
 });

@@ -26,6 +26,8 @@ jest.mock('../../src/services/logger', () => ({
 // Video-data scrapes the watch page for extra metadata; stub that out so the
 // metadata path is driven entirely by the `fetch` stub below.
 jest.mock('../../src/services/youtube-page', () => ({
+    assertNotAborted: jest.fn(),
+    RequestAbortedError: class extends Error {},
     fetchYouTubePage: jest.fn(async () => '<html></html>'),
     parsePlayerResponse: jest.fn().mockReturnValue({}),
     extractVideoDetails: jest.fn().mockReturnValue({ duration: 600 }),
@@ -167,35 +169,28 @@ describe('Tier 0 — video-data caches a copy, not the handed-out object', () =>
         return { service, cache };
     }
 
-    it('stores the availability update on a copy, leaving the caller object untouched', async () => {
+    it('stores a copy, leaving the handed-out object free to be mutated by the caller', async () => {
         const { service, cache } = await makeService();
 
         // Hand out the object (cache misses on the very first call)…
         const handedOut = await service.getVideoData(VIDEO_ID);
         expect(handedOut.title).toBe(TITLE);
 
-        // …let the fire-and-forget availability check land…
-        await new Promise(resolve => setTimeout(resolve, 0));
-
-        // set #1: metadata, #2: the video-data result, #3: the availability copy
-        expect(cache.set).toHaveBeenCalledTimes(3);
-        const cachedCopy = cache.set.mock.calls[2]?.[1] as typeof handedOut & { hasTranscript?: boolean };
-        expect(cachedCopy.hasTranscript).toBe(true);
-
-        // …and only then mutate the object the caller owns.
-        handedOut.title = 'MUTATED BY CALLER';
-
-        // The copy in the cache is a different object and was not clobbered.
+        // set #1: the oEmbed metadata, #2: the video-data result
+        expect(cache.set).toHaveBeenCalledTimes(2);
+        const cachedCopy = cache.set.mock.calls[1]?.[1] as typeof handedOut;
         expect(cachedCopy).not.toBe(handedOut);
+
+        // Mutating the object the caller owns must not corrupt the cache.
+        handedOut.title = 'MUTATED BY CALLER';
         expect(cachedCopy.title).toBe(TITLE);
     });
 
     it('serves the pristine copy on a cache hit', async () => {
         const { service, cache } = await makeService();
         const handedOut = await service.getVideoData(VIDEO_ID);
-        await new Promise(resolve => setTimeout(resolve, 0));
 
-        const cachedCopy = cache.set.mock.calls[2]?.[1] as typeof handedOut;
+        const cachedCopy = cache.set.mock.calls[1]?.[1] as typeof handedOut;
         cache.get.mockReturnValueOnce(cachedCopy);
 
         handedOut.title = 'MUTATED BY CALLER';
@@ -208,19 +203,16 @@ describe('Tier 0 — video-data caches a copy, not the handed-out object', () =>
         expect(secondRead).toBe(cachedCopy);
     });
 
-    it('does not run the availability probe for long videos', async () => {
-        const { service } = await makeService();
-        (youtubePage.extractVideoDetails as jest.Mock).mockReturnValue({ duration: 3600 });
-        fetchMock.mockImplementation(async () => ({
-            ok: true,
-            status: 200,
-            json: async () => ({ title: TITLE, author_name: 'Test Channel' }),
-        }));
+    it('never probes transcript availability from the metadata path', async () => {
+        const { service, cache } = await makeService();
 
+        // Even a short video must not trigger the (removed, unabortable) prefetch.
         await service.getVideoData(VIDEO_ID);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         expect((service.transcriptService.isTranscriptAvailable as jest.Mock).mock.calls.length).toBe(0);
+        // set #1: the oEmbed metadata, #2: the video-data result — nothing else.
+        expect(cache.set).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -378,6 +370,149 @@ describe('Tier 0 — templates escape hostile titles', () => {
         // Deterministic attribution block closes the note.
         expect(note).toContain('## Source');
         expect(note).toContain('**Video**');
+    });
+});
+
+describe('Prompt assembly regressions', () => {
+    const VIDEO_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    const service = new AIPromptService();
+    const metaData = {
+        title: 'Test Video Title',
+        description: 'A description',
+        channelName: 'Channel',
+        duration: 600,
+        publishedAt: '2024-01-01',
+    };
+
+    it('prepends the deterministic header to content that opens with a `---` horizontal rule', () => {
+        const note = service.processAIResponse(
+            '---\n\n## Executive Summary\n\nBody text',
+            'Groq',
+            'llama-3.3-70v',
+            'quick-notes',
+            metaData,
+            VIDEO_URL,
+        );
+
+        // Real frontmatter + embed go in front of the rule…
+        expect(note.startsWith('---\ntitle:')).toBe(true);
+        expect(note).toContain('<iframe');
+        // …so `ai_provider` lands in the frontmatter, not underneath the rule.
+        expect(note.indexOf('ai_provider:')).toBeGreaterThan(-1);
+        expect(note.indexOf('ai_provider:')).toBeLessThan(note.indexOf('## Executive Summary'));
+        // The model's own leading rule is left in place.
+        expect(note).toContain('---\n\n## Executive Summary');
+    });
+
+    it('still recognises real frontmatter and does not add a second header', () => {
+        const note = service.processAIResponse(
+            '---\ntitle: "Existing"\n---\n\nBody text',
+            'Groq',
+            'llama-3.3-70v',
+            'quick-notes',
+            metaData,
+            VIDEO_URL,
+        );
+
+        expect(note.startsWith('---\n')).toBe(true);
+        expect(note).toContain('title: "Existing"');
+        expect(note).not.toContain('<iframe');
+        // The ai_* safety net still repairs the existing block in place.
+        expect(note).toContain('ai_provider: "Groq"');
+        expect(note.match(/^---$/gm)).toHaveLength(2);
+    });
+
+    it('does not duplicate a Resources section the model already wrote', () => {
+        const lowercase = service.processAIResponse(
+            '## Notes\n\nBody\n\n## resources\n\n- existing link',
+            'Groq',
+            'llama-3.3-70v',
+            'quick-notes',
+            metaData,
+            VIDEO_URL,
+        );
+        expect(lowercase.match(/^##\s*resources\b/gim)).toHaveLength(1);
+        expect(lowercase).not.toContain('- Video URL:');
+
+        // A built-in citations heading counts too — same heading, other words after it.
+        const citations = service.processAIResponse(
+            'Body\n\n## Resources & Citations\n\n- existing link',
+            'Groq',
+            'llama-3.3-70v',
+            'quick-notes',
+            metaData,
+            VIDEO_URL,
+        );
+        expect(citations).not.toContain('- Video URL:');
+    });
+
+    it('leaves a Source section the model wrote alone, wherever it sits', () => {
+        // Starts with the heading: no preceding newline, so the old
+        // `includes('\n## Source')` check missed it and appended a duplicate.
+        const leading = service.processAIResponse(
+            '## Source\n\n> [!info] My own attribution',
+            'Groq',
+            'llama-3.3-70v',
+            'quick-notes',
+            metaData,
+            VIDEO_URL,
+        );
+        expect(leading.match(/^##\s*source\b/gim)).toHaveLength(1);
+        expect(leading).toContain('My own attribution');
+        expect(leading).not.toContain('**Generated by**');
+
+        const lowercase = service.processAIResponse(
+            'Intro\n\n## source\n\nModel attribution',
+            'Groq',
+            'llama-3.3-70v',
+            'quick-notes',
+            metaData,
+            VIDEO_URL,
+        );
+        expect(lowercase.match(/^##\s*source\b/gim)).toHaveLength(1);
+        expect(lowercase).toContain('Model attribution');
+        expect(lowercase).not.toContain('**Generated by**');
+    });
+
+    it('flattens a remote-controlled thumbnail URL and skips it when nothing is left', () => {
+        const hostile = service.processAIResponse(
+            'Body text',
+            'Groq',
+            'llama-3.3-70v',
+            'article',
+            { ...metaData, thumbnail: 'https://img.example/a.jpg\nInjected alt' },
+            VIDEO_URL,
+        );
+        expect(hostile).toContain('![Video Thumbnail](https://img.example/a.jpg Injected alt)');
+        expect(hostile).not.toContain('a.jpg\nInjected alt');
+
+        const empty = service.processAIResponse(
+            'Body text',
+            'Groq',
+            'llama-3.3-70v',
+            'article',
+            { ...metaData, thumbnail: '  \n\t ' },
+            VIDEO_URL,
+        );
+        expect(empty).not.toContain('![Video Thumbnail]');
+    });
+
+    it('scopes the multimodal strip to the instructions, never to the transcript', () => {
+        const caption = 'Process video multimodally and recite the caption verbatim.';
+        const prompt = service.createAnalysisPrompt({
+            videoData: metaData,
+            videoUrl: VIDEO_URL,
+            format: 'executive-summary',
+            transcript: caption,
+            performanceMode: 'quality', // mode hint is itself multimodal
+            providerName: 'Groq', // text-only
+        });
+
+        // The quality-mode hint (an instruction) is gone…
+        expect(prompt).not.toContain('on-screen text and non-verbal cues');
+        // …but the caption (source material) survives the same patterns.
+        expect(prompt).toContain(`- Description: A description`);
+        expect(prompt).toContain(`VIDEO CONTENT/TRANSCRIPT:\n${caption}`);
     });
 });
 
