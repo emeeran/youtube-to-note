@@ -117,6 +117,10 @@ export interface ProgressUpdate {
 export interface AIRequestOptions {
     /** Aborts in-flight fetches (modal close, plugin unload). */
     signal?: AbortSignal;
+    /** Per-request token ceiling — applied for this call only, never stored on the provider. */
+    maxTokens?: number;
+    /** Per-request sampling temperature — applied for this call only, never stored on the provider. */
+    temperature?: number;
 }
 
 /** A timed transcript segment. Times are seconds since video start. */
