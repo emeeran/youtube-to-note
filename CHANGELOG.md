@@ -8,6 +8,118 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 <!-- Next release: 2.2.0 (plugin + extension are versioned independently; see
      CONTRIBUTING.md for the release flow and extension/PUBLISH.md for the extension). -->
 
+## [Unreleased]
+
+A second hardening pass over v2.1.0. IDs refer to the 2026-09-07 audit ledger
+(`local/improvement-report-2026-09-07.md`, summarised in `AUDIT.md`).
+
+### Added
+
+- **Any provider unlocks the plugin.** An API key for _any_ of Gemini, Groq, OpenRouter,
+  Hugging Face or Ollama Cloud is now sufficient — previously only Gemini or Groq counted, so
+  an OpenRouter-only setup was refused outright. Environment-variable mode with a prefix
+  qualifies too. _(H2.)_
+- **"Environment variable prefix" settings field.** The prefix keys are read under
+  (default `YTC`) was load-bearing but reachable only by hand-editing `data.json`; it now sits
+  directly under the _Env Variables_ toggle. _(M12.)_
+- **Real timestamp citations.** When _Include timestamp links_ is on, the transcript handed to
+  the model carries an inline `[MM:SS]` marker at each minute boundary, so the times it cites
+  are actual caption timings instead of plausible inventions. One marker per minute bounds the
+  size cost. Complete Transcription's deterministic index is unchanged. _(H1.)_
+- **Retry re-runs only what failed.** After a partial batch failure, 🔄 Retry seeds from the
+  failed URLs and leaves notes that already saved alone, with a label saying how many are
+  left ("Retry 3 failed"); 🔁 **Retry all** is a separate, explicit button. The successful
+  notes stay visible above the error as clickable links. _(H4.)_
+- **Batch guardrails.** Repeated videos in one paste are collapsed to a single run (first
+  spelling wins), and a batch is capped at **50 URLs** — anything past that is counted and
+  reported rather than silently queued as paid runs. _(M11.)_
+- **A second modal is refused.** Opening the modal from the ribbon, a command or the clipboard
+  while one is already open shows a Notice instead of stacking a second run.
+- **Key-safe settings export.** 📤 Export strips every API key from the JSON, and 📥 Import
+  takes a key from the file only when it carries a non-empty value — so a key-free export can
+  never blank the keys already stored in `data.json`. _(H5.)_
+- **Per-format prompt overrides are capped at 20,000 characters** (enforced by the textarea
+  and re-checked as a validation error for imported or hand-edited values) **and saved on a
+  500 ms debounce** instead of rewriting all of `data.json` on every keystroke. _(H6.)_
+- **Live validation feedback in settings.** Errors and warnings render into an in-place banner
+  and the header badge, and an invalid edit is not persisted. _(H2, M12.)_
+- **CI hardening.** A per-ref `concurrency` group cancels superseded runs; a
+  `package-extension` job builds the ZIP and fails unless `manifest.json` sits at its root;
+  the release job verifies tag = `package.json` = `manifest.json` before publishing; and the
+  test job dry-runs `version-bump.mjs` asserting it produces no diff. Top-level
+  `permissions: contents: read`, with only the tag-gated release job opting into write.
+  _(H7, M18.)_
+- Test suite grew from **12 suites / 268 tests** to **16 suites / 408 tests** (snapshot of
+  `npx jest` on 2026-09-07), adding `processYouTubeVideo` pipeline coverage, all six AI
+  providers, the validation rules and the modal's batch helpers.
+
+### Changed
+
+- **Unusual key formats are warnings, not errors.** A key whose prefix does not match its
+  provider is reported in a banner and never blocks a run — gateways, proxies and rotated
+  formats are legitimate. The READY/SETUP badge follows the same any-provider rule. _(H2.)_
+- **Every AI request is bounded at 60 seconds** (`REQUEST_TIMEOUT_MS`), so a hung provider can
+  no longer pin a run. _(M2.)_
+- **Generation parameters are per-request.** `maxTokens` and `temperature` travel on
+  `AIRequestOptions` rather than mutating shared provider singletons, so two concurrent runs
+  cannot clobber each other's settings.
+- **YouTube fetches are bounded and cancellable.** Watch-page, caption and innertube requests
+  run under a 15s `withTimeout` and honour the run's abort signal, which is now threaded
+  through the metadata, transcript and save stages. _(M3.)_
+- **Metadata survives an oEmbed outage.** Any oEmbed failure falls back to the watch-page
+  scrape; only when both fail does the run error, and it surfaces the more descriptive of the
+  two. _(M6.)_
+- **The background transcript prefetch is gone.** It duplicated the pipeline's own fetch,
+  unabortably, for every video under 30 minutes. _(M7.)_
+- **The transcript disk cache is hardened.** Paths derive from the vault config directory that
+  is actually written (previously a junk `<vault>/youtube-to-note/cache` could appear), writes
+  go to a unique temp file before an atomic rename, entries are shape-validated on read so a
+  malformed file is a miss rather than a crash, and the cache is pruned to **200 files**.
+  _(M4.)_
+- **Truncation warnings state the real numbers.** PromptService reports the trim it actually
+  applied through an `onTruncated` callback, and the copy is derived from it — e.g. "trimmed
+  to the first 120,000 of 145,000 characters for this format" — or the 150,000-character
+  source ceiling when that is what fired. The stale hardcoded "100,000" is gone.
+  _(M1, H1.)_
+- **The extension's injected-button observer disarms itself** once the button sits on a stable
+  URL, and is re-armed by `yt-navigate-finish` or a 1.5s watchdog — previously a body-wide
+  `MutationObserver` ran six `querySelector`s per mutation batch for the life of the page.
+  Retry chains are per navigation instead of sharing one budget. The zero-permission claim is
+  unchanged. _(M15.)_
+- **Styling moved toward Obsidian's guidelines.** Hardcoded colours became CSS variables, the
+  shared modal family became CSS classes, and a mobile breakpoint was added to a plugin that
+  declares `isDesktopOnly: false`. _(M14 — partially; 51 inline `style.*` writes remain.)_
+
+### Fixed
+
+- **Documentation no longer claims a caption-less video produces no note.** The behaviour has
+  always been split: hard failures (restricted, private, unavailable) stop the run, while a
+  video that merely has no captions still produces a metadata-only note with a warning.
+  `README.md` and `USER_MANUAL.md` said otherwise. _(M16.)_
+- **A leading `---` rule is no longer mistaken for frontmatter**, which had skipped the
+  deterministic header and let `ai_provider:` be injected under a horizontal rule. The opening
+  block must now look like YAML. _(H3.)_
+- **`## Resources` / `## Source` are de-duplicated** case-insensitively, so a custom prompt can
+  no longer produce two of either or suppress attribution. _(M5.)_
+- **Modal interaction fixes.** `Enter` in the instructions textarea no longer starts a run, the
+  copy-path shortcut yields to `Ctrl+C` with text selected, and every timer is tracked and
+  cleared through one owner. _(M8.)_
+- **The video preview no longer refires a bare `fetch` on every keystroke.** It goes through
+  `requestUrl` under a 10s timeout with a monotonic token that drops stale answers.
+  _(M10.)_
+- **Dead modal options removed** (`defaultModel`, `defaultProvider` and friends were passed
+  in and never read). _(M13.)_
+- **`data.json` is no longer logged verbatim** at debug level — a redacted summary logs which
+  credentials are set and the names, never the values, of everything else.
+- **Server-controlled `statusText` is sanitized** on the Ollama and error-handler paths before
+  it can reach a Notice.
+- **The innertube ANDROID `clientVersion` is pinned and labelled** (`19.09.37`, with a warn log
+  telling the next reader to bump it) and the caption `baseUrl` fetch is host-allowlisted, so
+  the age-gate fallback degrades loudly instead of silently.
+- **Release hygiene.** The changelog section for 2.1.0 actually exists, `.claude/settings.local.json`
+  is untracked and gitignored, and lint-staged no longer has a glob that would prettier-format
+  the generated `main.js`. _(H7, H8.)_
+
 ## [2.1.0] - 2026-09-07
 
 ### Added
