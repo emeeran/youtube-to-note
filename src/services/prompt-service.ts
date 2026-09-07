@@ -42,6 +42,12 @@ interface AnalysisPromptOptions {
      * signal: callers omit them when `includeTimestamps` is off.
      */
     segments?: TranscriptSegment[];
+    /**
+     * Called when the prompt service trimmed the transcript to a format's
+     * budget, so the caller can surface real truncation info (which budget,
+     * how much was cut) instead of guessing.
+     */
+    onTruncated?: (info: { budget: number; originalLength: number }) => void;
 }
 
 // Re-export FormatConfig for backward compatibility
