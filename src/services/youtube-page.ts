@@ -263,8 +263,10 @@ export function selectCaptionTrack(tracks: CaptionTrack[], language?: string): C
 }
 
 /** Only YouTube's timedtext host may be asked for caption payloads — a player
- * response is remote-controlled, so never fetch an arbitrary URL from it. */
-const CAPTION_HOST_PATTERN = /^https:\/\/([^/]+\.)?youtube\.com\/timedtext/;
+ * response is remote-controlled, so never fetch an arbitrary URL from it.
+ * Real caption URLs are `…/api/timedtext?…` (the bare `/timedtext` legacy
+ * shape is accepted too). */
+const CAPTION_HOST_PATTERN = /^https:\/\/([^/]+\.)?youtube\.com\/(?:api\/)?timedtext/;
 
 /** Fetch the raw caption payload (timedtext XML) for a caption track. */
 export async function fetchCaptionContent(baseUrl: string, signal?: AbortSignal): Promise<string> {

@@ -2,18 +2,22 @@
  * Unit tests for the proxy-free YouTube page parser and transcript helpers.
  */
 
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { requestUrl } from 'obsidian';
 import {
     parsePlayerResponse,
     extractCaptionTracks,
     selectCaptionTrack,
     extractVideoDetails,
     decodeEntities,
+    fetchCaptionContent,
 } from '../../../src/services/youtube-page';
 
 jest.mock('../../../src/services/logger', () => ({
     logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
 }));
+
+const requestUrlMock = requestUrl as unknown as jest.Mock;
 
 describe('youtube-page', () => {
     describe('parsePlayerResponse', () => {
@@ -123,6 +127,50 @@ describe('youtube-page', () => {
         });
         it('returns empty for falsy input', () => {
             expect(decodeEntities('')).toBe('');
+        });
+    });
+
+    // Regression: the caption-host allowlist must accept YouTube's REAL timedtext
+    // shape (`/api/timedtext?…`) — an over-strict pattern here refuses every
+    // caption download and surfaces as a bogus "network error" in the UI.
+    describe('fetchCaptionContent host allowlist', () => {
+        beforeEach(() => {
+            requestUrlMock.mockReset();
+            requestUrlMock.mockResolvedValue({ text: '<transcript><text start="1" dur="2">hi</text></transcript>' });
+        });
+
+        afterEach(() => {
+            requestUrlMock.mockReset();
+        });
+
+        it('fetches the real /api/timedtext caption URL', async () => {
+            const url = 'https://www.youtube.com/api/timedtext?v=gusIpfavor&lang=en&fmt=srv1';
+            await expect(fetchCaptionContent(url)).resolves.toContain('<text');
+            expect(requestUrlMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('accepts the legacy bare /timedtext shape and youtube subdomains', async () => {
+            await expect(fetchCaptionContent('https://www.youtube.com/timedtext?lang=en')).resolves.toContain('<text');
+            await expect(fetchCaptionContent('https://music.youtube.com/api/timedtext?lang=en')).resolves.toContain(
+                '<text',
+            );
+        });
+
+        it('refuses non-YouTube hosts without issuing a request', async () => {
+            await expect(fetchCaptionContent('https://evil.example.com/api/timedtext?v=x')).rejects.toThrow(
+                'not a YouTube timedtext endpoint',
+            );
+            expect(requestUrlMock).not.toHaveBeenCalled();
+        });
+
+        it('refuses wrong paths and non-https schemes on the youtube host', async () => {
+            await expect(fetchCaptionContent('https://www.youtube.com/watch?v=gusIpfavor')).rejects.toThrow(
+                'not a YouTube timedtext endpoint',
+            );
+            await expect(fetchCaptionContent('http://www.youtube.com/api/timedtext?lang=en')).rejects.toThrow(
+                'not a YouTube timedtext endpoint',
+            );
+            expect(requestUrlMock).not.toHaveBeenCalled();
         });
     });
 });
