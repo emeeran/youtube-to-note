@@ -208,8 +208,8 @@ describe('processYouTubeVideo pipeline', () => {
             expect(result.warnings).toEqual([]);
 
             expect(mocks.extractVideoId).toHaveBeenCalledWith(VIDEO_URL);
-            expect(mocks.getVideoData).toHaveBeenCalledWith(VIDEO_ID);
-            expect(mocks.fetchTranscriptOutcome).toHaveBeenCalledWith(VIDEO_ID, '');
+            expect(mocks.getVideoData).toHaveBeenCalledWith(VIDEO_ID, expect.anything());
+            expect(mocks.fetchTranscriptOutcome).toHaveBeenCalledWith(VIDEO_ID, '', expect.anything());
             expect(mocks.saveToFile).toHaveBeenCalledWith('Test Video Title', 'FORMATTED NOTE', 'YouTube/Notes');
             expect(mocks.processAIResponse).toHaveBeenCalledWith(
                 SUCCESS_RESPONSE.content,
@@ -271,7 +271,7 @@ describe('processYouTubeVideo pipeline', () => {
                 'gemini-1.5-flash',
                 undefined,
                 false,
-                expect.objectContaining({ signal: expect.anything() }),
+                expect.objectContaining({ signal: expect.anything(), maxTokens: 4096, temperature: 0.5 }),
             );
             // A pinned provider is tried first; the chain stops at the first success.
             expect(mocks.processWith).toHaveBeenCalledTimes(1);
@@ -287,7 +287,7 @@ describe('processYouTubeVideo pipeline', () => {
             expect(mocks.createAnalysisPrompt).toHaveBeenCalledWith(expect.objectContaining({ segments: undefined }));
         });
 
-        it('flags a truncated transcript as both a flag and a warning', async () => {
+        it('flags a source-capped transcript as both a flag and a warning', async () => {
             const truncated: TranscriptOutcome = {
                 ok: true,
                 transcript: { fullText: 'partial', segments: [], truncated: true },
@@ -299,7 +299,26 @@ describe('processYouTubeVideo pipeline', () => {
 
             expect(result.success).toBe(true);
             expect(result.transcriptTruncated).toBe(true);
-            expect(result.warnings?.join(' ')).toContain('Transcript truncated at 100,000 characters');
+            expect(result.warnings?.join(' ')).toContain('capped at the source ceiling of 150,000');
+        });
+
+        it('surfaces the real budget numbers when PromptService trims the transcript', async () => {
+            const { container, mocks } = makeContainer();
+            mocks.createAnalysisPrompt.mockImplementation(
+                (options: { onTruncated?: (i: { budget: number; originalLength: number }) => void }) => {
+                    options.onTruncated?.({ budget: 20_000, originalLength: 95_000 });
+                    return 'ANALYSIS PROMPT';
+                },
+            );
+            const plugin = makePlugin(makeSettings(), container);
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL);
+
+            expect(result.success).toBe(true);
+            expect(result.transcriptTruncated).toBe(true);
+            expect(result.warnings?.join(' ')).toContain(
+                'Transcript trimmed to the first 20,000 of 95,000 characters for this format.',
+            );
         });
 
         it('records the run in processing history', async () => {
@@ -371,13 +390,37 @@ describe('processYouTubeVideo pipeline', () => {
             expect(mocks.processWith.mock.calls[0]?.[0]).toBe('Groq');
         });
 
-        it('applies per-run generation parameters to the AI service', async () => {
+        it('sends per-run generation parameters with the request, not on the shared providers', async () => {
             const { container, mocks } = makeContainer();
             const plugin = makePlugin(makeSettings(), container);
 
             await plugin.processYouTubeVideo(VIDEO_URL, { maxTokens: 1024, temperature: 0.2 });
 
-            expect(mocks.setModelParameters).toHaveBeenCalledWith({ maxTokens: 1024, temperature: 0.2 });
+            expect(mocks.setModelParameters).not.toHaveBeenCalled();
+            expect(mocks.processWith).toHaveBeenCalledWith(
+                'Google Gemini',
+                'ANALYSIS PROMPT',
+                undefined,
+                undefined,
+                false,
+                expect.objectContaining({ maxTokens: 1024, temperature: 0.2, signal: expect.anything() }),
+            );
+        });
+
+        it('falls back to the settings defaults when a run sets no generation parameters', async () => {
+            const { container, mocks } = makeContainer();
+            const plugin = makePlugin(makeSettings({ defaultMaxTokens: 8192, defaultTemperature: 0.3 }), container);
+
+            await plugin.processYouTubeVideo(VIDEO_URL);
+
+            expect(mocks.processWith).toHaveBeenCalledWith(
+                'Google Gemini',
+                'ANALYSIS PROMPT',
+                undefined,
+                undefined,
+                false,
+                expect.objectContaining({ maxTokens: 8192, temperature: 0.3 }),
+            );
         });
     });
 

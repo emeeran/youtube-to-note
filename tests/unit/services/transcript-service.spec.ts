@@ -9,6 +9,8 @@ import { YouTubeTranscriptService } from '../../../src/services/transcript-servi
 import * as youtubePage from '../../../src/services/youtube-page';
 
 jest.mock('../../../src/services/youtube-page', () => ({
+    // Keep the real abort helper/error (they are plumbing, not a fetch boundary).
+    ...jest.requireActual<typeof import('../../../src/services/youtube-page')>('../../../src/services/youtube-page'),
     fetchPlayerResponse: jest.fn(),
     extractCaptionTracks: jest.fn(),
     selectCaptionTrack: jest.fn(),

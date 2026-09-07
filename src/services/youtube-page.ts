@@ -26,21 +26,47 @@ export interface VideoPageDetails {
     channelName?: string;
 }
 
+/** Hard ceiling for any single YouTube request so a hung one cannot stall a run. */
+const YOUTUBE_REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * Thrown when a run's AbortSignal fired. Services let it propagate (it is never
+ * classified as a network failure) and the pipeline turns it into a clean
+ * "cancelled" result instead of an error notice.
+ */
+export class RequestAbortedError extends Error {
+    constructor() {
+        super('Request aborted');
+        this.name = 'RequestAbortedError';
+    }
+}
+
+/** Throws as soon as the run has been cancelled. A no-op without a signal. */
+export function assertNotAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw new RequestAbortedError();
+}
+
 /** Fetch the raw HTML of a YouTube watch page without any CORS proxy. */
-export async function fetchYouTubePage(videoId: string): Promise<string> {
+export async function fetchYouTubePage(videoId: string, signal?: AbortSignal): Promise<string> {
+    assertNotAborted(signal);
     const url = `https://www.youtube.com/watch?v=${videoId}`;
-    const response = await requestUrl({
-        url,
-        method: 'GET',
-        headers: {
-            // A normal browser UA avoids YouTube's "unsupported browser" shells.
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-                '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            // Deliberately no Accept-Language: sending one biases YouTube's
-            // caption track list (and default track order) toward that locale.
-        },
-    });
+    const response = await withTimeout(
+        requestUrl({
+            url,
+            method: 'GET',
+            headers: {
+                // A normal browser UA avoids YouTube's "unsupported browser" shells.
+                'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+                    '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                // Deliberately no Accept-Language: sending one biases YouTube's
+                // caption track list (and default track order) toward that locale.
+            },
+        }),
+        YOUTUBE_REQUEST_TIMEOUT_MS,
+        signal,
+    );
+    assertNotAborted(signal);
     return response.text;
 }
 
@@ -236,13 +262,25 @@ export function selectCaptionTrack(tracks: CaptionTrack[], language?: string): C
     return pickByLanguage('en') ?? tracks.find(t => t.kind !== 'asr') ?? tracks[0];
 }
 
+/** Only YouTube's timedtext host may be asked for caption payloads — a player
+ * response is remote-controlled, so never fetch an arbitrary URL from it. */
+const CAPTION_HOST_PATTERN = /^https:\/\/([^/]+\.)?youtube\.com\/timedtext/;
+
 /** Fetch the raw caption payload (timedtext XML) for a caption track. */
-export async function fetchCaptionContent(baseUrl: string): Promise<string> {
+export async function fetchCaptionContent(baseUrl: string, signal?: AbortSignal): Promise<string> {
+    assertNotAborted(signal);
+    if (!CAPTION_HOST_PATTERN.test(baseUrl)) {
+        logger.warn('Refusing non-YouTube caption URL', 'YouTubePage', {
+            host: new URL(baseUrl, 'https://www.youtube.com').hostname,
+        });
+        throw new Error('Caption track URL is not a YouTube timedtext endpoint');
+    }
     // Fetch the baseUrl as-is. YouTube returns timedtext XML by default
     // (either <text start="" dur=""> or <t s="" d=""> elements); the parser
     // handles both shapes. Avoid forcing fmt=srv3/json3, which changes the
     // element structure and can silently yield an empty parse.
-    const response = await requestUrl({ url: baseUrl, method: 'GET' });
+    const response = await withTimeout(requestUrl({ url: baseUrl, method: 'GET' }), YOUTUBE_REQUEST_TIMEOUT_MS, signal);
+    assertNotAborted(signal);
     return response.text;
 }
 
@@ -250,29 +288,42 @@ export async function fetchCaptionContent(baseUrl: string): Promise<string> {
  * Fetch the watch page and return its parsed player response, or null.
  * Centralizes the page fetch + parse so callers don't repeat themselves.
  */
-export async function fetchPlayerResponse(videoId: string): Promise<ReturnType<typeof parsePlayerResponse>> {
-    const html = await fetchYouTubePage(videoId);
+export async function fetchPlayerResponse(
+    videoId: string,
+    signal?: AbortSignal,
+): Promise<ReturnType<typeof parsePlayerResponse>> {
+    const html = await fetchYouTubePage(videoId, signal);
     return parsePlayerResponse(html);
 }
 
-/** Reject a promise after `ms`, so a hung request cannot stall the pipeline. */
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+/**
+ * Reject a promise after `ms` — or as soon as `signal` aborts — so a hung
+ * request cannot stall the pipeline.
+ */
+async function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => {
+    let onAbort: (() => void) | undefined;
+    const deadline = new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+        if (signal) {
+            if (signal.aborted) {
+                reject(new RequestAbortedError());
+            } else {
+                onAbort = () => reject(new RequestAbortedError());
+                signal.addEventListener('abort', onAbort, { once: true });
+            }
+        }
     });
-    // If the fetch wins the race, the timeout rejection must stay handled.
-    timeout.catch(() => undefined);
+    // If the fetch wins the race, the deadline rejection must stay handled.
+    deadline.catch(() => undefined);
 
     try {
-        return await Promise.race([promise, timeout]);
+        return await Promise.race([promise, deadline]);
     } finally {
         if (timer) clearTimeout(timer);
+        if (onAbort) signal?.removeEventListener('abort', onAbort);
     }
 }
-
-/** Hard ceiling for the innertube fallback so a hung request can't stall a run. */
-const INNERTUBE_TIMEOUT_MS = 15_000;
 
 /** YouTube's innertube player endpoint. */
 const INNERTUBE_PLAYER_ENDPOINT = 'https://www.youtube.com/youtubei/v1/player';
@@ -280,12 +331,18 @@ const INNERTUBE_PLAYER_ENDPOINT = 'https://www.youtube.com/youtubei/v1/player';
 /**
  * ANDROID client context. This client still serves player responses (caption
  * tracks included) without credentials, and needs no API key — so none is sent.
+ *
+ * PINNED VERSION: YouTube eventually retires old client versions and the
+ * age-restriction fallback silently degrades to `restricted`. When that day
+ * comes, bump INNERTUBE_ANDROID_CLIENT_VERSION — the warn log in
+ * fetchInnertubePlayerResponse makes the degradation visible in the console.
  */
+const INNERTUBE_ANDROID_CLIENT_VERSION = '19.09.37';
 const INNERTUBE_ANDROID_CONTEXT = {
     context: {
         client: {
             clientName: 'ANDROID',
-            clientVersion: '19.09.37',
+            clientVersion: INNERTUBE_ANDROID_CLIENT_VERSION,
             androidSdkVersion: 30,
             hl: 'en',
             gl: 'US',
@@ -315,7 +372,7 @@ export async function fetchInnertubePlayerResponse(videoId: string): Promise<unk
                 videoId,
             }),
         }),
-        INNERTUBE_TIMEOUT_MS,
+        YOUTUBE_REQUEST_TIMEOUT_MS,
     );
 
     const json = response.json as unknown;

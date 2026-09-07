@@ -8,11 +8,13 @@ import {
 } from '../types';
 import { logger } from './logger';
 import {
+    assertNotAborted,
     decodeEntities,
     extractCaptionTracks,
     fetchCaptionContent,
     fetchInnertubePlayerResponse,
     fetchPlayerResponse,
+    RequestAbortedError,
     selectCaptionTrack,
 } from './youtube-page';
 import { TranscriptDiskCache } from './transcript-cache';
@@ -40,7 +42,7 @@ export interface TranscriptServiceOptions {
 }
 
 /** Memory-bound ceiling: stop appending segments past this many characters. */
-const MAX_TRANSCRIPT_CHARS = 150_000;
+export const MAX_TRANSCRIPT_CHARS = 150_000;
 
 /** The slice of `playabilityStatus` we care about when classifying a failure. */
 interface PlayabilityStatus {
@@ -174,11 +176,15 @@ export class YouTubeTranscriptService {
      * machine-readable so the UI can explain restricted / private / no-captions.
      *
      * Lookup order: disk (opt-in) → memory → network.
+     *
+     * @param signal Optional run signal — a cancelled run stops at the next
+     * network boundary instead of finishing the fetch.
      */
-    async fetchTranscriptOutcome(videoId: string, language?: string): Promise<TranscriptOutcome> {
+    async fetchTranscriptOutcome(videoId: string, language?: string, signal?: AbortSignal): Promise<TranscriptOutcome> {
         if (!videoId) {
             throw new Error('Video ID is required');
         }
+        assertNotAborted(signal);
 
         const cacheKey = language ? `transcript-${videoId}-${language}` : `transcript-${videoId}`;
 
@@ -196,7 +202,7 @@ export class YouTubeTranscriptService {
             return { ok: true, transcript: cached };
         }
 
-        const outcome = await this.fetchTranscriptFromNetwork(videoId, language);
+        const outcome = await this.fetchTranscriptFromNetwork(videoId, language, signal);
 
         if (outcome.ok) {
             this.cache?.set(cacheKey, outcome.transcript, this.transcriptTTL);
@@ -212,8 +218,8 @@ export class YouTubeTranscriptService {
      * Legacy wrapper kept for existing callers/tests: returns the transcript or
      * null, discarding the typed failure reason. Prefer `fetchTranscriptOutcome`.
      */
-    async getTranscript(videoId: string, language?: string): Promise<TranscriptResult | null> {
-        const outcome = await this.fetchTranscriptOutcome(videoId, language);
+    async getTranscript(videoId: string, language?: string, signal?: AbortSignal): Promise<TranscriptResult | null> {
+        const outcome = await this.fetchTranscriptOutcome(videoId, language, signal);
         return outcome.ok ? outcome.transcript : null;
     }
 
@@ -236,17 +242,25 @@ export class YouTubeTranscriptService {
     }
 
     /** Fetch (and classify) a transcript straight from YouTube. */
-    private async fetchTranscriptFromNetwork(videoId: string, language?: string): Promise<TranscriptOutcome> {
+    private async fetchTranscriptFromNetwork(
+        videoId: string,
+        language?: string,
+        signal?: AbortSignal,
+    ): Promise<TranscriptOutcome> {
         let playerResponse: unknown;
         try {
-            playerResponse = await fetchPlayerResponse(videoId);
+            playerResponse = await fetchPlayerResponse(videoId, signal);
         } catch (error) {
+            // A cancelled run is not a network failure — let it propagate so the
+            // caller can unwind the whole run cleanly.
+            if (error instanceof RequestAbortedError) throw error;
             logger.warn('Transcript: watch page fetch failed', 'Transcript', {
                 videoId,
                 error: error instanceof Error ? error.message : String(error),
             });
             return { ok: false, reason: 'network', message: errorMessage(error) };
         }
+        assertNotAborted(signal);
 
         if (!playerResponse) {
             logger.warn('Transcript: could not parse player response', 'Transcript', { videoId });
@@ -265,7 +279,7 @@ export class YouTubeTranscriptService {
             return { ok: false, reason, message };
         }
 
-        return this.downloadCaptionTrack(videoId, playerResponse, language);
+        return this.downloadCaptionTrack(videoId, playerResponse, language, signal);
     }
 
     /** Pick the best track, download its timedtext payload, and parse it. */
@@ -273,6 +287,7 @@ export class YouTubeTranscriptService {
         videoId: string,
         playerResponse: unknown,
         language?: string,
+        signal?: AbortSignal,
     ): Promise<TranscriptOutcome> {
         const tracks = extractCaptionTracks(playerResponse);
         if (tracks.length === 0) {
@@ -291,8 +306,9 @@ export class YouTubeTranscriptService {
 
         let xml: string;
         try {
-            xml = await fetchCaptionContent(track.baseUrl);
+            xml = await fetchCaptionContent(track.baseUrl, signal);
         } catch (error) {
+            if (error instanceof RequestAbortedError) throw error;
             logger.warn('Transcript: caption download failed', 'Transcript', {
                 videoId,
                 error: error instanceof Error ? error.message : String(error),

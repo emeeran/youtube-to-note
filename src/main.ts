@@ -22,6 +22,7 @@ import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal } from './components/features/youtube';
 import { ProcessingHistoryService, withPluginDataLock } from './services/processing-history';
 import { SecureConfigService } from './secure-config';
+import { MAX_TRANSCRIPT_CHARS } from './services/transcript-service';
 import { Notice, Plugin, TFile } from 'obsidian';
 
 const PLUGIN_PREFIX = 'ytp';
@@ -62,11 +63,57 @@ const TRANSCRIPT_FAILURE_MESSAGES: Record<TranscriptFailureReason, string> = {
 
 const NO_CAPTIONS_MESSAGE = TRANSCRIPT_FAILURE_MESSAGES['no-captions'];
 
-const TRANSCRIPT_TRUNCATED_WARNING =
-    'Transcript truncated at 100,000 characters — the analysis covers the first portion only.';
-
 const METADATA_ONLY_WARNING =
     'No captions available — the note was generated from video metadata only, so it may be thin.';
+
+/**
+ * Warning for the transcript *source* ceiling (transcript-service stops reading
+ * segments past this many characters). Distinct from the per-format prompt
+ * budget, which PromptService reports through `onTruncated` with real numbers.
+ */
+const transcriptSourceCapWarning = (limit: number): string =>
+    `Transcript capped at the source ceiling of ${limit.toLocaleString()} characters — ` +
+    'the analysis covers the first portion only.';
+
+/** Warning for PromptService trimming the transcript to a format's budget. */
+const transcriptTrimmedWarning = (info: { budget: number; originalLength: number }): string =>
+    `Transcript trimmed to the first ${info.budget.toLocaleString()} of ` +
+    `${info.originalLength.toLocaleString()} characters for this format.`;
+
+/** Credential fields in plugin data, with the short label used in the redacted log. */
+const SECRET_SETTING_KEYS: ReadonlyArray<[keyof YouTubePluginSettings, string]> = [
+    ['geminiApiKey', 'gemini'],
+    ['groqApiKey', 'groq'],
+    ['ollamaApiKey', 'ollama'],
+    ['huggingFaceApiKey', 'huggingFace'],
+    ['openRouterApiKey', 'openRouter'],
+];
+
+/**
+ * Summarize plugin data without logging a single value: which credentials are
+ * set, plus the *names* (never the contents) of everything else stored.
+ */
+function redactPluginData(data: unknown): Record<string, unknown> {
+    if (!data || typeof data !== 'object') return {};
+
+    const record = data as Record<string, unknown>;
+    const keys: Record<string, boolean> = {};
+    for (const [key, label] of SECRET_SETTING_KEYS) {
+        const value = record[key];
+        keys[label] = typeof value === 'string' && value.length > 0;
+    }
+
+    const known = new Set<string>(SECRET_SETTING_KEYS.map(([key]) => key as string));
+    const otherKeys = Object.keys(record)
+        .filter(name => !known.has(name))
+        .sort();
+
+    return {
+        keys,
+        useEnvironmentVariables: record['useEnvironmentVariables'] === true,
+        otherKeys,
+    };
+}
 
 const DEFAULT_SETTINGS: YouTubePluginSettings = {
     geminiApiKey: '',
@@ -332,8 +379,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                 onOpenFile: this.openFileByPath.bind(this),
                 ...(initialUrl && { initialUrl }),
                 providers,
-                defaultProvider: 'Google Gemini', // Prefer Gemini as default provider
-                defaultModel: 'gemini-2.0-flash', // Use free tier model
                 defaultMaxTokens: this._settings.defaultMaxTokens,
                 defaultTemperature: this._settings.defaultTemperature,
                 modelOptions: modelOptionsMap,
@@ -387,23 +432,14 @@ export default class YoutubeClipperPlugin extends Plugin {
                         return [];
                     }
                 },
-                performanceMode: this._settings.performanceMode ?? 'balanced',
-                enableParallelProcessing: this._settings.enableParallelProcessing ?? false,
                 enableAutoFallback: this._settings.enableAutoFallback ?? true,
-                preferMultimodal: this._settings.preferMultimodal ?? false,
-                onPerformanceSettingsChange: async (
-                    performanceMode: PerformanceMode,
-                    enableParallel: boolean,
-                    preferMultimodal: boolean,
-                ) => {
-                    this._settings.performanceMode = performanceMode;
-                    this._settings.enableParallelProcessing = enableParallel;
-                    this._settings.preferMultimodal = preferMultimodal;
-                    await this.saveSettings();
-                    this.serviceContainer = new ServiceContainer(this._settings, this.app, this.manifest.dir);
-                },
+                onModalClosed: () => this.modalManager?.notifyClosed(),
             });
 
+            if (!this.modalManager?.beginOpen()) {
+                new Notice('📝 YouTube to Note is already open — finish or close that one first.');
+                return;
+            }
             modal.open();
         } catch (error) {
             ErrorHandler.handle(error as Error, 'Opening YouTube URL modal');
@@ -502,11 +538,11 @@ export default class YoutubeClipperPlugin extends Plugin {
             }
 
             progress('metadata', 'Fetching video metadata…');
-            const videoData = await videoService.getVideoData(videoId);
+            const videoData = await videoService.getVideoData(videoId, signal);
             assertLive();
 
             progress('transcript', 'Fetching transcript…');
-            const transcript = await this.fetchTranscript(videoService, videoId);
+            const transcript = await this.fetchTranscript(videoService, videoId, signal);
             assertLive();
             if (!transcript.ok) {
                 result.error = transcript.error;
@@ -516,12 +552,20 @@ export default class YoutubeClipperPlugin extends Plugin {
                 warnings.push(METADATA_ONLY_WARNING);
             }
             if (transcript.truncated) {
+                // The source ceiling fired inside the transcript service.
                 result.transcriptTruncated = true;
-                warnings.push(TRANSCRIPT_TRUNCATED_WARNING);
+                warnings.push(transcriptSourceCapWarning(MAX_TRANSCRIPT_CHARS));
             }
 
             // Segments are only handed over when timestamp links are enabled.
             const segments = this._settings.includeTimestamps !== false ? transcript.segments : undefined;
+
+            // Set as soon as PromptService trims the transcript to this format's
+            // budget — the real numbers, not a guess.
+            const onTruncated = (info: { budget: number; originalLength: number }): void => {
+                result.transcriptTruncated = true;
+                warnings.push(transcriptTrimmedWarning(info));
+            };
 
             progress('prompt', 'Building prompt…');
             const prompt = promptService.createAnalysisPrompt({
@@ -534,19 +578,22 @@ export default class YoutubeClipperPlugin extends Plugin {
                 providerName,
                 userInstructions,
                 customPrompts: this._settings.customPrompts,
+                onTruncated,
             });
+
+            // Per-request generation parameters travel with the request, so two
+            // concurrent runs cannot clobber each other's provider state.
+            const effectiveMaxTokens = maxTokens ?? this._settings.defaultMaxTokens;
+            const effectiveTemperature = temperature ?? this._settings.defaultTemperature;
 
             logger.aiService('Processing video', {
                 videoId,
                 format,
                 provider: providerName ?? 'Auto',
                 model: model ?? 'Default',
-                maxTokens: maxTokens ?? 2048,
-                temperature: temperature ?? 0.7,
+                maxTokens: effectiveMaxTokens,
+                temperature: effectiveTemperature,
             });
-
-            // Apply per-run generation parameters to every provider
-            aiService.setModelParameters?.({ maxTokens, temperature });
 
             progress('ai', 'Contacting AI providers…');
             const chain = this.buildProviderChain(
@@ -564,7 +611,11 @@ export default class YoutubeClipperPlugin extends Plugin {
                 assertLive();
                 progress('ai', `Trying ${name}…`);
                 try {
-                    aiResponse = await aiService.processWith(name, prompt, model, undefined, false, { signal });
+                    aiResponse = await aiService.processWith(name, prompt, model, undefined, false, {
+                        signal,
+                        maxTokens: effectiveMaxTokens,
+                        temperature: effectiveTemperature,
+                    });
                     break;
                 } catch (error) {
                     if (signal.aborted) throw new ProcessingCancelled();
@@ -611,6 +662,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             );
 
             progress('save', 'Saving note…');
+            assertLive();
             const filePath = await fileService.saveToFile(videoData.title, formattedContent, this._settings.outputPath);
 
             // Record in processing history
@@ -655,10 +707,11 @@ export default class YoutubeClipperPlugin extends Plugin {
      * *why* a transcript is missing) and falling back to the legacy
      * `{ fullText }` API when the service does not implement it.
      */
-    // eslint-disable-next-line max-lines-per-function
+    // eslint-disable-next-line max-lines-per-function, complexity
     private async fetchTranscript(
         videoService: VideoDataService,
         videoId: string,
+        signal?: AbortSignal,
     ): Promise<
         | { ok: true; fullText?: string; segments?: TranscriptSegment[]; truncated?: boolean }
         | { ok: false; error: string; reason?: TranscriptFailureReason }
@@ -667,7 +720,7 @@ export default class YoutubeClipperPlugin extends Plugin {
 
         if (typeof videoService.fetchTranscriptOutcome === 'function') {
             try {
-                const outcome = await videoService.fetchTranscriptOutcome(videoId, language);
+                const outcome = await videoService.fetchTranscriptOutcome(videoId, language, signal);
 
                 if (outcome.ok) {
                     const { fullText, segments, truncated } = outcome.transcript;
@@ -686,6 +739,9 @@ export default class YoutubeClipperPlugin extends Plugin {
                 }
 
                 const message = TRANSCRIPT_FAILURE_MESSAGES[outcome.reason];
+                // A mid-fetch cancel often looks like a network failure to the
+                // service — report cancellation, not a bogus failure notice.
+                if (signal?.aborted) throw new ProcessingCancelled();
                 logger.warn('Transcript unavailable', 'Plugin', {
                     videoId,
                     reason: outcome.reason,
@@ -700,6 +756,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 }
                 return { ok: false, error: message, reason: outcome.reason };
             } catch (error) {
+                if (error instanceof ProcessingCancelled || signal?.aborted) throw new ProcessingCancelled();
                 logger.warn('Typed transcript fetch failed — falling back to legacy path', 'Plugin', {
                     error: error instanceof Error ? error.message : String(error),
                 });
@@ -707,10 +764,11 @@ export default class YoutubeClipperPlugin extends Plugin {
         }
 
         // Legacy path: `{ fullText } | null` — no segments, no typed failures.
+        if (signal?.aborted) throw new ProcessingCancelled();
         try {
             if (!videoService.getTranscript) return { ok: true };
 
-            const transcriptData = await videoService.getTranscript(videoId, language);
+            const transcriptData = await videoService.getTranscript(videoId, language, signal);
             if (transcriptData?.fullText) {
                 logger.info('Transcript fetched successfully', 'Plugin', {
                     videoId,
@@ -723,6 +781,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             new Notice(NO_CAPTIONS_MESSAGE);
             return { ok: true };
         } catch (error) {
+            if (error instanceof ProcessingCancelled || signal?.aborted) throw new ProcessingCancelled();
             logger.warn('Could not fetch transcript, continuing without it', 'Plugin', {
                 error: error instanceof Error ? error.message : String(error),
             });
@@ -796,7 +855,9 @@ export default class YoutubeClipperPlugin extends Plugin {
 
     private async loadSettings(): Promise<void> {
         const loadedData = await this.loadData();
-        logger.debug('[YT-CLIPPER] Settings loaded from data.json:', 'Plugin', loadedData);
+        // data.json holds plaintext API keys and processing history — log a
+        // redacted summary, never the object itself.
+        logger.debug('[YT-CLIPPER] Settings loaded from data.json:', 'Plugin', redactPluginData(loadedData));
         this._settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 
         // Migrate any legacy obfuscated API keys to plaintext (one-time, idempotent).
@@ -811,12 +872,7 @@ export default class YoutubeClipperPlugin extends Plugin {
             });
         }
 
-        logger.debug('[YT-CLIPPER] Final settings after merge:', 'Plugin', {
-            hasGeminiKey: !!this._settings.geminiApiKey,
-            geminiKeyLength: this._settings.geminiApiKey?.length,
-            hasGroqKey: !!this._settings.groqApiKey,
-            groqKeyLength: this._settings.groqApiKey?.length,
-        });
+        logger.debug('[YT-CLIPPER] Settings after merge:', 'Plugin', redactPluginData(this._settings));
     }
 
     private async saveSettings(): Promise<void> {

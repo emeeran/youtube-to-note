@@ -176,13 +176,14 @@ export interface AIProvider {
 /** Video data service interface */
 export interface VideoDataService {
     extractVideoId(url: string): string | null;
-    getVideoData(videoId: string): Promise<VideoData>;
-    getTranscript?(videoId: string, language?: string): Promise<{ fullText: string } | null>;
+    /** Optional trailing signal so a cancelled run stops at the next network boundary. */
+    getVideoData(videoId: string, signal?: AbortSignal): Promise<VideoData>;
+    getTranscript?(videoId: string, language?: string, signal?: AbortSignal): Promise<{ fullText: string } | null>;
     /**
      * Typed transcript fetch: success carries segments + language, failure carries
      * a machine-readable reason so the UI can explain restricted/private/no-captions.
      */
-    fetchTranscriptOutcome?(videoId: string, language?: string): Promise<TranscriptOutcome>;
+    fetchTranscriptOutcome?(videoId: string, language?: string, signal?: AbortSignal): Promise<TranscriptOutcome>;
     getPerformanceMetrics?(): Record<string, unknown>;
     cleanup?(): void;
 }
@@ -227,6 +228,11 @@ export interface PromptService {
         userInstructions?: string;
         /** Per-format prompt overrides; a non-empty entry replaces the built-in template body. */
         customPrompts?: Partial<Record<OutputFormat, string>>;
+        /**
+         * Called when the transcript was trimmed to the format's budget, so the
+         * caller can report the real numbers instead of guessing at them.
+         */
+        onTruncated?: (info: { budget: number; originalLength: number }) => void;
     }): string;
     processAIResponse(
         content: string,
