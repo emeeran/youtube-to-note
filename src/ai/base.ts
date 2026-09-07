@@ -1,6 +1,7 @@
 import { AIProvider, AIRequestOptions } from '../types';
 import {
     MODEL_LIST_TIMEOUT_MS,
+    REQUEST_TIMEOUT_MS,
     createAbortSignal,
     formatQuotaError,
     formatHttpError,
@@ -16,7 +17,8 @@ import type { JsonObject } from '../types/api-responses';
 export abstract class BaseAIProvider implements AIProvider {
     abstract readonly name: string;
     protected _model: string;
-    protected _timeout: number = 30000; // Default 30s timeout
+    /** Hard ceiling for a generation request (see `requestSignal`). */
+    protected _timeout: number = REQUEST_TIMEOUT_MS;
     protected _maxTokens: number = 8192; // Default max tokens
     protected _temperature: number = 0.5; // Default temperature
 
@@ -62,6 +64,25 @@ export abstract class BaseAIProvider implements AIProvider {
         if (timeout) {
             this._timeout = timeout;
         }
+    }
+
+    /**
+     * Effective generation params for THIS request: a per-request override wins,
+     * otherwise the provider's configured value applies. Overrides are never
+     * written back to the instance — providers are shared singletons, so storing
+     * them would leak one run's settings into every later run.
+     */
+    protected effectiveMaxTokens(options?: AIRequestOptions): number {
+        const requested = options?.maxTokens;
+        return typeof requested === 'number' && Number.isFinite(requested) && requested > 0
+            ? Math.floor(requested)
+            : this._maxTokens;
+    }
+
+    /** Per-request temperature override, falling back to the configured value. */
+    protected effectiveTemperature(options?: AIRequestOptions): number {
+        const requested = options?.temperature;
+        return typeof requested === 'number' && Number.isFinite(requested) ? requested : this._temperature;
     }
 
     /**
@@ -111,6 +132,35 @@ export abstract class BaseAIProvider implements AIProvider {
      */
     protected requestSignal(options?: { timeoutMs?: number; signal?: AbortSignal }): AbortSignal | undefined {
         return createAbortSignal(options);
+    }
+
+    /**
+     * Run a generation request (`process` / `processWithImage`) under a hard
+     * timeout, so a hung provider cannot pin the run forever. The caller's
+     * signal still wins: an explicit cancellation propagates untouched, while a
+     * timeout is rethrown as a provider-labelled Error (same shape as
+     * `fetchWithTimeout`) instead of a bare abort.
+     */
+    protected async fetchGeneration(url: string, init: RequestInit, options?: AIRequestOptions): Promise<Response> {
+        const timeoutMs = this.requestTimeoutMs;
+        try {
+            return await fetch(url, {
+                ...init,
+                signal: this.requestSignal({ timeoutMs, signal: options?.signal }),
+            });
+        } catch (error) {
+            if (isTimeoutAbort(error) && options?.signal?.aborted !== true) {
+                throw new Error(
+                    `${this.name}: request timed out after ${timeoutMs}ms. Try again or use a shorter video.`,
+                );
+            }
+            throw error;
+        }
+    }
+
+    /** Timeout applied to generation requests (the provider's `_timeout`). */
+    protected get requestTimeoutMs(): number {
+        return this._timeout > 0 ? this._timeout : REQUEST_TIMEOUT_MS;
     }
 
     /**
@@ -176,9 +226,10 @@ export abstract class BaseAIProvider implements AIProvider {
     protected abstract createHeaders(): Record<string, string>;
 
     /**
-     * Create request body
+     * Create request body. `options` carries this request's generation params —
+     * implementations must not store them on the instance.
      */
-    protected abstract createRequestBody(prompt: string): JsonObject;
+    protected abstract createRequestBody(prompt: string, options?: AIRequestOptions): JsonObject;
 
     /**
      * Extract content from API response

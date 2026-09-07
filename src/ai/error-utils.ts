@@ -6,6 +6,15 @@
 /** Hard timeout applied to auxiliary (model-list) requests. */
 export const MODEL_LIST_TIMEOUT_MS = 15000;
 
+/**
+ * Hard timeout applied to generation (`process`) requests.
+ *
+ * Generative calls legitimately run long — a full video transcript can take a
+ * while to analyze — so this is deliberately more generous than the model-list
+ * ceiling. Without it a hung provider would pin the run (and its modal) forever.
+ */
+export const REQUEST_TIMEOUT_MS = 60000;
+
 type AbortSignalStatic = typeof AbortSignal & {
     any?: (signals: AbortSignal[]) => AbortSignal;
     timeout?: (ms: number) => AbortSignal;

@@ -59,15 +59,17 @@ export class HuggingFaceProvider extends BaseAIProvider {
                 throw new Error(`Invalid model format: ${this._model}. Use format: owner/model-name`);
             }
 
-            // Combine this provider's own timeout with any caller-supplied signal.
-            const signal = this.requestSignal({ timeoutMs: this._timeout ?? 60000, signal: options?.signal });
-
-            const response = await fetch(`${HUGGINGFACE_API_URL}/${this._model}`, {
-                method: 'POST',
-                headers: this.createHeaders(),
-                body: JSON.stringify(this.createRequestBody(prompt)),
-                signal,
-            });
+            // The shared helper applies this provider's timeout on top of any
+            // caller-supplied signal, and labels a timeout with the provider name.
+            const response = await this.fetchGeneration(
+                `${HUGGINGFACE_API_URL}/${this._model}`,
+                {
+                    method: 'POST',
+                    headers: this.createHeaders(),
+                    body: JSON.stringify(this.createRequestBody(prompt, options)),
+                },
+                options,
+            );
 
             // Check if response is HTML (error page) instead of JSON
             const contentType = response.headers.get('content-type') ?? '';
@@ -124,11 +126,10 @@ export class HuggingFaceProvider extends BaseAIProvider {
             return this.extractContent(data);
         } catch (error) {
             if (error instanceof Error) {
+                // Only a caller cancellation reaches this branch as an abort —
+                // `fetchGeneration` already labelled its own timeouts.
                 if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-                    if (options?.signal?.aborted) {
-                        throw new Error('Request cancelled.');
-                    }
-                    throw new Error('Hugging Face request timed out. Try a smaller model.');
+                    throw new Error('Request cancelled.');
                 }
                 throw error;
             }
@@ -143,12 +144,12 @@ export class HuggingFaceProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
         return {
             inputs: prompt,
             parameters: {
-                max_new_tokens: this._maxTokens,
-                temperature: this._temperature,
+                max_new_tokens: this.effectiveMaxTokens(options),
+                temperature: this.effectiveTemperature(options),
                 do_sample: true,
             },
             options: {

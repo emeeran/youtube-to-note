@@ -10,24 +10,32 @@ import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals
 import { GeminiProvider } from '../../src/ai/gemini';
 import { GroqProvider } from '../../src/ai/groq';
 import { OpenRouterProvider } from '../../src/ai/openrouter';
+import { OllamaProvider } from '../../src/ai/ollama';
+import { OllamaCloudProvider } from '../../src/ai/ollama-cloud';
+import { HuggingFaceProvider } from '../../src/ai/huggingface';
 import { API_ENDPOINTS } from '../../src/ai/api';
+import { REQUEST_TIMEOUT_MS } from '../../src/ai/error-utils';
 import type { AIRequestOptions } from '../../src/types';
 
 type FetchMock = jest.Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<unknown>>;
 
 const KEY = 'test-api-key-1234567890';
 const PROMPT = 'Summarize this YouTube video for me.';
+const PLAIN_PROMPT = 'What is 2 + 2?';
 
 function jsonResponse(status: number, body: unknown): Response {
     return {
         ok: status >= 200 && status < 300,
         status,
         json: async () => body,
+        headers: new Headers(),
     } as unknown as Response;
 }
 
 const GEMINI_BODY = { candidates: [{ content: { parts: [{ text: 'gemini says hi' }] } }] };
 const OPENAI_BODY = { choices: [{ message: { content: 'openai-compatible says hi' } }] };
+const OLLAMA_BODY = { response: 'ollama says hi' };
+const HUGGINGFACE_BODY = [{ generated_text: 'hugging face says hi' }];
 
 /** Stub global.fetch, recording every call. */
 function stubFetch(handler?: (url: string, init: RequestInit) => Response): FetchMock {
@@ -107,15 +115,34 @@ describe.each([
         expect((init.signal as AbortSignal | undefined)?.aborted).toBe(true);
     });
 
-    it('leaves the signal untouched when one is supplied (no hidden timeout)', async () => {
+    it('keeps the caller in control of cancellation and adds a timeout of its own', async () => {
         const controller = new AbortController();
         await makeProvider().process(PROMPT, { signal: controller.signal });
-        expect(lastCall(fetchMock).init.signal).toBe(controller.signal);
+
+        const signal = lastCall(fetchMock).init.signal as AbortSignal | undefined;
+        expect(signal).toBeDefined();
+        expect(signal?.aborted).toBe(false);
+
+        controller.abort();
+        // A combined signal (`AbortSignal.any`) forwards the caller's abort; on a
+        // runtime without one the caller's signal is used directly.
+        expect(signal?.aborted).toBe(true);
     });
 
     it('rejects with a readable error when the endpoint fails', async () => {
         fetchMock.mockResolvedValueOnce(jsonResponse(500, { error: { message: 'kaboom' } }));
         await expect(makeProvider().process(PROMPT)).rejects.toThrow('Service temporarily unavailable');
+    });
+
+    it('reports a hung request as a provider-labelled timeout, not a bare abort', async () => {
+        const provider = makeProvider();
+        fetchMock.mockRejectedValueOnce(
+            Object.assign(new Error('The operation was aborted.'), { name: 'TimeoutError' }),
+        );
+
+        await expect(provider.process(PROMPT)).rejects.toThrow(
+            new RegExp(`${provider.name}: request timed out after ${REQUEST_TIMEOUT_MS}ms`),
+        );
     });
 });
 
@@ -274,6 +301,90 @@ describe('GroqProvider', () => {
     it('explains a 402 as a billing problem', async () => {
         stubFetch(() => jsonResponse(402, { error: { message: 'payment required' } }));
         await expect(new GroqProvider(KEY).process(PROMPT)).rejects.toThrow('paid plan');
+    });
+});
+
+describe.each([
+    {
+        name: 'Gemini',
+        make: () => new GeminiProvider(KEY),
+        body: GEMINI_BODY,
+        read: (body: Record<string, any>) => ({
+            maxTokens: body.generationConfig?.maxOutputTokens,
+            temperature: body.generationConfig?.temperature,
+        }),
+    },
+    {
+        name: 'Groq',
+        make: () => new GroqProvider(KEY),
+        body: OPENAI_BODY,
+        read: (body: Record<string, any>) => ({ maxTokens: body.max_tokens, temperature: body.temperature }),
+    },
+    {
+        name: 'OpenRouter',
+        make: () => new OpenRouterProvider(KEY),
+        body: OPENAI_BODY,
+        read: (body: Record<string, any>) => ({ maxTokens: body.max_tokens, temperature: body.temperature }),
+    },
+    {
+        name: 'Ollama',
+        make: () => new OllamaProvider(),
+        body: OLLAMA_BODY,
+        read: (body: Record<string, any>) => ({
+            maxTokens: body.options?.num_predict,
+            temperature: body.options?.temperature,
+        }),
+    },
+    {
+        name: 'Ollama Cloud',
+        make: () => new OllamaCloudProvider(KEY),
+        body: OLLAMA_BODY,
+        read: (body: Record<string, any>) => ({
+            maxTokens: body.options?.num_predict,
+            temperature: body.options?.temperature,
+        }),
+    },
+    {
+        name: 'Hugging Face',
+        make: () => new HuggingFaceProvider(KEY),
+        body: HUGGINGFACE_BODY,
+        read: (body: Record<string, any>) => ({
+            maxTokens: body.parameters?.max_new_tokens,
+            temperature: body.parameters?.temperature,
+        }),
+    },
+])('$name per-request generation params', ({ make, body, read }) => {
+    let fetchMock: FetchMock;
+
+    beforeEach(() => {
+        fetchMock = stubFetch(() => jsonResponse(200, body));
+    });
+
+    afterEach(() => {
+        delete (global as { fetch?: unknown }).fetch;
+    });
+
+    it('uses options.maxTokens / options.temperature for this request only', async () => {
+        const provider = make();
+        provider.setMaxTokens(1234);
+        provider.setTemperature(0.25);
+
+        await provider.process(PLAIN_PROMPT, { maxTokens: 777, temperature: 0.1 });
+
+        expect(read(JSON.parse(String(lastCall(fetchMock).init.body)))).toEqual({ maxTokens: 777, temperature: 0.1 });
+        // Providers are singletons: the override must not stick to the instance.
+        expect(provider.maxTokens).toBe(1234);
+        expect(provider.temperature).toBe(0.25);
+    });
+
+    it('falls back to the configured values when no override is supplied', async () => {
+        const provider = make();
+        provider.setMaxTokens(1234);
+        provider.setTemperature(0.25);
+
+        await provider.process(PLAIN_PROMPT);
+
+        expect(read(JSON.parse(String(lastCall(fetchMock).init.body)))).toEqual({ maxTokens: 1234, temperature: 0.25 });
     });
 });
 

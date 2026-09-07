@@ -185,12 +185,15 @@ export class ErrorHandler implements ErrorHandlerInterface {
 
     /**
      * Create a standardized error for API responses.
-     * `details` comes from the provider's response body (server-controlled), so
-     * it is sanitized before it can reach a user-facing notice.
+     * `statusText` and `details` are both server-controlled, so each is
+     * sanitized before it can reach a user-facing notice.
      */
     static createAPIError(provider: string, status: number, statusText: string, details?: string): Error {
+        const safeStatusText = sanitizeRemoteMessage(statusText, 120);
         const safeDetails = details ? sanitizeRemoteMessage(details) : '';
-        const message = `${provider} API error: ${status} ${statusText}${safeDetails ? `. ${safeDetails}` : ''}`;
+        const message = `${provider} API error: ${status}${safeStatusText ? ` ${safeStatusText}` : ''}${
+            safeDetails ? `. ${safeDetails}` : ''
+        }`;
         return new Error(message);
     }
 
@@ -262,10 +265,9 @@ export class ErrorHandler implements ErrorHandlerInterface {
                 const noticeEl = noticeWithAction.noticeEl;
                 const retryButton = noticeEl.createEl('button', {
                     text: 'Retry',
-                    cls: 'mod-cta',
+                    cls: 'mod-cta ytc-notice-retry',
                 });
 
-                retryButton.style.marginLeft = '10px';
                 retryButton.onclick = () => {
                     noticeWithAction.hide();
                     // Trigger a retry by dispatching a custom event

@@ -25,12 +25,15 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             const endpoint = `${API_ENDPOINTS.GEMINI_BASE}/${this.model}:generateContent`;
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: this.createHeaders(),
-                body: JSON.stringify(this.createRequestBody(prompt)),
-                signal: this.requestSignal({ signal: options?.signal }),
-            });
+            const response = await this.fetchGeneration(
+                endpoint,
+                {
+                    method: 'POST',
+                    headers: this.createHeaders(),
+                    body: JSON.stringify(this.createRequestBody(prompt, options)),
+                },
+                options,
+            );
 
             // Handle specific Gemini errors with better messages
             if (response.status === 400) {
@@ -105,7 +108,7 @@ export class GeminiProvider extends BaseAIProvider {
     }
 
     // eslint-disable-next-line max-lines-per-function
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
         // Detect YouTube prompts by scanning for common markers instead of brittle literals
         const normalizedPrompt = prompt.toLowerCase();
         const isVideoAnalysis =
@@ -120,8 +123,8 @@ export class GeminiProvider extends BaseAIProvider {
                 },
             ],
             generationConfig: {
-                temperature: this._temperature,
-                maxOutputTokens: this._maxTokens,
+                temperature: this.effectiveTemperature(options),
+                maxOutputTokens: this.effectiveMaxTokens(options),
                 candidateCount: 1,
             },
         };

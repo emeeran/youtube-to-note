@@ -68,15 +68,21 @@ export class OllamaProvider extends BaseAIProvider {
                 model: this._model,
                 prompt,
                 stream: false,
-                options: { temperature: this._temperature, num_predict: this._maxTokens },
+                options: {
+                    temperature: this.effectiveTemperature(options),
+                    num_predict: this.effectiveMaxTokens(options),
+                },
             };
 
-            const response = await fetch(this.getApiUrl('/generate'), {
-                method: 'POST',
-                headers: this.createHeaders(),
-                body: JSON.stringify(requestBody),
-                signal: this.requestSignal({ signal: options?.signal }),
-            });
+            const response = await this.fetchGeneration(
+                this.getApiUrl('/generate'),
+                {
+                    method: 'POST',
+                    headers: this.createHeaders(),
+                    body: JSON.stringify(requestBody),
+                },
+                options,
+            );
 
             await this.throwIfOllamaError(response);
 
@@ -86,7 +92,7 @@ export class OllamaProvider extends BaseAIProvider {
             }
             return this.extractContent(data);
         } catch (error) {
-            throw this.asNetworkError(error);
+            throw this.asNetworkError(error, options);
         }
     }
 
@@ -115,15 +121,21 @@ export class OllamaProvider extends BaseAIProvider {
                 model: this._model,
                 messages,
                 stream: false,
-                options: { temperature: this._temperature, num_predict: this._maxTokens },
+                options: {
+                    temperature: this.effectiveTemperature(options),
+                    num_predict: this.effectiveMaxTokens(options),
+                },
             };
 
-            const response = await fetch(this.getApiUrl('/chat'), {
-                method: 'POST',
-                headers: this.createHeaders(),
-                body: JSON.stringify(requestBody),
-                signal: this.requestSignal({ signal: options?.signal }),
-            });
+            const response = await this.fetchGeneration(
+                this.getApiUrl('/chat'),
+                {
+                    method: 'POST',
+                    headers: this.createHeaders(),
+                    body: JSON.stringify(requestBody),
+                },
+                options,
+            );
 
             await this.throwIfOllamaError(response);
 
@@ -133,7 +145,7 @@ export class OllamaProvider extends BaseAIProvider {
             }
             return this.extractContentFromChat(data);
         } catch (error) {
-            throw this.asNetworkError(error);
+            throw this.asNetworkError(error, options);
         }
     }
 
@@ -150,7 +162,8 @@ export class OllamaProvider extends BaseAIProvider {
             const errorMessage = this.sanitizeRemoteMessage(errorData?.error) || 'Ollama server error';
             throw new Error(`Ollama error: ${errorMessage}`);
         }
-        throw new Error(`Ollama API error: ${response.status} - ${response.statusText}`);
+        // `statusText` is server-controlled — never echo it raw into a notice.
+        throw new Error(`Ollama API error: ${response.status} - ${this.sanitizeRemoteMessage(response.statusText)}`);
     }
 
     private isCloudModel(): boolean {
@@ -181,11 +194,16 @@ export class OllamaProvider extends BaseAIProvider {
     /**
      * Classify a thrown error. Genuine network failures (Ollama not running)
      * become a clear, actionable message; everything else passes through.
+     * A caller cancellation stays "cancelled"; a hard timeout keeps the
+     * provider-labelled wording `fetchGeneration` produced.
      */
-    private asNetworkError(error: unknown): Error {
+    private asNetworkError(error: unknown, options?: AIRequestOptions): Error {
         if (error instanceof Error) {
             if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-                return new Error('Ollama request was cancelled or timed out.');
+                if (options?.signal?.aborted) {
+                    return new Error('Ollama request was cancelled.');
+                }
+                return new Error(`Ollama: request timed out after ${this.requestTimeoutMs}ms.`);
             }
             if (
                 error.message.includes('fetch') ||
@@ -255,13 +273,13 @@ export class OllamaProvider extends BaseAIProvider {
         return headers;
     }
 
-    protected createRequestBody(_prompt: string): JsonObject {
+    protected createRequestBody(_prompt: string, options?: AIRequestOptions): JsonObject {
         // Ollama uses process()/processWithImage() instead.
         return {
             model: this._model,
             prompt: _prompt,
             stream: false,
-            options: { temperature: this._temperature, num_predict: this._maxTokens },
+            options: { temperature: this.effectiveTemperature(options), num_predict: this.effectiveMaxTokens(options) },
         };
     }
 

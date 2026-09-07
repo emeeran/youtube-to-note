@@ -52,12 +52,15 @@ export class OpenRouterProvider extends BaseAIProvider {
                 throw new Error('OpenRouter API key is required. Get one at openrouter.ai/keys');
             }
 
-            const response = await fetch(OPENROUTER_API_URL, {
-                method: 'POST',
-                headers: this.createHeaders(),
-                body: JSON.stringify(this.createRequestBody(prompt)),
-                signal: this.requestSignal({ signal: options?.signal }),
-            });
+            const response = await this.fetchGeneration(
+                OPENROUTER_API_URL,
+                {
+                    method: 'POST',
+                    headers: this.createHeaders(),
+                    body: JSON.stringify(this.createRequestBody(prompt, options)),
+                },
+                options,
+            );
 
             if (response.status === 401) {
                 throw new Error('OpenRouter API key is invalid. Please check your key at openrouter.ai/keys');
@@ -105,7 +108,7 @@ export class OpenRouterProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
         return {
             model: this._model,
             messages: [
@@ -119,8 +122,8 @@ export class OpenRouterProvider extends BaseAIProvider {
                     content: prompt,
                 },
             ],
-            temperature: this._temperature,
-            max_tokens: this._maxTokens,
+            temperature: this.effectiveTemperature(options),
+            max_tokens: this.effectiveMaxTokens(options),
             stream: false,
         };
     }

@@ -16,12 +16,15 @@ export class GroqProvider extends BaseAIProvider {
     }
 
     async process(prompt: string, options?: AIRequestOptions): Promise<string> {
-        const response = await fetch(API_ENDPOINTS.GROQ, {
-            method: 'POST',
-            headers: this.createHeaders(),
-            body: JSON.stringify(this.createRequestBody(prompt)),
-            signal: this.requestSignal({ signal: options?.signal }),
-        });
+        const response = await this.fetchGeneration(
+            API_ENDPOINTS.GROQ,
+            {
+                method: 'POST',
+                headers: this.createHeaders(),
+                body: JSON.stringify(this.createRequestBody(prompt, options)),
+            },
+            options,
+        );
 
         if (response.status === 402) {
             throw new Error('Groq API requires a paid plan. Please check your billing settings.');
@@ -51,7 +54,7 @@ export class GroqProvider extends BaseAIProvider {
         };
     }
 
-    protected createRequestBody(prompt: string): any {
+    protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
         return {
             model: this.model,
             messages: [
@@ -65,8 +68,8 @@ export class GroqProvider extends BaseAIProvider {
                     content: prompt,
                 },
             ],
-            temperature: this._temperature,
-            max_tokens: this._maxTokens,
+            temperature: this.effectiveTemperature(options),
+            max_tokens: this.effectiveMaxTokens(options),
             stream: false,
         };
     }

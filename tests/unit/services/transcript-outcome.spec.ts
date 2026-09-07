@@ -7,7 +7,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import type { App } from 'obsidian';
 import { YouTubeTranscriptService } from '../../../src/services/transcript-service';
-import { TranscriptDiskCache } from '../../../src/services/transcript-cache';
+import { TranscriptDiskCache, TRANSCRIPT_CACHE_MAX_FILES } from '../../../src/services/transcript-cache';
 import * as youtubePage from '../../../src/services/youtube-page';
 import type { TranscriptOutcome } from '../../../src/types';
 
@@ -81,7 +81,8 @@ describe('YouTubeTranscriptService.fetchTranscriptOutcome', () => {
         if (outcome.ok) expect(outcome.transcript.fullText).toBe('age gated words');
         expect(fetchInnertubePlayerResponse).toHaveBeenCalledTimes(1);
         expect(fetchInnertubePlayerResponse).toHaveBeenCalledWith(VIDEO_ID);
-        expect(fetchCaptionContent).toHaveBeenCalledWith('https://caption/en');
+        // Second argument is the optional run signal.
+        expect(fetchCaptionContent.mock.calls[0]?.[0]).toBe('https://caption/en');
     });
 
     it('returns the original restricted outcome when the innertube fallback fails', async () => {
@@ -211,6 +212,7 @@ describe('YouTubeTranscriptService.fetchTranscriptOutcome', () => {
 });
 
 describe('TranscriptDiskCache', () => {
+    const CACHE_DIR = '.obsidian/plugins/youtube-to-note/cache/transcripts';
     const CACHED = {
         savedAt: Date.now(),
         language: 'en',
@@ -311,5 +313,115 @@ describe('TranscriptDiskCache', () => {
 
         expect(await diskCache.get('../../etc/passd')).toBeNull();
         expect(adapter.exists).not.toHaveBeenCalled();
+    });
+
+    it('creates the directories the cache actually writes to', async () => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(false);
+
+        await diskCache.set(VIDEO_ID, 'en', CACHED.transcript);
+
+        const created = adapter.mkdir.mock.calls.map(call => String(call[0]));
+        // Every ancestor of the write path, in order — derived from the path the
+        // cache writes to, so no stray "<vault>/youtube-to-note/cache" appears
+        // at the vault root and the real parent is never left missing.
+        expect(created).toEqual([
+            '.obsidian',
+            '.obsidian/plugins',
+            '.obsidian/plugins/youtube-to-note',
+            '.obsidian/plugins/youtube-to-note/cache',
+            `${CACHE_DIR}`,
+        ]);
+    });
+
+    it('treats malformed JSON as a miss and deletes the file', async () => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(true);
+        adapter.read.mockResolvedValue('{"savedAt":oops');
+
+        expect(await diskCache.get(VIDEO_ID)).toBeNull();
+        expect(adapter.remove).toHaveBeenCalledWith(expect.stringContaining(`${VIDEO_ID}.auto.json`));
+    });
+
+    it.each([
+        ['missing savedAt', { language: 'en', transcript: CACHED.transcript }],
+        ['non-numeric savedAt', { ...CACHED, savedAt: 'yesterday' }],
+        ['non-finite savedAt', { ...CACHED, savedAt: Number.NaN }],
+        ['missing fullText', { ...CACHED, transcript: { segments: [] } }],
+        ['non-array segments', { ...CACHED, transcript: { fullText: 'x', segments: 'none' } }],
+    ])('treats a cached entry with %s as a miss and deletes it', async (_label, payload) => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(true);
+        adapter.read.mockResolvedValue(JSON.stringify(payload));
+
+        expect(await diskCache.get(VIDEO_ID)).toBeNull();
+        expect(adapter.remove).toHaveBeenCalledWith(expect.stringContaining(`${VIDEO_ID}.auto.json`));
+    });
+
+    it('sweeps leftover temp files on the first write', async () => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(true);
+        adapter.list.mockResolvedValue({
+            files: [`${CACHE_DIR}/other.json`, `${CACHE_DIR}/other.json.tmp-k2-abc`, `${CACHE_DIR}/older.json.tmp`],
+            folders: [],
+        });
+
+        await diskCache.set(VIDEO_ID, 'en', CACHED.transcript);
+
+        expect(adapter.remove).toHaveBeenCalledWith(`${CACHE_DIR}/other.json.tmp-k2-abc`);
+        expect(adapter.remove).toHaveBeenCalledWith(`${CACHE_DIR}/older.json.tmp`);
+        expect(adapter.remove).not.toHaveBeenCalledWith(`${CACHE_DIR}/other.json`);
+    });
+
+    it('names its temp file uniquely so two concurrent writes cannot collide', async () => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(true);
+
+        await Promise.all([
+            diskCache.set(VIDEO_ID, 'en', CACHED.transcript),
+            diskCache.set(VIDEO_ID, 'fr', CACHED.transcript),
+        ]);
+
+        const temps = adapter.write.mock.calls.map(call => String(call[0]));
+        expect(temps).toHaveLength(2);
+        expect(new Set(temps).size).toBe(2);
+        for (const temp of temps) expect(temp).toMatch(/\.tmp-[0-9a-z]+-[0-9a-z]+$/i);
+    });
+
+    it('prunes the oldest entries once the cache is full', async () => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(true);
+        const files = Array.from(
+            { length: TRANSCRIPT_CACHE_MAX_FILES + 1 },
+            (_, i) => `${CACHE_DIR}/aaaaaaaaaaa${i}.json`,
+        );
+        adapter.list.mockResolvedValue({ files, folders: [] });
+        // savedAt rises with the index, so entry 0 is the one to drop.
+        adapter.read.mockImplementation((path: string) =>
+            Promise.resolve(
+                JSON.stringify({
+                    savedAt: 1000 + Number(path.match(/(\d+)\.json$/)?.[1] ?? 0),
+                    transcript: CACHED.transcript,
+                }),
+            ),
+        );
+
+        await diskCache.set(VIDEO_ID, 'en', CACHED.transcript);
+
+        expect(adapter.remove).toHaveBeenCalledTimes(1);
+        expect(adapter.remove).toHaveBeenCalledWith(`${CACHE_DIR}/aaaaaaaaaaa0.json`);
+    });
+
+    it('leaves the cache alone while it is under the size cap', async () => {
+        const { adapter, diskCache } = serviceWith(fakeAdapter(), true);
+        adapter.exists.mockResolvedValue(true);
+        adapter.list.mockResolvedValue({
+            files: Array.from({ length: TRANSCRIPT_CACHE_MAX_FILES }, (_, i) => `${CACHE_DIR}/aaaaaaaaaaa${i}.json`),
+            folders: [],
+        });
+
+        await diskCache.set(VIDEO_ID, 'en', CACHED.transcript);
+
+        expect(adapter.remove).not.toHaveBeenCalledWith(expect.stringContaining(`${CACHE_DIR}/aaaaaaaaaaa`));
     });
 });
