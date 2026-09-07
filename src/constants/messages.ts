@@ -11,7 +11,7 @@ export const MESSAGES = {
         INVALID_URL:
             'Invalid YouTube URL. Please provide a valid YouTube video URL ' +
             '(e.g., https://www.youtube.com/watch?v=VIDEO_ID)',
-        MISSING_API_KEYS: 'No valid Gemini or Groq API key configured. ' + 'Please set one in plugin settings.',
+        MISSING_API_KEYS: 'No AI provider key configured. Add a key in settings or enable environment variables.',
         GEMINI_INVALID_KEY: 'Gemini API key is invalid or missing. Please check your key.',
         GROQ_MODEL_NOT_FOUND:
             'Groq API error: Model not found or you do not have access. ' + 'Please check your API key and model name.',
@@ -42,6 +42,9 @@ export const MESSAGES = {
             `Access denied to model "${model}" on ${provider}. Check your API tier.`,
         CONTEXT_TOO_LONG: (provider: string) =>
             `Content too long for ${provider}. Try a shorter video or use a different format.`,
+        CUSTOM_PROMPT_TOO_LONG: (format: string, length: number, max: number) =>
+            `Custom prompt for "${format}" is ${length} characters — the maximum is ${max}. ` +
+            'Shorten it or reset the template.',
     },
 
     WARNINGS: {
@@ -50,6 +53,9 @@ export const MESSAGES = {
         AUTO_EXTRACTION: 'Video description could not be extracted automatically.',
         SLOW_PROCESSING: 'Processing is taking longer than expected. Please wait...',
         LARGE_TRANSCRIPT: 'This video has a long transcript. Processing may take a while.',
+        KEY_FORMAT_MISMATCH: (provider: string) =>
+            `${provider} API key does not match the expected format. It will still be used — ` +
+            'ignore this if you use a gateway, proxy or a newer key format.',
     },
 
     SUCCESS_MESSAGES: {
@@ -64,7 +70,7 @@ export const MESSAGES = {
         CONFIRM_OPEN: (filename: string) =>
             `Successfully processed YouTube video and saved as "${filename}". Would you like to open the note now?`,
         CLOSE_CONFIRMATION: 'Close without opening the note?',
-        PROCESS_VIDEO: 'YouTube Clipper',
+        PROCESS_VIDEO: 'YouTube to Note',
         YES_OPEN: 'Yes, open note',
         NO_THANKS: 'No, thanks',
         CANCEL: 'Cancel',

@@ -4,6 +4,34 @@ import { MESSAGES } from './constants/index';
  * Input validation utilities
  */
 
+/**
+ * Maximum accepted length for a single per-format custom prompt override.
+ * Kept well below anything a provider would accept, but generous enough for a
+ * long hand-written template. Enforced in the settings UI (textarea
+ * `maxlength`) and here as a hard validation error for imported/hand-edited
+ * `data.json` values.
+ */
+export const MAX_CUSTOM_PROMPT_LENGTH = 20_000;
+
+/** Settings fields that hold a provider API key. */
+export const API_KEY_FIELDS = [
+    'geminiApiKey',
+    'groqApiKey',
+    'ollamaApiKey',
+    'huggingFaceApiKey',
+    'openRouterApiKey',
+] as const;
+
+export type ApiKeyField = (typeof API_KEY_FIELDS)[number];
+
+export interface SettingsValidationResult {
+    /** True when the configuration is usable — warnings never block a run. */
+    isValid: boolean;
+    errors: string[];
+    /** Informational notes (e.g. an unusual key format). Surfaced, not enforced. */
+    warnings: string[];
+}
+
 export class ValidationUtils {
     /**
      * YouTube URL patterns for validation (ordered by frequency for performance)
@@ -124,48 +152,88 @@ export class ValidationUtils {
     }
 
     /**
-     * Validate API key format
+     * Validate API key format for the two providers with well-known prefixes.
+     * The prefix table it reads is the same one the settings-level format check
+     * ({@link keyFormatWarning}) uses, so the two cannot drift apart.
      */
     static isValidAPIKey(key: string, provider: 'gemini' | 'groq'): boolean {
         if (!key || typeof key !== 'string') {
             return false;
         }
 
-        switch (provider) {
-            case 'gemini':
-                return key.startsWith('AIza') && key.length > 10;
-            case 'groq':
-                return key.startsWith('gsk_') && key.length > 10;
-            default:
-                return false;
+        const field: ApiKeyField = provider === 'gemini' ? 'geminiApiKey' : 'groqApiKey';
+        const prefixes = this.KEY_FORMATS[field].prefixes ?? [];
+        return prefixes.some(prefix => key.startsWith(prefix)) && key.length > 10;
+    }
+
+    /**
+     * Display label + accepted key prefixes per provider field.
+     *
+     * `prefixes: null` means the provider has no stable public prefix (Ollama
+     * issues opaque tokens), so no format check is possible — any non-empty
+     * value is accepted.
+     */
+    private static readonly KEY_FORMATS: Record<ApiKeyField, { label: string; prefixes: string[] | null }> = {
+        geminiApiKey: { label: 'Gemini', prefixes: ['AIza'] },
+        groqApiKey: { label: 'Groq', prefixes: ['gsk_'] },
+        huggingFaceApiKey: { label: 'HuggingFace', prefixes: ['hf_', 'api_'] },
+        openRouterApiKey: { label: 'OpenRouter', prefixes: ['sk-or-'] },
+        ollamaApiKey: { label: 'Ollama', prefixes: null },
+    };
+
+    /**
+     * Informational format check for a configured key.
+     *
+     * Returns a warning message when the key does not start with any prefix the
+     * provider is known to issue. It deliberately never blocks: gateways,
+     * proxies and rotated key formats are all legitimate, so an unusual prefix
+     * is reported to the user rather than treated as an error.
+     */
+    private static keyFormatWarning(field: ApiKeyField, key: string): string | null {
+        const format = this.KEY_FORMATS[field];
+        const prefixes = format?.prefixes;
+        if (!prefixes) {
+            return null;
         }
+        if (prefixes.some(prefix => key.startsWith(prefix)) && key.length > 10) {
+            return null;
+        }
+        return MESSAGES.WARNINGS.KEY_FORMAT_MISMATCH(format.label);
     }
 
     /**
      * Validate settings configuration
+     *
+     * A configuration is valid when at least one provider key is stored, or
+     * environment-variable mode is enabled (which supplies the keys at read
+     * time). Format mismatches and other soft findings are returned as
+     * `warnings` and never affect {@link SettingsValidationResult.isValid}.
      */
-    // eslint-disable-next-line complexity
-    static validateSettings(settings: Record<string, unknown>): { isValid: boolean; errors: string[] } {
+    static validateSettings(settings: Record<string, unknown>): SettingsValidationResult {
         const errors: string[] = [];
+        const warnings: string[] = [];
 
         const usingEnv = Boolean(settings.useEnvironmentVariables);
-        const hasDirectKey = this.isNonEmptyString(settings.geminiApiKey) || this.isNonEmptyString(settings.groqApiKey);
+        const configuredKeys = API_KEY_FIELDS.filter(field => this.isNonEmptyString(settings[field]));
 
-        if (!hasDirectKey && !usingEnv) {
+        // Any one of the five providers is enough — an OpenRouter- or
+        // HuggingFace-only setup is exactly as valid as a Gemini-only one.
+        if (configuredKeys.length === 0 && !usingEnv) {
             errors.push(MESSAGES.ERRORS.MISSING_API_KEYS);
         }
 
-        if (this.isNonEmptyString(settings.geminiApiKey) && !this.isValidAPIKey(settings.geminiApiKey, 'gemini')) {
-            errors.push('Invalid Gemini API key format');
-        }
-
-        if (this.isNonEmptyString(settings.groqApiKey) && !this.isValidAPIKey(settings.groqApiKey, 'groq')) {
-            errors.push('Invalid Groq API key format');
+        for (const field of configuredKeys) {
+            const warning = this.keyFormatWarning(field, String(settings[field]));
+            if (warning) {
+                warnings.push(warning);
+            }
         }
 
         if (usingEnv && !this.isNonEmptyString(settings.environmentPrefix)) {
             errors.push('Environment variable prefix is required when using environment variables');
         }
+
+        this.collectCustomPromptErrors(settings, errors);
 
         if (!settings.outputPath || typeof settings.outputPath !== 'string') {
             errors.push('Output path is required');
@@ -174,7 +242,25 @@ export class ValidationUtils {
         return {
             isValid: errors.length === 0,
             errors,
+            warnings,
         };
+    }
+
+    /**
+     * Flag per-format prompt overrides that exceed {@link MAX_CUSTOM_PROMPT_LENGTH}.
+     * Oversized prompts would be rejected (or truncated) by every provider, so
+     * they are reported as errors rather than sent upstream.
+     */
+    private static collectCustomPromptErrors(settings: Record<string, unknown>, errors: string[]): void {
+        const prompts = settings.customPrompts;
+        if (!prompts || typeof prompts !== 'object') {
+            return;
+        }
+        for (const [format, value] of Object.entries(prompts as Record<string, unknown>)) {
+            if (typeof value === 'string' && value.length > MAX_CUSTOM_PROMPT_LENGTH) {
+                errors.push(MESSAGES.ERRORS.CUSTOM_PROMPT_TOO_LONG(format, value.length, MAX_CUSTOM_PROMPT_LENGTH));
+            }
+        }
     }
 
     /**
