@@ -1,12 +1,17 @@
 /**
- * Test helper utilities
+ * Test helper utilities.
+ *
+ * Thin factories over the shared Obsidian mock and the real settings fixtures,
+ * so a spec can build a consistent starting state without repeating itself.
  */
 
 import { MockApp } from '../__mocks__/obsidian';
-import { YTClipperSettings } from '../../src/types';
+import { DEFAULT_SETTINGS } from '../fixtures/settings.fixtures';
+import type { AIResponse, VideoData, YouTubePluginSettings } from '../../src/types';
 
 // Re-export fixtures for convenience
 export * from '../fixtures';
+export { DEFAULT_SETTINGS };
 
 /**
  * Create a mock app instance
@@ -29,56 +34,43 @@ export async function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** A valid YouTube video id — 11 characters of the `[A-Za-z0-9_-]` class. */
+export const TEST_VIDEO_ID = 'dQw4w9WgXcQ';
+
+/** URL that pairs with {@link TEST_VIDEO_ID}. */
+export const TEST_VIDEO_URL = `https://www.youtube.com/watch?v=${TEST_VIDEO_ID}`;
+
 /**
- * Create a mock video data object
+ * Create a mock video metadata object
  */
-export function createMockVideoData(overrides = {}) {
+export function createMockVideoData(overrides: Partial<VideoData> = {}): VideoData {
     return {
-        videoId: 'test-video-id',
-        url: 'https://www.youtube.com/watch?v=test-video-id',
         title: 'Test Video Title',
-        author: 'Test Author',
         description: 'Test video description',
+        channelName: 'Test Channel',
         thumbnail: 'https://example.com/thumbnail.jpg',
         duration: 600,
-        publishedAt: new Date().toISOString(),
-        transcript: 'This is a test transcript content.',
+        publishedAt: '2024-01-01T00:00:00Z',
         ...overrides,
     };
 }
 
 /**
- * Create a mock plugin settings object
+ * Create a valid plugin settings object, overridable key by key.
+ * Starts from the real defaults, so a spec only names what it changes.
  */
-export function createMockSettings(overrides = {}) {
-    return {
-        geminiApiKey: 'test-gemini-key',
-        groqApiKey: 'test-groq-key',
-        ollamaApiKey: 'test-ollama-key',
-        huggingfaceApiKey: 'test-huggingface-key',
-        openrouterApiKey: 'test-openrouter-key',
-        defaultProvider: 'gemini',
-        outputFormat: 'executive',
-        performanceMode: 'balanced',
-        cacheEnabled: true,
-        maxRetries: 3,
-        timeout: 30000,
-        ...overrides,
-    };
+export function createMockSettings(overrides: Partial<YouTubePluginSettings> = {}): YouTubePluginSettings {
+    return { ...DEFAULT_SETTINGS, geminiApiKey: 'test-gemini-key', ...overrides };
 }
 
 /**
  * Create a mock AI response
  */
-export function createMockAIResponse(overrides = {}) {
+export function createMockAIResponse(overrides: Partial<AIResponse> = {}): AIResponse {
     return {
         content: 'This is a test AI response content.',
-        model: 'test-model',
-        usage: {
-            promptTokens: 100,
-            completionTokens: 200,
-            totalTokens: 300,
-        },
+        provider: 'Google Gemini',
+        model: 'gemini-2.0-flash',
         ...overrides,
     };
 }
@@ -107,18 +99,4 @@ export function createMockErrorResponse(status: number, message: string) {
         text: async () => message,
         headers: new Headers(),
     };
-}
-
-/**
- * Stub a method and track calls
- */
-export function createStub<T extends (...args: unknown[]) => unknown>(implementation?: T): jest.MockedFunction<T> {
-    return jest.fn(implementation) as jest.MockedFunction<T>;
-}
-
-/**
- * Create a spy on an object method
- */
-export function spyOn<T extends object, K extends keyof T>(obj: T, method: K): jest.SpyInstance<T[K]> {
-    return jest.spyOn(obj, method);
 }

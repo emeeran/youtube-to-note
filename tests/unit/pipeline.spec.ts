@@ -30,6 +30,12 @@ import type {
 const VIDEO_ID = 'dQw4w9WgXcQ';
 const VIDEO_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
 
+/** Shape `PromptService.createAnalysisPrompt` reports real trimming through. */
+interface TruncationInfo {
+    budget: number;
+    originalLength: number;
+}
+
 const VIDEO_DATA: VideoData = {
     title: 'Test Video Title',
     description: 'A test video',
@@ -304,12 +310,11 @@ describe('processYouTubeVideo pipeline', () => {
 
         it('surfaces the real budget numbers when PromptService trims the transcript', async () => {
             const { container, mocks } = makeContainer();
-            mocks.createAnalysisPrompt.mockImplementation(
-                (options: { onTruncated?: (i: { budget: number; originalLength: number }) => void }) => {
-                    options.onTruncated?.({ budget: 20_000, originalLength: 95_000 });
-                    return 'ANALYSIS PROMPT';
-                },
-            );
+            mocks.createAnalysisPrompt.mockImplementation(options => {
+                const info = options as { onTruncated?: (info: TruncationInfo) => void };
+                info.onTruncated?.({ budget: 20_000, originalLength: 95_000 });
+                return 'ANALYSIS PROMPT';
+            });
             const plugin = makePlugin(makeSettings(), container);
 
             const result = await plugin.processYouTubeVideo(VIDEO_URL);
@@ -318,6 +323,63 @@ describe('processYouTubeVideo pipeline', () => {
             expect(result.transcriptTruncated).toBe(true);
             expect(result.warnings?.join(' ')).toContain(
                 'Transcript trimmed to the first 20,000 of 95,000 characters for this format.',
+            );
+        });
+
+        it('reports both truncation sources in the same run as two distinct warnings', async () => {
+            const truncated: TranscriptOutcome = {
+                ok: true,
+                transcript: { fullText: 'partial', segments: [], truncated: true },
+            };
+            const { container, mocks } = makeContainer({ transcriptOutcome: truncated });
+            mocks.createAnalysisPrompt.mockImplementation(options => {
+                const info = options as { onTruncated?: (info: TruncationInfo) => void };
+                info.onTruncated?.({ budget: 20_000, originalLength: 95_000 });
+                return 'ANALYSIS PROMPT';
+            });
+            const plugin = makePlugin(makeSettings(), container);
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL);
+
+            expect(result.success).toBe(true);
+            // One flag, two reasons: the source ceiling and the per-format budget.
+            expect(result.transcriptTruncated).toBe(true);
+            expect(result.warnings).toHaveLength(2);
+            expect(result.warnings?.join(' ')).toContain('capped at the source ceiling of 150,000');
+            expect(result.warnings?.join(' ')).toContain(
+                'Transcript trimmed to the first 20,000 of 95,000 characters for this format.',
+            );
+        });
+
+        it('keeps going when a progress callback throws', async () => {
+            const { container, mocks } = makeContainer();
+            const plugin = makePlugin(makeSettings(), container);
+            const spy = makeProgressSpy();
+            spy.onProgress = () => {
+                throw new Error('renderer blew up');
+            };
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL, { onProgress: spy.onProgress });
+
+            expect(result.success).toBe(true);
+            expect(result.filePath).toBe('YouTube/Notes/Test Video Title.md');
+            expect(mocks.saveToFile).toHaveBeenCalledTimes(1);
+        });
+
+        it('threads the settings-level prompt overrides through to the prompt service', async () => {
+            const { container, mocks } = makeContainer();
+            const plugin = makePlugin(
+                makeSettings({ customPrompts: { 'quick-notes': 'Answer in five bullets.' } }),
+                container,
+            );
+
+            await plugin.processYouTubeVideo(VIDEO_URL, { format: 'quick-notes' as OutputFormat });
+
+            expect(mocks.createAnalysisPrompt).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    format: 'quick-notes',
+                    customPrompts: { 'quick-notes': 'Answer in five bullets.' },
+                }),
             );
         });
 

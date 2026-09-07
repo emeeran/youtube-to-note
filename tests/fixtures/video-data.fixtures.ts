@@ -1,5 +1,8 @@
 /**
- * Test fixtures for video data
+ * Test fixtures for video data.
+ *
+ * URL lists and raw provider payloads. Metadata-shaped fixtures live in
+ * `test-helpers.ts` (`createMockVideoData`), typed against `VideoData`.
  */
 
 export const VALID_YOUTUBE_URLS = {
@@ -17,42 +20,6 @@ export const INVALID_YOUTUBE_URLS = {
     WRONG_DOMAIN: 'https://www.vimeo.com/12345',
     NOT_URL: 'not-a-url',
     EMPTY: '',
-};
-
-export const MOCK_VIDEO_DATA = {
-    SHORT_VIDEO: {
-        videoId: 'short-video-id',
-        url: 'https://www.youtube.com/watch?v=short-video-id',
-        title: 'Short Test Video',
-        author: 'Test Channel',
-        description: 'A short test video',
-        thumbnail: 'https://example.com/thumb.jpg',
-        duration: 120, // 2 minutes
-        publishedAt: '2024-01-01T00:00:00Z',
-        transcript: 'This is a short transcript for testing.',
-    },
-    LONG_VIDEO: {
-        videoId: 'long-video-id',
-        url: 'https://www.youtube.com/watch?v=long-video-id',
-        title: 'Long Test Video',
-        author: 'Test Channel',
-        description: 'A long test video for extensive testing',
-        thumbnail: 'https://example.com/thumb-long.jpg',
-        duration: 3600, // 1 hour
-        publishedAt: '2024-01-01T00:00:00Z',
-        transcript: 'A'.repeat(10000), // Long transcript
-    },
-    NO_TRANSCRIPT: {
-        videoId: 'no-transcript-id',
-        url: 'https://www.youtube.com/watch?v=no-transcript-id',
-        title: 'Video Without Transcript',
-        author: 'Test Channel',
-        description: 'A video without available transcript',
-        thumbnail: 'https://example.com/thumb-no.jpg',
-        duration: 600,
-        publishedAt: '2024-01-01T00:00:00Z',
-        transcript: '',
-    },
 };
 
 export const MOCK_API_RESPONSES = {
