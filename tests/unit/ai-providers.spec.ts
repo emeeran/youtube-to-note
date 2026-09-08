@@ -643,3 +643,47 @@ describe('Ollama network failures', () => {
         );
     });
 });
+
+describe('HuggingFaceProvider', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+        delete (global as { fetch?: unknown }).fetch;
+    });
+
+    it('explains a 400 "not supported by provider" as a model-choice problem', async () => {
+        stubFetch(() => jsonResponse(400, { error: 'Qwen/Qwen3-8B is not supported by provider hf-inference.' }));
+
+        const error = await new HuggingFaceProvider(KEY).process(PROMPT).then(
+            () => {
+                throw new Error('expected the request to fail');
+            },
+            e => e as Error,
+        );
+
+        expect(error.message).toContain('not deployed on hf-inference');
+        expect(error.message).toContain('another model');
+    });
+
+    it('keeps the retry hint on a 429 rate limit', async () => {
+        stubFetch(() => jsonResponse(429, { error: 'rate limit, retry in 12s' }));
+
+        await expect(new HuggingFaceProvider(KEY).process(PROMPT)).rejects.toThrow(
+            'Hugging Face rate limit reached. Retry in 12s.',
+        );
+    });
+
+    it('does not echo a hostile 400 body', async () => {
+        stubFetch(() => jsonResponse(400, { error: `boom\n${'x'.repeat(500)}\r\n<script>alert(1)</script>` }));
+
+        let message = '';
+        try {
+            await new HuggingFaceProvider(KEY).process(PROMPT);
+        } catch (error) {
+            message = error instanceof Error ? error.message : String(error);
+        }
+
+        expect(message).not.toContain('\n');
+        expect(message).not.toContain('<script>');
+        expect(message.length).toBeLessThan(300);
+    });
+});

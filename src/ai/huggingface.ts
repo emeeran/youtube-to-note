@@ -36,6 +36,15 @@ function formatHuggingFaceError(rawMessage: string): string {
         return `Hugging Face quota exceeded.${retryInfo}`;
     }
 
+    // The hf-inference router only serves models with a deployed endpoint —
+    // a stale curated/picked model fails here rather than with a 404.
+    if (message.toLowerCase().includes('not supported by provider') || message.toLowerCase().includes('hf-inference')) {
+        return (
+            'This model is not deployed on hf-inference. ' +
+            'Pick another model in settings (refresh the model list) — e.g. Qwen/Qwen2.5-7B-Instruct.'
+        );
+    }
+
     return message || 'Hugging Face API error';
 }
 
