@@ -159,3 +159,32 @@ export function isInputTokenOverflow(message: string): boolean {
     const lowered = message.toLowerCase();
     return lowered.includes('input token count exceeds') || lowered.includes('maximum number of tokens');
 }
+
+/** Host of a request URL, for error copy; the raw string when it cannot be parsed. */
+export function describeEndpointHost(url: string): string {
+    try {
+        return new URL(url).host;
+    } catch {
+        return url;
+    }
+}
+
+/**
+ * True for a genuine connection-level failure — the browser's raw
+ * "Failed to fetch" TypeError, a DNS miss, a refused socket. Never true for
+ * aborts/timeouts (those keep their own wording) or for HTTP status errors.
+ */
+export function isNetworkFailure(error: unknown): boolean {
+    if (!(error instanceof Error) || isTimeoutAbort(error)) return false;
+    const lowered = error.message.toLowerCase();
+    return [
+        'failed to fetch',
+        'network error',
+        'networkerror',
+        'load failed',
+        'econnrefused',
+        'enotfound',
+        'econnreset',
+        'fetch failed',
+    ].some(fragment => lowered.includes(fragment));
+}

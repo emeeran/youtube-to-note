@@ -170,8 +170,12 @@ export class OllamaProvider extends BaseAIProvider {
         return this._model.includes('-cloud') || this._model.includes(':cloud');
     }
 
+    private get isCloudEndpoint(): boolean {
+        return this.apiBaseUrl.includes('ollama.com');
+    }
+
     private describeModelNotFound(): string {
-        if (this.isCloudModel() && !this.apiBaseUrl.includes('ollama.com')) {
+        if (this.isCloudModel() && !this.isCloudEndpoint) {
             return (
                 `Cloud model "${this._model}" requires Ollama Cloud configuration. Either:\n` +
                 '1. Switch to a local model (e.g., "llama3.2:latest")\n' +
@@ -192,10 +196,25 @@ export class OllamaProvider extends BaseAIProvider {
     }
 
     /**
-     * Classify a thrown error. Genuine network failures (Ollama not running)
-     * become a clear, actionable message; everything else passes through.
-     * A caller cancellation stays "cancelled"; a hard timeout keeps the
-     * provider-labelled wording `fetchGeneration` produced.
+     * Endpoint-aware copy for an unreachable server: the cloud endpoint lives
+     * on the internet behind an API key, so "install Ollama" is the wrong
+     * advice there.
+     */
+    private describeUnreachable(): string {
+        if (this.isCloudEndpoint) {
+            return (
+                'Ollama Cloud could not be reached (ollama.com). ' +
+                'Check your internet connection and your Ollama Cloud API key in settings.'
+            );
+        }
+        return 'Ollama server is not running or unreachable. Please ensure Ollama is installed and running on your system.';
+    }
+
+    /**
+     * Classify a thrown error. Genuine network failures (Ollama not running,
+     * ollama.com unreachable) become a clear, actionable message; everything
+     * else passes through. A caller cancellation stays "cancelled"; a hard
+     * timeout keeps the provider-labelled wording `fetchGeneration` produced.
      */
     private asNetworkError(error: unknown, options?: AIRequestOptions): Error {
         if (error instanceof Error) {
@@ -211,9 +230,7 @@ export class OllamaProvider extends BaseAIProvider {
                 error.message.includes('ECONNREFUSED') ||
                 error.message.includes('ENOTFOUND')
             ) {
-                return new Error(
-                    'Ollama server is not running or unreachable. Please ensure Ollama is installed and running on your system.',
-                );
+                return new Error(this.describeUnreachable());
             }
             return error;
         }

@@ -544,3 +544,102 @@ describe('provider model lists', () => {
         await expect(new OpenRouterProvider(KEY).listModels()).rejects.toThrow('OpenRouter models request failed: 403');
     });
 });
+
+describe.each([
+    {
+        name: 'Gemini',
+        make: () => new GeminiProvider(KEY),
+        body: GEMINI_BODY,
+        host: 'generativelanguage.googleapis.com',
+    },
+    { name: 'Groq', make: () => new GroqProvider(KEY), body: OPENAI_BODY, host: 'api.groq.com' },
+    { name: 'OpenRouter', make: () => new OpenRouterProvider(KEY), body: OPENAI_BODY, host: 'openrouter.ai' },
+    {
+        name: 'Hugging Face',
+        make: () => new HuggingFaceProvider(KEY),
+        body: HUGGINGFACE_BODY,
+        host: 'router.huggingface.co',
+    },
+])('$name reports an unreachable endpoint honestly', ({ make, body, host }) => {
+    let fetchMock: FetchMock;
+
+    beforeEach(() => {
+        fetchMock = stubFetch(() => jsonResponse(200, body));
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+        delete (global as { fetch?: unknown }).fetch;
+    });
+
+    it('wraps a raw connection failure with the provider name and host', async () => {
+        fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        await expect(make().process(PROMPT)).rejects.toThrow(`network error reaching ${host}`);
+    });
+
+    it('leaves a caller cancellation untouched', async () => {
+        fetchMock = stubFetch(abortAwareHandler(body));
+        const controller = new AbortController();
+        controller.abort();
+
+        const error = await make()
+            .process(PROMPT, { signal: controller.signal })
+            .then(
+                () => {
+                    throw new Error('expected the request to fail');
+                },
+                e => e as Error,
+            );
+
+        // Cancellation may keep the raw abort or adopt the provider's own
+        // "cancelled" wording — it must never be mislabelled as a network
+        // failure or a timeout.
+        expect(error.message).not.toMatch(/network error/i);
+        expect(error.message).not.toMatch(/timed out/i);
+    });
+});
+
+describe('Ollama network failures', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+        delete (global as { fetch?: unknown }).fetch;
+    });
+
+    it('keeps the local install advice when the local server is unreachable', async () => {
+        const fetchMock = stubFetch();
+        fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        const error = await new OllamaProvider('', 'qwen3:14b').process(PROMPT).then(
+            () => {
+                throw new Error('expected the request to fail');
+            },
+            e => e as Error,
+        );
+
+        expect(error.message).toContain('Ollama server is not running or unreachable');
+    });
+
+    it('gives cloud-specific advice for Ollama Cloud instead of "install Ollama"', async () => {
+        const fetchMock = stubFetch();
+        fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        const error = await new OllamaCloudProvider(KEY).process(PROMPT).then(
+            () => {
+                throw new Error('expected the request to fail');
+            },
+            e => e as Error,
+        );
+
+        expect(error.message).toContain('ollama.com');
+        expect(error.message).not.toContain('installed and running');
+    });
+
+    it('spells out the full pull command when a local model is missing', async () => {
+        stubFetch(() => jsonResponse(404, { error: 'model qwen3:14b not found, try pulling it first' }));
+
+        await expect(new OllamaProvider('', 'qwen3:14b').process(PROMPT)).rejects.toThrow(
+            "using 'ollama pull qwen3:14b'.",
+        );
+    });
+});

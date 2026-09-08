@@ -3,8 +3,10 @@ import {
     MODEL_LIST_TIMEOUT_MS,
     REQUEST_TIMEOUT_MS,
     createAbortSignal,
+    describeEndpointHost,
     formatQuotaError,
     formatHttpError,
+    isNetworkFailure,
     isTimeoutAbort,
     sanitizeRemoteMessage,
 } from './error-utils';
@@ -149,9 +151,17 @@ export abstract class BaseAIProvider implements AIProvider {
                 signal: this.requestSignal({ timeoutMs, signal: options?.signal }),
             });
         } catch (error) {
-            if (isTimeoutAbort(error) && options?.signal?.aborted !== true) {
+            if (isTimeoutAbort(error)) {
+                if (options?.signal?.aborted === true) {
+                    throw error; // caller cancellation stays untouched
+                }
                 throw new Error(
                     `${this.name}: request timed out after ${timeoutMs}ms. Try again or use a shorter video.`,
+                );
+            }
+            if (isNetworkFailure(error)) {
+                throw new Error(
+                    `${this.name}: network error reaching ${describeEndpointHost(url)} — check your internet connection.`,
                 );
             }
             throw error;
