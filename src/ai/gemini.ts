@@ -4,11 +4,16 @@ import { MESSAGES } from '../constants/index';
 import type { AIRequestOptions } from '../types';
 import type { GeminiRequestBody, GeminiResponse } from '../types/api-responses';
 import type { ProviderModelEntry } from '../constants/index';
-import { formatQuotaError } from './error-utils';
+import { formatQuotaError, isInputTokenOverflow } from './error-utils';
 
 /**
  * Google Gemini AI provider implementation
  */
+
+/** True when any content part carries a fileData attachment (YouTube video or gs:// media). */
+function hasMediaFileData(body: GeminiRequestBody): boolean {
+    return (body?.contents ?? []).some(content => (content?.parts ?? []).some(part => Boolean(part.fileData)));
+}
 
 export class GeminiProvider extends BaseAIProvider {
     readonly name = 'Google Gemini';
@@ -25,21 +30,29 @@ export class GeminiProvider extends BaseAIProvider {
             }
 
             const endpoint = `${API_ENDPOINTS.GEMINI_BASE}/${this.model}:generateContent`;
-            const response = await this.fetchGeneration(
-                endpoint,
-                {
-                    method: 'POST',
-                    headers: this.createHeaders(),
-                    body: JSON.stringify(this.createRequestBody(prompt, options)),
-                },
-                options,
-            );
+            let body = this.createRequestBody(prompt, options);
+            let response = await this.fetchGeneration(endpoint, this.generationRequest(body), options);
 
-            // Handle specific Gemini errors with better messages
-            if (response.status === 400) {
+            // A 400 caused by the attached video exceeding the model's input-token
+            // budget is retried once without the media: the transcript text alone
+            // sits far below the cap, so the note can still be produced.
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                if (response.status !== 400) break;
                 const errorData = (await this.safeJsonParse(response)) as any;
                 const errorMessage = this.sanitizeRemoteMessage(errorData?.error?.message) || 'Bad request';
-                throw new Error(`Gemini API error: ${errorMessage}. Try checking the model configuration.`);
+                if (attempt === 2 || !hasMediaFileData(body) || !isInputTokenOverflow(errorMessage)) {
+                    throw new Error(`Gemini API error: ${errorMessage}. Try checking the model configuration.`);
+                }
+                if (options?.signal?.aborted) {
+                    throw new Error('Request cancelled.');
+                }
+                // eslint-disable-next-line no-console -- providers have no injected logger
+                console.warn(
+                    `[YouTube-to-Note] Gemini rejected the video attachment (input token limit) for ${this.model} — ` +
+                        'retrying with the transcript text only.',
+                );
+                body = this.baseRequestBody(prompt, options);
+                response = await this.fetchGeneration(endpoint, this.generationRequest(body), options);
             }
 
             if (response.status === 401) {
@@ -107,16 +120,18 @@ export class GeminiProvider extends BaseAIProvider {
         };
     }
 
-    // eslint-disable-next-line max-lines-per-function
-    protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
-        // Detect YouTube prompts by scanning for common markers instead of brittle literals
-        const normalizedPrompt = prompt.toLowerCase();
-        const isVideoAnalysis =
-            normalizedPrompt.includes('youtube video') ||
-            normalizedPrompt.includes('youtu.be/') ||
-            normalizedPrompt.includes('youtube.com/');
+    /** Generation request for a ready-made body (POST + key header + JSON). */
+    private generationRequest(body: GeminiRequestBody): RequestInit {
+        return {
+            method: 'POST',
+            headers: this.createHeaders(),
+            body: JSON.stringify(body),
+        };
+    }
 
-        const baseConfig: GeminiRequestBody = {
+    /** Plain text-only body: the prompt plus this request's generation params. */
+    private baseRequestBody(prompt: string, options?: AIRequestOptions): GeminiRequestBody {
+        return {
             contents: [
                 {
                     parts: [{ text: prompt }],
@@ -128,6 +143,18 @@ export class GeminiProvider extends BaseAIProvider {
                 candidateCount: 1,
             },
         };
+    }
+
+    // eslint-disable-next-line max-lines-per-function
+    protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
+        // Detect YouTube prompts by scanning for common markers instead of brittle literals
+        const normalizedPrompt = prompt.toLowerCase();
+        const isVideoAnalysis =
+            normalizedPrompt.includes('youtube video') ||
+            normalizedPrompt.includes('youtu.be/') ||
+            normalizedPrompt.includes('youtube.com/');
+
+        const baseConfig: GeminiRequestBody = this.baseRequestBody(prompt, options);
 
         // Enable multimodal analysis for YouTube videos only when the chosen Gemini model
         // is known to support audio/video input. We both attach the video as a `fileData`

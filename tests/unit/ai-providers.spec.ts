@@ -154,6 +154,7 @@ describe('GeminiProvider', () => {
     });
 
     afterEach(() => {
+        jest.restoreAllMocks();
         delete (global as { fetch?: unknown }).fetch;
     });
 
@@ -226,6 +227,105 @@ describe('GeminiProvider', () => {
         expect(message).not.toContain('\n');
         expect(message).not.toContain('<script>');
         expect(message.length).toBeLessThan(300);
+    });
+
+    describe('input-token overflow fallback', () => {
+        const VIDEO_PROMPT = 'Analyze this YouTube video: https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+        const TOKEN_OVERFLOW = {
+            error: { message: 'The input token count exceeds the maximum number of tokens allowed 1048576' },
+        };
+
+        type GeminiBody = {
+            contents: Array<{ parts: Array<{ text?: string; fileData?: { fileUri: string; mimeType: string } }> }>;
+            systemInstruction?: { parts: Array<{ text: string }> };
+            generationConfig?: unknown;
+        };
+
+        function parseBody(init: RequestInit): GeminiBody {
+            return JSON.parse(String(init.body)) as GeminiBody;
+        }
+
+        function callBody(fetchMock: FetchMock, index: number): GeminiBody {
+            return parseBody((fetchMock.mock.calls[index]?.[1] ?? {}) as RequestInit);
+        }
+
+        let warnSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        });
+
+        it('retries once without the video when the input exceeds Gemini token limit', async () => {
+            fetchMock.mockResolvedValueOnce(jsonResponse(400, TOKEN_OVERFLOW));
+
+            await expect(new GeminiProvider(KEY).process(VIDEO_PROMPT)).resolves.toBe('gemini says hi');
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            const first = callBody(fetchMock, 0);
+            const second = callBody(fetchMock, 1);
+            // First attempt carried the video; the retry is text-only.
+            expect(first.contents[0]?.parts.some(part => part.fileData)).toBe(true);
+            expect(first.systemInstruction).toBeDefined();
+            expect(second.contents[0]?.parts.some(part => part.fileData)).toBe(false);
+            expect(second.systemInstruction).toBeUndefined();
+            expect(second.contents[0]?.parts[0]?.text).toBe(VIDEO_PROMPT);
+            expect(second.generationConfig).toEqual(first.generationConfig);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('text only'));
+        });
+
+        it('does not retry a 400 that is not a token overflow', async () => {
+            fetchMock.mockResolvedValueOnce(jsonResponse(400, { error: { message: 'model not found' } }));
+
+            await expect(new GeminiProvider(KEY).process(VIDEO_PROMPT)).rejects.toThrow(
+                'Gemini API error: model not found',
+            );
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(warnSpy).not.toHaveBeenCalled();
+        });
+
+        it('does not retry when the request was already text-only', async () => {
+            fetchMock.mockResolvedValueOnce(jsonResponse(400, TOKEN_OVERFLOW));
+
+            await expect(new GeminiProvider(KEY).process(PLAIN_PROMPT)).rejects.toThrow(/input token count exceeds/i);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('surfaces the failure when the text-only retry also overflows', async () => {
+            fetchMock.mockResolvedValueOnce(jsonResponse(400, TOKEN_OVERFLOW));
+            fetchMock.mockResolvedValueOnce(jsonResponse(400, TOKEN_OVERFLOW));
+
+            await expect(new GeminiProvider(KEY).process(VIDEO_PROMPT)).rejects.toThrow(/input token count exceeds/i);
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it('gives up before retrying when the caller already aborted', async () => {
+            const controller = new AbortController();
+            fetchMock = stubFetch(url => {
+                void url;
+                controller.abort();
+                return jsonResponse(400, TOKEN_OVERFLOW);
+            });
+
+            await expect(new GeminiProvider(KEY).process(VIDEO_PROMPT, { signal: controller.signal })).rejects.toThrow(
+                /cancelled/i,
+            );
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('also drops a gs:// attachment when retrying text-only', async () => {
+            fetchMock.mockResolvedValueOnce(jsonResponse(400, TOKEN_OVERFLOW));
+            const prompt = 'Analyze this YouTube video: https://youtu.be/dQw4w9WgXcQ mirror: gs://my-bucket/clip.mp4';
+
+            await expect(new GeminiProvider(KEY).process(prompt)).resolves.toBe('gemini says hi');
+
+            const first = callBody(fetchMock, 0);
+            const second = callBody(fetchMock, 1);
+            expect(first.contents).toHaveLength(2);
+            expect(first.contents[0]?.parts.filter(part => part.fileData)).toHaveLength(1);
+            expect(first.contents[1]?.parts.filter(part => part.fileData)).toHaveLength(1);
+            expect(second.contents).toHaveLength(1);
+            expect(second.contents[0]?.parts.some(part => part.fileData)).toBe(false);
+        });
     });
 });
 

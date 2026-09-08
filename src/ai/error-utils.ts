@@ -149,3 +149,13 @@ export function formatHttpError(status: number, provider: string): string {
             return `${provider}: HTTP error ${status}.`;
     }
 }
+
+/**
+ * True when a server message says the request exceeded the model's input-token
+ * budget (e.g. Gemini's 400 "The input token count exceeds the maximum number
+ * of tokens allowed N"). Used to degrade a media-carrying request to text-only.
+ */
+export function isInputTokenOverflow(message: string): boolean {
+    const lowered = message.toLowerCase();
+    return lowered.includes('input token count exceeds') || lowered.includes('maximum number of tokens');
+}
