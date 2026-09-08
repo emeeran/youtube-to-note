@@ -122,6 +122,7 @@ function makeContainer(
         processWith?: jest.Mock;
         videoData?: VideoData;
         getProviderModels?: jest.Mock;
+        getProviderNames?: jest.Mock;
     } = {},
 ): { container: ServiceContainer; mocks: ContainerMocks } {
     const processWith = overrides.processWith ?? jest.fn(async () => SUCCESS_RESPONSE);
@@ -130,7 +131,7 @@ function makeContainer(
         extractVideoId: jest.fn(() => VIDEO_ID),
         getVideoData: jest.fn(async () => overrides.videoData ?? VIDEO_DATA),
         fetchTranscriptOutcome: jest.fn(async () => overrides.transcriptOutcome ?? OK_TRANSCRIPT),
-        getProviderNames: jest.fn(() => ['Google Gemini', 'Groq']),
+        getProviderNames: (overrides.getProviderNames ?? jest.fn(() => ['Google Gemini', 'Groq'])) as jest.Mock,
         getProviderModels:
             overrides.getProviderModels ??
             jest.fn(
@@ -459,6 +460,45 @@ describe('processYouTubeVideo pipeline', () => {
             expect(getNoticeCalls()).toHaveLength(2); // "processing" + the failure notice
             expect(getNoticeCalls()[1]?.message).toContain('All AI providers failed');
             expect(getNoticeCalls()[1]?.message).toContain('Google Gemini: quota exhausted');
+            expect(mocks.saveToFile).not.toHaveBeenCalled();
+        });
+
+        it('keeps every provider reason readable when the whole chain fails', async () => {
+            const chain = ['Google Gemini', 'Groq', 'OpenRouter', 'Ollama Cloud', 'Hugging Face', 'Ollama'];
+            const longReason =
+                "Ollama model not found: qwen3:14b. Please make sure the model is pulled in Ollama using 'ollama pull qwen3:14b'." +
+                ' If it is already pulled, check that the Ollama endpoint in settings matches the running server.';
+            const reasons: Record<string, string> = {
+                'Google Gemini':
+                    'Gemini API error: The input token count exceeds the maximum number of tokens allowed 1048576.',
+                Groq: 'Groq API error: Model not found or you do not have access.',
+                OpenRouter: 'OpenRouter: network error reaching openrouter.ai — check your internet connection.',
+                'Ollama Cloud': 'Ollama Cloud could not be reached (ollama.com). Check your internet connection.',
+                'Hugging Face': 'This model is not deployed on hf-inference. Pick another model in settings.',
+                Ollama: longReason,
+            };
+            const processWith = jest.fn<(provider: string) => Promise<AIResponse>>(async provider => {
+                throw new Error(reasons[provider] ?? 'failed');
+            });
+            const { container, mocks } = makeContainer({
+                processWith,
+                getProviderNames: jest.fn(() => chain),
+            });
+            const plugin = makePlugin(makeSettings(), container);
+
+            const result = await plugin.processYouTubeVideo(VIDEO_URL);
+
+            const message = result.error ?? '';
+            expect(result.success).toBe(false);
+            expect(result.failedProviders).toEqual(chain);
+            // No reason is cut mid-word and the chain tail is not dropped…
+            for (const [name, reason] of Object.entries(reasons)) {
+                expect(message).toContain(`${name}: ${reason}`);
+            }
+            // …including a reason longer than the old 160-char per-provider cap.
+            expect(message).toContain(longReason);
+            expect(message.length).toBeLessThanOrEqual(1500);
+            expect(getNoticeCalls()[1]?.message).toContain("using 'ollama pull qwen3:14b'");
             expect(mocks.saveToFile).not.toHaveBeenCalled();
         });
 

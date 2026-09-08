@@ -79,6 +79,16 @@ const transcriptTrimmedWarning = (info: { budget: number; originalLength: number
     `Transcript trimmed to the first ${info.budget.toLocaleString()} of ` +
     `${info.originalLength.toLocaleString()} characters for this format.`;
 
+/**
+ * Per-provider failure reasons are shortened before they are joined into the
+ * aggregate "All AI providers failed" message. Generous enough to keep e.g.
+ * Ollama's full `ollama pull <model>` command intact, small enough that six
+ * reasons stay readable in a Notice.
+ */
+const MAX_PROVIDER_REASON_CHARS = 240;
+/** Hard ceiling for the joined aggregate message. */
+const MAX_AGGREGATE_ERROR_CHARS = 1500;
+
 /** Credential fields in plugin data, with the short label used in the redacted log. */
 const SECRET_SETTING_KEYS: ReadonlyArray<[keyof YouTubePluginSettings, string]> = [
     ['geminiApiKey', 'gemini'],
@@ -635,7 +645,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                 } catch (error) {
                     if (signal.aborted) throw new ProcessingCancelled();
                     failedProviders.push(name);
-                    const message = (error instanceof Error ? error.message : String(error)).slice(0, 160);
+                    const message = (error instanceof Error ? error.message : String(error)).slice(
+                        0,
+                        MAX_PROVIDER_REASON_CHARS,
+                    );
                     failedReasons.set(name, message);
                     lastError = error;
                     logger.warn('Provider failed — trying the next one', 'Plugin', {
@@ -653,7 +666,13 @@ export default class YoutubeClipperPlugin extends Plugin {
                     [...failedReasons.entries()].map(([name, message]) => `${name}: ${message}`).join(' · ') ||
                     'no provider was attempted';
                 const error = lastError instanceof Error ? lastError : new Error('All AI providers failed');
-                const enriched = new Error(`All AI providers failed — ${summary}`.slice(0, 600));
+                const full = `All AI providers failed — ${summary}`;
+                // Cut on a word boundary so the tail never ends mid-word.
+                const truncated =
+                    full.length > MAX_AGGREGATE_ERROR_CHARS
+                        ? `${full.slice(0, MAX_AGGREGATE_ERROR_CHARS).replace(/\s+\S*$/, '')}…`
+                        : full;
+                const enriched = new Error(truncated);
                 logger.error('AI Processing failed', 'Plugin', { error: error.message, summary });
                 result.failedProviders = failedProviders;
                 result.error = enriched.message;
