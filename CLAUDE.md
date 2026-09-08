@@ -48,7 +48,14 @@ provider fetches via `AIRequestOptions.signal`. YouTube-side fetches (watch page
 innertube) are bounded at 15s by `withTimeout` and honour the same signal.
 
 Gemini providers additionally attach the YouTube URL as a `fileData` part (native
-multimodal ingestion) when the model supports it.
+multimodal ingestion) when the model supports it. When such a media-carrying request is
+rejected with an input-token-overflow 400 (a long video can exceed the model's 1M-token
+input cap on server-side ingestion alone — the text prompt is capped near 40k tokens), it
+is retried **once** text-only: no `fileData`, no video-analyzer `systemInstruction`, same
+timeout + signal. Other 400s, already-text-only requests, and an exhausted retry keep the
+detailed error. Connection-level fetch failures are wrapped by `BaseAIProvider.fetchGeneration`
+as `<Provider>: network error reaching <host> — …`; aborts and timeouts keep their existing
+shapes, and Ollama's unreachable copy is endpoint-aware (cloud ≠ "install local Ollama").
 
 **Configuration validity is provider-agnostic.** `ValidationUtils.validateSettings`
 (`src/validation.ts`) accepts ANY one of the five keyed providers, or env-var mode with a
@@ -146,27 +153,30 @@ refuses to publish unless the tag, `package.json` and `manifest.json` versions a
 
 ## Testing
 
-Jest + ts-jest + jsdom. **16 suites, 408 tests** (snapshot of `npx jest` on 2026-09-07 —
+Jest + ts-jest + jsdom. **16 suites, 436 tests** (snapshot of `npx jest` on 2026-09-09 —
 re-run it for the current count before quoting it; a parallel agent may be adding specs).
 
-- `tests/unit/pipeline.spec.ts` (26) — `processYouTubeVideo` end-to-end
-- `tests/unit/ai-providers.spec.ts` (23) — all six `src/ai/*` clients
-- `tests/unit/tier0-regressions.spec.ts` (24) — fixed-regression guard
-- `tests/unit/validation.spec.ts` (22) — any-provider rule, key-format warnings, caps
+- `tests/unit/pipeline.spec.ts` (38) — `processYouTubeVideo` end-to-end, incl. aggregate
+  failure attribution and the per-provider reason caps (240 chars / 1500 total)
+- `tests/unit/ai-providers.spec.ts` (58) — all six `src/ai/*` clients, incl. the Gemini
+  text-only overflow retry, network-error wrapping, and Ollama/HF error copy
+- `tests/unit/url-parity.spec.ts` (52) — plugin vs extension URL acceptance
 - `tests/unit/youtube-modal-utils.spec.ts` (33) — batch parse/dedupe/cap, failure retry
-- `tests/unit/obsidian-mock.spec.ts` (22) — the shared Obsidian mock's own contract
-- `tests/unit/url-parity.spec.ts` (2) — plugin vs extension URL acceptance
-- `tests/unit/secure-config.spec.ts` (23) — key resolution + legacy migration
-- `tests/unit/services/youtube-page.spec.ts` (15) — player-response parsing
-- `tests/unit/services/transcript-service.spec.ts` (8) — track selection + timedtext parsing
-- `tests/unit/services/transcript-outcome.spec.ts` (26) — typed failures + innertube fallback
+- `tests/unit/services/transcript-outcome.spec.ts` (33) — typed failures + innertube fallback
+- `tests/unit/obsidian-mock.spec.ts` (32) — the shared Obsidian mock's own contract
 - `tests/unit/services/prompt-timestamps.spec.ts` (24) — minute markers, timestamp links,
   transcript index
-- `tests/unit/services/ai-service.spec.ts` (12) — provider chain, model restore, fallback
+- `tests/unit/validation.spec.ts` (22) — any-provider rule, key-format warnings, caps
+- `tests/unit/tier0-regressions.spec.ts` (22) — fixed-regression guard
 - `tests/unit/services/url-handler.spec.ts` (22) — URL/protocol/file intake
+- `tests/unit/obsidian-file.spec.ts` (18) — save/conflict/path handling
+- `tests/unit/secure-config.spec.ts` (30) — key resolution + legacy migration
+- `tests/unit/services/youtube-page.spec.ts` (19) — player-response parsing
+- `tests/unit/prompt-formats.spec.ts` (13) — per-format prompt assembly
+- `tests/unit/services/ai-service.spec.ts` (12) — provider chain, model restore, fallback
+- `tests/unit/services/transcript-service.spec.ts` (8) — track selection + timedtext parsing
 
-Still untested when you touch them: `settings-tab.ts`, `obsidian-file.ts`, and the
-`video-data.ts` metadata path.
+Still untested when you touch them: `settings-tab.ts` and the `video-data.ts` metadata path.
 
 ## Gotchas
 
@@ -183,6 +193,10 @@ Still untested when you touch them: `settings-tab.ts`, `obsidian-file.ts`, and t
   the `Clear transcript cache` command.
 - `saveSettings` and `ProcessingHistoryService` both write the whole `data.json`; they share
   `withPluginDataLock`. Any new writer of plugin data must join that lock.
+- The aggregate "All AI providers failed — …" message caps per-provider reasons at
+  `MAX_PROVIDER_REASON_CHARS` (240) and the join at `MAX_AGGREGATE_ERROR_CHARS` (1500,
+  word-boundary trimmed) — both in `src/main.ts`. If provider error copy grows, raise the
+  constants rather than re-slicing at call sites.
 - Known open/deferred items live in `AUDIT.md` (token streaming, ESLint 9 flat config,
   TypeScript 5.3.3, the `setApiKey` field-name masking dead path, `MemoryCache` FIFO
   eviction, 51 remaining inline `style.*` writes, extension verification on

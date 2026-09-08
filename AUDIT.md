@@ -375,8 +375,9 @@ much it matters.
   (~350 lines), `src/ai/error-utils.ts` (free functions), and per-provider `handleAPIError`
   methods. Consolidation is behavior-sensitive (copy changes); flagged, not auto-applied.
 - **(med) Critical-path test coverage is better and still not complete.** As of the
-  2026-09-07 snapshot: **16 suites / 408 tests**, now including the `processYouTubeVideo`
-  pipeline and all six providers. Still untested: `obsidian-file.ts` (save/conflict/path
+  2026-09-09 snapshot: **16 suites / 436 tests**, including the `processYouTubeVideo`
+  pipeline, all six providers, provider network-error wording, and the Gemini text-only
+  overflow retry. Still untested: `obsidian-file.ts` (save/conflict/path
   sanitization), `video-data.ts` metadata, and `settings-tab.ts`.
 - **(verification, not code) The extension has not been manually exercised on
   music.youtube.com or a real `/live/` stream.** The selectors, normalisation and observer
@@ -384,6 +385,23 @@ much it matters.
   the next store upload.
 - **API-key rotation reminder:** the metadata subsystem in `src/secure-config.ts` remains
   write-only localStorage bookkeeping — harmless, intentionally left alone.
+
+Found during the provider-fallback pass (2026-09-09, deferred):
+
+- **(dead setting) `preferMultimodal`** (`src/types.ts`, toggle in the settings tab) is never
+  read by any provider — Gemini decides purely from the curated `supportsAudioVideo` flags plus
+  a loose model-name regex. Either wire it into `createRequestBody` or remove the toggle.
+- **(smell) Gemini's multimodal gating regex** (`src/ai/gemini.ts`,
+  `/^gemini-(1\.5|2\.\d|flash|pro)/`) over-matches future/unknown model ids and will attach a
+  `fileData` part to models that cannot ingest video. The text-only retry added in this pass
+  rescues only token-overflow 400s; a capability 400 still fails the provider.
+- **(gap) Hugging Face has no `listModels`**, so `fetchLatestModelsForProvider` returns the
+  static curated list and the model dropdown cannot be refreshed against what hf-inference
+  actually serves — the curated list goes stale and users hit the "not deployed" 400.
+- **(smell) `ErrorHandler.handleEnhanced` can mask the aggregate failure Notice**: if any single
+  provider reason contains a quota phrase, the notice degrades to a generic quota message.
+  Swapping it for `ErrorHandler.handle` would fix that but loses the quota retry button.
+  Flagged, not changed.
 
 ## Explicitly out of scope / accepted risk
 
