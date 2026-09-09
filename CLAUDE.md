@@ -153,7 +153,7 @@ refuses to publish unless the tag, `package.json` and `manifest.json` versions a
 
 ## Testing
 
-Jest + ts-jest + jsdom. **16 suites, 430 tests** (snapshot of `npx jest` on 2026-09-09 —
+Jest + ts-jest + jsdom. **18 suites, 442 tests** (snapshot of `npx jest` on 2026-09-09 —
 re-run it for the current count before quoting it; a parallel agent may be adding specs).
 
 - `tests/unit/pipeline.spec.ts` (38) — `processYouTubeVideo` end-to-end, incl. aggregate
