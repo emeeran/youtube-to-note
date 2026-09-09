@@ -226,8 +226,19 @@ export abstract class BaseAIProvider implements AIProvider {
             throw new Error(formatQuotaError(this.sanitizeRemoteMessage(rawMessage), this.name));
         }
 
-        // All other errors
-        throw new Error(formatHttpError(status, this.name));
+        // All other errors — surface the (sanitized) server detail when the
+        // body carries one; a bare status hides the actual diagnosis.
+        const errorData = await this.safeJsonParse(response);
+        const body = errorData as Record<string, unknown> | null;
+        const rawError: unknown = body?.error;
+        const rawDetail =
+            typeof rawError === 'string'
+                ? rawError
+                : ((rawError as Record<string, unknown> | undefined)?.message ?? (body?.message as string | undefined));
+        const detail = this.sanitizeRemoteMessage(rawDetail, 160);
+        throw new Error(
+            detail ? `${formatHttpError(status, this.name)}: ${detail}` : formatHttpError(status, this.name),
+        );
     }
 
     /**

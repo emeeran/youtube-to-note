@@ -468,6 +468,11 @@ export default class YoutubeClipperPlugin extends Plugin {
             return { success: false, error: 'Plugin is shutting down' };
         }
 
+        // Canonicalize once at the entry: intake patterns are unanchored, so
+        // everything downstream (frontmatter source, prompt, timestamp links)
+        // must only ever see the canonical watch URL.
+        url = ValidationUtils.canonicalWatchUrl(url) ?? url;
+
         // One controller per run. An external signal (modal close) aborts it;
         // with no external signal, onunload owns the abort instead.
         const controller = new AbortController();

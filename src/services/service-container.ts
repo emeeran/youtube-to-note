@@ -125,6 +125,9 @@ export class ServiceContainer implements IServiceContainer {
      */
     async clearTranscriptCache(): Promise<void> {
         await this.transcriptDiskCache.clear();
+        // The in-memory tier holds 7-day entries — leaving it live would hand
+        // the identical transcript back after the user asked for a refetch.
+        this.cacheService?.clear();
     }
 
     get fileService(): FileService {

@@ -86,6 +86,18 @@ export class ValidationUtils {
     }
 
     /**
+     * Canonical `https://www.youtube.com/watch?v=<id>` for any accepted URL
+     * shape. The intake patterns are intentionally unanchored (an id embedded
+     * anywhere passes), so downstream consumers — frontmatter `source:`, the
+     * prompt, timestamp links — must only ever see the canonical form, never
+     * the raw attacker-shaped string around the id. Null when invalid.
+     */
+    static canonicalWatchUrl(url: string): string | null {
+        const videoId = this.extractVideoId(url);
+        return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
+    }
+
+    /**
      * Extract YouTube video ID from URL (memoized for performance)
      * Enhanced extraction with better error handling
      */

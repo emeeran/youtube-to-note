@@ -31,7 +31,7 @@ export const AI_MODELS = {
     GEMINI: 'gemini-2.5-flash',
     GROQ: 'openai/gpt-oss-120b',
     HUGGINGFACE: 'Qwen/Qwen3.8-27B',
-    OPENROUTER: 'google/gemini-2.5-flash-preview-05-20',
+    OPENROUTER: 'google/gemini-2.5-flash',
     OLLAMA_CLOUD: 'deepseek-v3.2',
     OLLAMA_LOCAL: 'qwen3:latest',
 } as const;
@@ -87,7 +87,9 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
     ],
 
     Ollama: [
-        // Qwen 3 — Best local models (RECOMMENDED)
+        // Qwen 3 — Best local models. `latest` first: it is also the code-level
+        // default (AI_MODELS.OLLAMA_LOCAL), so the dropdown and the fallback agree.
+        { name: 'qwen3:latest' },
         { name: 'qwen3:32b' },
         { name: 'qwen3:14b' },
         { name: 'qwen3:8b' },
@@ -195,7 +197,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
 
     OpenRouter: [
         // Gemini 2.5 Flash — Best value on OpenRouter (RECOMMENDED)
-        { name: 'google/gemini-2.5-flash-preview-05-20', supportsAudioVideo: true },
+        { name: 'google/gemini-2.5-flash', supportsAudioVideo: true },
         { name: 'google/gemini-2.5-pro-exp:free', supportsAudioVideo: true },
         { name: 'google/gemini-2.5-flash-exp:free', supportsAudioVideo: true },
 

@@ -44,10 +44,21 @@ export function sanitizeRemoteMessage(message: unknown, maxLength = 200): string
  */
 export function createAbortSignal(options: { timeoutMs?: number; signal?: AbortSignal } = {}): AbortSignal | undefined {
     const signalStatic = AbortSignal as AbortSignalStatic;
-    const timeoutSignal =
-        options.timeoutMs && options.timeoutMs > 0 && typeof signalStatic.timeout === 'function'
-            ? signalStatic.timeout(options.timeoutMs)
-            : undefined;
+    let timeoutSignal: AbortSignal | undefined;
+    if (options.timeoutMs && options.timeoutMs > 0) {
+        if (typeof signalStatic.timeout === 'function') {
+            timeoutSignal = signalStatic.timeout(options.timeoutMs);
+        } else {
+            // No AbortSignal.timeout on this runtime: falling through would
+            // leave the request with NO timeout at all. Build the abort from
+            // a timer instead (unref'd so it never holds the process).
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+            const maybeUnref = (timer as { unref?: () => void }).unref;
+            if (typeof maybeUnref === 'function') maybeUnref.call(timer);
+            timeoutSignal = controller.signal;
+        }
+    }
 
     if (!options.signal) return timeoutSignal;
     if (!timeoutSignal) return options.signal;
@@ -57,10 +68,17 @@ export function createAbortSignal(options: { timeoutMs?: number; signal?: AbortS
     }
 
     // Older runtimes without AbortSignal.any: wire both sources onto one
-    // controller. The fallback timer is unref'd so it never holds the process.
+    // controller. A caller signal that is ALREADY aborted must abort the
+    // combined signal synchronously — not every runtime retro-fires abort
+    // listeners added after the fact. The fallback timer is unref'd so it
+    // never holds the process.
     const controller = new AbortController();
     const forwardAbort = () => controller.abort();
-    options.signal.addEventListener('abort', forwardAbort, { once: true });
+    if (options.signal.aborted) {
+        controller.abort();
+    } else {
+        options.signal.addEventListener('abort', forwardAbort, { once: true });
+    }
     const timer = setTimeout(() => controller.abort(), options.timeoutMs);
     const cancellable = timer as unknown as { unref?: () => void };
     if (typeof cancellable.unref === 'function') {

@@ -193,7 +193,7 @@ export function resolveProgressDetail(update: ProgressUpdate): string {
 export function isCancelledResult(message: string | undefined, signalAborted: boolean): boolean {
     const text = (message ?? '').trim();
     if (signalAborted) return /cancel/i.test(text);
-    return /^processing cancelled\.?$/i.test(text);
+    return /^(processing|save) cancelled( by user)?\.?$/i.test(text);
 }
 
 // ── Retry selection ──────────────────────────────────────────────────────────
@@ -238,6 +238,13 @@ export function formatRetryLabel(failedCount: number): string {
 
 /** True when the user has text selected — Ctrl+C must copy that, not our note path. */
 export function hasTextSelection(doc: Document = document): boolean {
+    // window.getSelection() does not report selections inside form fields in
+    // Chromium — check the active element too, or Ctrl+C in the instructions
+    // box would copy the note path instead of the user's text.
+    const active = doc.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+        return active.selectionStart !== active.selectionEnd;
+    }
     const selection = doc.getSelection?.()?.toString() ?? '';
     return selection.trim().length > 0;
 }

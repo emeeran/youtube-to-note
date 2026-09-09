@@ -525,17 +525,13 @@ describe('provider model lists', () => {
         await expect(new GroqProvider(KEY).listModels()).rejects.toThrow(
             'Groq models request failed: timed out after 15000ms',
         );
-        // When the runtime supports `AbortSignal.timeout`, every auxiliary request
-        // runs under one. (jsdom does not implement it, so the timeout — and with
-        // it the signal — silently disappears there; Chromium, which Obsidian runs
-        // on, does implement it.)
-        const supportsTimeoutSignal = typeof (AbortSignal as { timeout?: unknown }).timeout === 'function';
+        // Every auxiliary request runs under a timeout signal on EVERY runtime:
+        // `AbortSignal.timeout` where available, a fallback timer where not.
+        // (jsdom implements neither, so it is exactly the environment that
+        // exercises the fallback — the old behavior left the request with no
+        // signal at all there, i.e. silently unbounded.)
         for (const call of fetchMock.mock.calls) {
-            if (supportsTimeoutSignal) {
-                expect(call[1]?.signal).toBeDefined();
-            } else {
-                expect(call[1]?.signal).toBeUndefined();
-            }
+            expect(call[1]?.signal).toBeDefined();
         }
     });
 

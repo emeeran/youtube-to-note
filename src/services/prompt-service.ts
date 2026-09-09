@@ -496,7 +496,10 @@ export class AIPromptService implements PromptService {
         let result = template;
         for (const [placeholder, value] of Object.entries(replacements)) {
             const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            result = result.replace(new RegExp(escaped, 'g'), value);
+            // A replacer function, never a bare string: values (video URLs,
+            // model ids) may contain `$&`-style sequences that a string
+            // replacement would expand into template text.
+            result = result.replace(new RegExp(escaped, 'g'), () => value);
         }
         return result;
     }

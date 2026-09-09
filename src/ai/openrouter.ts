@@ -40,8 +40,8 @@ export class OpenRouterProvider extends BaseAIProvider {
     constructor(apiKey: string, model?: string, timeout?: number) {
         // Default to a capable free/cheap model
         super(apiKey, model ?? AI_MODELS.OPENROUTER, timeout);
-        this.siteUrl = 'https://github.com/user/yt-clipper';
-        this.siteName = 'YouTube Clipper Obsidian Plugin';
+        this.siteUrl = 'https://github.com/emeeran/youtube-to-note';
+        this.siteName = 'YouTube to Note';
     }
 
     // eslint-disable-next-line complexity, max-lines-per-function
