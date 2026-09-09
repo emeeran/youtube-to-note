@@ -20,7 +20,7 @@ import { UrlHandler, UrlDetectionResult } from './services/url-handler';
 import { ValidationUtils } from './validation';
 import { YouTubeSettingsTab } from './settings-tab';
 import { YouTubeUrlModal } from './components/features/youtube';
-import { ProcessingHistoryService, withPluginDataLock } from './services/processing-history';
+import { ProcessingHistoryService, PROCESSING_HISTORY_KEY, withPluginDataLock } from './services/processing-history';
 import { SecureConfigService } from './secure-config';
 import { MAX_TRANSCRIPT_CHARS } from './services/transcript-service';
 import { Notice, Plugin, TFile } from 'obsidian';
@@ -906,10 +906,18 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private async saveSettings(): Promise<void> {
-        // Join the shared plugin-data lock: `saveData` round-trips the whole
-        // data.json, so a settings write racing a history write would otherwise
-        // resurrect stale history (or vice versa).
-        await withPluginDataLock(() => this.saveData(this._settings));
+        // Join the shared plugin-data lock: `saveData` replaces the whole
+        // data.json, and `_settings` holds the snapshot taken at load time —
+        // writing it verbatim would revert history entries
+        // ProcessingHistoryService added since startup. Re-read under the
+        // lock, let the history key pass through from the fresh read (that
+        // service owns it exclusively), and overlay the settings on top.
+        await withPluginDataLock(async () => {
+            const fresh = ((await this.loadData()) as Record<string, unknown> | null) ?? {};
+            const settings: Record<string, unknown> = { ...this._settings };
+            delete settings[PROCESSING_HISTORY_KEY];
+            await this.saveData({ ...fresh, ...settings });
+        });
     }
 
     private async safeOperation<T>(operation: () => Promise<T>, operationName: string): Promise<T | null> {

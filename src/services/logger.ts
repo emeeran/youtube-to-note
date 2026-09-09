@@ -52,9 +52,23 @@ export class Logger {
         const levelStr = LogLevel[entry.level].padEnd(5);
         const timestamp = this.config.enableTimestamps ? `[${entry.timestamp.toISOString()}] ` : '';
         const context = entry.context ? ` [${entry.context}]` : '';
-        const data = entry.data ? ` ${JSON.stringify(entry.data)}` : '';
+        const data = entry.data ? ` ${this.stringifyLogData(entry.data)}` : '';
 
         return `${timestamp}${levelStr}${context} ${entry.message}${data}`;
+    }
+
+    /**
+     * JSON for the log line. A hostile payload (e.g. a live `TFile`, circular
+     * via `parent.children`) must never throw past logging — callers log
+     * inside error handlers where a throw would abort the very operation
+     * being reported.
+     */
+    private stringifyLogData(data: Record<string, unknown>): string {
+        try {
+            return JSON.stringify(data);
+        } catch {
+            return '<unserializable log data>';
+        }
     }
 
     private log(level: LogLevel, message: string, context?: string, data?: Record<string, unknown>): void {

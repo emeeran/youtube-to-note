@@ -9,12 +9,13 @@
  */
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import type { Plugin } from 'obsidian';
+import type { Plugin, PluginManifest } from 'obsidian';
 
 import { AIService } from '../../src/services/ai-service';
 import * as youtubePage from '../../src/services/youtube-page';
 import { YouTubeVideoService } from '../../src/video-data';
 import { ProcessingHistoryService, withPluginDataLock } from '../../src/services/processing-history';
+import YoutubeClipperPlugin from '../../src/main';
 import { escapeYamlScalar, generateFrontmatter, generateVideoIframe } from '../../src/templates';
 import { AIPromptService } from '../../src/services/prompt-service';
 import type { AIProvider, CacheService, TranscriptSegment, YouTubePluginSettings } from '../../src/types';
@@ -564,6 +565,39 @@ describe('Tier 0 — withPluginDataLock serializes plugin-data writes', () => {
         gate.resolve();
         await expect(first).rejects.toThrow('write failed');
         expect(await second).toBe('recovered');
+    });
+
+    it('saveSettings does not revert processing history added after plugin load', async () => {
+        // `_settings` carries the data.json snapshot taken at load time — if
+        // saveSettings wrote it verbatim, every settings save would roll the
+        // history back to that snapshot and silently defeat duplicate warnings.
+        const historyAtLoad = [{ videoId: 'aaaaaaaaaaa' }];
+        const store: Record<string, unknown> = {
+            outputPath: 'Old/Path',
+            'ytc-processing-history': JSON.parse(JSON.stringify(historyAtLoad)),
+        };
+        const plugin = new YoutubeClipperPlugin({} as never, { version: 'test' } as PluginManifest);
+        Object.assign(plugin, {
+            _settings: {
+                outputPath: 'Old/Path',
+                'ytc-processing-history': historyAtLoad,
+            } as unknown as YouTubePluginSettings,
+            loadData: jest.fn(async () => JSON.parse(JSON.stringify(store))),
+            saveData: jest.fn(async (data: Record<string, unknown>) => {
+                for (const key of Object.keys(store)) delete store[key];
+                Object.assign(store, JSON.parse(JSON.stringify(data)));
+            }),
+        });
+
+        // The history service (or a user) adds an entry after load…
+        store['ytc-processing-history'] = [...historyAtLoad, { videoId: 'bbbbbbbbbbb' }];
+
+        // …then a plain settings change is saved.
+        (plugin as unknown as { _settings: Record<string, unknown> })._settings['outputPath'] = 'New/Path';
+        await (plugin as unknown as { saveSettings(): Promise<void> }).saveSettings();
+
+        expect(store['outputPath']).toBe('New/Path');
+        expect(store['ytc-processing-history']).toHaveLength(2);
     });
 
     it('lets two concurrent history writes both reach data.json', async () => {

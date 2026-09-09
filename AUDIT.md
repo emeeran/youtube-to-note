@@ -13,7 +13,7 @@ tests, unload not aborting in-flight runs) should be fixed before this ships as 
 
 ## Blockers (must fix before prod)
 
-- [ ] `src/main.ts:908-913` — **`saveSettings()` writes the plugin-load-time snapshot of
+- [x] `src/main.ts:908-913` — **`saveSettings()` writes the plugin-load-time snapshot of
       `ytc-processing-history`, silently reverting history added during the session.**
       `loadSettings()` absorbs data.json's history array into `_settings` (main.ts:891);
       `ProcessingHistoryService` re-reads and mutates its own copy; the shared
@@ -24,7 +24,7 @@ tests, unload not aborting in-flight runs) should be fixed before this ships as 
       independent code read — both the operations and correctness audits found it._
       Fix direction: `saveSettings` must re-read fresh data (like
       `ProcessingHistoryService.save()` does) and own only the settings keys, never history.
-- [ ] `src/services/url-handler.ts:234, 284` — **file-watcher and active-leaf intake is
+- [x] `src/services/url-handler.ts:234, 284` — **file-watcher and active-leaf intake is
       dead in production: logging `{ ...result }` with a live `TFile` throws on circular
       JSON before `handleUrlSafely()` runs.** `logger.formatMessage` calls
       `JSON.stringify(entry.data)` unguarded (logger.ts:55); a real `TFile` carries

@@ -231,7 +231,10 @@ export class UrlHandler {
                 content,
             };
 
-            logger.info('CREATE EVENT - detected temp note', 'UrlHandler', { ...result });
+            logger.info('CREATE EVENT - detected temp note', 'UrlHandler', {
+                source: result.source,
+                filePath: result.filePath,
+            });
             this.handleUrlSafely(result);
         } catch (error) {
             logger.error('Error handling file create', 'UrlHandler', {
@@ -281,7 +284,10 @@ export class UrlHandler {
                 content,
             };
 
-            logger.info('ACTIVE-LEAF-CHANGE EVENT - detected temp note', 'UrlHandler', { ...result });
+            logger.info('ACTIVE-LEAF-CHANGE EVENT - detected temp note', 'UrlHandler', {
+                source: result.source,
+                filePath: result.filePath,
+            });
             this.handleUrlSafely(result);
         } catch (error) {
             logger.error('Error handling active leaf change', 'UrlHandler', {

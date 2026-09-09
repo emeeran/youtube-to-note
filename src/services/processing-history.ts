@@ -22,7 +22,8 @@ export interface HistoryEntry {
 }
 
 const MAX_HISTORY_ENTRIES = 200;
-const STORAGE_KEY = 'ytc-processing-history';
+/** data.json key owned exclusively by this service. */
+export const PROCESSING_HISTORY_KEY = 'ytc-processing-history';
 
 /**
  * Serializes every data.json read-modify-write cycle performed here.
@@ -80,8 +81,8 @@ export class ProcessingHistoryService {
         try {
             await withPluginDataLock(async () => {
                 const data = (await this.plugin.loadData()) as Record<string, unknown> | null;
-                if (data?.[STORAGE_KEY] && Array.isArray(data[STORAGE_KEY])) {
-                    this.entries = data[STORAGE_KEY] as HistoryEntry[];
+                if (data?.[PROCESSING_HISTORY_KEY] && Array.isArray(data[PROCESSING_HISTORY_KEY])) {
+                    this.entries = data[PROCESSING_HISTORY_KEY] as HistoryEntry[];
                 }
             });
         } catch (error) {
@@ -100,7 +101,7 @@ export class ProcessingHistoryService {
         try {
             await withPluginDataLock(async () => {
                 const data = ((await this.plugin.loadData()) as Record<string, unknown> | null) ?? {};
-                data[STORAGE_KEY] = this.entries;
+                data[PROCESSING_HISTORY_KEY] = this.entries;
                 await this.plugin.saveData(data);
             });
         } catch (error) {
