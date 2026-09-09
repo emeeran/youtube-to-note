@@ -1,3 +1,153 @@
+# Production Readiness Audit — 2026-09-09
+
+## Summary
+
+**Ready with fixes.** The core pipeline (URL intake → transcript → AI → note save) is
+architecturally sound: the trust boundaries around `obsidian://` intake, vault path
+handling, caption-host pinning, secret redaction, and extension message-passing all
+verified clean under a six-dimension audit (correctness, security, config, observability,
+testing/CI, operations). However, two confirmed blocker-grade bugs — one silently
+**reverts processing history**, the other **kills the file-watcher intake feature
+entirely** — plus a cluster of high items (misclassified aggregate errors, untype-checked
+tests, unload not aborting in-flight runs) should be fixed before this ships as 2.2.0.
+
+## Blockers (must fix before prod)
+
+- [ ] `src/main.ts:908-913` — **`saveSettings()` writes the plugin-load-time snapshot of
+      `ytc-processing-history`, silently reverting history added during the session.**
+      `loadSettings()` absorbs data.json's history array into `_settings` (main.ts:891);
+      `ProcessingHistoryService` re-reads and mutates its own copy; the shared
+      `withPluginDataLock` serializes the two writers but does nothing about the stale
+      payload. Any settings save (toggle change, key migration main.ts:897, model-cache
+      refresh main.ts:395/419) rewrites data.json with startup-era history →
+      `warnOnDuplicates` stops matching and users re-pay for AI runs. _Verified by
+      independent code read — both the operations and correctness audits found it._
+      Fix direction: `saveSettings` must re-read fresh data (like
+      `ProcessingHistoryService.save()` does) and own only the settings keys, never history.
+- [ ] `src/services/url-handler.ts:234, 284` — **file-watcher and active-leaf intake is
+      dead in production: logging `{ ...result }` with a live `TFile` throws on circular
+      JSON before `handleUrlSafely()` runs.** `logger.formatMessage` calls
+      `JSON.stringify(entry.data)` unguarded (logger.ts:55); a real `TFile` carries
+      `vault`/`parent` back-references (`parent.children` contains the file), so stringify
+      throws `TypeError: circular structure`, the surrounding `catch` swallows it, and the
+      modal never opens. Protocol/clipboard intake (no `file` field) keeps working, which
+      masks the bug; tests use a mock vault without the cycle. Fix direction: never log the
+      raw `file` — log `file.path` only, and/or make `formatMessage` stringify-safe.
+
+## High priority
+
+- [ ] `src/services/error-handler.ts:80-110,129` + `src/main.ts:666` — the 6-provider
+      aggregate failure is misclassified by substring scan: one provider's canned
+      "Rate limit exceeded" (or any message containing "429") routes the _whole_ aggregate
+      to `handleQuotaError`, replacing accurate per-provider attribution with a wrong
+      provider's quota notice plus a Retry button. (Also: that Retry button dispatches
+      `yt-clipper-retry-processing`, an event **nothing listens for** — a silent no-op,
+      error-handler.ts:60-72.)
+- [ ] `tsconfig.json:31-36` + `jest.config.js:21` — **tests are type-checked by
+      nothing**: `tsc --noEmit` excludes `tests/**`, and ts-jest's `isolatedModules: true`
+      skips type diagnostics entirely. The `@tests/` alias exists only in jest's
+      moduleNameMapper. A mistyped test helper ships green.
+- [ ] `src/ai/ollama.ts:25-35` — user-configured endpoint normalization has zero test
+      coverage (all specs construct without the 4th arg), including a latent
+      trailing-slash → `http://host//api` bug. This code decides where transcripts _and API
+      keys_ are POSTed; the `'cloud'` substring heuristic also hijacks custom endpoints
+      whose URL merely contains "cloud" (settings-tab.ts:243-244 duplicates the heuristic
+      for key validation).
+- [ ] `src/main.ts:478-483,183-196` — `activeRunControllers` never receives a
+      production controller (the modal always passes its own signal), so `onunload`'s abort
+      loop iterates an empty set; `modalManager.clear()` resets a boolean but does not
+      close the modal. Disable/update mid-run keeps writing notes and firing Notices into a
+      dead plugin instance.
+
+## Medium / Low
+
+- `src/validation.ts:40-55` — URL patterns are unanchored: `https://evil.com/…?v=<id>`
+  passes, and the raw attacker string (not the canonical watch URL) flows into
+  frontmatter `source:`, prompts, and timestamp links. → chains into:
+- `src/services/prompt-service.ts:132` — timestamp-link destination is not escaped
+  (caption text is), so a crafted URL forges markdown links in the saved note.
+  Canonicalizing intake URLs to `https://www.youtube.com/watch?v=<id>` (the extension
+  already does) closes both.
+- `src/services/transcript-service.ts:383-413` — `DOMParser` never throws; a
+  malformed/HTML error caption payload yields `<parsererror>` → 0 segments →
+  misreported as `no-captions` → run "succeeds", spends an AI call, writes a thin note.
+- `src/main.ts:434-438` — `modal.open()` has no try/finally around `beginOpen()`; a
+  throwing `onOpen` (it rethrows, youtube-url-modal.ts:214) wedges the single-modal
+  slot until restart.
+- Settings defaults are hand-quadruplicated (`main.ts:127`, `settings-tab.ts:24-26,866-889`,
+  `tests/utils/test-helpers.ts`, and 2 spec copies) and have **already drifted** — the
+  secure-config/pipeline test copies omit fields production defaults to true.
+  `DEFAULT_SETTINGS` is module-private, so no parity test is possible without exporting it.
+- `src/ai/api.ts:34` — OpenRouter default is the dated `gemini-2.5-flash-preview-05-20`
+  snapshot (the rot class that broke Groq/HF); GA `google/gemini-2.5-flash` should be
+  the default.
+- `src/ai/base.ts:219-230` — non-429 provider errors discard the response body: a 404
+  "model does not exist" or a 500 detail surfaces only as "HTTP error 500" to user and
+  console alike.
+- `src/services/transcript-cache.ts:132-135` — failed rename orphans `.tmp-*` files
+  until next reload (sync mounts are the common case); `:223-247` — prune re-reads up to
+  200 full transcripts on every write, on the run's critical path.
+- `src/settings-tab.ts:339,827` — API-key "Test" and settings-import failures swallow
+  the reason into a bare toast with no log — the two highest-friction support paths.
+- Observability: no run identifier or stage-boundary logging in `processYouTubeVideo`
+  (main.ts:535-694 — stage list lives only in the transient modal); `ErrorHandler.handle`
+  logs at DEBUG while prod pins INFO (all Notice-reported failures leave no console
+  trace); no stack/`.cause` captured anywhere; provider base URLs duplicated as inline
+  literals in settings-tab pings (one already points at a different host than the client).
+- `src/services/user-preferences-service.ts` — the localStorage persistence layer and
+  its `migrateFormatName` map are untested (a format rename that forgets the map
+  silently resets user defaults); protocol length guard (url-handler.ts:302) and
+  `cleanupHandledFiles` also untested.
+- `jest.config.js:32-56` — coverage floors gate `lines` only (37% global); branch/lines
+  regression passes CI. Lint/format cover `src/` only; `format:check` runs nowhere.
+- Low: `$`-sequence expansion in `replacePlaceholders` (prompt-service.ts:495-502);
+  `sanitizeInlineText` blocks line-forging but not inline markdown/HTML from `videoUrl`
+  (prompt-service.ts:595+); captions double entity-decoded, rewriting literal
+  `\uXXXX`/`\n` sequences in content (youtube-page.ts:185-198); `sanitizeFilename`
+  empty-result/Windows-reserved-name gaps land after the paid AI call
+  (obsidian-file.ts:62-65); caption-host guard's own logging can throw on a hostile
+  URL (youtube-page.ts:274-278); "Clear transcript cache" leaves the 7-day memory tier
+  (service-container.ts:126-128) so a refetch returns the same transcript;
+  `MemoryCacheService` hands out cached objects by reference (memory-cache.ts:42);
+  full URLs logged at INFO contradict the protocol handler's videoId-only policy
+  (main.ts:312-319, url-handler.ts:139-143,234,284); onload failure leaves a
+  half-initialized ribbon (main.ts:174-180); `data.json.example` still ships the
+  removed `enableParallelProcessing` key; OpenRouter attribution headers name a
+  scaffold repo and the plugin's old name (openrouter.ts:43-44); `AI_MODELS.OLLAMA_LOCAL`
+  is not in the curated Ollama list so code-fallback and UI default disagree (api.ts:36);
+  extension version strings (content_script.js/background.js headers) are hand-synced
+  with no CI gate.
+
+## Explicitly out of scope / accepted risk
+
+- Plaintext API keys in `data.json` — intentional Obsidian convention, documented; env
+  mode (`YTC_*`) available for off-disk keys.
+- `preferMultimodal` toggle (write-only) and the never-dispatched `processWithImage`
+  path — wire-or-remove decision pending (carried from cleanup pass).
+- API-key format tables triplicated across validation/secure-config/settings-tab —
+  unification is behavior-adjacent (regex strictness), needs a deliberate decision.
+- Indirect prompt injection from video metadata/transcript into note bodies — inherent
+  to LLM pipelines; structural note elements are deterministic and defended. Now
+  documented here rather than silent.
+- `withTimeout` exists twice (network vs DOM variants) — intentional decoupling.
+- Extension ships plain JS with no build/lint — deliberate (CLAUDE.md).
+- secure-config metadata subsystem remains write-only bookkeeping — harmless.
+
+## Verified clean (positive assurance from the audit sweep)
+
+Unhandled rejections (all fire-and-forget sites `void`-prefixed over catching fns);
+resource leaks (timers, AbortControllers, listeners all tracked and cleared);
+unbounded loops; `obsidian://` id-only trust boundary; vault path traversal
+(`normalizePath`/`sanitizeSegment`); caption-host pinning (SSRF); secrets in
+logs/code (redaction helper; keys never in URLs; header-placed); command injection
+(none; scripts use `set -euo pipefail`); extension messaging (zero-permission,
+DOMParser-only, id-gated); provider fetch contract asserted in tests (URL, header
+placement, body shape, abort propagation); fake-timer hygiene; CI runs lint +
+coverage floors with correct concurrency and tag/version gating; history bounded at
+200 entries; duplicate-modal idempotency; disk-cache corruption handling.
+
+---
+
 # Production Readiness Audit — 2026-08-05
 
 Branch `cleanup/pipeline-2026-08-05`, post Phases 0–3 (file purge, debloat, style).

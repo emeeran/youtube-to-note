@@ -153,7 +153,7 @@ refuses to publish unless the tag, `package.json` and `manifest.json` versions a
 
 ## Testing
 
-Jest + ts-jest + jsdom. **16 suites, 440 tests** (snapshot of `npx jest` on 2026-09-09 —
+Jest + ts-jest + jsdom. **16 suites, 430 tests** (snapshot of `npx jest` on 2026-09-09 —
 re-run it for the current count before quoting it; a parallel agent may be adding specs).
 
 - `tests/unit/pipeline.spec.ts` (38) — `processYouTubeVideo` end-to-end, incl. aggregate
@@ -162,19 +162,19 @@ re-run it for the current count before quoting it; a parallel agent may be addin
   text-only overflow retry, network-error wrapping, Ollama/HF error copy, and the HF
   router-v1 request/response shapes plus its live `listModels` filter
 - `tests/unit/url-parity.spec.ts` (52) — plugin vs extension URL acceptance
-- `tests/unit/youtube-modal-utils.spec.ts` (33) — batch parse/dedupe/cap, failure retry
+- `tests/unit/youtube-modal-utils.spec.ts` (32) — batch parse/dedupe/cap, failure retry
 - `tests/unit/services/transcript-outcome.spec.ts` (33) — typed failures + innertube fallback
 - `tests/unit/obsidian-mock.spec.ts` (32) — the shared Obsidian mock's own contract
 - `tests/unit/services/prompt-timestamps.spec.ts` (24) — minute markers, timestamp links,
   transcript index
 - `tests/unit/validation.spec.ts` (22) — any-provider rule, key-format warnings, caps
 - `tests/unit/tier0-regressions.spec.ts` (22) — fixed-regression guard
-- `tests/unit/services/url-handler.spec.ts` (22) — URL/protocol/file intake
-- `tests/unit/obsidian-file.spec.ts` (18) — save/conflict/path handling
+- `tests/unit/services/url-handler.spec.ts` (19) — URL/protocol/file intake
+- `tests/unit/obsidian-file.spec.ts` (17) — save/conflict/path handling
 - `tests/unit/secure-config.spec.ts` (30) — key resolution + legacy migration
 - `tests/unit/services/youtube-page.spec.ts` (19) — player-response parsing
 - `tests/unit/prompt-formats.spec.ts` (13) — per-format prompt assembly
-- `tests/unit/services/ai-service.spec.ts` (12) — provider chain, model restore, fallback
+- `tests/unit/services/ai-service.spec.ts` (8) — provider chain, model restore, fallback
 - `tests/unit/services/transcript-service.spec.ts` (8) — track selection + timedtext parsing
 
 Still untested when you touch them: `settings-tab.ts` and the `video-data.ts` metadata path.
