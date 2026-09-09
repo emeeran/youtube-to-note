@@ -375,7 +375,7 @@ much it matters.
   (~350 lines), `src/ai/error-utils.ts` (free functions), and per-provider `handleAPIError`
   methods. Consolidation is behavior-sensitive (copy changes); flagged, not auto-applied.
 - **(med) Critical-path test coverage is better and still not complete.** As of the
-  2026-09-09 snapshot: **16 suites / 436 tests**, including the `processYouTubeVideo`
+  2026-09-09 snapshot: **16 suites / 440 tests**, including the `processYouTubeVideo`
   pipeline, all six providers, provider network-error wording, and the Gemini text-only
   overflow retry. Still untested: `obsidian-file.ts` (save/conflict/path
   sanitization), `video-data.ts` metadata, and `settings-tab.ts`.
@@ -398,6 +398,11 @@ Found during the provider-fallback pass (2026-09-09, deferred):
 - **(gap) Hugging Face has no `listModels`**, so `fetchLatestModelsForProvider` returns the
   static curated list and the model dropdown cannot be refreshed against what hf-inference
   actually serves — the curated list goes stale and users hit the "not deployed" 400.
+  **(fixed 2026-09-09, branch fix/provider-fallback-resilience)** — hf-inference stopped
+  serving text-generation models entirely, so the provider was rewired to HF's
+  OpenAI-compatible router (`/v1/chat/completions`, verified end-to-end), `listModels()`
+  added against `/v1/models` filtered to `status: "live"` providers with text output, and
+  the stale Groq/HF/Ollama-local defaults plus both curated lists were refreshed to live ids.
 - **(smell) `ErrorHandler.handleEnhanced` can mask the aggregate failure Notice**: if any single
   provider reason contains a quota phrase, the notice degrades to a generic quota message.
   Swapping it for `ErrorHandler.handle` would fix that but loses the quota retry button.

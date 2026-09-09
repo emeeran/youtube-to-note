@@ -68,7 +68,7 @@ enable the plugin.
    ("Contacting AI providers…", "Trying Groq…"), and the timer counts up. **Cancel** stops
    the run for real — the in-flight request is aborted, not abandoned.
 6. **On success** the note is saved, the header shows how many videos were processed, and the
-   details line tells you who wrote it: `🧠 Generated with Groq · llama-3.3-70b`. If a provider
+   details line tells you who wrote it: `🧠 Generated with Groq · openai/gpt-oss-120b`. If a provider
    failed on the way you'll also see `↩️ Fell back from: …`. Click a note name to open it, or
    use **Open** / **Copy Path**.
 7. **On failure** you get the error, a **🔄 Retry** button that re-runs **only the URLs that

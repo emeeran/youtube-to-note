@@ -35,7 +35,7 @@ function jsonResponse(status: number, body: unknown): Response {
 const GEMINI_BODY = { candidates: [{ content: { parts: [{ text: 'gemini says hi' }] } }] };
 const OPENAI_BODY = { choices: [{ message: { content: 'openai-compatible says hi' } }] };
 const OLLAMA_BODY = { response: 'ollama says hi' };
-const HUGGINGFACE_BODY = [{ generated_text: 'hugging face says hi' }];
+const HUGGINGFACE_BODY = { choices: [{ message: { content: 'hugging face says hi' } }] };
 
 /** Stub global.fetch, recording every call. */
 function stubFetch(handler?: (url: string, init: RequestInit) => Response): FetchMock {
@@ -449,8 +449,8 @@ describe.each([
         make: () => new HuggingFaceProvider(KEY),
         body: HUGGINGFACE_BODY,
         read: (body: Record<string, any>) => ({
-            maxTokens: body.parameters?.max_new_tokens,
-            temperature: body.parameters?.temperature,
+            maxTokens: body.max_tokens,
+            temperature: body.temperature,
         }),
     },
 ])('$name per-request generation params', ({ make, body, read }) => {
@@ -650,8 +650,38 @@ describe('HuggingFaceProvider', () => {
         delete (global as { fetch?: unknown }).fetch;
     });
 
-    it('explains a 400 "not supported by provider" as a model-choice problem', async () => {
-        stubFetch(() => jsonResponse(400, { error: 'Qwen/Qwen3-8B is not supported by provider hf-inference.' }));
+    it('sends an OpenAI-compatible chat body and reads choices[0].message.content', async () => {
+        const fetchMock = stubFetch(() => jsonResponse(200, HUGGINGFACE_BODY));
+
+        await expect(new HuggingFaceProvider(KEY).process(PROMPT)).resolves.toBe('hugging face says hi');
+
+        const { url, init } = lastCall(fetchMock);
+        expect(url).toBe('https://router.huggingface.co/v1/chat/completions');
+        const body = JSON.parse(String(init.body)) as {
+            model: string;
+            messages: Array<{ role: string; content: string }>;
+        };
+        expect(body.model).toBe('Qwen/Qwen3.8-27B');
+        expect(body.messages).toEqual([{ role: 'user', content: PROMPT }]);
+    });
+
+    it('rejects a reasoning-only response that never produced content', async () => {
+        stubFetch(() => jsonResponse(200, { choices: [{ message: { content: null, reasoning: 'thinking…' } }] }));
+
+        await expect(new HuggingFaceProvider(KEY).process(PROMPT)).rejects.toThrow('Invalid response format');
+    });
+
+    it('explains a router 400 "model not available" as a model-choice problem', async () => {
+        stubFetch(() =>
+            jsonResponse(400, {
+                error: {
+                    message:
+                        'Unable to access non-serverless model Qwen/Qwen2.5-7B-Instruct-Turbo. ' +
+                        'Please visit huggingface.co/models to create and start a new dedicated endpoint.',
+                    code: 'model_not_available',
+                },
+            }),
+        );
 
         const error = await new HuggingFaceProvider(KEY).process(PROMPT).then(
             () => {
@@ -660,12 +690,20 @@ describe('HuggingFaceProvider', () => {
             e => e as Error,
         );
 
-        expect(error.message).toContain('not deployed on hf-inference');
+        expect(error.message).toContain('not available on the Hugging Face router');
         expect(error.message).toContain('another model');
     });
 
+    it('maps a legacy flat-string error body the same way', async () => {
+        stubFetch(() => jsonResponse(400, { error: 'Qwen/Qwen3-8B is not supported by provider hf-inference.' }));
+
+        await expect(new HuggingFaceProvider(KEY).process(PROMPT)).rejects.toThrow(
+            'not available on the Hugging Face router',
+        );
+    });
+
     it('keeps the retry hint on a 429 rate limit', async () => {
-        stubFetch(() => jsonResponse(429, { error: 'rate limit, retry in 12s' }));
+        stubFetch(() => jsonResponse(429, { error: { message: 'rate limit, retry in 12s' } }));
 
         await expect(new HuggingFaceProvider(KEY).process(PROMPT)).rejects.toThrow(
             'Hugging Face rate limit reached. Retry in 12s.',
@@ -673,7 +711,11 @@ describe('HuggingFaceProvider', () => {
     });
 
     it('does not echo a hostile 400 body', async () => {
-        stubFetch(() => jsonResponse(400, { error: `boom\n${'x'.repeat(500)}\r\n<script>alert(1)</script>` }));
+        stubFetch(() =>
+            jsonResponse(400, {
+                error: { message: `boom\n${'x'.repeat(500)}\r\n<script>alert(1)</script>` },
+            }),
+        );
 
         let message = '';
         try {
@@ -685,5 +727,33 @@ describe('HuggingFaceProvider', () => {
         expect(message).not.toContain('\n');
         expect(message).not.toContain('<script>');
         expect(message.length).toBeLessThan(300);
+    });
+
+    it('lists only models a live provider serves with text output', async () => {
+        stubFetch(() =>
+            jsonResponse(200, {
+                data: [
+                    {
+                        id: 'Qwen/Qwen3.8-27B',
+                        providers: [{ provider: 'novita', status: 'live' }],
+                        architecture: { output_modalities: ['text'] },
+                    },
+                    {
+                        id: 'dead/model',
+                        providers: [{ provider: 'together', status: 'retired' }],
+                        architecture: { output_modalities: ['text'] },
+                    },
+                    {
+                        id: 'image/only',
+                        providers: [{ provider: 'novita', status: 'live' }],
+                        architecture: { output_modalities: ['image'] },
+                    },
+                    { id: 'no-metadata/model' },
+                ],
+            }),
+        );
+
+        // An entry with no provider metadata cannot be known-live — exclude it.
+        await expect(new HuggingFaceProvider(KEY).listModels()).resolves.toEqual(['Qwen/Qwen3.8-27B']);
     });
 });

@@ -12,7 +12,10 @@ export const API_ENDPOINTS = {
     /** Gemini endpoint template — model name injected dynamically */
     GEMINI_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
     GROQ: 'https://api.groq.com/openai/v1/chat/completions',
-    HUGGINGFACE: 'https://router.huggingface.co/hf-inference/models',
+    // HF's OpenAI-compatible router — hf-inference itself no longer serves
+    // text-generation models, so the per-model `/hf-inference/models/<id>`
+    // path is chat-dead. The router routes to whichever provider is live.
+    HUGGINGFACE: 'https://router.huggingface.co/v1/chat/completions',
     OPENROUTER: 'https://openrouter.ai/api/v1/chat/completions',
     YOUTUBE_OEMBED: 'https://www.youtube.com/oembed',
 } as const;
@@ -20,14 +23,18 @@ export const API_ENDPOINTS = {
 /**
  * Optimal default model per provider.
  * These are chosen for the best balance of quality, speed, and cost for note generation.
+ * Providers decommission models without notice (Groq retired its entire llama-3.x
+ * lineup, hf-inference dropped chat entirely) — when a default starts failing with
+ * a model error, re-check it against that provider's live model list and update
+ * both this map and the curated lists below.
  */
 export const AI_MODELS = {
     GEMINI: 'gemini-2.5-flash',
-    GROQ: 'llama-3.3-70b-versatile',
-    HUGGINGFACE: 'Qwen/Qwen3-8B',
+    GROQ: 'openai/gpt-oss-120b',
+    HUGGINGFACE: 'Qwen/Qwen3.8-27B',
     OPENROUTER: 'google/gemini-2.5-flash-preview-05-20',
     OLLAMA_CLOUD: 'deepseek-v3.2',
-    OLLAMA_LOCAL: 'qwen3:14b',
+    OLLAMA_LOCAL: 'qwen3:latest',
 } as const;
 
 export type ProviderModelEntry = {
@@ -67,27 +74,18 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
     ],
 
     Groq: [
-        // Llama 3.3 — Latest and best on Groq (RECOMMENDED)
-        { name: 'llama-3.3-70b-versatile' },
-        { name: 'llama-3.3-8b-instant' },
+        // gpt-oss-120b — OpenAI open-weights on Groq's LPU (RECOMMENDED).
+        // Groq retired its whole llama-3.x lineup; this is their current flagship.
+        { name: 'openai/gpt-oss-120b' },
+        { name: 'openai/gpt-oss-20b' },
 
-        // Llama 3.1 — Strong alternative
-        { name: 'llama-3.1-70b-versatile' },
-        { name: 'llama-3.1-8b-instant' },
+        // Qwen 3.x — Multilingual, strong general chat
+        { name: 'qwen/qwen3.8-27b' },
+        { name: 'qwen/qwen3.6-27b' },
 
-        // DeepSeek R1 — Reasoning
-        { name: 'deepseek-r1-distill-llama-70b' },
-        { name: 'deepseek-r1-distill-qwen-32b' },
-
-        // Qwen — Multilingual + code
-        { name: 'qwen-2.5-32b' },
-        { name: 'qwen-2.5-coder-32b' },
-
-        // Mixtral — Long context
-        { name: 'mixtral-8x7b-32768' },
-
-        // Gemma
-        { name: 'gemma2-9b-it' },
+        // Groq compound — tool-using agentic models
+        { name: 'groq/compound' },
+        { name: 'groq/compound-mini' },
     ],
 
     Ollama: [
@@ -174,28 +172,27 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
     ],
 
     'Hugging Face': [
-        // Qwen 3 — Best free inference (RECOMMENDED)
-        { name: 'Qwen/Qwen3-8B' },
-        { name: 'Qwen/Qwen3-4B-Instruct-2507' },
+        // Models served live by the HF router (verified against /v1/models).
+        // hf-inference no longer hosts chat models; the router forwards each
+        // request to a partner provider that has the model deployed.
 
-        // Llama 3.2 — Fast and capable
-        { name: 'meta-llama/Llama-3.2-3B-Instruct' },
-        { name: 'meta-llama/Llama-3.2-1B-Instruct' },
+        // Qwen 3.8 — Verified end-to-end via the router (RECOMMENDED)
+        { name: 'Qwen/Qwen3.8-27B' },
 
-        // Qwen 2.5
-        { name: 'Qwen/Qwen2.5-7B-Instruct' },
+        // OpenAI open-weights
+        { name: 'openai/gpt-oss-120b' },
+        { name: 'openai/gpt-oss-20b' },
 
-        // Vision-Language Models
-        { name: 'Qwen/Qwen2-VL-7B-Instruct', supportsAudioVideo: true },
-        { name: 'meta-llama/Llama-3.2-11B-Vision-Instruct', supportsAudioVideo: true },
-        { name: 'microsoft/Phi-3.5-vision-instruct', supportsAudioVideo: true },
-        { name: 'HuggingFaceM4/idefics2-8b', supportsAudioVideo: true },
+        // GLM — Fast, strong general chat
+        { name: 'zai-org/GLM-5.3-Flash' },
 
-        // Reasoning
-        { name: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B' },
+        // Gemma
+        { name: 'google/gemma-4-31B-it' },
 
-        // General
-        { name: 'mistralai/Mistral-7B-Instruct-v0.2' },
+        // Smaller / cheaper
+        { name: 'Qwen/Qwen3.5-9B' },
+        { name: 'meta-llama/Llama-3.1-8B-Instruct' },
+        { name: 'ibm-granite/granite-4.2-3b' },
     ],
 
     OpenRouter: [

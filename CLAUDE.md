@@ -153,13 +153,14 @@ refuses to publish unless the tag, `package.json` and `manifest.json` versions a
 
 ## Testing
 
-Jest + ts-jest + jsdom. **16 suites, 436 tests** (snapshot of `npx jest` on 2026-09-09 —
+Jest + ts-jest + jsdom. **16 suites, 440 tests** (snapshot of `npx jest` on 2026-09-09 —
 re-run it for the current count before quoting it; a parallel agent may be adding specs).
 
 - `tests/unit/pipeline.spec.ts` (38) — `processYouTubeVideo` end-to-end, incl. aggregate
   failure attribution and the per-provider reason caps (240 chars / 1500 total)
-- `tests/unit/ai-providers.spec.ts` (58) — all six `src/ai/*` clients, incl. the Gemini
-  text-only overflow retry, network-error wrapping, and Ollama/HF error copy
+- `tests/unit/ai-providers.spec.ts` (62) — all six `src/ai/*` clients, incl. the Gemini
+  text-only overflow retry, network-error wrapping, Ollama/HF error copy, and the HF
+  router-v1 request/response shapes plus its live `listModels` filter
 - `tests/unit/url-parity.spec.ts` (52) — plugin vs extension URL acceptance
 - `tests/unit/youtube-modal-utils.spec.ts` (33) — batch parse/dedupe/cap, failure retry
 - `tests/unit/services/transcript-outcome.spec.ts` (33) — typed failures + innertube fallback
