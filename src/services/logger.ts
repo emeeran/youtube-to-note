@@ -21,22 +21,17 @@ export interface LogEntry {
 export interface LoggerConfig {
     level: LogLevel;
     enableConsole: boolean;
-    enableFile: boolean;
-    maxLogEntries: number;
     enableTimestamps: boolean;
 }
 
 export class Logger {
     private static instance: Logger;
-    private logs: LogEntry[] = [];
     private config: LoggerConfig;
 
     private constructor(config: Partial<LoggerConfig> = {}) {
         this.config = {
             level: LogLevel.INFO,
             enableConsole: true,
-            enableFile: false,
-            maxLogEntries: 1000,
             enableTimestamps: true,
             ...config,
         };
@@ -47,13 +42,6 @@ export class Logger {
             Logger.instance = new Logger(config);
         }
         return Logger.instance;
-    }
-
-    /**
-     * Reset the singleton instance (for testing only)
-     */
-    public static resetInstance(): void {
-        Logger.instance = undefined as unknown as Logger;
     }
 
     private shouldLog(level: LogLevel): boolean {
@@ -69,7 +57,7 @@ export class Logger {
         return `${timestamp}${levelStr}${context} ${entry.message}${data}`;
     }
 
-    private addLogEntry(level: LogLevel, message: string, context?: string, data?: Record<string, unknown>): void {
+    private log(level: LogLevel, message: string, context?: string, data?: Record<string, unknown>): void {
         if (!this.shouldLog(level)) return;
 
         const entry: LogEntry = {
@@ -80,14 +68,6 @@ export class Logger {
             data,
         };
 
-        this.logs.push(entry);
-
-        // Keep logs under max limit
-        if (this.logs.length > this.config.maxLogEntries) {
-            this.logs = this.logs.slice(-this.config.maxLogEntries);
-        }
-
-        // Output to console if enabled
         if (this.config.enableConsole) {
             const formattedMessage = this.formatMessage(entry);
 
@@ -109,37 +89,19 @@ export class Logger {
     }
 
     public debug(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.DEBUG, message, context, data);
+        this.log(LogLevel.DEBUG, message, context, data);
     }
 
     public info(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.INFO, message, context, data);
+        this.log(LogLevel.INFO, message, context, data);
     }
 
     public warn(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.WARN, message, context, data);
+        this.log(LogLevel.WARN, message, context, data);
     }
 
     public error(message: string, context?: string, data?: Record<string, unknown>): void {
-        this.addLogEntry(LogLevel.ERROR, message, context, data);
-    }
-
-    public getLogs(level?: LogLevel, context?: string): LogEntry[] {
-        let filteredLogs = this.logs;
-
-        if (level !== undefined) {
-            filteredLogs = filteredLogs.filter(log => log.level === level);
-        }
-
-        if (context) {
-            filteredLogs = filteredLogs.filter(log => log.context === context);
-        }
-
-        return filteredLogs;
-    }
-
-    public clearLogs(): void {
-        this.logs = [];
+        this.log(LogLevel.ERROR, message, context, data);
     }
 
     public setLevel(level: LogLevel): void {
@@ -162,23 +124,6 @@ export class Logger {
     public aiService(message: string, data?: Record<string, unknown>): void {
         this.info(message, 'AIService', data);
     }
-
-    public videoService(message: string, data?: Record<string, unknown>): void {
-        this.info(message, 'VideoService', data);
-    }
-
-    public fileService(message: string, data?: Record<string, unknown>): void {
-        this.info(message, 'FileService', data);
-    }
-
-    public modal(message: string, data?: Record<string, unknown>): void {
-        this.info(message, 'Modal', data);
-    }
-
-    public performance(message: string, data?: Record<string, unknown>): void {
-        this.debug(message, 'Performance', data);
-    }
 }
 
-// Export singleton instance for easy usage
 export const logger = Logger.getInstance();

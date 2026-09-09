@@ -12,4 +12,3 @@ export * from './messages';
 export * from './styles';
 
 // Video optimization strategies
-export * from './video-optimization';

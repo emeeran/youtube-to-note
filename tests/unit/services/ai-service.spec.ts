@@ -40,7 +40,6 @@ describe('AIService', () => {
             geminiApiKey: 'test-gemini-key',
             groqApiKey: 'test-groq-key',
             performanceMode: 'balanced' as const,
-            enableParallelProcessing: true,
         });
     });
 

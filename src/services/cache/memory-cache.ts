@@ -1,4 +1,4 @@
-import { CacheService, CacheMetrics } from '../../types';
+import { CacheService } from '../../types';
 
 /**
  * Simple in-memory cache with TTL support
@@ -22,13 +22,6 @@ const DEFAULT_CONFIG: CacheConfig = {
 export class MemoryCacheService implements CacheService {
     private cache: Map<string, CacheItem<unknown>> = new Map();
     private config: CacheConfig;
-    private metrics: CacheMetrics = {
-        hits: 0,
-        misses: 0,
-        evictions: 0,
-        size: 0,
-        hitRate: 0,
-    };
 
     constructor(config: Partial<CacheConfig> = {}) {
         this.config = { ...DEFAULT_CONFIG, ...config };
@@ -38,21 +31,14 @@ export class MemoryCacheService implements CacheService {
         const item = this.cache.get(key);
 
         if (!item) {
-            this.metrics.misses++;
-            this.updateMetrics();
             return null;
         }
 
         if (Date.now() > item.expiresAt) {
             this.cache.delete(key);
-            this.metrics.misses++;
-            this.metrics.size = this.cache.size;
-            this.updateMetrics();
             return null;
         }
 
-        this.metrics.hits++;
-        this.updateMetrics();
         return item.data as T;
     }
 
@@ -64,34 +50,18 @@ export class MemoryCacheService implements CacheService {
             const firstKey = this.cache.keys().next().value;
             if (firstKey) {
                 this.cache.delete(firstKey);
-                this.metrics.evictions++;
             }
         }
 
         this.cache.set(key, { data, expiresAt });
-        this.metrics.size = this.cache.size;
     }
 
     delete(key: string): boolean {
-        const deleted = this.cache.delete(key);
-        if (deleted) {
-            this.metrics.size = this.cache.size;
-        }
-        return deleted;
+        return this.cache.delete(key);
     }
 
     clear(): void {
         this.cache.clear();
-        this.metrics.size = 0;
-    }
-
-    getMetrics(): CacheMetrics {
-        return { ...this.metrics };
-    }
-
-    private updateMetrics(): void {
-        const total = this.metrics.hits + this.metrics.misses;
-        this.metrics.hitRate = total > 0 ? this.metrics.hits / total : 0;
     }
 
     destroy(): void {

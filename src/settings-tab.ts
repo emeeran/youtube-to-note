@@ -533,15 +533,6 @@ export class YouTubeSettingsTab extends PluginSettingTab {
         const content = this.createSection(parent, 'Advanced', '⚙️');
 
         new Setting(content)
-            .setName('Parallel Processing')
-            .setDesc('')
-            .addToggle(toggle =>
-                toggle.setValue(this.settings.enableParallelProcessing ?? false).onChange(async value => {
-                    await this.updateSetting('enableParallelProcessing', value);
-                }),
-            );
-
-        new Setting(content)
             .setName('Multimodal')
             .setDesc('')
             .addToggle(toggle =>
@@ -884,9 +875,7 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 // Model listings are a cache, not a preference — drop them so a
                 // reset also forces a fresh `listModels` per provider.
                 modelOptionsCache: {},
-                modelCacheTimestamps: {},
                 performanceMode: 'balanced',
-                enableParallelProcessing: true,
                 enableAutoFallback: true,
                 preferMultimodal: true,
                 transcriptLanguage: '',

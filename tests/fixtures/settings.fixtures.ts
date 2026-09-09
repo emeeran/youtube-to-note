@@ -20,7 +20,6 @@ export const DEFAULT_SETTINGS: YouTubePluginSettings = {
     useEnvironmentVariables: false,
     environmentPrefix: 'YTC',
     performanceMode: 'balanced',
-    enableParallelProcessing: true,
     enableAutoFallback: true,
     preferMultimodal: true,
     transcriptLanguage: '',

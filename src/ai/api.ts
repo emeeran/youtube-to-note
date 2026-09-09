@@ -5,7 +5,6 @@
  * - Default models are the best available for note generation (quality + speed + cost)
  * - Model lists are curated, not exhaustive — only competent, tested models
  * - Models ordered by quality within each provider (best first)
- * - Free models marked with `free: true` for UI filtering
  */
 
 export const API_ENDPOINTS = {
@@ -40,7 +39,6 @@ export const AI_MODELS = {
 export type ProviderModelEntry = {
     name: string;
     supportsAudioVideo?: boolean;
-    free?: boolean;
 };
 
 /**
@@ -54,7 +52,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'gemini-2.5-flash', supportsAudioVideo: true },
         { name: 'gemini-2.5-flash-preview-05-20', supportsAudioVideo: true },
         { name: 'gemini-2.5-flash-lite-preview-06-17', supportsAudioVideo: true },
-        { name: 'gemini-2.5-flash-exp:free', supportsAudioVideo: true, free: true },
+        { name: 'gemini-2.5-flash-exp:free', supportsAudioVideo: true },
 
         // Gemini 2.5 Pro — Highest quality
         { name: 'gemini-2.5-pro', supportsAudioVideo: true },
@@ -63,7 +61,7 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         // Gemini 2.0 Flash — Fast and capable
         { name: 'gemini-2.0-flash', supportsAudioVideo: true },
         { name: 'gemini-2.0-flash-lite', supportsAudioVideo: true },
-        { name: 'gemini-2.0-flash-thinking-exp:free', supportsAudioVideo: true, free: true },
+        { name: 'gemini-2.0-flash-thinking-exp:free', supportsAudioVideo: true },
 
         // Gemini 2.0 Pro
         { name: 'gemini-2.0-pro', supportsAudioVideo: true },
@@ -198,8 +196,8 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
     OpenRouter: [
         // Gemini 2.5 Flash — Best value on OpenRouter (RECOMMENDED)
         { name: 'google/gemini-2.5-flash-preview-05-20', supportsAudioVideo: true },
-        { name: 'google/gemini-2.5-pro-exp:free', supportsAudioVideo: true, free: true },
-        { name: 'google/gemini-2.5-flash-exp:free', supportsAudioVideo: true, free: true },
+        { name: 'google/gemini-2.5-pro-exp:free', supportsAudioVideo: true },
+        { name: 'google/gemini-2.5-flash-exp:free', supportsAudioVideo: true },
 
         // Claude 3.5 — Premium quality
         { name: 'anthropic/claude-sonnet-4', supportsAudioVideo: true },
@@ -228,38 +226,11 @@ export const PROVIDER_MODEL_OPTIONS: Record<string, ProviderModelEntry[]> = {
         { name: 'mistralai/mistral-large' },
 
         // Free tier
-        { name: 'meta-llama/llama-3.1-8b-instruct:free', free: true },
-        { name: 'google/gemma-2-9b-it:free', free: true },
-        { name: 'qwen/qwen-2.5-7b-instruct:free', free: true },
+        { name: 'meta-llama/llama-3.1-8b-instruct:free' },
+        { name: 'google/gemma-2-9b-it:free' },
+        { name: 'qwen/qwen-2.5-7b-instruct:free' },
     ],
 };
-
-/** Provider model list URLs for dynamic fetching */
-export const PROVIDER_MODEL_LIST_URLS: Record<string, string> = {
-    'Google Gemini': 'https://generativelanguage.googleapis.com/v1beta/models',
-    Groq: 'https://api.groq.com/openai/v1/models',
-    Ollama: 'http://localhost:11434',
-    'Ollama Cloud': 'https://ollama.com',
-    'Hugging Face': 'https://huggingface.co/models',
-    OpenRouter: 'https://openrouter.ai/api/v1/models',
-};
-
-/** Regex patterns for extracting model names from provider APIs */
-export const PROVIDER_MODEL_REGEX: Record<string, RegExp> = {
-    'Google Gemini': /gemini[-_.]?\d+(?:\.\d+)?(?:-[a-z0-9-]+)?/gi,
-    Groq: /[a-z][-a-z0-9]+/gi,
-    Ollama: /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
-    'Ollama Cloud': /[a-zA-Z0-9]+(?:[-_:][a-zA-Z0-9]+)*/g,
-    'Hugging Face': /[\w-]+\/[\w-.]+/g,
-    OpenRouter: /[\w-]+\/[\w-.:]+/g,
-};
-
-export const API_LIMITS = {
-    MAX_TOKENS: 8192,
-    TEMPERATURE: 0.5,
-    DESCRIPTION_MAX_LENGTH: 1000,
-    TITLE_MAX_LENGTH: 100,
-} as const;
 
 export const TIMEOUTS = {
     FILE_CREATION_WAIT: 300,

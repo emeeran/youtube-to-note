@@ -105,13 +105,6 @@ export class AIService {
     }
 
     /**
-     * Check if any providers are available
-     */
-    hasAvailableProviders(): boolean {
-        return this.providerMap.size > 0;
-    }
-
-    /**
      * Get models for a specific provider from static options
      */
     getProviderModels(providerName: string): string[] {
@@ -201,30 +194,6 @@ export class AIService {
                 provider.setTemperature(params.temperature);
             }
         }
-    }
-
-    /**
-     * Add a provider dynamically
-     */
-    addProvider(provider: AIProvider): void {
-        this.providerMap.set(provider.name, provider);
-    }
-
-    /**
-     * Remove a provider
-     */
-    removeProvider(providerName: string): boolean {
-        return this.providerMap.delete(providerName);
-    }
-
-    /**
-     * Get performance metrics
-     */
-    getPerformanceMetrics(): Record<string, unknown> {
-        return {
-            providerCount: this.providerMap.size,
-            providers: this.getProviderNames(),
-        };
     }
 
     /**

@@ -73,7 +73,6 @@ function makeSettings(over: Partial<YouTubePluginSettings> = {}): YouTubePluginS
         useEnvironmentVariables: false,
         environmentPrefix: 'YTC',
         performanceMode: 'balanced',
-        enableParallelProcessing: true,
         enableAutoFallback: true,
         preferMultimodal: true,
         transcriptLanguage: '',

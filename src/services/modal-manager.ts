@@ -12,8 +12,6 @@ import { logger } from './logger';
 
 export interface ModalState {
     isModalOpen: boolean;
-    pendingModalUrl?: string;
-    lastCallId?: string;
 }
 
 export class ModalManager {

@@ -171,8 +171,6 @@ export class YouTubeUrlModal extends BaseModal {
             format: lastFormat,
             provider: this.selectedProvider,
             model: this.selectedModel,
-            maxTokens: options.defaultMaxTokens ?? 4096,
-            temperature: options.defaultTemperature ?? 0.5,
             performanceMode: smartDefaults.mode,
             parallelProcessing: smartDefaults.parallel,
             multimodal: smartDefaults.multimodal,
@@ -751,13 +749,7 @@ export class YouTubeUrlModal extends BaseModal {
         this.modelSelect.disabled = false;
 
         let modelToSelect = '';
-        const preferences = UserPreferencesService.loadPreferences();
-        const providerKey = `lastModel_${currentProvider.replace(/\s+/g, '')}`;
-        const lastProviderModel = (preferences as Record<string, unknown>)[providerKey] as string | undefined;
-
-        if (lastProviderModel && models.includes(lastProviderModel)) {
-            modelToSelect = lastProviderModel;
-        } else if (this.selectedModel && models.includes(this.selectedModel)) {
+        if (this.selectedModel && models.includes(this.selectedModel)) {
             modelToSelect = this.selectedModel;
         } else if (models.length > 0) {
             modelToSelect = models[0] ?? '';

@@ -16,9 +16,7 @@ export interface YouTubePluginSettings {
     useEnvironmentVariables: boolean;
     environmentPrefix: string;
     modelOptionsCache?: Record<string, string[]>;
-    modelCacheTimestamps?: Record<string, number>; // Cache timestamps for each provider
     performanceMode: PerformanceMode;
-    enableParallelProcessing: boolean;
     enableAutoFallback: boolean;
     preferMultimodal: boolean;
     /** Preferred transcript language code (e.g. "en", "es"). Blank = auto (English fallback). */
@@ -186,7 +184,6 @@ export interface VideoDataService {
      * a machine-readable reason so the UI can explain restricted/private/no-captions.
      */
     fetchTranscriptOutcome?(videoId: string, language?: string, signal?: AbortSignal): Promise<TranscriptOutcome>;
-    getPerformanceMetrics?(): Record<string, unknown>;
     cleanup?(): void;
 }
 
@@ -196,22 +193,12 @@ export interface FileService {
     openFileWithConfirmation(file: TFile): Promise<void>;
 }
 
-/** Cache metrics */
-export interface CacheMetrics {
-    hits: number;
-    misses: number;
-    evictions: number;
-    size: number;
-    hitRate: number;
-}
-
 /** Cache service interface */
 export interface CacheService {
     get<T>(key: string): T | null;
     set<T>(key: string, value: T, ttl?: number): void;
     delete(key: string): boolean;
     clear(): void;
-    getMetrics?(): CacheMetrics;
     cleanup?(): void;
     destroy?(): void;
 }
@@ -289,7 +276,6 @@ export interface AIService {
     getProviderModels(providerName: string): string[];
     fetchLatestModels(): Promise<Record<string, string[]>>;
     fetchLatestModelsForProvider(providerName: string, bypassCache?: boolean): Promise<string[]>;
-    getPerformanceMetrics?(): Record<string, unknown>;
     cleanup?(): void;
 }
 

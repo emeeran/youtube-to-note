@@ -2,7 +2,6 @@ import { API_ENDPOINTS } from './ai/api';
 import { ErrorHandler } from './services/error-handler';
 import { MESSAGES } from './constants/index';
 import { ValidationUtils } from './validation';
-import { VideoAnalysisStrategy } from './constants/video-optimization';
 import { TranscriptOutcome, VideoDataService, VideoData, CacheService, YouTubePluginSettings } from './types';
 import { YouTubeTranscriptService } from './services/transcript-service';
 import { TranscriptDiskCache } from './services/transcript-cache';
@@ -21,8 +20,6 @@ import { logger } from './services/logger';
 
 export interface EnhancedVideoData extends VideoData {
     duration?: number;
-    strategy?: VideoAnalysisStrategy;
-    estimatedProcessingTime?: number;
     thumbnail?: string;
     channelName?: string;
     publishedAt?: string;

@@ -135,7 +135,6 @@ const DEFAULT_SETTINGS: YouTubePluginSettings = {
     useEnvironmentVariables: false,
     environmentPrefix: 'YTC',
     performanceMode: 'balanced',
-    enableParallelProcessing: true,
     enableAutoFallback: true,
     preferMultimodal: true,
     transcriptLanguage: '',
@@ -205,14 +204,9 @@ export default class YoutubeClipperPlugin extends Plugin {
     }
 
     private setupLogger(): void {
-        // Configure logger based on settings or environment
+        // Dev builds get debug-level logging; production keeps the INFO default.
         const isDev = process.env.NODE_ENV === 'development';
-        logger.updateConfig({
-            level: isDev ? LogLevel.DEBUG : LogLevel.INFO,
-            enableConsole: true,
-            enableFile: false,
-            maxLogEntries: 1000,
-        });
+        logger.updateConfig({ level: isDev ? LogLevel.DEBUG : LogLevel.INFO });
     }
 
     private async initializeServices(): Promise<void> {
@@ -400,14 +394,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                         const map = await aiService.fetchLatestModels();
                         this._settings.modelOptionsCache = map;
 
-                        // Update timestamps for all providers
-                        const now = Date.now();
-                        const timestamps: Record<string, number> = {};
-                        Object.keys(map).forEach(provider => {
-                            timestamps[provider] = now;
-                        });
-                        this._settings.modelCacheTimestamps = timestamps;
-
                         await this.saveSettings();
                         return map;
                     } catch (error) {
@@ -426,12 +412,6 @@ export default class YoutubeClipperPlugin extends Plugin {
                             this._settings.modelOptionsCache = {
                                 ...this._settings.modelOptionsCache,
                                 [provider]: models,
-                            };
-
-                            // Update timestamp for provider (especially for OpenRouter)
-                            this._settings.modelCacheTimestamps = {
-                                ...this._settings.modelCacheTimestamps,
-                                [provider]: Date.now(),
                             };
 
                             await this.saveSettings();
