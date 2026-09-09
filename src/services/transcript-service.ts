@@ -177,8 +177,8 @@ export class YouTubeTranscriptService {
      *
      * Lookup order: disk (opt-in) → memory → network.
      *
-     * @param signal Optional run signal — a cancelled run stops at the next
-     * network boundary instead of finishing the fetch.
+     * Optional run `signal` — a cancelled run stops at the next network
+     * boundary instead of finishing the fetch.
      */
     async fetchTranscriptOutcome(videoId: string, language?: string, signal?: AbortSignal): Promise<TranscriptOutcome> {
         if (!videoId) {

@@ -447,8 +447,8 @@ export default class YoutubeClipperPlugin extends Plugin {
      * Never throws: every outcome — success, failure and cancellation — comes
      * back as a {@link ProcessingResult} so the caller can render it.
      *
-     * @param url YouTube video URL
-     * @param options Per-run overrides, progress callback and abort signal
+     * `url` is the YouTube video URL; `options` carries per-run overrides,
+     * the progress callback and the abort signal.
      */
     // eslint-disable-next-line max-lines-per-function, complexity
     async processYouTubeVideo(url: string, options: ProcessRunOptions = {}): Promise<ProcessingResult> {

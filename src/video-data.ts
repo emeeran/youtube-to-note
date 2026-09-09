@@ -132,8 +132,8 @@ export class YouTubeVideoService implements VideoDataService {
     /**
      * Get video metadata and description
      *
-     * @param signal Optional run signal — a cancelled run stops at the next
-     * network boundary instead of finishing the fetch.
+     * Optional run `signal` — a cancelled run stops at the next network
+     * boundary instead of finishing the fetch.
      */
     async getVideoData(videoId: string, signal?: AbortSignal): Promise<VideoData> {
         if (!videoId) {
