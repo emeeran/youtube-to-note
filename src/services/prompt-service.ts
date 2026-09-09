@@ -724,14 +724,7 @@ export class AIPromptService implements PromptService {
      * Format duration in seconds to human-readable string (e.g., "1:23:45")
      */
     private formatDuration(seconds?: number): string {
-        if (!seconds) return 'Unknown';
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        if (h > 0) {
-            return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }
-        return `${m}:${String(s).padStart(2, '0')}`;
+        return seconds ? formatTimestamp(seconds) : 'Unknown';
     }
 
     /**

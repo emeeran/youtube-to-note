@@ -236,17 +236,6 @@ describe('ObsidianFileService helpers', () => {
         expect(service.getFileByPath(`${OUTPUT_PATH}/missing.md`)).toBeNull();
     });
 
-    it('creates a uniquely named file when the requested path is taken', async () => {
-        const { service, app } = makeService();
-        const taken = app.vault.store.seed(`${OUTPUT_PATH}/note.md`, 'taken');
-
-        const created = await service.createUniqueFile(`${OUTPUT_PATH}/note.md`, 'fresh');
-
-        expect(created).toBe(`${OUTPUT_PATH}/note (1).md`);
-        expect(app.vault.store.readFile(taken.path)).toBe('taken');
-        expect(app.vault.store.readFile(created)).toBe('fresh');
-    });
-
     it('opens an existing file through the workspace leaf', async () => {
         const { service, app } = makeService();
         const openFile = jest.fn(async () => undefined);

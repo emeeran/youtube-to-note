@@ -133,34 +133,14 @@ export class ObsidianFileService implements FileService {
         return this.getFileByPath(filePath) !== null;
     }
 
-    /**
-     * Create a file with unique naming
-     */
-    async createUniqueFile(basePath: string, content: string): Promise<string> {
-        let counter = 1;
-        let filePath = basePath;
-
-        while (this.fileExists(filePath)) {
-            const pathParts = basePath.split('/');
-            const filename = pathParts.pop();
-            if (!filename) throw new Error('Invalid file path');
-            const nameWithoutExt = filename.replace('.md', '');
-            const newFilename = `${nameWithoutExt} (${counter}).md`;
-            filePath = [...pathParts, newFilename].join('/');
-            counter++;
-        }
-
-        await this.app.vault.create(filePath, content);
-        return filePath;
-    }
-
     private async promptConflictResolution(file: TFile): Promise<'overwrite' | 'new-name' | 'cancel'> {
         const modal = new FileConflictModal(this.app, file);
         const decision = await modal.openAndWait();
         return decision;
     }
 
-    private async createVersionedCopy(originalPath: string, content: string): Promise<string> {
+    /** First non-existing `${name} (${n}).md` sibling of `originalPath`. */
+    private nextAvailablePath(originalPath: string): string {
         const pathParts = originalPath.split('/');
         const filename = pathParts.pop();
         if (!filename) throw new Error('Invalid file path');
@@ -174,6 +154,11 @@ export class ObsidianFileService implements FileService {
             counter++;
         } while (this.fileExists(candidatePath));
 
+        return candidatePath;
+    }
+
+    private async createVersionedCopy(originalPath: string, content: string): Promise<string> {
+        const candidatePath = this.nextAvailablePath(originalPath);
         await this.app.vault.create(candidatePath, content);
         return candidatePath;
     }
