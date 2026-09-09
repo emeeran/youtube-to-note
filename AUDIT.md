@@ -630,3 +630,72 @@ Carried items from this pass (flagged, not applied):
   merging couples a DOM module to a network module — intentionally left.
 - secure-config metadata subsystem, duplicate key-format validators, per-provider HTTP-status
   handling: unchanged from the carried list above.
+
+---
+
+## Blind review reconciliation (2026-09-09)
+
+A context-blind cold review (sanitized dispatch — no knowledge of this audit or the
+cleanup work; report verbatim at `.pipeline/blind-review.md`) reviewed the repo
+independently. Reconciliation:
+
+**Corroborated by both (higher confidence):**
+
+- Modal slot wedges permanently if `modal.open()` throws (main.ts:434-438) — both found it.
+- Dead quota Retry button dispatching an event with no listener, inside a
+  never-auto-dismissing Notice (error-handler.ts:54-70).
+- Cancelled run can still write the note: `assertLive()` is not re-checked across the
+  indefinite `FileConflictModal` await (main.ts:695, obsidian-file.ts:93-112).
+- settings-tab.ts and the modal are the largest untested surfaces; coverage floors gate
+  lines-only; prettier is enforced nowhere in CI.
+
+**Missed by pipeline, caught by blind review — verified real, added to the fix list:**
+
+- [HIGH] `src/settings-tab.ts:579-586` + `src/secure-config.ts:402-434` — **"Clear Keys"
+  is a silent no-op**: the service wraps a shallow _copy_ of plugin settings
+  (settings-tab.ts:46/57), the cleared keys are written to that copy and never persisted,
+  and `display()` re-copies the untouched original. The UI shows keys cleared; data.json
+  still holds all five until restart. Security-relevant (this is the control the
+  env-mode guidance tells users to use).
+- [HIGH] `src/components/features/youtube/youtube-url-modal.ts:387-393` — provider
+  dropdown is hardcoded to five entries and **omits Hugging Face**, though HF is a
+  first-class provider; the modal's `providers` option (main.ts:374/382) is populated
+  and never read. A users-with-only-HF-key run fabricates a "Google Gemini not found"
+  failure before the chain recovers.
+- [MEDIUM] Masked-key prefill can commit the mask as a real credential
+  (settings-tab.ts:296-303): `isMasked()` exists (secure-config.ts:269) and is never
+  called; HF/OpenRouter/Ollama have no key pattern to reject the mask.
+- [MEDIUM] Gemini reads only `parts[0].text` and never checks `finishReason === 'MAX_TOKENS'`
+  (gemini.ts:86-101,229-232): multi-part answers silently truncated, thought-block first
+  parts fail, and token-truncated notes are reported as success.
+- [MEDIUM] `window.prompt` throws in Electron (main.ts:329) — the clipboard command's
+  manual-entry fallback always fails on desktop; `confirm()` (settings-tab.ts:581) likewise
+  deprecated.
+- [MEDIUM] Key migration can overwrite a real base64-shaped key with XOR garbage
+  (secure-config.ts:295-358) and save it — narrow but silent credential destruction.
+- [LOW] Ctrl+C in the modal swallows textarea selections (youtube-url-modal.ts:964-974,
+  modal-utils.ts:240-243); file watcher reads full file contents per create/tab-switch
+  event before cheap filters (url-handler.ts:209,259); user's deliberate "don't save" is
+  reported as an error (obsidian-file.ts:106); `AbortSignal.timeout` fallback gap leaves
+  generation unbounded on runtimes without it (error-utils.ts:45-57); Ollama Cloud key is
+  forwarded to whatever `ollamaEndpoint` is configured (service-container.ts:85-92);
+  further dead surface (`setModelParameters`, `SecureKeyStorage` metadata,
+  `expectedSections` + the `validateFormatStructure` no-op section check); CLAUDE.md
+  version drift (says 2.1.0; manifest is 2.2.0).
+
+**Disagreement, resolved rather than averaged:**
+
+- The blind review concluded "nothing in the note-writing path loses user data" and
+  rated the data.json lock as sound. The pipeline's blocker — `saveSettings()` writing
+  the stale load-time history snapshot (main.ts:908-913) — is precisely a data-loss case
+  the cold review missed (it saw the lock serialize writers but not the stale payload).
+  The blocker stands: it was verified directly against the code before this review ran.
+
+**Honest limit:** the blind reviewer runs on the same underlying model as the pipeline,
+so this pass removes self-grading and framing bias but not shared model blind spots. The
+strongest remaining signal would be a human review, or a brand-new session unconnected
+to this one, running the same cold review.
+
+**Updated verdict:** still **Ready with fixes**, with the fix list now including the two
+blind-review HIGHs above — the credential-clear no-op lands in the same
+settings-tab-untested bucket the review called out as its top on-call concern.
