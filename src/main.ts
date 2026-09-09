@@ -176,6 +176,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 error: error instanceof Error ? error.message : String(error),
             });
             ErrorHandler.handle(error as Error, 'Plugin initialization');
+            this.cleanupUIElements();
             new Notice('Failed to load YoutubeClipper Plugin. Check console for details.');
         }
     }
@@ -190,6 +191,7 @@ export default class YoutubeClipperPlugin extends Plugin {
                 controller.abort();
             }
             this.activeRunControllers.clear();
+            YouTubeUrlModal.closeActiveInstance();
             this.urlHandler?.clear();
             this.modalManager?.clear();
             this.serviceContainer?.clearServices();
@@ -324,14 +326,10 @@ export default class YoutubeClipperPlugin extends Plugin {
 
             await this.urlHandler.handleClipboardUrl();
 
-            // If no URL found in clipboard, prompt user
-            // eslint-disable-next-line no-alert
-            const manual = window.prompt('Paste YouTube URL to open in YouTube Clipper:');
-            if (manual && ValidationUtils.isValidYouTubeUrl(manual.trim())) {
-                void this.safeShowUrlModal(manual.trim());
-            } else {
-                new Notice('No valid YouTube URL provided.');
-            }
+            // No URL in clipboard: `window.prompt` throws in Electron, so open
+            // the modal empty and let the user paste there instead.
+            new Notice('No YouTube URL in clipboard — paste one into the modal.');
+            void this.safeShowUrlModal();
         } catch (error) {
             ErrorHandler.handle(error as Error, 'Open URL from clipboard');
         }
@@ -478,9 +476,11 @@ export default class YoutubeClipperPlugin extends Plugin {
         if (externalSignal) {
             if (externalSignal.aborted) controller.abort();
             else externalSignal.addEventListener('abort', onExternalAbort);
-        } else {
-            this.activeRunControllers.add(controller);
         }
+        // Registered unconditionally: an external signal (modal close) usually
+        // owns the abort, but onunload must be able to abort ANY in-flight run
+        // even if its owner never fires.
+        this.activeRunControllers.add(controller);
 
         const result: ProcessingResult = { success: false };
         const warnings: string[] = [];
@@ -663,7 +663,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                 result.failedProviders = failedProviders;
                 result.error = enriched.message;
                 userNotified = true;
-                ErrorHandler.handleEnhanced(enriched, 'AI Processing');
+                // The aggregate already carries per-provider attribution — never run it
+                // through quota classification, which substring-matches the joined
+                // reasons and replaces the real causes with one provider's notice.
+                ErrorHandler.handle(enriched, 'AI Processing');
                 throw enriched;
             }
 

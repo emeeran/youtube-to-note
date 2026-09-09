@@ -82,6 +82,11 @@ export class YouTubeUrlModal extends BaseModal {
      */
     private static activeInstance?: YouTubeUrlModal;
 
+    /** Close the open modal, if any — used on plugin unload to tear down in-flight runs. */
+    static closeActiveInstance(): void {
+        this.activeInstance?.close();
+    }
+
     private url = '';
     private format: OutputFormat = 'executive-summary';
     private headerEl?: HTMLHeadingElement;
@@ -384,13 +389,18 @@ export class YouTubeUrlModal extends BaseModal {
         this.providerSelect = providerRow.createEl('select');
         this.providerSelect.id = 'ytc-provider-select';
 
-        const providerOptions = [
-            { value: 'Google Gemini', text: 'Google Gemini (Recommended)' },
-            { value: 'OpenRouter', text: 'OpenRouter' },
-            { value: 'Groq', text: 'Groq (Fastest)' },
-            { value: 'Ollama Cloud', text: 'Ollama Cloud' },
-            { value: 'Ollama', text: 'Ollama (Local)' },
-        ];
+        // Real, configured provider list (the `providers` option) — a hardcoded
+        // list here used to omit Hugging Face entirely, so its only route to the
+        // user was an accidental fallback.
+        const providerLabels: Record<string, string> = {
+            'Google Gemini': 'Google Gemini (Recommended)',
+            Groq: 'Groq (Fastest)',
+            Ollama: 'Ollama (Local)',
+        };
+        const available = this.options.providers?.length
+            ? this.options.providers
+            : ['Google Gemini', 'OpenRouter', 'Groq', 'Ollama Cloud', 'Hugging Face', 'Ollama'];
+        const providerOptions = available.map(name => ({ value: name, text: providerLabels[name] ?? name }));
 
         providerOptions.forEach(opt => {
             if (!this.providerSelect) return;

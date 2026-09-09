@@ -577,12 +577,15 @@ export class YouTubeSettingsTab extends PluginSettingTab {
 
         const actionsDiv = content.createDiv({ cls: `${CSS_PREFIX}-compact-actions` });
         const clearBtn = actionsDiv.createEl('button', { text: '🗑️ Clear Keys', cls: 'mod-warning' });
-        clearBtn.addEventListener('click', () => {
-            if (confirm('Clear all API keys?')) {
-                this.secureConfig.clearAllApiKeys();
-                this.showToast('Keys cleared', 'info');
-                this.display();
-            }
+        clearBtn.addEventListener('click', async () => {
+            if (!confirm('Clear all API keys?')) return;
+            // `secureConfig` wraps a *copy* of plugin settings, so clearing it
+            // only mutates that copy — the change must be handed back through
+            // onSettingsChange or data.json keeps every key until restart.
+            this.secureConfig.clearAllApiKeys();
+            await this.options.onSettingsChange(this.settings);
+            this.showToast('Keys cleared', 'info');
+            this.display();
         });
     }
 
