@@ -1,226 +1,18 @@
-import { ErrorHandlerInterface } from '../types';
 import { MESSAGES } from '../constants/index';
-import { sanitizeRemoteMessage } from '../ai/error-utils';
 import { Notice } from 'obsidian';
 
 /**
- * Error category for better handling
+ * Centralized user-facing error handling. Deliberately small: provider-facing
+ * error formatting lives in `src/ai/error-utils.ts` and
+ * `BaseAIProvider.handleAPIError` — this class only decides what the user sees.
  */
-export enum ErrorCategory {
-    NETWORK = 'network',
-    QUOTA = 'quota',
-    AUTH = 'auth',
-    VALIDATION = 'validation',
-    PROVIDER = 'provider',
-    UNKNOWN = 'unknown',
-}
-
-/**
- * Structured error result
- */
-export interface ErrorResult {
-    category: ErrorCategory;
-    message: string;
-    retryable: boolean;
-    retryDelay?: number;
-    userGuidance?: string;
-}
-
-/**
- * Centralized error handling to eliminate code duplication
- */
-
-export class ErrorHandler implements ErrorHandlerInterface {
-    /**
-     * Classify an error into categories for appropriate handling
-     */
-    // eslint-disable-next-line complexity, max-lines-per-function
-    static classifyError(error: Error): ErrorResult {
-        const message = error.message.toLowerCase();
-
-        // Network errors
-        if (
-            message.includes('network') ||
-            message.includes('fetch') ||
-            message.includes('connection') ||
-            message.includes('timeout') ||
-            message.includes('econnrefused') ||
-            message.includes('enotfound')
-        ) {
-            return {
-                category: ErrorCategory.NETWORK,
-                message: MESSAGES.ERRORS.NETWORK_ERROR,
-                retryable: true,
-                retryDelay: 2000,
-                userGuidance: 'Check your internet connection and try again.',
-            };
-        }
-
-        // Quota/Rate limit errors
-        if (this.isQuotaError(error)) {
-            const provider = this.extractProviderName(error);
-            return {
-                category: ErrorCategory.QUOTA,
-                message: message.includes('rate')
-                    ? MESSAGES.ERRORS.RATE_LIMITED(provider)
-                    : MESSAGES.ERRORS.QUOTA_EXCEEDED(provider),
-                retryable: message.includes('rate'),
-                retryDelay: message.includes('rate') ? 60000 : undefined,
-                userGuidance: message.includes('rate')
-                    ? 'Wait a minute before trying again.'
-                    : 'Check your API plan or try a different provider.',
-            };
-        }
-
-        // Authentication errors
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        if (
-            message.includes('401') ||
-            message.includes('403') ||
-            message.includes('unauthorized') ||
-            message.includes('invalid key') ||
-            message.includes('invalid api key') ||
-            message.includes('authentication')
-        ) {
-            return {
-                category: ErrorCategory.AUTH,
-                message: 'API key is invalid or expired. Please check your settings.',
-                retryable: false,
-                userGuidance: 'Verify your API key in the plugin settings.',
-            };
-        }
-
-        // Validation errors
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        if (
-            message.includes('invalid url') ||
-            message.includes('video id') ||
-            message.includes('not found') ||
-            message.includes('unavailable')
-        ) {
-            return {
-                category: ErrorCategory.VALIDATION,
-                message: error.message,
-                retryable: false,
-                userGuidance: 'Check the video URL and try again.',
-            };
-        }
-
-        // Provider-specific errors
-        if (
-            message.includes('model') ||
-            message.includes('context length') ||
-            message.includes('too long') ||
-            message.includes('token')
-        ) {
-            return {
-                category: ErrorCategory.PROVIDER,
-                message: error.message,
-                retryable: false,
-                userGuidance: 'Try a different model or shorter video.',
-            };
-        }
-
-        // Unknown errors
-        return {
-            category: ErrorCategory.UNKNOWN,
-            message: error.message,
-            retryable: true,
-            retryDelay: 3000,
-            userGuidance: 'An unexpected error occurred. Please try again.',
-        };
-    }
-
+export class ErrorHandler {
     /**
      * Handle errors with consistent logging and user feedback
      */
     static handle(error: Error, _context: string, showNotice = true): void {
         if (showNotice) {
             new Notice(`Error: ${error.message}`);
-        }
-    }
-
-    /**
-     * Handle errors with classification and better UX
-     */
-    static handleWithGuidance(error: Error, _context: string): ErrorResult {
-        const result = this.classifyError(error);
-
-        // Create notice with guidance
-        const noticeMessage = result.userGuidance ? `${result.message}\n\n💡 ${result.userGuidance}` : result.message;
-
-        const noticeDuration = result.retryable ? 5000 : 8000;
-        new Notice(noticeMessage, noticeDuration);
-
-        return result;
-    }
-
-    /**
-     * Execute an operation with automatic error handling
-     */
-    static async withErrorHandling<T>(
-        operation: () => Promise<T>,
-        context: string,
-        showNotice = true,
-    ): Promise<T | null> {
-        try {
-            return await operation();
-        } catch (error) {
-            this.handle(error as Error, context, showNotice);
-            return null;
-        }
-    }
-
-    /**
-     * Execute a synchronous operation with error handling
-     */
-    static withSyncErrorHandling<T>(operation: () => T, context: string, showNotice = true): T | null {
-        try {
-            return operation();
-        } catch (error) {
-            this.handle(error as Error, context, showNotice);
-            return null;
-        }
-    }
-
-    /**
-     * Create a standardized error for API responses.
-     * `statusText` and `details` are both server-controlled, so each is
-     * sanitized before it can reach a user-facing notice.
-     */
-    static createAPIError(provider: string, status: number, statusText: string, details?: string): Error {
-        const safeStatusText = sanitizeRemoteMessage(statusText, 120);
-        const safeDetails = details ? sanitizeRemoteMessage(details) : '';
-        const message = `${provider} API error: ${status}${safeStatusText ? ` ${safeStatusText}` : ''}${
-            safeDetails ? `. ${safeDetails}` : ''
-        }`;
-        return new Error(message);
-    }
-
-    /**
-     * Handle API response errors with consistent format
-     */
-    static async handleAPIError(response: Response, provider: string, fallbackMessage?: string): Promise<never> {
-        let errorDetails = fallbackMessage ?? '';
-
-        try {
-            const errorData = await response.json();
-            errorDetails = errorData.error?.message ?? errorData.message ?? fallbackMessage ?? '';
-        } catch {
-            // Ignore JSON parsing errors
-        }
-
-        throw this.createAPIError(provider, response.status, response.statusText, errorDetails);
-    }
-
-    /**
-     * Validate required configuration and throw descriptive errors
-     */
-    static validateConfiguration(config: Record<string, unknown>, requiredFields: string[]): void {
-        const missing = requiredFields.filter(field => !config[field]);
-
-        if (missing.length > 0) {
-            throw new Error(`Missing required configuration: ${missing.join(', ')}`);
         }
     }
 
@@ -342,14 +134,5 @@ export class ErrorHandler implements ErrorHandlerInterface {
 
         // Use standard error handling for non-quota errors
         this.handle(error, context, showNotice);
-    }
-
-    // Instance methods implementing interface
-    handle(error: Error, context: string, showNotice = true): void {
-        ErrorHandler.handle(error, context, showNotice);
-    }
-
-    async withErrorHandling<T>(operation: () => Promise<T>, context: string): Promise<T | null> {
-        return ErrorHandler.withErrorHandling(operation, context);
     }
 }

@@ -263,12 +263,6 @@ export interface DOMUtilsInterface {
     ): HTMLButtonElement;
 }
 
-/** Error handler interface */
-export interface ErrorHandlerInterface {
-    handle(error: Error, context: string, showNotice?: boolean): void;
-    withErrorHandling<T>(operation: () => Promise<T>, context: string): Promise<T | null>;
-}
-
 /** Service container interface */
 export interface ServiceContainer {
     aiService: AIService;
