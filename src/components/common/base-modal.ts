@@ -2,6 +2,7 @@ import { DOMUtils } from '../../dom';
 import { MODAL_CSS_CLASSES, TIMEOUTS } from '../../constants/index';
 import { ModalEvents } from '../../types';
 import { App, Modal } from 'obsidian';
+import { logger } from '../../services/logger';
 
 /**
  * Base modal class with shared functionality and consistent styling
@@ -116,8 +117,12 @@ export abstract class BaseModal extends Modal {
         const wrappedOnEnter = async () => {
             try {
                 await onEnter();
-            } catch {
-                // Ignore error
+            } catch (error) {
+                // Submit handlers surface their own Notices; log so failures are never invisible.
+                logger.warn(
+                    `Modal Enter handler failed: ${error instanceof Error ? error.message : String(error)}`,
+                    'Modal',
+                );
             }
         };
 
@@ -125,8 +130,11 @@ export abstract class BaseModal extends Modal {
             ? async () => {
                   try {
                       await onEscape();
-                  } catch {
-                      // Ignore error
+                  } catch (error) {
+                      logger.warn(
+                          `Modal Escape handler failed: ${error instanceof Error ? error.message : String(error)}`,
+                          'Modal',
+                      );
                   }
               }
             : undefined;

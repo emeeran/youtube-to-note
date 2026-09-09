@@ -397,6 +397,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                         await this.saveSettings();
                         return map;
                     } catch (error) {
+                        logger.warn(
+                            `Model list refresh failed, keeping cached list: ${error instanceof Error ? error.message : String(error)}`,
+                            'Plugin',
+                        );
                         return modelOptionsMap;
                     }
                 },
@@ -418,6 +422,10 @@ export default class YoutubeClipperPlugin extends Plugin {
                         }
                         return models;
                     } catch (error) {
+                        logger.warn(
+                            `Model list refresh failed for ${provider}: ${error instanceof Error ? error.message : String(error)}`,
+                            'Plugin',
+                        );
                         return [];
                     }
                 },

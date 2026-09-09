@@ -1,4 +1,5 @@
 import { OutputFormat, PerformanceMode } from '../types';
+import { logger } from './logger';
 
 /**
  * User preferences service for storing and managing user-specific settings
@@ -84,8 +85,11 @@ export class UserPreferencesService {
                 }
                 return { ...this.DEFAULT_PREFERENCES, ...parsed };
             }
-        } catch {
-            // Ignore error
+        } catch (error) {
+            logger.warn(
+                `User preferences could not be read, using defaults: ${error instanceof Error ? error.message : String(error)}`,
+                'UserPreferences',
+            );
         }
         return { ...this.DEFAULT_PREFERENCES };
     }
@@ -96,8 +100,11 @@ export class UserPreferencesService {
     static savePreferences(preferences: UserPreferences): void {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(preferences));
-        } catch {
-            // Ignore error
+        } catch (error) {
+            logger.warn(
+                `User preferences could not be saved: ${error instanceof Error ? error.message : String(error)}`,
+                'UserPreferences',
+            );
         }
     }
 

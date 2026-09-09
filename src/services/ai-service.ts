@@ -5,6 +5,7 @@
 
 import { AIProvider, AIRequestOptions, AIResponse, YouTubePluginSettings } from '../types';
 import { PROVIDER_MODEL_OPTIONS } from '../ai/api';
+import { logger } from './logger';
 
 export class AIService {
     private providerMap: Map<string, AIProvider> = new Map();
@@ -83,7 +84,12 @@ export class AIService {
                                 provider: fallbackProvider.name,
                                 model: fallbackProvider.model || 'default',
                             };
-                        } catch {
+                        } catch (fallbackError) {
+                            // A skipped fallback is invisible otherwise — record why it lost.
+                            logger.warn(
+                                `Fallback provider ${name} failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
+                                'AIService',
+                            );
                             continue;
                         }
                     }
@@ -151,7 +157,11 @@ export class AIService {
             const result = ordered.length > 0 ? ordered : staticModels;
             this.modelCache.set(providerName, { models: result, ts: Date.now() });
             return result;
-        } catch {
+        } catch (error) {
+            logger.warn(
+                `Live model list refresh failed for ${providerName}, using curated list: ${error instanceof Error ? error.message : String(error)}`,
+                'AIService',
+            );
             return staticModels;
         }
     }
@@ -204,8 +214,11 @@ export class AIService {
             if (typeof provider.cleanup === 'function') {
                 try {
                     provider.cleanup();
-                } catch {
-                    // Ignore cleanup errors
+                } catch (error) {
+                    logger.warn(
+                        `Provider cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+                        'AIService',
+                    );
                 }
             }
         }

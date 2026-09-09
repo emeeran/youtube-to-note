@@ -6,6 +6,7 @@
 
 import { OutputFormat } from '../types';
 import { Plugin } from 'obsidian';
+import { logger } from './logger';
 
 export interface HistoryEntry {
     videoId: string;
@@ -83,7 +84,11 @@ export class ProcessingHistoryService {
                     this.entries = data[STORAGE_KEY] as HistoryEntry[];
                 }
             });
-        } catch {
+        } catch (error) {
+            logger.warn(
+                `Processing history could not be loaded, starting empty: ${error instanceof Error ? error.message : String(error)}`,
+                'ProcessingHistory',
+            );
             this.entries = [];
         }
     }
@@ -98,8 +103,11 @@ export class ProcessingHistoryService {
                 data[STORAGE_KEY] = this.entries;
                 await this.plugin.saveData(data);
             });
-        } catch {
-            // Ignore
+        } catch (error) {
+            logger.warn(
+                `Processing history could not be saved: ${error instanceof Error ? error.message : String(error)}`,
+                'ProcessingHistory',
+            );
         }
     }
 

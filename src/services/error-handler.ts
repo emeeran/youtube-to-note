@@ -1,5 +1,6 @@
 import { MESSAGES } from '../constants/index';
 import { Notice } from 'obsidian';
+import { logger } from './logger';
 
 /**
  * Centralized user-facing error handling. Deliberately small: provider-facing
@@ -10,7 +11,8 @@ export class ErrorHandler {
     /**
      * Handle errors with consistent logging and user feedback
      */
-    static handle(error: Error, _context: string, showNotice = true): void {
+    static handle(error: Error, context: string, showNotice = true): void {
+        logger.debug(`${context}: ${error.message}`, 'ErrorHandler');
         if (showNotice) {
             new Notice(`Error: ${error.message}`);
         }
