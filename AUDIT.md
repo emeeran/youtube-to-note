@@ -375,7 +375,7 @@ much it matters.
   (~350 lines), `src/ai/error-utils.ts` (free functions), and per-provider `handleAPIError`
   methods. Consolidation is behavior-sensitive (copy changes); flagged, not auto-applied.
 - **(med) Critical-path test coverage is better and still not complete.** As of the
-  2026-09-09 snapshot: **16 suites / 440 tests**, including the `processYouTubeVideo`
+  2026-09-09 snapshot: **16 suites / 430 tests**, including the `processYouTubeVideo`
   pipeline, all six providers, provider network-error wording, and the Gemini text-only
   overflow retry. Still untested: `obsidian-file.ts` (save/conflict/path
   sanitization), `video-data.ts` metadata, and `settings-tab.ts`.
@@ -435,3 +435,48 @@ dead `video.google.com/timedtext` endpoint and `allorigins.win` CORS proxy remov
 header; `outputPath` rejects `..`; modal status `innerHTML` → `textContent`; transcript
 failures now logged + surfaced via Notice; eslint/prettier `indent` conflict fixed;
 ~541 lines of dead code removed (Phase 2).
+
+## Cleanup pipeline pass (2026-09-09, branch cleanup/pipeline-2026-09-09)
+
+Second debloat pass, executed as units with the full test gate between each (baseline
+16 suites / 440 tests → 16 suites / 430 tests; 10 low-value tests removed, 0 behavior
+change intended). Net −853 lines across 8 units — see `.pipeline/refactor-plan.md` for
+the per-item evidence.
+
+Applied:
+
+- error-handler dead second framework (~200 lines) + `ErrorHandlerInterface` (single impl).
+- Dead settings knobs `enableParallelProcessing` (toggle removed from settings UI),
+  `modelCacheTimestamps`; dead constants `PROVIDER_MODEL_LIST_URLS` / `PROVIDER_MODEL_REGEX` /
+  `API_LIMITS`; dead `free:` model flag + UI-filter claim.
+- Dead user-preferences API (6 methods, ~13 fields) incl. the never-written `lastModel_*`
+  family the modal read dynamically; modal's never-true branch removed with them.
+- Provider plumbing deduplicated on `BaseAIProvider` (`fetchModelIds`, `openAIChatBody`,
+  default `extractContent`, `requireApiKey`, exported `extractRetryTime`).
+- Silent `catch {}` blocks (12 sites) now `logger.warn` at minimum; `ErrorHandler.handle`
+  logs its context; the model-refresh catches in `main.ts` were found to be _reachable_
+  (they also guard `saveSettings`) and kept with logging added.
+- Same-file dedups: `formatDuration` → `formatTimestamp`; `nextAvailablePath` extracted for
+  `createVersionedCopy`; dead `createUniqueFile` (test-only) deleted with its test.
+- ~30 restating comments removed; dead fixtures moved to `trash2review/`
+  (`settings.fixtures.ts`, `MOCK_API_RESPONSES`, `MOCK_TRANSCRIPTS`, 6 helper exports);
+  `DEFAULT_SETTINGS` inlined into `test-helpers.ts` (keep in sync with `main.ts`);
+  `trash2review` excluded from tsconfig.
+- Two scanner claims corrected during verification: `ModalManager.getState()` is live
+  (debug-log field in `safeShowUrlModal`), and `getSmartDefaultPerformanceSettings` is live
+  (modal pre-select) — both kept despite being flagged dead.
+
+Carried items from this pass (flagged, not applied):
+
+- `preferMultimodal` toggle + the never-dispatched `processWithImage` path: wire or remove
+  (decision needed; the toggle still exists in settings but does nothing).
+- Reusing `isNetworkFailure`/`isTimeoutAbort` inside Ollama/HF/video-data classification was
+  NOT applied: the shared helpers match a narrower set than the hand-rolled keyword lists, so
+  untested error paths would change user-facing copy.
+- API-key knowledge still triplicated (`validation.ts` KEY_FORMATS vs `secure-config.ts`
+  PATTERNS/KNOWN_KEY_PREFIXES vs the settings-tab reset field list); unifying on
+  `validation.ts` is behavior-adjacent and needs a deliberate regex-strictness decision.
+- `withTimeout` still exists twice (youtube-page with signal, youtube-modal-utils without);
+  merging couples a DOM module to a network module — intentionally left.
+- secure-config metadata subsystem, duplicate key-format validators, per-provider HTTP-status
+  handling: unchanged from the carried list above.
