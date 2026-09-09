@@ -55,44 +55,26 @@ export class GroqProvider extends BaseAIProvider {
     }
 
     protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
-        return {
-            model: this.model,
-            messages: [
-                {
-                    role: 'system',
-                    content:
-                        'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability. Even with limited information, provide maximum value through structured analysis and practical recommendations.',
-                },
-                {
-                    role: 'user',
-                    content: prompt,
-                },
-            ],
-            temperature: this.effectiveTemperature(options),
-            max_tokens: this.effectiveMaxTokens(options),
-            stream: false,
-        };
-    }
-
-    protected extractContent(response: Record<string, unknown>): string {
-        const content = (response.choices as OpenAICompatibleResponse['choices'])[0]?.message?.content;
-        return content ? content.trim() : '';
+        return this.openAIChatBody(
+            prompt,
+            options,
+            'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability. Even with limited information, provide maximum value through structured analysis and practical recommendations.',
+        );
     }
 
     /** Live-fetch available model ids from Groq's /models endpoint. */
     async listModels(): Promise<string[]> {
-        const response = await this.fetchWithTimeout(
+        return this.fetchModelIds(
             'https://api.groq.com/openai/v1/models',
             {
                 method: 'GET',
                 headers: this.createHeaders(),
             },
             'Groq models request failed',
+            data => {
+                const list = (data as { data?: Array<{ id?: string }> }).data ?? [];
+                return list.map(m => m.id);
+            },
         );
-        if (!response.ok) {
-            throw new Error(`Groq models request failed: ${response.status}`);
-        }
-        const data = (await response.json()) as { data?: Array<{ id?: string }> };
-        return (data.data ?? []).map(m => m.id).filter((id): id is string => typeof id === 'string' && id.length > 0);
     }
 }

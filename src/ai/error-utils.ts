@@ -79,7 +79,7 @@ export function isTimeoutAbort(error: unknown): boolean {
 /**
  * Extract retry time from error message
  */
-function extractRetryTime(message: string): string {
+export function extractRetryTime(message: string): string {
     const patterns = [/retry in ([\d.]+)s/i, /retry in ([\d.]+) seconds?/i, /(\d+)\s*seconds?/i];
 
     for (const pattern of patterns) {

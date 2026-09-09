@@ -1,12 +1,7 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import type { AIRequestOptions } from '../types';
-import type {
-    OllamaGenerateRequestBody,
-    OllamaChatRequestBody,
-    OllamaModelsResponse,
-    JsonObject,
-} from '../types/api-responses';
+import type { OllamaGenerateRequestBody, OllamaChatRequestBody, JsonObject } from '../types/api-responses';
 
 /**
  * Ollama AI provider implementation
@@ -263,21 +258,18 @@ export class OllamaProvider extends BaseAIProvider {
      * (local: models you have pulled; cloud: cloud catalog).
      */
     async listModels(): Promise<string[]> {
-        const response = await this.fetchWithTimeout(
+        return this.fetchModelIds(
             this.getApiUrl('/tags'),
             {
                 method: 'GET',
                 headers: this.createHeaders(),
             },
             'Ollama models request failed',
+            data => {
+                const models = (data as { models?: Array<{ name?: string }> }).models ?? [];
+                return models.map(m => m.name);
+            },
         );
-        if (!response.ok) {
-            throw new Error(`Ollama models request failed: ${response.status}`);
-        }
-        const data = (await response.json()) as OllamaModelsResponse;
-        return (data.models ?? [])
-            .map(m => m.name)
-            .filter((name): name is string => typeof name === 'string' && name.length > 0);
     }
 
     protected createHeaders(): Record<string, string> {

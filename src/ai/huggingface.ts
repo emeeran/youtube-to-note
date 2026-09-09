@@ -1,7 +1,7 @@
 import { AI_MODELS, API_ENDPOINTS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import type { AIRequestOptions } from '../types';
-import { sanitizeRemoteMessage } from './error-utils';
+import { extractRetryTime, sanitizeRemoteMessage } from './error-utils';
 
 /**
  * Hugging Face provider implementation, speaking to HF's OpenAI-compatible
@@ -50,8 +50,7 @@ function isModelChoiceError(lower: string): boolean {
 function formatHuggingFaceError(rawMessage: string): string {
     const message = sanitizeRemoteMessage(rawMessage);
     const lower = message.toLowerCase();
-    const retryMatch = message.match(/retry in ([\d.]+)/i) ?? message.match(/(\d+)\s*seconds?/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
+    const retryInfo = extractRetryTime(message);
 
     if (lower.includes('rate limit')) {
         return `Hugging Face rate limit reached.${retryInfo}`;
@@ -99,35 +98,31 @@ export class HuggingFaceProvider extends BaseAIProvider {
      * retired and non-chat entries that would just fail at request time.
      */
     async listModels(): Promise<string[]> {
-        const response = await this.fetchWithTimeout(
+        return this.fetchModelIds(
             HUGGINGFACE_MODELS_URL,
             {
                 method: 'GET',
                 headers: this.createHeaders(),
             },
             'Hugging Face models request failed',
+            data => {
+                const list = (data as { data?: RouterModelEntry[] }).data ?? [];
+                return list
+                    .filter(entry => {
+                        const live = (entry.providers ?? []).some(provider => provider.status === 'live');
+                        const outputs = entry.architecture?.output_modalities;
+                        const textOutput = !outputs || outputs.length === 0 || outputs.includes('text');
+                        return live && textOutput;
+                    })
+                    .map(entry => entry.id);
+            },
         );
-        if (!response.ok) {
-            throw new Error(`Hugging Face models request failed: ${response.status}`);
-        }
-        const data = (await response.json()) as { data?: RouterModelEntry[] };
-        return (data.data ?? [])
-            .filter(entry => {
-                const live = (entry.providers ?? []).some(provider => provider.status === 'live');
-                const outputs = entry.architecture?.output_modalities;
-                const textOutput = !outputs || outputs.length === 0 || outputs.includes('text');
-                return live && textOutput;
-            })
-            .map(entry => entry.id)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0);
     }
 
     // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
-            if (!this.apiKey || this.apiKey.trim().length === 0) {
-                throw new Error('Hugging Face API key is required. Get one at huggingface.co/settings/tokens');
-            }
+            this.requireApiKey('Hugging Face API key is required. Get one at huggingface.co/settings/tokens');
 
             // Validate model name format
             if (!this._model?.includes('/')) {
@@ -212,14 +207,9 @@ export class HuggingFaceProvider extends BaseAIProvider {
     }
 
     protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
-        // OpenAI-compatible chat body — the router has no legacy
-        // `inputs`/`parameters` pipeline endpoint anymore.
-        return {
-            model: this._model,
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: this.effectiveMaxTokens(options),
-            temperature: this.effectiveTemperature(options),
-        };
+        // OpenAI-compatible chat body via the shared helper — the router has
+        // no legacy `inputs`/`parameters` pipeline endpoint anymore.
+        return this.openAIChatBody(prompt, options);
     }
 
     protected extractContent(response: Record<string, unknown>): string {

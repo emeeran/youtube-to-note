@@ -242,7 +242,60 @@ export abstract class BaseAIProvider implements AIProvider {
     protected abstract createRequestBody(prompt: string, options?: AIRequestOptions): JsonObject;
 
     /**
-     * Extract content from API response
+     * Throw when no API key is configured. The copy is the caller's so each
+     * client keeps its own actionable message.
      */
-    protected abstract extractContent(response: JsonObject): string;
+    protected requireApiKey(message: string): void {
+        if (!this.apiKey || this.apiKey.trim().length === 0) {
+            throw new Error(message);
+        }
+    }
+
+    /**
+     * OpenAI-compatible chat body shared by Groq, OpenRouter and Hugging Face.
+     * Only the system prompt (if any) differs between them.
+     */
+    protected openAIChatBody(prompt: string, options?: AIRequestOptions, systemPrompt?: string): JsonObject {
+        return {
+            model: this._model,
+            messages: [
+                ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+                { role: 'user', content: prompt },
+            ],
+            temperature: this.effectiveTemperature(options),
+            max_tokens: this.effectiveMaxTokens(options),
+            stream: false,
+        };
+    }
+
+    /**
+     * Extract `choices[0].message.content` from an OpenAI-compatible response.
+     * Default for providers whose API speaks that shape; providers with a
+     * different response shape (Gemini, Ollama) or stricter semantics
+     * (Hugging Face) override this.
+     */
+    protected extractContent(response: JsonObject): string {
+        const choices = response.choices as Array<{ message?: { content?: string } }> | undefined;
+        const content = choices?.[0]?.message?.content;
+        return content ? content.trim() : '';
+    }
+
+    /**
+     * Shared tail for provider `listModels()`: bounded fetch, ok-check, JSON
+     * parse, then the provider's own `pick` extracts (and may filter) the id
+     * strings before the shared type/emptiness filter applies.
+     */
+    protected async fetchModelIds(
+        url: string,
+        init: RequestInit,
+        context: string,
+        pick: (data: JsonObject) => Array<string | undefined>,
+    ): Promise<string[]> {
+        const response = await this.fetchWithTimeout(url, init, context);
+        if (!response.ok) {
+            throw new Error(`${context}: ${response.status}`);
+        }
+        const data = (await response.json()) as JsonObject;
+        return pick(data).filter((id): id is string => typeof id === 'string' && id.length > 0);
+    }
 }

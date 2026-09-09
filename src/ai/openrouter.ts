@@ -1,7 +1,7 @@
 import { AI_MODELS } from '../constants/index';
 import { BaseAIProvider } from './base';
 import type { AIRequestOptions } from '../types';
-import type { OpenAICompatibleResponse } from '../types/api-responses';
+import { extractRetryTime } from './error-utils';
 
 /**
  * OpenRouter API provider implementation
@@ -15,8 +15,7 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
  * Extract clean error message from OpenRouter API response
  */
 function formatOpenRouterError(rawMessage: string): string {
-    const retryMatch = rawMessage.match(/retry in ([\d.]+)/i) ?? rawMessage.match(/(\d+)\s*seconds?/i);
-    const retryInfo = retryMatch ? ` Retry in ${Math.ceil(parseFloat(retryMatch[1]!))}s.` : '';
+    const retryInfo = extractRetryTime(rawMessage);
 
     if (rawMessage.toLowerCase().includes('rate limit')) {
         return `OpenRouter rate limit reached.${retryInfo}`;
@@ -48,9 +47,7 @@ export class OpenRouterProvider extends BaseAIProvider {
     // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
-            if (!this.apiKey || this.apiKey.trim().length === 0) {
-                throw new Error('OpenRouter API key is required. Get one at openrouter.ai/keys');
-            }
+            this.requireApiKey('OpenRouter API key is required. Get one at openrouter.ai/keys');
 
             const response = await this.fetchGeneration(
                 OPENROUTER_API_URL,
@@ -109,45 +106,27 @@ export class OpenRouterProvider extends BaseAIProvider {
     }
 
     protected createRequestBody(prompt: string, options?: AIRequestOptions): any {
-        return {
-            model: this._model,
-            messages: [
-                {
-                    role: 'system',
-                    content:
-                        'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability.',
-                },
-                {
-                    role: 'user',
-                    content: prompt,
-                },
-            ],
-            temperature: this.effectiveTemperature(options),
-            max_tokens: this.effectiveMaxTokens(options),
-            stream: false,
-        };
-    }
-
-    protected extractContent(response: Record<string, unknown>): string {
-        const content = (response.choices as OpenAICompatibleResponse['choices'])[0]?.message?.content;
-        return content ? content.trim() : '';
+        return this.openAIChatBody(
+            prompt,
+            options,
+            'You are an expert content analyzer specializing in extracting practical value and creating actionable guides from video content. Focus on clarity, practicality, and immediate implementability.',
+        );
     }
 
     /** Live-fetch available model ids from OpenRouter's /models endpoint. */
     async listModels(): Promise<string[]> {
         // The models list is public; include auth so private/free eligibility is reflected.
-        const response = await this.fetchWithTimeout(
+        return this.fetchModelIds(
             'https://openrouter.ai/api/v1/models',
             {
                 method: 'GET',
                 headers: { Authorization: `Bearer ${this.apiKey}` },
             },
             'OpenRouter models request failed',
+            data => {
+                const list = (data as { data?: Array<{ id?: string }> }).data ?? [];
+                return list.map(m => m.id);
+            },
         );
-        if (!response.ok) {
-            throw new Error(`OpenRouter models request failed: ${response.status}`);
-        }
-        const data = (await response.json()) as { data?: Array<{ id?: string }> };
-        return (data.data ?? []).map(m => m.id).filter((id): id is string => typeof id === 'string' && id.length > 0);
     }
 }

@@ -25,9 +25,7 @@ export class GeminiProvider extends BaseAIProvider {
     // eslint-disable-next-line complexity, max-lines-per-function
     async process(prompt: string, options?: AIRequestOptions): Promise<string> {
         try {
-            if (!this.apiKey || this.apiKey.trim().length === 0) {
-                throw new Error(MESSAGES.ERRORS.GEMINI_INVALID_KEY);
-            }
+            this.requireApiKey(MESSAGES.ERRORS.GEMINI_INVALID_KEY);
 
             const endpoint = `${API_ENDPOINTS.GEMINI_BASE}/${this.model}:generateContent`;
             let body = this.createRequestBody(prompt, options);
@@ -235,27 +233,24 @@ export class GeminiProvider extends BaseAIProvider {
 
     /** Live-fetch available model ids from Gemini's list endpoint. */
     async listModels(): Promise<string[]> {
-        const response = await this.fetchWithTimeout(
+        return this.fetchModelIds(
             `${API_ENDPOINTS.GEMINI_BASE}?pageSize=200`,
             {
                 method: 'GET',
                 headers: this.createHeaders(),
             },
             'Gemini models request failed',
+            data => {
+                const models =
+                    (data as { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> }).models ?? [];
+                return models
+                    .filter(
+                        m =>
+                            Array.isArray(m.supportedGenerationMethods) &&
+                            m.supportedGenerationMethods.includes('generateContent'),
+                    )
+                    .map(m => (m.name ?? '').replace(/^models\//, ''));
+            },
         );
-        if (!response.ok) {
-            throw new Error(`Gemini models request failed: ${response.status}`);
-        }
-        const data = (await response.json()) as {
-            models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
-        };
-        return (data.models ?? [])
-            .filter(
-                m =>
-                    Array.isArray(m.supportedGenerationMethods) &&
-                    m.supportedGenerationMethods.includes('generateContent'),
-            )
-            .map(m => (m.name ?? '').replace(/^models\//, ''))
-            .filter((name): name is string => name.length > 0);
     }
 }
