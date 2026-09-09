@@ -36,24 +36,24 @@ tests, unload not aborting in-flight runs) should be fixed before this ships as 
 
 ## High priority
 
-- [ ] `src/services/error-handler.ts:80-110,129` + `src/main.ts:666` — the 6-provider
+- [x] `src/services/error-handler.ts:80-110,129` + `src/main.ts:666` — the 6-provider
       aggregate failure is misclassified by substring scan: one provider's canned
       "Rate limit exceeded" (or any message containing "429") routes the _whole_ aggregate
       to `handleQuotaError`, replacing accurate per-provider attribution with a wrong
       provider's quota notice plus a Retry button. (Also: that Retry button dispatches
       `yt-clipper-retry-processing`, an event **nothing listens for** — a silent no-op,
       error-handler.ts:60-72.)
-- [ ] `tsconfig.json:31-36` + `jest.config.js:21` — **tests are type-checked by
+- [x] `tsconfig.json:31-36` + `jest.config.js:21` — **tests are type-checked by
       nothing**: `tsc --noEmit` excludes `tests/**`, and ts-jest's `isolatedModules: true`
       skips type diagnostics entirely. The `@tests/` alias exists only in jest's
       moduleNameMapper. A mistyped test helper ships green.
-- [ ] `src/ai/ollama.ts:25-35` — user-configured endpoint normalization has zero test
+- [x] `src/ai/ollama.ts:25-35` — user-configured endpoint normalization has zero test
       coverage (all specs construct without the 4th arg), including a latent
       trailing-slash → `http://host//api` bug. This code decides where transcripts _and API
       keys_ are POSTed; the `'cloud'` substring heuristic also hijacks custom endpoints
       whose URL merely contains "cloud" (settings-tab.ts:243-244 duplicates the heuristic
       for key validation).
-- [ ] `src/main.ts:478-483,183-196` — `activeRunControllers` never receives a
+- [x] `src/main.ts:478-483,183-196` — `activeRunControllers` never receives a
       production controller (the modal always passes its own signal), so `onunload`'s abort
       loop iterates an empty set; `modalManager.clear()` resets a boolean but does not
       close the modal. Disable/update mid-run keeps writing notes and firing Notices into a
@@ -651,17 +651,17 @@ independently. Reconciliation:
 
 **Missed by pipeline, caught by blind review — verified real, added to the fix list:**
 
-- [HIGH] `src/settings-tab.ts:579-586` + `src/secure-config.ts:402-434` — **"Clear Keys"
-  is a silent no-op**: the service wraps a shallow _copy_ of plugin settings
-  (settings-tab.ts:46/57), the cleared keys are written to that copy and never persisted,
-  and `display()` re-copies the untouched original. The UI shows keys cleared; data.json
-  still holds all five until restart. Security-relevant (this is the control the
-  env-mode guidance tells users to use).
-- [HIGH] `src/components/features/youtube/youtube-url-modal.ts:387-393` — provider
-  dropdown is hardcoded to five entries and **omits Hugging Face**, though HF is a
-  first-class provider; the modal's `providers` option (main.ts:374/382) is populated
-  and never read. A users-with-only-HF-key run fabricates a "Google Gemini not found"
-  failure before the chain recovers.
+- [x] [HIGH] `src/settings-tab.ts:579-586` + `src/secure-config.ts:402-434` — **"Clear Keys"
+      is a silent no-op**: the service wraps a shallow _copy_ of plugin settings
+      (settings-tab.ts:46/57), the cleared keys are written to that copy and never persisted,
+      and `display()` re-copies the untouched original. The UI shows keys cleared; data.json
+      still holds all five until restart. Security-relevant (this is the control the
+      env-mode guidance tells users to use).
+- [x] [HIGH] `src/components/features/youtube/youtube-url-modal.ts:387-393` — provider
+      dropdown is hardcoded to five entries and **omits Hugging Face**, though HF is a
+      first-class provider; the modal's `providers` option (main.ts:374/382) is populated
+      and never read. A users-with-only-HF-key run fabricates a "Google Gemini not found"
+      failure before the chain recovers.
 - [MEDIUM] Masked-key prefill can commit the mask as a real credential
   (settings-tab.ts:296-303): `isMasked()` exists (secure-config.ts:269) and is never
   called; HF/OpenRouter/Ollama have no key pattern to reject the mask.
@@ -699,3 +699,47 @@ to this one, running the same cold review.
 **Updated verdict:** still **Ready with fixes**, with the fix list now including the two
 blind-review HIGHs above — the credential-clear no-op lands in the same
 settings-tab-untested bucket the review called out as its top on-call concern.
+
+---
+
+## Audit fix pass (2026-09-09, branch fix/audit-findings)
+
+All six HIGH findings resolved, plus the medium/low set that was safe to change. 18
+suites / 442 tests green (4 new regression tests), `tsc --noEmit` now covers `src/` AND
+`tests/` (the `@tests/*` alias is mapped in tsconfig too).
+
+- Aggregate failures no longer pass through quota classification (the whole quota-notice
+  machinery — including the dead Retry button dispatching an unlistened event — was dead
+  once the misclassification was removed, and has been deleted).
+- Every in-flight run registers its controller unconditionally, and plugin unload closes
+  the active modal, so a mid-run disable/update tears the run down.
+- Clear Keys hands the emptied settings back through `onSettingsChange` — data.json
+  actually loses the keys now.
+- The provider dropdown is built from the real configured provider list (Hugging Face
+  included; the `providers` option is finally consumed).
+- Ollama endpoint handling is one shared, tested helper (`resolveOllamaApiBase` /
+  `isOllamaCloudEndpoint`): trailing slashes no longer produce `//api`, lookalike hosts
+  (`*.cloud`, `notollama.com`) are no longer hijacked to ollama.com, and the settings-tab
+  key-validation ping uses the same helper as the client.
+- Intake URLs are canonicalized once at the pipeline entry, so frontmatter `source:`,
+  prompts and timestamp links only ever see `https://www.youtube.com/watch?v=<id>` —
+  closing the unanchored-validation → link-forgery chain.
+- A malformed caption payload (parsererror) is classified as `unknown`, not
+  `no-captions`, so an HTML error page no longer becomes a paid, thin, "successful" note.
+- Generic provider errors now include the sanitized server detail instead of a bare
+  status; OpenRouter's default is the GA `google/gemini-2.5-flash` (verified live);
+  `qwen3:latest` added to the curated Ollama list so default and dropdown agree.
+- The timeout fallback: runtimes without `AbortSignal.timeout` (jsdom — and old mobile
+  builds) now get a real timer-based signal instead of a silently unbounded request; the
+  manual combined-signal branch also handles an already-aborted caller signal.
+- Small: "Clear transcript cache" clears the memory tier too; placeholder replacement
+  uses a replacer function (no `$&` expansion); Ctrl+C no longer swallows textarea
+  selections; a deliberate "don't save" reports as cancelled, not failed; `window.prompt`
+  (throws in Electron) replaced by opening the modal; onload failure reaps the ribbon;
+  data.json.example stale key removed; OpenRouter attribution points at the real repo;
+  `ErrorHandler.handle` logs at warn so Notice-reported failures have a console trace.
+
+Still open (deliberately): settings-tab/modal component test suites, branch coverage
+floors, double entity-decode of literal `\uXXXX` caption sequences, MemoryCache handing
+out references, key-table unification, `preferMultimodal` wire-or-remove, prompt-injection
+inherent risk — see the carried lists above.
