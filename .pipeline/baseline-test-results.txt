@@ -1,0 +1,772 @@
+# Baseline test results — cleanup pipeline 2026-09-09
+# commit: 98bc6bf branch: cleanup/pipeline-2026-09-09
+
+PASS tests/unit/secure-config.spec.ts
+PASS tests/unit/services/prompt-timestamps.spec.ts
+PASS tests/unit/tier0-regressions.spec.ts
+PASS tests/unit/obsidian-mock.spec.ts
+PASS tests/unit/services/prompt-formats.spec.ts
+PASS tests/unit/youtube-modal-utils.spec.ts
+PASS tests/unit/validation.spec.ts
+PASS tests/unit/services/ai-service.spec.ts
+PASS tests/unit/url-parity.spec.ts
+PASS tests/unit/services/transcript-service.spec.ts
+PASS tests/unit/services/transcript-outcome.spec.ts
+PASS tests/unit/services/youtube-page.spec.ts
+PASS tests/unit/pipeline.spec.ts
+  ● Console
+
+    console.warn
+      [2026-09-09T07:27:33.394Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:549:13)
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at YoutubeClipperPlugin.processYouTubeVideo (src/main.ts:395:24)
+      at tests/unit/pipeline.spec.ts:377:41
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at Object.<anonymous> (tests/unit/pipeline.spec.ts:369:70)
+
+    console.warn
+      [2026-09-09T07:27:33.450Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:553:13)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.450Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:579:13)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.451Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:607:13)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.451Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:637:17)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.451Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:697:13)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.452Z] WARN  [Plugin] Progress callback failed {"error":"renderer blew up"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at progress (src/main.ts:515:24)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:708:13)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.459Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Google Gemini","error":"quota exhausted"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.462Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Google Gemini","error":"quota exhausted"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.463Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Groq","error":"model not found: gemini-2.5-flash-lite"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.error
+      [2026-09-09T07:27:33.463Z] ERROR [Plugin] AI Processing failed {"error":"model not found: gemini-2.5-flash-lite","summary":"Google Gemini: quota exhausted · Groq: model not found: gemini-2.5-flash-lite"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:676:24)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.error
+      [2026-09-09T07:27:33.464Z] ERROR [Plugin] Video processing failed {"error":"All AI providers failed — Google Gemini: quota exhausted · Groq: model not found: gemini-2.5-flash-lite"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.469Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Google Gemini","error":"Gemini API error: The input token count exceeds the maximum number of tokens allowed 1048576."}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.470Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Groq","error":"Groq API error: Model not found or you do not have access."}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.470Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"OpenRouter","error":"OpenRouter: network error reaching openrouter.ai — check your internet connection."}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.473Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Ollama Cloud","error":"Ollama Cloud could not be reached (ollama.com). Check your internet connection."}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.473Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Hugging Face","error":"This model is not deployed on hf-inference. Pick another model in settings."}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.474Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Ollama","error":"Ollama model not found: qwen3:14b. Please make sure the model is pulled in Ollama using 'ollama pull qwen3:14b'. If it is already pulled, check that the Ollama endpoint in settings matches the running server."}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.error
+      [2026-09-09T07:27:33.474Z] ERROR [Plugin] AI Processing failed {"error":"Ollama model not found: qwen3:14b. Please make sure the model is pulled in Ollama using 'ollama pull qwen3:14b'. If it is already pulled, check that the Ollama endpoint in settings matches the running server.","summary":"Google Gemini: Gemini API error: The input token count exceeds the maximum number of tokens allowed 1048576. · Groq: Groq API error: Model not found or you do not have access. · OpenRouter: OpenRouter: network error reaching openrouter.ai — check your internet connection. · Ollama Cloud: Ollama Cloud could not be reached (ollama.com). Check your internet connection. · Hugging Face: This model is not deployed on hf-inference. Pick another model in settings. · Ollama: Ollama model not found: qwen3:14b. Please make sure the model is pulled in Ollama using 'ollama pull qwen3:14b'. If it is already pulled, check that the Ollama endpoint in settings matches the running server."}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:676:24)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.error
+      [2026-09-09T07:27:33.475Z] ERROR [Plugin] Video processing failed {"error":"All AI providers failed — Google Gemini: Gemini API error: The input token count exceeds the maximum number of tokens allowed 1048576. · Groq: Groq API error: Model not found or you do not have access. · OpenRouter: OpenRouter: network error reaching openrouter.ai — check your internet connection. · Ollama Cloud: Ollama Cloud could not be reached (ollama.com). Check your internet connection. · Hugging Face: This model is not deployed on hf-inference. Pick another model in settings. · Ollama: Ollama model not found: qwen3:14b. Please make sure the model is pulled in Ollama using 'ollama pull qwen3:14b'. If it is already pulled, check that the Ollama endpoint in settings matches the running server."}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.481Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Google Gemini","error":"quota exhausted"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.483Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Google Gemini","error":"quota exhausted"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.487Z] WARN  [Plugin] Provider failed — trying the next one {"provider":"Groq","error":"down"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:654:28)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.error
+      [2026-09-09T07:27:33.488Z] ERROR [Plugin] AI Processing failed {"error":"down","summary":"Groq: down"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:676:24)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.error
+      [2026-09-09T07:27:33.488Z] ERROR [Plugin] Video processing failed {"error":"All AI providers failed — Groq: down"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.501Z] WARN  [Plugin] Plugin is unloading — ignoring video processing request
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:483:20)
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at YoutubeClipperPlugin.processYouTubeVideo (src/main.ts:395:24)
+      at tests/unit/pipeline.spec.ts:644:41
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at Object.<anonymous> (tests/unit/pipeline.spec.ts:639:73)
+
+    console.warn
+      [2026-09-09T07:27:33.508Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"restricted","detail":"detail for restricted"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.510Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"private","detail":"detail for private"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.511Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"unavailable","detail":"detail for unavailable"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.513Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"network","detail":"detail for network"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.514Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"unknown","detail":"detail for unknown"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.516Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"restricted"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.517Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"private"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.517Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"unavailable"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.518Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"network"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.518Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"unknown"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.warn
+      [2026-09-09T07:27:33.519Z] WARN  [Plugin] Transcript unavailable {"videoId":"dQw4w9WgXcQ","reason":"no-captions"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:789:24)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.error
+      [2026-09-09T07:27:33.522Z] ERROR [Plugin] Video processing failed {"error":"Configuration invalid: Output path is required"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at YoutubeClipperPlugin.processYouTubeVideo (src/main.ts:395:24)
+      at tests/unit/pipeline.spec.ts:722:41
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at Object.<anonymous> (tests/unit/pipeline.spec.ts:718:72)
+
+    console.error
+      [2026-09-09T07:27:33.523Z] ERROR [Plugin] Video processing failed {"error":"Could not extract video ID from URL. Please check the URL format."}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at YoutubeClipperPlugin.processYouTubeVideo (src/main.ts:395:24)
+      at tests/unit/pipeline.spec.ts:735:41
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at Object.<anonymous> (tests/unit/pipeline.spec.ts:730:66)
+
+    console.error
+      [2026-09-09T07:27:33.525Z] ERROR [Plugin] Video processing failed {"error":"Service container not initialized"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at YoutubeClipperPlugin.processYouTubeVideo (src/main.ts:395:24)
+      at tests/unit/pipeline.spec.ts:745:41
+      at node_modules/tslib/tslib.js:169:75
+      at Object.__awaiter (node_modules/tslib/tslib.js:165:16)
+      at Object.<anonymous> (tests/unit/pipeline.spec.ts:742:70)
+
+    console.error
+      [2026-09-09T07:27:33.535Z] ERROR [Plugin] Video processing failed {"error":"this.historyService.add is not a function"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+      at fulfilled (node_modules/tslib/tslib.js:166:62)
+
+    console.error
+      [2026-09-09T07:27:33.536Z] ERROR [Plugin] Video processing failed {"error":"video not found"}
+
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+    > 105 |                     console.error(formattedMessage);
+          |                             ^
+      106 |                     break;
+      107 |             }
+      108 |         }
+
+      at Logger.addLogEntry (src/services/logger.ts:105:29)
+      at Logger.error (src/services/logger.ts:124:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:738:20)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+    console.warn
+      [2026-09-09T07:27:33.538Z] WARN  [Plugin] Typed transcript fetch failed — falling back to legacy path {"error":"boom"}
+
+      100 |                     break;
+      101 |                 case LogLevel.WARN:
+    > 102 |                     console.warn(formattedMessage);
+          |                             ^
+      103 |                     break;
+      104 |                 case LogLevel.ERROR:
+      105 |                     console.error(formattedMessage);
+
+      at Logger.addLogEntry (src/services/logger.ts:102:29)
+      at Logger.warn (src/services/logger.ts:120:14)
+      at YoutubeClipperPlugin.<anonymous> (src/main.ts:804:24)
+          at Generator.throw (<anonymous>)
+      at rejected (node_modules/tslib/tslib.js:167:69)
+
+PASS tests/unit/ai-providers.spec.ts
+PASS tests/unit/obsidian-file.spec.ts
+PASS tests/unit/services/url-handler.spec.ts
+
+Test Suites: 16 passed, 16 total
+Tests:       440 passed, 440 total
+Snapshots:   0 total
+Time:        5.188 s
+Ran all test suites.
