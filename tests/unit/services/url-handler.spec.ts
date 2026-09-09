@@ -70,25 +70,6 @@ describe('UrlHandler', () => {
         urlHandler.clear();
     });
 
-    describe('Constructor', () => {
-        it('should initialize with default config', () => {
-            expect(urlHandler).toBeDefined();
-        });
-
-        it('should accept custom config', () => {
-            const customConfig: UrlHandlerConfig = {
-                noteMarker: 'custom-marker',
-                urlHandlerDelay: 200,
-                maxHandledFiles: 50,
-                tempFileAgeThreshold: 10000,
-            };
-
-            const handler = new UrlHandler(mockApp, mockSettings, mockOnUrlDetected, customConfig);
-
-            expect(handler).toBeDefined();
-        });
-    });
-
     describe('handleFileCreate', () => {
         it('should detect and handle temp file with marker', async () => {
             const mockFile = {
@@ -346,20 +327,6 @@ describe('UrlHandler', () => {
             await delay(150);
 
             expect(mockOnUrlDetected).not.toHaveBeenCalled();
-        });
-    });
-
-    describe('updateSettings', () => {
-        it('should update settings', () => {
-            const newSettings = {
-                ...mockSettings,
-                outputPath: '/New Path',
-            };
-
-            urlHandler.updateSettings(newSettings);
-
-            // Should not throw
-            expect(urlHandler).toBeDefined();
         });
     });
 

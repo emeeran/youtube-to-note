@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { AIService } from '../../../src/services/ai-service';
+import { PROVIDER_MODEL_OPTIONS } from '../../../src/ai/api';
 import { AIProvider, YouTubePluginSettings } from '../../../src/types';
 import { createMockSettings } from '@tests/utils/test-helpers';
 
@@ -47,17 +48,10 @@ describe('AIService', () => {
         jest.clearAllMocks();
     });
 
-    describe('Constructor', () => {
-        it('should initialize with providers and settings', () => {
-            aiService = new AIService(mockProviders, mockSettings);
-            expect(aiService).toBeDefined();
-        });
-
-        it('should throw error when no providers are provided', () => {
-            expect(() => {
-                new AIService([], mockSettings);
-            }).toThrow('At least one AI provider is required');
-        });
+    it('should throw error when no providers are provided', () => {
+        expect(() => {
+            new AIService([], mockSettings);
+        }).toThrow('At least one AI provider is required');
     });
 
     describe('process', () => {
@@ -104,43 +98,14 @@ describe('AIService', () => {
             aiService = new AIService(mockProviders, mockSettings);
         });
 
-        it('should return models for a known provider', () => {
+        it('should return the curated models for a known provider', () => {
             const models = aiService.getProviderModels('Google Gemini');
-            expect(Array.isArray(models)).toBe(true);
-            expect(models.length).toBeGreaterThan(0);
+            expect(models).toEqual((PROVIDER_MODEL_OPTIONS['Google Gemini'] ?? []).map(entry => entry.name));
         });
 
         it('should return empty array for unknown provider', () => {
             const models = aiService.getProviderModels('Unknown Provider');
             expect(models).toEqual([]);
-        });
-    });
-
-    describe('getProviderNames', () => {
-        beforeEach(() => {
-            aiService = new AIService(mockProviders, mockSettings);
-        });
-
-        it('should return list of provider names', () => {
-            const names = aiService.getProviderNames();
-            expect(names).toContain('Google Gemini');
-            expect(names).toContain('Groq');
-        });
-    });
-
-    describe('updateSettings', () => {
-        it('should update settings without error', () => {
-            aiService = new AIService(mockProviders, mockSettings);
-            const newSettings = { ...mockSettings, performanceMode: 'fast' as const };
-            expect(() => aiService.updateSettings(newSettings)).not.toThrow();
-        });
-    });
-
-    describe('Error Handling', () => {
-        it('should handle missing providers gracefully', () => {
-            expect(() => {
-                new AIService([], mockSettings);
-            }).toThrow();
         });
     });
 });

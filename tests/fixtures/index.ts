@@ -4,4 +4,3 @@
  */
 
 export * from './video-data.fixtures';
-export * from './settings.fixtures';

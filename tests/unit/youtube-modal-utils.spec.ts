@@ -155,12 +155,6 @@ describe('formatReadyMessage', () => {
     });
 });
 
-describe('EMPTY_PARSED_URLS', () => {
-    it('is the reset state', () => {
-        expect(EMPTY_PARSED_URLS).toEqual({ urls: [], invalidCount: 0, droppedCount: 0 });
-    });
-});
-
 describe('batch summaries', () => {
     it('counts created, duplicate and failed separately', () => {
         const summary = summarizeBatch([

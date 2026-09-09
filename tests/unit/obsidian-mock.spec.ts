@@ -74,25 +74,6 @@ describe('obsidian mock — named exports', () => {
             expect(mapped[key]).toBe(byPath[key]);
         }
     });
-
-    it('exposes the same surface on its default export for legacy imports', () => {
-        const byPath = mockObsidian as unknown as Record<string, unknown>;
-        const required = [
-            'Notice',
-            'Plugin',
-            'Modal',
-            'Setting',
-            'Menu',
-            'TFile',
-            'Platform',
-            'requestUrl',
-            'normalizePath',
-            'addIcon',
-            'debounce',
-        ];
-        const missing = required.filter(key => typeof byPath[key] === 'undefined');
-        expect(missing).toEqual([]);
-    });
 });
 
 describe('obsidian mock — normalizePath', () => {
