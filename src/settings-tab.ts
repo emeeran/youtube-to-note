@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { SecureConfigService } from './secure-config';
+import { isOllamaCloudEndpoint, resolveOllamaApiBase } from './ai/ollama';
 import { API_KEY_FIELDS, MAX_CUSTOM_PROMPT_LENGTH, ValidationUtils } from './validation';
 import { OutputFormat, YouTubePluginSettings } from './types';
 import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
@@ -238,13 +239,11 @@ export class YouTubeSettingsTab extends PluginSettingTab {
                 color: '#6b7280',
                 key: 'ollamaApiKey' as const,
                 validate: async (key: string) => {
-                    const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
-                    const isCloud = endpoint.includes('ollama.com') || endpoint.includes('cloud');
+                    const endpoint = this.settings.ollamaEndpoint;
+                    const isCloud = isOllamaCloudEndpoint(endpoint ?? '');
                     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
                     if (isCloud && key) headers['Authorization'] = `Bearer ${key}`;
-                    const res = await fetch(`${isCloud ? 'https://ollama.com/api' : `${endpoint}/api`}/tags`, {
-                        headers,
-                    });
+                    const res = await fetch(`${resolveOllamaApiBase(endpoint)}/tags`, { headers });
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 },
             },

@@ -10,6 +10,35 @@ import type { OllamaGenerateRequestBody, OllamaChatRequestBody, JsonObject } fro
  * Cloud API: https://ollama.com/api/generate
  */
 
+/**
+ * Cloud iff the endpoint's *host* is ollama.com. A substring check
+ * (`includes('cloud')`) used to hijack lookalike custom hosts
+ * (e.g. a reverse proxy at ` something.cloud`) and silently rewrite them to
+ * ollama.com.
+ */
+export function isOllamaCloudEndpoint(endpoint: string): boolean {
+    const value = endpoint.trim();
+    if (!value) return false;
+    try {
+        const url = new URL(value.includes('://') ? value : `https://${value}`);
+        return url.hostname === 'ollama.com' || url.hostname.endsWith('.ollama.com');
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Normalize a user-configured endpoint to the API base: the cloud host gets
+ * its fixed API URL, anything else keeps its host (trailing slashes stripped)
+ * with the `/api` suffix the Ollama API expects.
+ */
+export function resolveOllamaApiBase(endpoint?: string): string {
+    const raw = (endpoint ?? '').trim().replace(/\/+$/, '');
+    if (!raw) return 'http://localhost:11434/api';
+    if (isOllamaCloudEndpoint(raw)) return 'https://ollama.com/api';
+    return raw.endsWith('/api') ? raw : `${raw}/api`;
+}
+
 export class OllamaProvider extends BaseAIProvider {
     readonly name: string = 'Ollama';
 
@@ -19,20 +48,8 @@ export class OllamaProvider extends BaseAIProvider {
         // Ollama doesn't typically require an API key for local, but required for cloud
         super(apiKey, model ?? AI_MODELS.OLLAMA_LOCAL, timeout);
 
-        // Normalize endpoint to API base URL
-        // Local: http://localhost:11434 -> http://localhost:11434/api
-        // Cloud: https://ollama.com -> https://ollama.com/api
-        if (endpoint) {
-            if (endpoint.includes('ollama.com') || endpoint.includes('cloud')) {
-                this.apiBaseUrl = 'https://ollama.com/api';
-            } else if (endpoint.endsWith('/api')) {
-                this.apiBaseUrl = endpoint;
-            } else {
-                this.apiBaseUrl = `${endpoint}/api`;
-            }
-        } else {
-            this.apiBaseUrl = 'http://localhost:11434/api';
-        }
+        // Normalize the user-configured endpoint to the API base URL.
+        this.apiBaseUrl = resolveOllamaApiBase(endpoint);
 
         // Warn if the endpoint is plain HTTP on a non-loopback host: prompts
         // and any API key would traverse the network unencrypted.
