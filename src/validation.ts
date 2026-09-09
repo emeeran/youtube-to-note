@@ -70,7 +70,7 @@ export class ValidationUtils {
         let cleanUrl = url.trim();
 
         // Handle URLs that might have been copy-pasted with extra characters
-        cleanUrl = cleanUrl.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Remove zero-width characters
+        cleanUrl = cleanUrl.replace(/[\u200B-\u200D\uFEFF]/g, '');
 
         // Add https:// if missing protocol
         if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {

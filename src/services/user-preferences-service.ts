@@ -170,12 +170,10 @@ export class UserPreferencesService {
     static getSmartDefaultFormat(): OutputFormat {
         const preferences = this.loadPreferences();
 
-        // Return user's preferred format if set
         if (preferences.preferredFormat) {
             return preferences.preferredFormat;
         }
 
-        // Return most frequently used format
         const formatUsage = preferences.formatUsage ?? {};
         let maxUsage = 0;
         let mostUsedFormat: OutputFormat = 'executive-summary';
@@ -197,12 +195,10 @@ export class UserPreferencesService {
     static getSmartDefaultProvider(): string | undefined {
         const preferences = this.loadPreferences();
 
-        // Return user's preferred provider if set
         if (preferences.preferredProvider) {
             return preferences.preferredProvider;
         }
 
-        // Return most frequently used provider
         const providerUsage = preferences.providerUsage ?? {};
         let maxUsage = 0;
         let mostUsedProvider: string | undefined;

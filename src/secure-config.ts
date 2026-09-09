@@ -400,11 +400,9 @@ export class SecureConfigService {
      * Clear an API key securely
      */
     clearApiKey(keyType: ApiKeyName): void {
-        // Clear from storage
         this.settings[keyType] = '' as any;
         this.keyStorage.clearMetadata(keyType);
 
-        // Clear from any caches
         this.clearKeyFromMemory(keyType);
     }
 

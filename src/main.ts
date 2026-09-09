@@ -223,7 +223,6 @@ export default class YoutubeClipperPlugin extends Plugin {
 
         const urlHandler = this.urlHandler;
 
-        // Register file creation handler
         this.registerEvent(
             this.app.vault.on('create', file => {
                 if (file instanceof TFile) {
@@ -232,7 +231,6 @@ export default class YoutubeClipperPlugin extends Plugin {
             }),
         );
 
-        // Register active leaf change handler
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', () => {
                 void this.safeOperation(() => urlHandler.handleActiveLeafChange(), 'Handle active leaf change');

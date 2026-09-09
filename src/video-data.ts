@@ -274,16 +274,14 @@ export class YouTubeVideoService implements VideoDataService {
             // A cancelled run is a cancellation, never a timeout or network error.
             if (signal?.aborted) throw new RequestAbortedError();
 
-            // Handle different types of errors
             if (error instanceof DOMException && error.name === 'AbortError') {
                 throw new Error('Request timed out. Please check your internet connection and try again.');
             } else if (error instanceof TypeError) {
-                // Network error
                 throw new Error(MESSAGES.ERRORS.NETWORK_ERROR);
             } else if (error instanceof Error && error.message.includes('JSON')) {
                 throw new Error('Failed to parse YouTube response. The service may be temporarily unavailable.');
             }
-            throw error; // Re-throw other errors
+            throw error;
         }
     }
 
@@ -293,7 +291,7 @@ export class YouTubeVideoService implements VideoDataService {
      */
     private async fetchOembed(oembedUrl: string, signal?: AbortSignal): Promise<Response> {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for oEmbed API
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const onAbort = () => controller.abort();
         signal?.addEventListener('abort', onAbort, { once: true });
 

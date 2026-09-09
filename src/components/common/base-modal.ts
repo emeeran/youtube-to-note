@@ -30,7 +30,6 @@ export abstract class BaseModal extends Modal {
         // Adds `ytc-modal` (see `.ytc-modal` in styles.css for display/z-index)
         DOMUtils.setupModalStyling(this.modalEl);
 
-        // Add unique CSS class to prevent conflicts
         this.contentEl.addClass(MODAL_CSS_CLASSES.content);
     }
 
@@ -38,7 +37,6 @@ export abstract class BaseModal extends Modal {
      * Set up conflict prevention measures
      */
     private setupConflictPrevention(): void {
-        // Add unique attribute for identification
         this.modalEl.setAttribute('data-plugin', 'youtube-clipper');
 
         // Stacking above other plugins' overlays is owned by `.ytc-modal` in styles.css.
@@ -77,7 +75,6 @@ export abstract class BaseModal extends Modal {
     ): HTMLButtonElement {
         const button = DOMUtils.createStyledButton(container, text, isPrimary, onClick);
 
-        // Add unique data attribute
         button.setAttribute('data-plugin', 'youtube-clipper');
 
         // Accessibility: add role and aria-label
@@ -220,11 +217,9 @@ export abstract class BaseModal extends Modal {
         // Mark as disposed to prevent double cleanup
         this.isDisposed = true;
 
-        // Clear content
         const { contentEl } = this;
         contentEl.empty();
 
-        // Remove unique classes and attributes
         this.modalEl.removeClass(MODAL_CSS_CLASSES.modal);
         this.modalEl.removeAttribute('data-plugin');
     }

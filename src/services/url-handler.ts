@@ -151,13 +151,11 @@ export class UrlHandler {
             return;
         }
 
-        // Check if URL already handled
         if (this.handledTempFiles.has(result.url)) {
             logger.debug('URL already handled, skipping', 'UrlHandler', { url: result.url });
             return;
         }
 
-        // Cancel any pending handler for this URL
         if (this.pendingUrls.has(result.url)) {
             logger.debug('Cancelling pending handler for URL', 'UrlHandler', { url: result.url });
             clearTimeout(this.pendingUrls.get(result.url));
@@ -210,7 +208,6 @@ export class UrlHandler {
 
             const content = await this.app.vault.read(file);
 
-            // Check if this is a temporary file
             if (!this.isTempFile(file, content)) {
                 logger.debug('Ignoring non-temp file in create handler', 'UrlHandler', {
                     filePath: file.path,
@@ -218,7 +215,6 @@ export class UrlHandler {
                 return;
             }
 
-            // Extract URL
             const url = this.extractUrl(content);
             if (!url) {
                 logger.debug('No URL extracted from temp file', 'UrlHandler', {
@@ -262,7 +258,6 @@ export class UrlHandler {
 
             const content = await this.app.vault.read(file);
 
-            // Check if this is a temporary file
             if (!this.isTempFile(file, content)) {
                 logger.debug('Ignoring non-temp file in active leaf handler', 'UrlHandler', {
                     filePath: file.path,
@@ -270,7 +265,6 @@ export class UrlHandler {
                 return;
             }
 
-            // Extract URL
             const url = this.extractUrl(content);
             if (!url) {
                 logger.debug('No URL extracted from temp file in active leaf', 'UrlHandler', {
@@ -388,11 +382,9 @@ export class UrlHandler {
      * Clear all handled URLs and pending operations
      */
     public clear(): void {
-        // Clear all pending timeouts
         this.pendingUrls.forEach(timeout => clearTimeout(timeout));
         this.pendingUrls.clear();
 
-        // Clear handled URLs
         this.handledTempFiles.clear();
 
         logger.info('URL handler cleared', 'UrlHandler');

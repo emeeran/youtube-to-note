@@ -73,7 +73,6 @@ export class ConfirmationModal extends BaseModal {
             this.cancelButton.setAttribute('aria-label', `Cancel: ${cancelText}`);
         }
 
-        // Set modal content aria-labelledby and aria-describedby
         this.contentEl.setAttribute('aria-labelledby', 'confirmation-modal-title');
         this.contentEl.setAttribute('aria-describedby', 'confirmation-modal-description');
         this.contentEl.setAttribute('role', 'alertdialog');

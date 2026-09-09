@@ -251,8 +251,6 @@ interface FullPromptContext {
  * - Readonly template constants for better optimization
  */
 export class AIPromptService implements PromptService {
-    // ============ PRIVATE MEMBERS ============
-
     /**
      * The "No timestamps." clause baked into every format template's
      * [CONSTRAINTS] line. Removed whenever timestamp links are enabled, since
@@ -268,8 +266,6 @@ export class AIPromptService implements PromptService {
      */
     private static readonly RESOURCES_HEADING_PATTERN = /^##\s*resources\b/im;
     private static readonly SOURCE_HEADING_PATTERN = /^##\s*source\b/im;
-
-    // ============ PUBLIC METHODS ============
 
     /**
      * Create an analysis prompt with performance optimization
@@ -317,8 +313,6 @@ export class AIPromptService implements PromptService {
             citeTimestamps,
         });
     }
-
-    // ============ PRIVATE HELPER METHODS ============
 
     /**
      * Build the data section: metadata + transcript + user instructions.
